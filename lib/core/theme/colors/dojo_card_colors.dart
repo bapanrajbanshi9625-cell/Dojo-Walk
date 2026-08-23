@@ -69,7 +69,7 @@ class DojoCardColors {
       DojoBrandColors.mintTint;
 
   static const Color orangeSoft =
-      DojoBrandColors.orangeSoft;
+    Color(0xFFFFE8DD);
 
   // ==========================================================
   // STATUS CARD ACCENTS
