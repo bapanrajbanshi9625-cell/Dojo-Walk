@@ -32,7 +32,7 @@ class DojoTheme {
         onPrimary: Colors.white,
         onSecondary: DojoBrandColors.slate,
         onSurface: DojoLightColors.text,
-        error: Color(0xFFE76565),
+        error: DojoCardColors.error,
       ),
 
       // ========================================================
@@ -71,6 +71,7 @@ class DojoTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
+
         fillColor:
             DojoInputColors.lightBackground,
 
@@ -116,7 +117,8 @@ class DojoTheme {
         labelTextStyle:
             WidgetStatePropertyAll(
           TextStyle(
-            color: DojoBottomColors.lightSelected,
+            color:
+                DojoBottomColors.lightSelected,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -202,7 +204,7 @@ class DojoTheme {
         onPrimary: Colors.white,
         onSecondary: DojoBrandColors.slate,
         onSurface: DojoDarkColors.text,
-        error: Color(0xFFE76565),
+        error: DojoCardColors.error,
       ),
 
       // ========================================================
