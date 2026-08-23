@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+/// ============================================================
+/// DOJO BRAND COLORS
+/// ============================================================
+/// Central source of truth for Dojo brand colors.
+/// Keep these values const so AppColors can safely reference them.
+/// ============================================================
+
 class DojoBrandColors {
   DojoBrandColors._();
 
@@ -7,28 +14,47 @@ class DojoBrandColors {
   // PRIMARY BRAND
   // ==========================================================
 
-  static const Color slate = Color(0xFF1C3136);
-  static const Color deepTeal = Color(0xFF1C4248);
+  static const Color orange = Color(0xFFFF7A00);
 
   // ==========================================================
-  // ORANGE BRAND
+  // SECONDARY BRAND
   // ==========================================================
 
-  static const Color orange = Color(0xFFFF5E00);
-  static const Color orangeLight = Color(0xFFFF7A33);
-  static const Color orangeDark = Color(0xFFE64A00);
+  static const Color mint = Color(0xFF8FE3CF);
 
   // ==========================================================
-  // PREMIUM ACCENT
+  // DARK BRAND
   // ==========================================================
 
-  static const Color mint = Color(0xFF63EBDC);
-  static const Color glow = Color(0xFF58E0D0);
+  static const Color navy = Color(0xFF102A43);
 
   // ==========================================================
-  // SOFT ACCENT
+  // LIGHT SURFACES
   // ==========================================================
 
-  static const Color mintTint = Color(0xFFECFAF8);
-  static const Color aquaSoft = Color(0xFFDDF7F3);
+  static const Color background = Color(0xFFF7F9FC);
+
+  static const Color card = Colors.white;
+
+  // ==========================================================
+  // COMMON
+  // ==========================================================
+
+  static const Color white = Colors.white;
+
+  static const Color black = Colors.black;
+
+  static const Color grey = Color(0xFF6B7280);
+
+  static const Color lightGrey = Color(0xFFE5E7EB);
+
+  static const Color border = Color(0xFFE2E8F0);
+
+  static const Color success = Color(0xFF16A34A);
+
+  static const Color error = Color(0xFFDC2626);
+
+  static const Color warning = Color(0xFFF59E0B);
+
+  static const Color info = Color(0xFF2563EB);
 }
