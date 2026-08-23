@@ -41,20 +41,28 @@ class AppColors {
   static const Color glow = DojoBrandColors.glow;
 
   // ==========================================================
-  // COMMON / SEMANTIC
+  // COMMON
   // ==========================================================
 
-  static const Color white = DojoBrandColors.white;
-  static const Color black = DojoBrandColors.black;
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color black = Color(0xFF000000);
 
-  static const Color grey = DojoBrandColors.grey;
-  static const Color lightGrey = DojoBrandColors.lightGrey;
-  static const Color border = DojoBrandColors.border;
+  static const Color grey = Color(0xFF6B7280);
+  static const Color lightGrey = Color(0xFFF1F3F5);
+  static const Color border = Color(0xFFE2E8F0);
 
-  static const Color success = DojoBrandColors.success;
-  static const Color error = DojoBrandColors.error;
-  static const Color warning = DojoBrandColors.warning;
-  static const Color info = DojoBrandColors.info;
+  // ==========================================================
+  // SEMANTIC
+  // ==========================================================
 
-  static const Color transparent = DojoBrandColors.transparent;
+  static const Color success = Color(0xFF16A34A);
+  static const Color error = Color(0xFFDC2626);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color info = Color(0xFF2563EB);
+
+  // ==========================================================
+  // TRANSPARENT
+  // ==========================================================
+
+  static const Color transparent = Color(0x00000000);
 }
