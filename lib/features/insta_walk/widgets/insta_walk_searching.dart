@@ -4,12 +4,10 @@
 import 'package:flutter/material.dart';
 
 class InstaWalkSearching extends StatelessWidget {
-  final String timerText;
   final Widget map;
 
   const InstaWalkSearching({
     super.key,
-    required this.timerText,
     required this.map,
   });
 
@@ -57,7 +55,7 @@ class InstaWalkSearching extends StatelessWidget {
             const SizedBox(width: 8),
 
             // ======================================================
-            // TIMER
+            // SEARCHING STATUS
             // ======================================================
 
             Container(
@@ -66,19 +64,34 @@ class InstaWalkSearching extends StatelessWidget {
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(
+                color: const Color(0xFF65D6C8).withValues(
                   alpha: 0.12,
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                timerText,
-                maxLines: 1,
-                style: const TextStyle(
-                  color: Color(0xFF8FFFEF),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 8,
+                    height: 8,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xFF8FFFEF),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Searching',
+                    style: TextStyle(
+                      color: Color(0xFF8FFFEF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -120,9 +133,7 @@ class InstaWalkSearching extends StatelessWidget {
                 color: Color(0xFF8FFFEF),
                 size: 17,
               ),
-
               SizedBox(width: 8),
-
               Expanded(
                 child: Text(
                   'Your location is used only as a search snapshot.',
