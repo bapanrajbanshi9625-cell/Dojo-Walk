@@ -1,8 +1,11 @@
 // File location:
 // lib/features/profile_setup/services/profile_setup_service.dart
 
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../models/pet_data.dart';
@@ -17,6 +20,9 @@ class ProfileSetupService {
   static final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
+  static final FirebaseStorage _storage =
+      FirebaseStorage.instance;
+
   // ============================================================
   // COLLECTION
   // ============================================================
@@ -25,14 +31,21 @@ class ProfileSetupService {
       'ownerProfiles';
 
   // ============================================================
+  // STORAGE
+  // ============================================================
+
+  static const String _ownerProfilePhotosFolder =
+      'owner_profile_photos';
+
+  // ============================================================
   // GET CURRENT LOCATION
   // ============================================================
 
   static Future<Position?> _getCurrentLocation() async {
     try {
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // LOCATION SERVICE
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       final bool serviceEnabled =
           await Geolocator.isLocationServiceEnabled();
@@ -41,9 +54,9 @@ class ProfileSetupService {
         return null;
       }
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // PERMISSION
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       LocationPermission permission =
           await Geolocator.checkPermission();
@@ -54,28 +67,197 @@ class ProfileSetupService {
       }
 
       if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+          permission ==
+              LocationPermission.deniedForever) {
         return null;
       }
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // CURRENT POSITION
-      // ----------------------------------------------------------
-      //
-      // IMPORTANT:
-      // This project uses the Geolocator API where
-      // desiredAccuracy is supported.
-      //
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy:
+            LocationAccuracy.high,
       );
     } catch (e) {
-      // Location failure should NOT stop
-      // profile saving.
+      // Location failure must NOT stop profile saving.
       return null;
     }
+  }
+
+  // ============================================================
+  // UPLOAD OWNER PROFILE PHOTO
+  // ============================================================
+
+  static Future<String?> uploadOwnerProfilePhoto({
+    required String ownerId,
+    required File imageFile,
+  }) async {
+    final String cleanOwnerId =
+        ownerId.trim();
+
+    if (cleanOwnerId.isEmpty) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'owner-id-missing',
+        message:
+            'Owner ID was not found.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // CHECK FILE
+    // ----------------------------------------------------------
+
+    if (!await imageFile.exists()) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'file-not-found',
+        message:
+            'Profile photo file was not found.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // STORAGE REFERENCE
+    // ----------------------------------------------------------
+
+    final Reference storageRef =
+        _storage
+            .ref()
+            .child(
+              _ownerProfilePhotosFolder,
+            )
+            .child(
+              cleanOwnerId,
+            )
+            .child(
+              'profile.jpg',
+            );
+
+    // ----------------------------------------------------------
+    // UPLOAD
+    // ----------------------------------------------------------
+
+    await storageRef.putFile(
+      imageFile,
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        cacheControl:
+            'public,max-age=86400',
+      ),
+    );
+
+    // ----------------------------------------------------------
+    // DOWNLOAD URL
+    // ----------------------------------------------------------
+
+    final String downloadUrl =
+        await storageRef.getDownloadURL();
+
+    return downloadUrl;
+  }
+
+  // ============================================================
+  // UPDATE OWNER PROFILE PHOTO
+  // ============================================================
+
+  static Future<String?> updateProfilePhoto(
+    File imageFile,
+  ) async {
+    // ----------------------------------------------------------
+    // CURRENT USER
+    // ----------------------------------------------------------
+
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      throw FirebaseException(
+        plugin: 'firebase_auth',
+        code: 'user-not-authenticated',
+        message:
+            'User is not logged in.',
+      );
+    }
+
+    final String uid =
+        user.uid.trim();
+
+    if (uid.isEmpty) {
+      throw FirebaseException(
+        plugin: 'firebase_auth',
+        code: 'invalid-user',
+        message:
+            'Firebase UID was not found.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // GET OWNER ID
+    // ----------------------------------------------------------
+
+    final String? existingOwnerId =
+        await OwnerIdService.instance
+            .getExistingOwnerId(
+      uid: uid,
+    );
+
+    if (existingOwnerId == null ||
+        existingOwnerId.trim().isEmpty) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'owner-id-missing',
+        message:
+            'Owner ID was not found.',
+      );
+    }
+
+    final String ownerId =
+        existingOwnerId.trim();
+
+    // ----------------------------------------------------------
+    // UPLOAD
+    // ----------------------------------------------------------
+
+    final String? photoUrl =
+        await uploadOwnerProfilePhoto(
+      ownerId: ownerId,
+      imageFile: imageFile,
+    );
+
+    if (photoUrl == null ||
+        photoUrl.trim().isEmpty) {
+      return null;
+    }
+
+    // ----------------------------------------------------------
+    // UPDATE FIRESTORE
+    // ----------------------------------------------------------
+
+    await _firestore
+        .collection(
+          _ownerProfilesCollection,
+        )
+        .doc(ownerId)
+        .set(
+      <String, dynamic>{
+        'profilePhotoUrl':
+            photoUrl,
+
+        'profilePhoto':
+            photoUrl,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    return photoUrl;
   }
 
   // ============================================================
@@ -86,6 +268,12 @@ class ProfileSetupService {
     required String ownerName,
     required String address,
     required List<PetData> pets,
+
+    // ----------------------------------------------------------
+    // OPTIONAL PROFILE PHOTO
+    // ----------------------------------------------------------
+
+    File? profilePhoto,
   }) async {
     // ----------------------------------------------------------
     // CURRENT FIREBASE USER
@@ -120,7 +308,7 @@ class ProfileSetupService {
     }
 
     // ----------------------------------------------------------
-    // MAIN / VERIFIED MOBILE NUMBER
+    // VERIFIED MOBILE NUMBER
     // ----------------------------------------------------------
 
     final String phoneNumber =
@@ -135,26 +323,29 @@ class ProfileSetupService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // GET EXISTING OWNER ID
-    // ----------------------------------------------------------
+    // ==========================================================
 
     String? ownerId =
-        await OwnerIdService.instance.getExistingOwnerId(
+        await OwnerIdService.instance
+            .getExistingOwnerId(
       uid: uid,
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // CREATE OWNER ID IF MISSING
-    // ----------------------------------------------------------
+    // ==========================================================
 
     ownerId ??=
-        await OwnerIdService.instance.getOrCreateOwnerId(
+        await OwnerIdService.instance
+            .getOrCreateOwnerId(
       uid: uid,
       phoneNumber: phoneNumber,
     );
 
-    ownerId = ownerId.trim();
+    ownerId =
+        ownerId.trim();
 
     if (ownerId.isEmpty) {
       throw FirebaseException(
@@ -176,25 +367,32 @@ class ProfileSetupService {
     // PET DATA
     // ==========================================================
 
-    final List<Map<String, dynamic>> petData =
-        pets.map((pet) {
-      return <String, dynamic>{
-        'name':
-            pet.nameController.text.trim(),
-        'age':
-            pet.age,
-        'breed':
-            pet.breed,
-        'behaviour':
-            pet.behaviour,
-      };
-    }).toList();
+    final List<Map<String, dynamic>>
+        petData =
+        pets.map(
+      (pet) {
+        return <String, dynamic>{
+          'name':
+              pet.nameController.text.trim(),
+
+          'age':
+              pet.age,
+
+          'breed':
+              pet.breed,
+
+          'behaviour':
+              pet.behaviour,
+        };
+      },
+    ).toList();
 
     // ==========================================================
     // OWNER PROFILE REFERENCE
     // ==========================================================
 
-    final DocumentReference<Map<String, dynamic>>
+    final DocumentReference<
+            Map<String, dynamic>>
         ownerProfileRef =
         _firestore
             .collection(
@@ -206,7 +404,8 @@ class ProfileSetupService {
     // OWNER PROFILE DATA
     // ==========================================================
 
-    final Map<String, dynamic> profileData =
+    final Map<String, dynamic>
+        profileData =
         <String, dynamic>{
       // --------------------------------------------------------
       // OWNER IDENTITY
@@ -228,7 +427,7 @@ class ProfileSetupService {
           ownerName.trim(),
 
       // --------------------------------------------------------
-      // MANUAL ADDRESS
+      // ADDRESS
       // --------------------------------------------------------
 
       'address':
@@ -255,7 +454,7 @@ class ProfileSetupService {
           true,
 
       // --------------------------------------------------------
-      // PROFILE TIMESTAMP
+      // TIMESTAMPS
       // --------------------------------------------------------
 
       'updatedAt':
@@ -266,24 +465,44 @@ class ProfileSetupService {
     };
 
     // ==========================================================
-    // CURRENT LOCATION
+    // PROFILE PHOTO
     // ==========================================================
-    //
-    // Permission मिलने पर latitude, longitude और location
-    // Firestore में save होंगे.
-    //
-    // Permission न मिलने पर profile फिर भी save होगी.
-    //
+
+    if (profilePhoto != null) {
+      final String? photoUrl =
+          await uploadOwnerProfilePhoto(
+        ownerId: ownerId,
+        imageFile: profilePhoto,
+      );
+
+      if (photoUrl != null &&
+          photoUrl.trim().isNotEmpty) {
+        profileData[
+                'profilePhotoUrl'] =
+            photoUrl;
+
+        // Compatibility field.
+        profileData[
+                'profilePhoto'] =
+            photoUrl;
+      }
+    }
+
+    // ==========================================================
+    // CURRENT LOCATION
     // ==========================================================
 
     if (position != null) {
-      profileData['latitude'] =
+      profileData[
+              'latitude'] =
           position.latitude;
 
-      profileData['longitude'] =
+      profileData[
+              'longitude'] =
           position.longitude;
 
-      profileData['location'] =
+      profileData[
+              'location'] =
           <String, dynamic>{
         'latitude':
             position.latitude,
@@ -291,10 +510,12 @@ class ProfileSetupService {
             position.longitude,
       };
 
-      profileData['locationAccuracy'] =
+      profileData[
+              'locationAccuracy'] =
           position.accuracy;
 
-      profileData['locationUpdatedAt'] =
+      profileData[
+              'locationUpdatedAt'] =
           FieldValue.serverTimestamp();
     }
 
@@ -314,7 +535,9 @@ class ProfileSetupService {
     // ==========================================================
 
     await _firestore
-        .collection('phoneAccounts')
+        .collection(
+          'phoneAccounts',
+        )
         .doc(uid)
         .set(
       <String, dynamic>{
@@ -349,7 +572,8 @@ class ProfileSetupService {
   // CHECK PROFILE COMPLETED
   // ============================================================
 
-  static Future<bool> isProfileCompleted() async {
+  static Future<bool>
+      isProfileCompleted() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
 
@@ -369,7 +593,8 @@ class ProfileSetupService {
     // ----------------------------------------------------------
 
     final String? ownerId =
-        await OwnerIdService.instance.getExistingOwnerId(
+        await OwnerIdService.instance
+            .getExistingOwnerId(
       uid: uid,
     );
 
@@ -382,13 +607,16 @@ class ProfileSetupService {
     // GET OWNER PROFILE
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<Map<String, dynamic>>
+    final DocumentSnapshot<
+            Map<String, dynamic>>
         snapshot =
         await _firestore
             .collection(
               _ownerProfilesCollection,
             )
-            .doc(ownerId)
+            .doc(
+              ownerId,
+            )
             .get();
 
     if (!snapshot.exists) {
@@ -398,7 +626,9 @@ class ProfileSetupService {
     final Map<String, dynamic>? data =
         snapshot.data();
 
-    return data?['profileCompleted'] == true;
+    return data?[
+            'profileCompleted'] ==
+        true;
   }
 
   // ============================================================
@@ -406,7 +636,8 @@ class ProfileSetupService {
   // ============================================================
 
   static Future<
-      DocumentSnapshot<Map<String, dynamic>>?>
+          DocumentSnapshot<
+              Map<String, dynamic>>?>
       getOwnerProfile() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
@@ -422,8 +653,13 @@ class ProfileSetupService {
       return null;
     }
 
+    // ----------------------------------------------------------
+    // GET OWNER ID
+    // ----------------------------------------------------------
+
     final String? ownerId =
-        await OwnerIdService.instance.getExistingOwnerId(
+        await OwnerIdService.instance
+            .getExistingOwnerId(
       uid: uid,
     );
 
@@ -432,24 +668,26 @@ class ProfileSetupService {
       return null;
     }
 
+    // ----------------------------------------------------------
+    // GET PROFILE
+    // ----------------------------------------------------------
+
     return _firestore
         .collection(
           _ownerProfilesCollection,
         )
-        .doc(ownerId)
+        .doc(
+          ownerId,
+        )
         .get();
   }
 
   // ============================================================
   // UPDATE CURRENT OWNER LOCATION
   // ============================================================
-  //
-  // Home/Profile से current location
-  // refresh करने के लिए.
-  //
-  // ============================================================
 
-  static Future<void> updateCurrentLocation() async {
+  static Future<void>
+      updateCurrentLocation() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
 
@@ -464,8 +702,13 @@ class ProfileSetupService {
       return;
     }
 
+    // ----------------------------------------------------------
+    // GET OWNER ID
+    // ----------------------------------------------------------
+
     final String? ownerId =
-        await OwnerIdService.instance.getExistingOwnerId(
+        await OwnerIdService.instance
+            .getExistingOwnerId(
       uid: uid,
     );
 
@@ -474,6 +717,10 @@ class ProfileSetupService {
       return;
     }
 
+    // ----------------------------------------------------------
+    // GET LOCATION
+    // ----------------------------------------------------------
+
     final Position? position =
         await _getCurrentLocation();
 
@@ -481,11 +728,17 @@ class ProfileSetupService {
       return;
     }
 
+    // ----------------------------------------------------------
+    // UPDATE FIRESTORE
+    // ----------------------------------------------------------
+
     await _firestore
         .collection(
           _ownerProfilesCollection,
         )
-        .doc(ownerId)
+        .doc(
+          ownerId,
+        )
         .set(
       <String, dynamic>{
         'latitude':
@@ -515,5 +768,68 @@ class ProfileSetupService {
         merge: true,
       ),
     );
+  }
+
+  // ============================================================
+  // GET CURRENT OWNER ID
+  // ============================================================
+
+  static Future<String?>
+      getCurrentOwnerId() async {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return null;
+    }
+
+    final String uid =
+        user.uid.trim();
+
+    if (uid.isEmpty) {
+      return null;
+    }
+
+    return OwnerIdService.instance
+        .getExistingOwnerId(
+      uid: uid,
+    );
+  }
+
+  // ============================================================
+  // GET PROFILE PHOTO URL
+  // ============================================================
+
+  static Future<String?>
+      getProfilePhotoUrl() async {
+    final DocumentSnapshot<
+            Map<String, dynamic>>?
+        snapshot =
+        await getOwnerProfile();
+
+    if (snapshot == null ||
+        !snapshot.exists) {
+      return null;
+    }
+
+    final Map<String, dynamic>? data =
+        snapshot.data();
+
+    final dynamic value =
+        data?['profilePhotoUrl'] ??
+            data?['profilePhoto'];
+
+    if (value == null) {
+      return null;
+    }
+
+    final String url =
+        value.toString().trim();
+
+    if (url.isEmpty) {
+      return null;
+    }
+
+    return url;
   }
 }
