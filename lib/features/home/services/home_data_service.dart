@@ -8,8 +8,7 @@ import 'home_stats_service.dart';
 class HomeDataService {
   HomeDataService._();
 
-  static final HomeDataService instance =
-      HomeDataService._();
+  static final HomeDataService instance = HomeDataService._();
 
   final HomeOwnerService ownerService =
       HomeOwnerService.instance;
@@ -43,9 +42,64 @@ class HomeDataService {
   // LIVE WALK
   // ============================================================
 
-  Stream<HomeLiveWalk?> liveWalkStream() {
-    return liveWalkService.stream();
+  /// Typed live-walk stream.
+  ///
+  /// HomeLiveWalkService.stream() returns the raw Firestore
+  /// QuerySnapshot. This method converts that snapshot into
+  /// HomeLiveWalk so callers receive the correct type.
+  Stream<HomeLiveWalk?> liveWalkStream() async* {
+    await for (
+      final snapshot in liveWalkService.stream()
+    ) {
+      HomeLiveWalk? liveWalk;
+
+      for (final doc in snapshot.docs) {
+        final Map<String, dynamic> data =
+            Map<String, dynamic>.from(
+          doc.data(),
+        );
+
+        final String status =
+            (
+              data['status'] ??
+              data['walkStatus'] ??
+              data['currentStatus'] ??
+              ''
+            )
+                .toString()
+                .trim()
+                .toLowerCase();
+
+        const Set<String> inactiveStatuses = {
+          'completed',
+          'complete',
+          'cancelled',
+          'canceled',
+          'ended',
+          'finished',
+          'rejected',
+          'declined',
+        };
+
+        if (inactiveStatuses.contains(status)) {
+          continue;
+        }
+
+        liveWalk = HomeLiveWalk.fromFirestore(
+          doc.id,
+          data,
+        );
+
+        break;
+      }
+
+      yield liveWalk;
+    }
   }
+
+  // ============================================================
+  // CURRENT LIVE WALK
+  // ============================================================
 
   Future<HomeLiveWalk?> getCurrentLiveWalk() {
     return liveWalkService.getCurrentWalk();
@@ -88,7 +142,7 @@ class HomeDataService {
   }
 
   // ============================================================
-  // FORMATTERS
+  // DISTANCE FORMATTER
   // ============================================================
 
   static String formatDistance(
@@ -103,23 +157,24 @@ class HomeDataService {
     if (value is num) {
       km = value.toDouble();
     } else {
-      km =
-          double.tryParse(
-                value
-                    .toString()
-                    .replaceAll(',', '')
-                    .replaceAll(
-                      RegExp(
-                        r'[^0-9.\-]',
-                      ),
-                      '',
-                    ),
-              ) ??
-              0;
+      km = double.tryParse(
+            value
+                .toString()
+                .replaceAll(',', '')
+                .replaceAll(
+                  RegExp(r'[^0-9.\-]'),
+                  '',
+                ),
+          ) ??
+          0;
     }
 
     return '${km.toStringAsFixed(1)} km';
   }
+
+  // ============================================================
+  // DURATION FORMATTER
+  // ============================================================
 
   static String formatDuration(
     dynamic value,
@@ -140,11 +195,8 @@ class HomeDataService {
       return '0 mins';
     }
 
-    final int hours =
-        minutes ~/ 60;
-
-    final int remaining =
-        minutes % 60;
+    final int hours = minutes ~/ 60;
+    final int remaining = minutes % 60;
 
     if (hours > 0) {
       if (remaining == 0) {
