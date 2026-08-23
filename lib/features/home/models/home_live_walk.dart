@@ -3,26 +3,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class HomeLiveWalk {
   final String documentId;
   final String walkId;
-  final String ownerId;
-  final String walkerId;
+  final String ownerUid;
+  final String walkerUid;
   final String walkerName;
   final String? walkerPhone;
   final String status;
   final DateTime? startedAt;
-  final double currentLat;
-  final double currentLng;
 
   const HomeLiveWalk({
     required this.documentId,
     required this.walkId,
-    required this.ownerId,
-    required this.walkerId,
+    required this.ownerUid,
+    required this.walkerUid,
     required this.walkerName,
     required this.walkerPhone,
     required this.status,
     required this.startedAt,
-    required this.currentLat,
-    required this.currentLng,
   });
 
   factory HomeLiveWalk.fromFirestore(
@@ -32,57 +28,45 @@ class HomeLiveWalk {
     final String phone = _string(
       data['walkerPhone'] ??
           data['walkerMobile'] ??
-          data['phone'],
+          data['phone'] ??
+          data['phoneNumber'],
     );
 
     return HomeLiveWalk(
       documentId: documentId,
-
       walkId: _string(
         data['walkId'] ??
-            data['Walkid'] ??
+            data['walkID'] ??
             data['id'] ??
             documentId,
+        fallback: documentId,
       ),
-
-      ownerId: _string(
-        data['ownerId'],
+      ownerUid: _string(
+        data['ownerUid'] ??
+            data['ownerUID'] ??
+            data['ownerId'],
       ),
-
-      walkerId: _string(
-        data['walkerId'] ??
-            data['walkerUid'] ??
-            data['walkerUID'],
+      walkerUid: _string(
+        data['walkerUid'] ??
+            data['walkerUID'] ??
+            data['walkerId'],
       ),
-
       walkerName: _string(
-        data['walkerName'],
+        data['walkerName'] ??
+            data['name'],
         fallback: 'Walker',
       ),
-
       walkerPhone: phone.isEmpty ? null : phone,
-
       status: _string(
         data['status'] ??
             data['walkStatus'] ??
             data['currentStatus'],
         fallback: 'active',
       ),
-
       startedAt: _date(
         data['startedAt'] ??
             data['startTime'] ??
             data['started_at'],
-      ),
-
-      currentLat: _double(
-        data['currentLat'] ??
-            data['latitude'],
-      ),
-
-      currentLng: _double(
-        data['currentLng'] ??
-            data['longitude'],
       ),
     );
   }
@@ -95,20 +79,9 @@ class HomeLiveWalk {
       return fallback;
     }
 
-    final String result = value.toString().trim();
+    final String text = value.toString().trim();
 
-    return result.isEmpty ? fallback : result;
-  }
-
-  static double _double(dynamic value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value?.toString().trim() ?? '',
-        ) ??
-        0;
+    return text.isEmpty ? fallback : text;
   }
 
   static DateTime? _date(dynamic value) {
