@@ -3,15 +3,12 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'core/theme/colors/dojo_brand_colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // ==========================================================
-    // FIREBASE INITIALIZATION
-    // ==========================================================
-
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
@@ -20,18 +17,10 @@ Future<void> main() async {
 
     debugPrint('Firebase initialized successfully.');
 
-    // ==========================================================
-    // START APP
-    // ==========================================================
-
     runApp(
       const DojoWalk(),
     );
   } catch (e, stackTrace) {
-    // ==========================================================
-    // FIREBASE INITIALIZATION FAILED
-    // ==========================================================
-
     debugPrint(
       'Firebase initialization error: $e',
     );
@@ -40,7 +29,6 @@ Future<void> main() async {
       stackTrace: stackTrace,
     );
 
-    // Do NOT start the normal app when Firebase failed.
     runApp(
       FirebaseStartupErrorApp(
         error: e.toString(),
@@ -48,10 +36,6 @@ Future<void> main() async {
     );
   }
 }
-
-// ============================================================
-// FIREBASE STARTUP ERROR APP
-// ============================================================
 
 class FirebaseStartupErrorApp extends StatelessWidget {
   final String error;
@@ -69,7 +53,7 @@ class FirebaseStartupErrorApp extends StatelessWidget {
 
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF4B16),
+          seedColor: DojoBrandColors.orange,
         ),
       ),
 
@@ -85,7 +69,7 @@ class FirebaseStartupErrorApp extends StatelessWidget {
                   const Icon(
                     Icons.cloud_off_rounded,
                     size: 70,
-                    color: Color(0xFFFF4B16),
+                    color: DojoBrandColors.orange,
                   ),
 
                   const SizedBox(height: 20),
