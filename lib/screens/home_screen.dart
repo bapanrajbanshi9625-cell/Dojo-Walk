@@ -92,34 +92,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =====================================================
-  // CONVERT PAST WALK DATA
-  // =====================================================
-
-  List<Map<String, dynamic>> _pastWalkMaps(
-    List<home_data.HomePastWalk> walks,
-  ) {
-    return walks.map(
-      (walk) {
-        return <String, dynamic>{
-          'walkId': walk.walkId,
-          'id': walk.walkId,
-          'ownerUid': walk.ownerUid,
-          'walkerUid': walk.walkerUid,
-          'walkerName': walk.walkerName,
-          'dogName': walk.dogName,
-          'distanceKm': walk.distanceKm,
-          'durationMinutes': walk.durationMinutes,
-          'date': walk.date,
-          'status': walk.status,
-
-          // Current model has no route getter.
-          'route': '',
-        };
-      },
-    ).toList();
-  }
-
-  // =====================================================
   // BUILD
   // =====================================================
 
@@ -216,8 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // PAST WALK STREAM
             // =============================================
 
-            StreamBuilder<
-                List<home_data.HomePastWalk>>(
+            StreamBuilder<List<Map<String, dynamic>>>(
               stream: _homeDataService.pastWalksStream(
                 limit: 20,
               ),
@@ -233,8 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: HomeScreen.card,
-                      borderRadius:
-                          BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: const Color(0xFFD4D9DF),
                       ),
@@ -272,18 +242,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 // DATA
                 // =========================================
 
-                final List<home_data.HomePastWalk> walks =
+                final List<Map<String, dynamic>> walks =
                     snapshot.data ??
-                        <home_data.HomePastWalk>[];
+                        <Map<String, dynamic>>[];
 
                 // =========================================
-                // UI
+                // PAST WALK UI
                 // =========================================
 
                 return HomePastWalk(
-                  walks: _pastWalkMaps(
-                    walks,
-                  ),
+                  walks: walks,
                   onDetails: (
                     title,
                     content,
