@@ -1,5 +1,4 @@
-// File location:
-// lib/widgets/generate_qr_button.dart
+// File: lib/widgets/generate_qr_button.dart
 
 import 'dart:async';
 
@@ -13,7 +12,7 @@ class GenerateQRButton extends StatefulWidget {
 
   final VoidCallback? onLiveWalkTap;
 
-  /// QR scan/connect होते ही parent को notify करेगा.
+  /// Walker successfully connected होने पर parent को notify करेगा.
   final void Function(QRScanState state)? onWalkerConnected;
 
   const GenerateQRButton({
@@ -24,7 +23,8 @@ class GenerateQRButton extends StatefulWidget {
   });
 
   @override
-  State<GenerateQRButton> createState() => _GenerateQRButtonState();
+  State<GenerateQRButton> createState() =>
+      _GenerateQRButtonState();
 }
 
 class _GenerateQRButtonState extends State<GenerateQRButton> {
@@ -57,23 +57,27 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
     });
 
     try {
-      final QRData? qr =
+      // --------------------------------------------------------
+      // GENERATE QR
+      // --------------------------------------------------------
+
+      final QRData qr =
           await QRService.instance.createOwnerQR();
 
-      if (!mounted || qr == null) {
+      if (!mounted) {
         return;
       }
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // CANCEL OLD LISTENER
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       await _scanSubscription?.cancel();
       _scanSubscription = null;
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // WATCH WALKER CONNECTION
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       _scanSubscription = QRService.instance
           .watchScan(qr.ownerId)
@@ -83,11 +87,18 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             return;
           }
 
-          if (!state.scanned && !state.connected) {
+          // Only notify after actual connection.
+          if (!state.connected) {
             return;
           }
 
-          // Parent decides what screen to open.
+          debugPrint(
+            'QR Walker connected: '
+            'walkerId=${state.walkerId}, '
+            'walkerName=${state.walkerName}, '
+            'walkId=${state.walkId}',
+          );
+
           widget.onWalkerConnected?.call(state);
         },
         onError: (
@@ -100,9 +111,9 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
         },
       );
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // OPEN QR BOTTOM SHEET
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       await showModalBottomSheet<void>(
         context: context,
@@ -130,9 +141,17 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(
+            message.isEmpty
+                ? 'Unable to generate QR code.'
+                : message,
+          ),
           behavior: SnackBarBehavior.floating,
         ),
+      );
+
+      debugPrint(
+        'Owner QR generation error: $e',
       );
     } finally {
       if (mounted) {
@@ -164,37 +183,29 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             horizontal: 12,
           ),
           decoration: BoxDecoration(
-            // ==================================================
-            // FINAL HOME QR COLOR
-            // ==================================================
-
             color: const Color(0xFF2E585E),
-
             borderRadius: BorderRadius.circular(13),
           ),
           child: Row(
             children: [
-              // ================================================
+              // ==================================================
               // QR ICON
-              // ================================================
+              // ==================================================
 
               Container(
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: _opening
                     ? const Padding(
                         padding: EdgeInsets.all(8),
-                        child:
-                            CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor:
-                              AlwaysStoppedAnimation<
-                                  Color>(
+                              AlwaysStoppedAnimation<Color>(
                             Color(0xFF2E585E),
                           ),
                         ),
@@ -208,24 +219,22 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
 
               const SizedBox(width: 10),
 
-              // ================================================
+              // ==================================================
               // TEXT
-              // ================================================
+              // ==================================================
 
               const Expanded(
                 child: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Scan QR Code',
+                      'Generate QR Code',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,
-                        fontWeight:
-                            FontWeight.w900,
+                        fontWeight: FontWeight.w900,
                         height: 1.0,
                       ),
                     ),
@@ -235,8 +244,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 9,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                         height: 1.0,
                       ),
                     ),
@@ -244,9 +252,9 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                 ),
               ),
 
-              // ================================================
+              // ==================================================
               // ARROW
-              // ================================================
+              // ==================================================
 
               Container(
                 width: 28,
@@ -286,49 +294,40 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
           color: Colors.transparent,
           child: InkWell(
             onTap: widget.onLiveWalkTap,
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             child: Ink(
               decoration: BoxDecoration(
-                gradient:
-                    const LinearGradient(
+                gradient: const LinearGradient(
                   colors: [
                     Color(0xFF1B8F4D),
                     Color(0xFF126B39),
                   ],
                 ),
-                borderRadius:
-                    BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: const Row(
                 children: [
                   SizedBox(width: 14),
-
                   Icon(
                     Icons.directions_walk_rounded,
                     color: Colors.white,
                   ),
-
                   SizedBox(width: 11),
-
                   Expanded(
                     child: Text(
                       'Live Walk',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.w900,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
-
                   Icon(
                     Icons.arrow_forward_ios_rounded,
                     color: Colors.white,
                     size: 14,
                   ),
-
                   SizedBox(width: 14),
                 ],
               ),
@@ -344,8 +343,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
 // OWNER QR BOTTOM SHEET
 // ============================================================
 
-class OwnerQRBottomSheet
-    extends StatelessWidget {
+class OwnerQRBottomSheet extends StatelessWidget {
   final QRData data;
 
   const OwnerQRBottomSheet({
@@ -358,64 +356,53 @@ class OwnerQRBottomSheet
     return SafeArea(
       child: Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.fromLTRB(
+        padding: const EdgeInsets.fromLTRB(
           22,
           10,
           22,
           26,
         ),
-        decoration:
-            const BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius:
-              BorderRadius.vertical(
+          borderRadius: BorderRadius.vertical(
             top: Radius.circular(30),
           ),
         ),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // ------------------------------------------------
+            // ==================================================
             // HANDLE
-            // ------------------------------------------------
+            // ==================================================
 
             Container(
               width: 44,
               height: 5,
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(0xFFD1D5DB),
-                borderRadius:
-                    BorderRadius.circular(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1D5DB),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // ------------------------------------------------
+            // ==================================================
             // TITLE
-            // ------------------------------------------------
+            // ==================================================
 
             Row(
               children: [
                 const Expanded(
                   child: Text(
                     'Scan to Connect',
-                    textAlign:
-                        TextAlign.center,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 20,
-                      fontWeight:
-                          FontWeight.w900,
-                      color:
-                          Color(0xFF111827),
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF111827),
                     ),
                   ),
                 ),
-
                 IconButton(
                   onPressed: () {
                     Navigator.pop(context);
@@ -429,77 +416,67 @@ class OwnerQRBottomSheet
 
             const SizedBox(height: 3),
 
-            // ------------------------------------------------
+            // ==================================================
             // OWNER NAME
-            // ------------------------------------------------
+            // ==================================================
 
             Text(
               data.ownerName,
-              style:
-                  const TextStyle(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 fontSize: 16,
-                fontWeight:
-                    FontWeight.w800,
+                fontWeight: FontWeight.w800,
               ),
             ),
 
             const SizedBox(height: 4),
 
-            // ------------------------------------------------
+            // ==================================================
             // OWNER ID
-            // ------------------------------------------------
+            // ==================================================
 
             Text(
               'Owner ID: ${data.ownerId}',
-              textAlign:
-                  TextAlign.center,
-              style:
-                  const TextStyle(
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 fontSize: 11,
-                color:
-                    Color(0xFF64748B),
-                fontWeight:
-                    FontWeight.w600,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
               ),
             ),
 
             const SizedBox(height: 18),
 
-            // ------------------------------------------------
-            // QR
-            // ------------------------------------------------
+            // ==================================================
+            // QR CODE
+            // ==================================================
 
             Container(
-              padding:
-                  const EdgeInsets.all(14),
-              decoration:
-                  BoxDecoration(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color:
-                      const Color(0xFFE5E7EB),
+                  color: const Color(0xFFE5E7EB),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        Colors.black.withValues(
+                    color: Colors.black.withValues(
                       alpha: .08,
                     ),
                     blurRadius: 20,
-                    offset:
-                        const Offset(0, 7),
+                    offset: const Offset(0, 7),
                   ),
                 ],
               ),
               child: QrImageView(
                 data: data.qrPayload,
                 size: 215,
-                version:
-                    QrVersions.auto,
-                backgroundColor:
-                    Colors.white,
+                version: QrVersions.auto,
+                backgroundColor: Colors.white,
                 errorCorrectionLevel:
                     QrErrorCorrectLevel.H,
               ),
@@ -509,65 +486,49 @@ class OwnerQRBottomSheet
 
             const Text(
               'Scan this QR with the Walker app',
-              textAlign:
-                  TextAlign.center,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color:
-                    Color(0xFF64748B),
-                fontWeight:
-                    FontWeight.w600,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
               ),
             ),
 
             const SizedBox(height: 12),
 
-            // ------------------------------------------------
+            // ==================================================
             // WAITING STATUS
-            // ------------------------------------------------
+            // ==================================================
 
             Container(
-              padding:
-                  const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 15,
                 vertical: 10,
               ),
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(0xFFF0FDF4),
-                borderRadius:
-                    BorderRadius.circular(30),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(30),
               ),
               child: const Row(
-                mainAxisSize:
-                    MainAxisSize.min,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
                     width: 8,
                     height: 8,
-                    child:
-                        DecoratedBox(
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            Color(0xFF22C55E),
-                        shape:
-                            BoxShape.circle,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xFF22C55E),
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ),
-
                   SizedBox(width: 8),
-
                   Text(
                     'Waiting for Walker...',
                     style: TextStyle(
-                      color:
-                          Color(0xFF166534),
+                      color: Color(0xFF166534),
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -576,19 +537,16 @@ class OwnerQRBottomSheet
 
             const SizedBox(height: 10),
 
-            // ------------------------------------------------
+            // ==================================================
             // WALK ID
-            // ------------------------------------------------
+            // ==================================================
 
             Text(
               'Walk ID: ${data.walkId}',
               maxLines: 1,
-              overflow:
-                  TextOverflow.ellipsis,
-              style:
-                  const TextStyle(
-                color:
-                    Color(0xFF9CA3AF),
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF9CA3AF),
                 fontSize: 9,
               ),
             ),
