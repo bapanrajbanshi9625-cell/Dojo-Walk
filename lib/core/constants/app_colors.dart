@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 
-import 'dojo_brand_colors.dart';
+import '../theme/colors/dojo_brand_colors.dart';
 
 /// ============================================================
 /// DOJO WALK - APP COLORS
 /// ============================================================
 ///
-/// Compatibility layer for existing screens.
+/// Central color compatibility layer.
 ///
 /// IMPORTANT:
-/// DojoBrandColors is the master brand palette.
-/// Existing AppColors references are kept so old screens
-/// continue working without breaking.
+/// Existing screens use AppColors.card, AppColors.navy,
+/// AppColors.primary, etc.
+///
+/// New brand colors are connected to DojoBrandColors.
+/// Do not remove existing names unless all usages are migrated.
 /// ============================================================
 
 class AppColors {
@@ -34,7 +36,7 @@ class AppColors {
       DojoBrandColors.mint;
 
   // ==========================================================
-  // MAIN DARK / TEAL
+  // MAIN DARK / NAVY COLORS
   // ==========================================================
 
   static const Color navy =
@@ -47,7 +49,23 @@ class AppColors {
       DojoBrandColors.slate;
 
   static const Color darkSlate =
+      Color(0xFF334155);
+
+  // ==========================================================
+  // DEEP BRAND COLORS
+  // ==========================================================
+
+  static const Color deepTeal =
       DojoBrandColors.deepTeal;
+
+  static const Color glow =
+      DojoBrandColors.glow;
+
+  static const Color mintTint =
+      DojoBrandColors.mintTint;
+
+  static const Color aquaSoft =
+      DojoBrandColors.aquaSoft;
 
   // ==========================================================
   // BACKGROUNDS
@@ -60,7 +78,7 @@ class AppColors {
       Color(0xFFF8FAFC);
 
   static const Color surface =
-      Colors.white;
+      Color(0xFFFFFFFF);
 
   static const Color white =
       Colors.white;
@@ -70,20 +88,20 @@ class AppColors {
   // ==========================================================
 
   static const Color card =
-      Colors.white;
+      Color(0xFFFFFFFF);
 
   static const Color cardBackground =
-      Colors.white;
+      Color(0xFFFFFFFF);
 
   // ==========================================================
   // TEXT
   // ==========================================================
 
   static const Color text =
-      DojoBrandColors.slate;
+      Color(0xFF0F172A);
 
   static const Color primaryText =
-      DojoBrandColors.slate;
+      Color(0xFF0F172A);
 
   static const Color secondaryText =
       Color(0xFF64748B);
@@ -105,7 +123,7 @@ class AppColors {
       Color(0xFFE2E8F0);
 
   // ==========================================================
-  // STATUS
+  // STATUS COLORS
   // ==========================================================
 
   static const Color success =
@@ -119,6 +137,10 @@ class AppColors {
 
   static const Color info =
       Color(0xFF3B82F6);
+
+  // ==========================================================
+  // COMMON UI COLORS
+  // ==========================================================
 
   static const Color red =
       Color(0xFFEF4444);
@@ -167,4 +189,24 @@ class AppColors {
 
   static const Color primaryIcon =
       DojoBrandColors.orange;
+
+  // ==========================================================
+  // BUTTON
+  // ==========================================================
+
+  static const Color buttonPrimary =
+      DojoBrandColors.orange;
+
+  static const Color buttonText =
+      Colors.white;
+
+  // ==========================================================
+  // EXTRA COMPATIBILITY COLORS
+  // ==========================================================
+
+  static const Color orangeLight =
+      DojoBrandColors.orangeLight;
+
+  static const Color orangeDark =
+      DojoBrandColors.orangeDark;
 }
