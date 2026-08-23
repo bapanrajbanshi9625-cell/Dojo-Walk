@@ -57,7 +57,7 @@ jobs:
 
 
       # ==========================================================
-      # 4. CREATE FLUTTER LOCAL.PROPERTIES FOR CI
+      # 4. CREATE ANDROID LOCAL.PROPERTIES
       # ==========================================================
 
       - name: Create android/local.properties for CI
@@ -137,43 +137,72 @@ jobs:
       # 13. BUILD RELEASE APK
       # ==========================================================
 
-      - name: Build release APK
+      - name: Build Dojo Walk release APK
         run: flutter build apk --release
 
 
       # ==========================================================
-      # 14. VERIFY APK
+      # 14. RENAME APK
       # ==========================================================
 
-      - name: Verify release APK
+      - name: Rename APK to Dojo Walk.apk
         shell: bash
         run: |
           set -e
 
           APK="build/app/outputs/flutter-apk/app-release.apk"
+          FINAL_APK="build/app/outputs/flutter-apk/Dojo Walk.apk"
 
           if [ ! -f "$APK" ]; then
             echo "ERROR: Release APK not found!"
             exit 1
           fi
 
+          mv "$APK" "$FINAL_APK"
+
           echo "======================================"
-          echo "Release APK successfully built"
+          echo "Dojo Walk APK ready"
           echo "======================================"
 
+          ls -lh "$FINAL_APK"
+
+
+      # ==========================================================
+      # 15. VERIFY FINAL APK
+      # ==========================================================
+
+      - name: Verify Dojo Walk APK
+        shell: bash
+        run: |
+          set -e
+
+          APK="build/app/outputs/flutter-apk/Dojo Walk.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: Dojo Walk.apk not found!"
+            exit 1
+          fi
+
+          echo "======================================"
+          echo "BUILD SUCCESS"
+          echo "======================================"
+
+          echo "File:"
+          echo "$APK"
+
+          echo ""
+          echo "Size:"
           ls -lh "$APK"
 
 
       # ==========================================================
-      # 15. UPLOAD RELEASE APK
-      # Artifact name intentionally does NOT contain
-      # "Dojo Walk"
+      # 16. UPLOAD DOJO WALK APK
       # ==========================================================
 
-      - name: Upload release APK
+      - name: Upload Dojo Walk release APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: Dojo-Walk-Release
+          path: build/app/outputs/flutter-apk/Dojo Walk.apk
           if-no-files-found: error
           retention-days: 14
