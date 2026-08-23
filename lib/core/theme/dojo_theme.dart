@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 
-import 'dojo_appbar_colors.dart';
-import 'dojo_bottom_colors.dart';
-import 'dojo_brand_colors.dart';
-import 'dojo_button_colors.dart';
-import 'dojo_card_colors.dart';
-import 'dojo_dark_colors.dart';
-import 'dojo_gradients.dart';
-import 'dojo_input_colors.dart';
-import 'dojo_light_colors.dart';
-import 'dojo_tab_colors.dart';
+import 'colors/dojo_appbar_colors.dart';
+import 'colors/dojo_bottom_colors.dart';
+import 'colors/dojo_brand_colors.dart';
+import 'colors/dojo_button_colors.dart';
+import 'colors/dojo_card_colors.dart';
+import 'colors/dojo_dark_colors.dart';
+import 'colors/dojo_input_colors.dart';
+import 'colors/dojo_light_colors.dart';
+import 'colors/dojo_tab_colors.dart';
 
 class DojoTheme {
   DojoTheme._();
 
   // ==========================================================
-  // LIGHT THEME
+  // LIGHT
   // ==========================================================
 
   static ThemeData light() {
@@ -30,20 +29,24 @@ class DojoTheme {
         primary: DojoBrandColors.orange,
         secondary: DojoBrandColors.mint,
         surface: DojoLightColors.surface,
-        error: const Color(0xFFE76565),
         onPrimary: Colors.white,
         onSecondary: DojoBrandColors.slate,
         onSurface: DojoLightColors.text,
+        error: const Color(0xFFE76565),
       ),
 
+      // APP BAR
       appBarTheme: const AppBarTheme(
-        backgroundColor: DojoAppBarColors.lightBackground,
-        foregroundColor: DojoAppBarColors.lightText,
+        backgroundColor:
+            DojoAppBarColors.lightBackground,
+        foregroundColor:
+            DojoAppBarColors.lightText,
         elevation: 0,
-        centerTitle: false,
         surfaceTintColor: Colors.transparent,
+        centerTitle: false,
       ),
 
+      // CARDS
       cardTheme: CardThemeData(
         color: DojoCardColors.lightBackground,
         elevation: 0,
@@ -56,6 +59,7 @@ class DojoTheme {
         ),
       ),
 
+      // INPUT
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: DojoInputColors.lightBackground,
@@ -64,7 +68,8 @@ class DojoTheme {
           color: DojoInputColors.lightHint,
         ),
 
-        prefixIconColor: DojoInputColors.lightIcon,
+        prefixIconColor:
+            DojoInputColors.lightIcon,
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
@@ -82,7 +87,9 @@ class DojoTheme {
         ),
       ),
 
-      navigationBarTheme: const NavigationBarThemeData(
+      // BOTTOM NAVIGATION
+      navigationBarTheme:
+          const NavigationBarThemeData(
         backgroundColor:
             DojoBottomColors.lightBackground,
 
@@ -100,21 +107,45 @@ class DojoTheme {
         elevation: 8,
       ),
 
-      dividerColor: DojoLightColors.border,
-
-      floatingActionButtonTheme:
-          const FloatingActionButtonThemeData(
-        backgroundColor: DojoBrandColors.orange,
-        foregroundColor: Colors.white,
-        elevation: 6,
+      // TABS
+      tabBarTheme: const TabBarThemeData(
+        labelColor: DojoTabColors.lightSelected,
+        unselectedLabelColor:
+            DojoTabColors.lightUnselected,
+        indicatorColor:
+            DojoTabColors.lightIndicator,
       ),
 
-      textTheme: _lightTextTheme(),
+      // BUTTONS
+      elevatedButtonTheme:
+          ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              DojoButtonColors.primary,
+          foregroundColor: Colors.white,
+          minimumSize:
+              const Size(double.infinity, 52),
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(15),
+          ),
+        ),
+      ),
+
+      // FAB
+      floatingActionButtonTheme:
+          const FloatingActionButtonThemeData(
+        backgroundColor:
+            DojoBrandColors.orange,
+        foregroundColor: Colors.white,
+      ),
+
+      dividerColor: DojoLightColors.border,
     );
   }
 
   // ==========================================================
-  // DARK THEME
+  // DARK
   // ==========================================================
 
   static ThemeData dark() {
@@ -129,22 +160,24 @@ class DojoTheme {
         primary: DojoBrandColors.orange,
         secondary: DojoBrandColors.mint,
         surface: DojoDarkColors.surface,
-        error: const Color(0xFFE76565),
         onPrimary: Colors.white,
         onSecondary: DojoBrandColors.slate,
         onSurface: DojoDarkColors.text,
+        error: const Color(0xFFE76565),
       ),
 
+      // APP BAR
       appBarTheme: const AppBarTheme(
         backgroundColor:
             DojoAppBarColors.darkBackground,
         foregroundColor:
             DojoAppBarColors.darkText,
         elevation: 0,
-        centerTitle: false,
         surfaceTintColor: Colors.transparent,
+        centerTitle: false,
       ),
 
+      // CARDS
       cardTheme: CardThemeData(
         color: DojoCardColors.darkBackground,
         elevation: 0,
@@ -157,6 +190,7 @@ class DojoTheme {
         ),
       ),
 
+      // INPUT
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: DojoInputColors.darkBackground,
@@ -165,7 +199,8 @@ class DojoTheme {
           color: DojoInputColors.darkHint,
         ),
 
-        prefixIconColor: DojoInputColors.darkIcon,
+        prefixIconColor:
+            DojoInputColors.darkIcon,
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
@@ -183,7 +218,9 @@ class DojoTheme {
         ),
       ),
 
-      navigationBarTheme: const NavigationBarThemeData(
+      // BOTTOM NAVIGATION
+      navigationBarTheme:
+          const NavigationBarThemeData(
         backgroundColor:
             DojoBottomColors.darkBackground,
 
@@ -201,110 +238,40 @@ class DojoTheme {
         elevation: 8,
       ),
 
-      dividerColor: DojoDarkColors.border,
+      // TABS
+      tabBarTheme: const TabBarThemeData(
+        labelColor: DojoTabColors.darkSelected,
+        unselectedLabelColor:
+            DojoTabColors.darkUnselected,
+        indicatorColor:
+            DojoTabColors.darkIndicator,
+      ),
 
+      // BUTTONS
+      elevatedButtonTheme:
+          ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              DojoButtonColors.primary,
+          foregroundColor: Colors.white,
+          minimumSize:
+              const Size(double.infinity, 52),
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(15),
+          ),
+        ),
+      ),
+
+      // FAB
       floatingActionButtonTheme:
           const FloatingActionButtonThemeData(
-        backgroundColor: DojoBrandColors.orange,
+        backgroundColor:
+            DojoBrandColors.orange,
         foregroundColor: Colors.white,
-        elevation: 6,
       ),
 
-      textTheme: _darkTextTheme(),
-    );
-  }
-
-  // ==========================================================
-  // LIGHT TEXT
-  // ==========================================================
-
-  static TextTheme _lightTextTheme() {
-    return const TextTheme(
-      headlineLarge: TextStyle(
-        color: DojoLightColors.text,
-        fontSize: 30,
-        fontWeight: FontWeight.w800,
-      ),
-
-      headlineMedium: TextStyle(
-        color: DojoLightColors.text,
-        fontSize: 24,
-        fontWeight: FontWeight.w800,
-      ),
-
-      titleLarge: TextStyle(
-        color: DojoLightColors.text,
-        fontSize: 20,
-        fontWeight: FontWeight.w800,
-      ),
-
-      titleMedium: TextStyle(
-        color: DojoLightColors.text,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
-
-      bodyLarge: TextStyle(
-        color: DojoLightColors.text,
-        fontSize: 16,
-      ),
-
-      bodyMedium: TextStyle(
-        color: DojoLightColors.secondary,
-        fontSize: 14,
-      ),
-
-      bodySmall: TextStyle(
-        color: DojoLightColors.muted,
-        fontSize: 12,
-      ),
-    );
-  }
-
-  // ==========================================================
-  // DARK TEXT
-  // ==========================================================
-
-  static TextTheme _darkTextTheme() {
-    return const TextTheme(
-      headlineLarge: TextStyle(
-        color: DojoDarkColors.text,
-        fontSize: 30,
-        fontWeight: FontWeight.w800,
-      ),
-
-      headlineMedium: TextStyle(
-        color: DojoDarkColors.text,
-        fontSize: 24,
-        fontWeight: FontWeight.w800,
-      ),
-
-      titleLarge: TextStyle(
-        color: DojoDarkColors.text,
-        fontSize: 20,
-        fontWeight: FontWeight.w800,
-      ),
-
-      titleMedium: TextStyle(
-        color: DojoDarkColors.text,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
-
-      bodyLarge: TextStyle(
-        color: DojoDarkColors.text,
-        fontSize: 16,
-      ),
-
-      bodyMedium: TextStyle(
-        color: DojoDarkColors.secondary,
-        fontSize: 14,
-      ),
-
-      bodySmall: TextStyle(
-        color: DojoDarkColors.muted,
-        fontSize: 12,
-      ),
+      dividerColor: DojoDarkColors.border,
     );
   }
 }
