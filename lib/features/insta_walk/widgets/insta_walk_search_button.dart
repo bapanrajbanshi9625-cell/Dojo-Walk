@@ -16,11 +16,13 @@ class InstaWalkSearchButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: 46,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(13),
           gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
               Color(0xFFFFFFFF),
               Color(0xFFE7FFFC),
@@ -28,10 +30,9 @@ class InstaWalkSearchButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF65D6C8)
-                  .withValues(alpha: .28),
-              blurRadius: 16,
-              offset: const Offset(0, 7),
+              color: Color(0xFF65D6C8),
+              blurRadius: 10,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -40,26 +41,25 @@ class InstaWalkSearchButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             foregroundColor: const Color(0xFF243746),
-            disabledBackgroundColor:
-                Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
             disabledForegroundColor:
                 const Color(0xFF243746),
             shadowColor: Colors.transparent,
             elevation: 0,
+            padding: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(13),
             ),
           ),
           child: Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (loading)
                 const SizedBox(
-                  width: 21,
-                  height: 21,
+                  width: 19,
+                  height: 19,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
+                    strokeWidth: 2.2,
                     valueColor:
                         AlwaysStoppedAnimation<Color>(
                       Color(0xFF243746),
@@ -68,8 +68,8 @@ class InstaWalkSearchButton extends StatelessWidget {
                 )
               else
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   decoration: const BoxDecoration(
                     color: Color(0xFF243746),
                     shape: BoxShape.circle,
@@ -77,16 +77,22 @@ class InstaWalkSearchButton extends StatelessWidget {
                   child: const Icon(
                     Icons.search_rounded,
                     color: Colors.white,
-                    size: 18,
+                    size: 17,
                   ),
                 ),
-              const SizedBox(width: 10),
-              Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .1,
+
+              const SizedBox(width: 9),
+
+              Flexible(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .1,
+                  ),
                 ),
               ),
             ],
