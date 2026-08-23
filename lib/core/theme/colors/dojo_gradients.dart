@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'colors/dojo_brand_colors.dart';
+import 'dojo_brand_colors.dart';
 
 class DojoGradients {
   DojoGradients._();
 
+  // ==========================================================
   // HERO
+  // ==========================================================
+
   static const LinearGradient hero = LinearGradient(
     colors: [
       DojoBrandColors.slate,
@@ -14,8 +17,11 @@ class DojoGradients {
     end: Alignment.bottomRight,
   );
 
-  // PRIMARY BUTTON
-  static const LinearGradient primary = LinearGradient(
+  // ==========================================================
+  // MINT
+  // ==========================================================
+
+  static const LinearGradient mint = LinearGradient(
     colors: [
       DojoBrandColors.mint,
       DojoBrandColors.glow,
@@ -24,21 +30,53 @@ class DojoGradients {
     end: Alignment.bottomRight,
   );
 
-  // DARK PREMIUM CARD
-  static const LinearGradient darkSurface = LinearGradient(
+  // ==========================================================
+  // ORANGE
+  // ==========================================================
+
+  static const LinearGradient orange = LinearGradient(
     colors: [
-      Color(0xFF122326),
+      DojoBrandColors.orange,
+      DojoBrandColors.orangeDark,
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // ==========================================================
+  // PREMIUM MIX
+  // ==========================================================
+
+  static const LinearGradient premium = LinearGradient(
+    colors: [
+      DojoBrandColors.orange,
+      DojoBrandColors.deepTeal,
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // ==========================================================
+  // DARK
+  // ==========================================================
+
+  static const LinearGradient dark = LinearGradient(
+    colors: [
+      Color(0xFF0B1719),
       Color(0xFF193237),
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  // MINT SURFACE
-  static const LinearGradient mintSurface = LinearGradient(
+  // ==========================================================
+  // DARK MINT
+  // ==========================================================
+
+  static const LinearGradient darkMint = LinearGradient(
     colors: [
-      Color(0xFFECFAF8),
-      Color(0xFFDDF7F3),
+      Color(0xFF122326),
+      DojoBrandColors.deepTeal,
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
