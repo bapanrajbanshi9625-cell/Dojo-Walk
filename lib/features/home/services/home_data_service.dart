@@ -1,13 +1,9 @@
+import '../models/home_live_walk.dart';
 
-import '../models/home_past_walk.dart';
-import '../models/home_weekly_stats.dart';
-
+import 'home_live_walk_service.dart';
+import 'home_owner_service.dart';
 import 'home_past_walk_service.dart';
 import 'home_stats_service.dart';
-
-export '../models/home_live_walk.dart';
-export '../models/home_past_walk.dart';
-export '../models/home_weekly_stats.dart';
 
 class HomeDataService {
   HomeDataService._();
@@ -15,68 +11,131 @@ class HomeDataService {
   static final HomeDataService instance =
       HomeDataService._();
 
-  final HomeLiveWalkService _live =
+  final HomeOwnerService ownerService =
+      HomeOwnerService.instance;
+
+  final HomeLiveWalkService liveWalkService =
       HomeLiveWalkService.instance;
 
-  final HomePastWalkService _past =
+  final HomePastWalkService pastWalkService =
       HomePastWalkService.instance;
 
-  final HomeStatsService _stats =
+  final HomeStatsService statsService =
       HomeStatsService.instance;
 
-  // ==========================================================
+  // ============================================================
+  // OWNER
+  // ============================================================
+
+  Future<String?> getOwnerId() {
+    return ownerService.getOwnerId();
+  }
+
+  Future<Map<String, dynamic>?> getOwnerProfile() {
+    return ownerService.getOwnerProfile();
+  }
+
+  Future<String> getOwnerName() {
+    return ownerService.getOwnerName();
+  }
+
+  // ============================================================
   // LIVE WALK
-  // ==========================================================
+  // ============================================================
 
   Stream<HomeLiveWalk?> liveWalkStream() {
-    return _live.liveWalkStream();
+    return liveWalkService.stream();
   }
 
-  // ==========================================================
+  Future<HomeLiveWalk?> getCurrentLiveWalk() {
+    return liveWalkService.getCurrentWalk();
+  }
+
+  // ============================================================
   // PAST WALKS
-  // ==========================================================
+  // ============================================================
 
-  Future<List<HomePastWalk>> getPastWalks({
+  Future<List<Map<String, dynamic>>> getPastWalks({
     int limit = 20,
   }) {
-    return _past.getPastWalks(
+    return pastWalkService.getPastWalks(
       limit: limit,
     );
   }
 
-  Stream<List<HomePastWalk>> pastWalksStream({
+  Stream<List<Map<String, dynamic>>> pastWalksStream({
     int limit = 20,
   }) {
-    return _past.pastWalksStream(
+    return pastWalkService.stream(
       limit: limit,
     );
   }
 
-  // ==========================================================
-  // WEEKLY STATS
-  // ==========================================================
+  Future<Map<String, dynamic>?> getWalkById(
+    String walkId,
+  ) {
+    return pastWalkService.getWalkById(
+      walkId,
+    );
+  }
+
+  // ============================================================
+  // WEEKLY
+  // ============================================================
 
   Future<HomeWeeklyStats> getWeeklyStats() {
-    return _stats.getWeeklyStats();
+    return statsService.getWeeklyStats();
   }
 
-  // ==========================================================
+  // ============================================================
   // FORMATTERS
-  // ==========================================================
+  // ============================================================
 
   static String formatDistance(
-    double km,
+    dynamic value,
   ) {
-    if (km <= 0) {
+    if (value == null) {
       return '0.0 km';
+    }
+
+    double km;
+
+    if (value is num) {
+      km = value.toDouble();
+    } else {
+      km =
+          double.tryParse(
+                value
+                    .toString()
+                    .replaceAll(',', '')
+                    .replaceAll(
+                      RegExp(
+                        r'[^0-9.\-]',
+                      ),
+                      '',
+                    ),
+              ) ??
+              0;
     }
 
     return '${km.toStringAsFixed(1)} km';
   }
 
   static String formatDuration(
-    int minutes,
+    dynamic value,
   ) {
+    if (value == null) {
+      return '0 mins';
+    }
+
+    final int minutes =
+        value is num
+            ? value.toInt()
+            : int.tryParse(
+                  value.toString(),
+                ) ??
+                0;
+
     if (minutes <= 0) {
       return '0 mins';
     }
