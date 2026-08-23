@@ -11,22 +11,25 @@ class DojoBrandColors {
   static const Color deepTeal = Color(0xFF1C4248);
 
   // ==========================================================
-  // PREMIUM ACCENT
+  // ORANGE BRAND
+  // ==========================================================
+
+  // RGB: 255, 94, 0
+  static const Color orange = Color(0xFFFF5E00);
+
+  static const Color orangeDark = Color(0xFFE04F00);
+
+  static const Color orangeSoft = Color(0xFFFFE8DC);
+
+  // ==========================================================
+  // PREMIUM MINT
   // ==========================================================
 
   static const Color mint = Color(0xFF63EBDC);
   static const Color glow = Color(0xFF58E0D0);
 
   // ==========================================================
-  // ORANGE ACCENT
-  // ==========================================================
-
-  static const Color orange = Color(0xFFFF5E00);
-  static const Color orangeDark = Color(0xFFE64F00);
-  static const Color orangeSoft = Color(0xFFFFE9DC);
-
-  // ==========================================================
-  // SOFT ACCENT
+  // SOFT ACCENTS
   // ==========================================================
 
   static const Color mintTint = Color(0xFFECFAF8);
