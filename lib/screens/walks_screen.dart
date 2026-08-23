@@ -7,7 +7,6 @@ import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/walks/containers/active_walker_container.dart';
 
 import 'custom_app_bar.dart';
-import '../widgets/generate_qr_button.dart';
 
 class WalksScreen extends StatelessWidget {
   const WalksScreen({super.key});
@@ -18,25 +17,21 @@ class WalksScreen extends StatelessWidget {
 
   static const Color primary = AppColors.primary;
 
-  Widget _qrButton() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Material(
-        color: Colors.transparent,
-        child: Transform.scale(
-          scale: 0.78,
-          alignment: Alignment.centerRight,
-          child: GenerateQRButton(),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: background,
+
+      // =====================================================
+      // APP BAR
+      // =====================================================
+
       appBar: const CustomAppBar(),
+
+      // =====================================================
+      // BODY
+      // =====================================================
+
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           15,
@@ -45,6 +40,10 @@ class WalksScreen extends StatelessWidget {
           110,
         ),
         children: [
+          // ==================================================
+          // TITLE
+          // ==================================================
+
           Row(
             children: [
               Container(
@@ -52,10 +51,15 @@ class WalksScreen extends StatelessWidget {
                 width: 4,
                 decoration: BoxDecoration(
                   color: primary,
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius:
+                      BorderRadius.circular(5),
                 ),
               ),
-              const SizedBox(width: 9),
+
+              const SizedBox(
+                width: 9,
+              ),
+
               const Text(
                 'Walks',
                 style: TextStyle(
@@ -67,7 +71,9 @@ class WalksScreen extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 5),
+          const SizedBox(
+            height: 5,
+          ),
 
           const Text(
             'Find and manage your dog walks.',
@@ -77,29 +83,25 @@ class WalksScreen extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(
+            height: 20,
+          ),
 
           // ==================================================
-          // FULL INSTA WALK CONTAINER
+          // INSTA WALK
           // ==================================================
 
           InstaWalkContainer(
             fullScreen: true,
           ),
 
-          const SizedBox(height: 4),
-
-          // ==================================================
-          // QR
-          // ==================================================
-
-          _qrButton(),
-
-          const SizedBox(height: 2),
-
           // ==================================================
           // ACTIVE WALKER
           // ==================================================
+
+          const SizedBox(
+            height: 4,
+          ),
 
           ActiveWalkerContainer(),
         ],
