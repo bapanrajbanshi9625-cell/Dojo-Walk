@@ -8,8 +8,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
   Widget _buildCompactPatti() {
     final Widget patti = Container(
       width: double.infinity,
-      height: 68,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 13),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -20,38 +20,54 @@ extension _InstaWalkView on _InstaWalkContainerState {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(
-          color: const Color(0xFF65D6C8).withValues(alpha: 0.20),
+          color: const Color(0xFF65D6C8).withValues(
+            alpha: 0.20,
+          ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(
+              alpha: 0.08,
+            ),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Row(
         children: [
+          // ----------------------------------------------------
+          // ICON
+          // ----------------------------------------------------
+
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF65D6C8).withValues(alpha: 0.14),
+              color: const Color(0xFF65D6C8).withValues(
+                alpha: 0.14,
+              ),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFF65D6C8).withValues(alpha: 0.20),
+                color: const Color(0xFF65D6C8).withValues(
+                  alpha: 0.20,
+                ),
               ),
             ),
             child: const Icon(
               Icons.flash_on_rounded,
               color: Color(0xFF8FFFEF),
-              size: 21,
+              size: 19,
             ),
           ),
 
-          const SizedBox(width: 11),
+          const SizedBox(width: 10),
+
+          // ----------------------------------------------------
+          // TEXT
+          // ----------------------------------------------------
 
           Expanded(
             child: Column(
@@ -64,12 +80,12 @@ extension _InstaWalkView on _InstaWalkContainerState {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
 
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
 
                 Text(
                   _searching
@@ -79,7 +95,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white70,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -87,33 +103,39 @@ extension _InstaWalkView on _InstaWalkContainerState {
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
+
+          // ----------------------------------------------------
+          // STATUS
+          // ----------------------------------------------------
 
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 5,
+              horizontal: 7,
+              vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF65D6C8).withValues(alpha: 0.14),
+              color: const Color(0xFF65D6C8).withValues(
+                alpha: 0.14,
+              ),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               _searching ? 'LIVE' : 'ACTIVE',
               style: const TextStyle(
                 color: Color(0xFF8FFFEF),
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
 
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
 
           const Icon(
             Icons.chevron_right_rounded,
             color: Colors.white70,
-            size: 23,
+            size: 21,
           ),
         ],
       ),
@@ -136,10 +158,15 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
   Widget _buildFullScreen() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      padding: const EdgeInsets.fromLTRB(
+        15,
+        6,
+        15,
+        12,
+      ),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [
@@ -150,15 +177,19 @@ extension _InstaWalkView on _InstaWalkContainerState {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(21),
           border: Border.all(
-            color: const Color(0xFF65D6C8).withValues(alpha: 0.18),
+            color: const Color(0xFF65D6C8).withValues(
+              alpha: 0.18,
+            ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(
+                alpha: 0.08,
+              ),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -174,7 +205,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
   Widget _buildFullScreenContent() {
     if (_recovering) {
       return const SizedBox(
-        height: 180,
+        height: 150,
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
@@ -189,7 +220,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
       children: [
         _header(),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
 
         Text(
           _searching
@@ -197,28 +228,37 @@ extension _InstaWalkView on _InstaWalkContainerState {
               : 'Find an available walker nearby instantly.',
           style: const TextStyle(
             color: Colors.white70,
-            fontSize: 13,
-            height: 1.5,
+            fontSize: 12,
+            height: 1.35,
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+
+        // ======================================================
+        // FIND WALKER BUTTON
+        // ======================================================
 
         if (!_searching && !_searchFinished)
-          SizedBox(
-            width: double.infinity,
-            child: InstaWalkSearchButton(
-              loading: _checkingAddress,
-              text: _checkingAddress
-                  ? 'Checking location...'
-                  : 'Find a Walker Now',
-              onPressed: _checkingAddress
-                  ? null
-                  : _findWalker,
-            ),
+          InstaWalkSearchButton(
+            loading: _checkingAddress,
+            text: _checkingAddress
+                ? 'Checking location...'
+                : 'Find a Walker Now',
+            onPressed: _checkingAddress
+                ? null
+                : _findWalker,
           ),
 
+        // ======================================================
+        // SEARCHING
+        // ======================================================
+
         if (_searching) _buildSearching(),
+
+        // ======================================================
+        // RETRY
+        // ======================================================
 
         if (_searchFinished)
           InstaWalkRetry(
@@ -248,7 +288,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 9),
 
           _buildStopSearchButton(),
         ],
@@ -259,41 +299,43 @@ extension _InstaWalkView on _InstaWalkContainerState {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(18),
+            color: Colors.black.withValues(
+              alpha: 0.12,
+            ),
+            borderRadius: BorderRadius.circular(15),
           ),
           child: const Column(
             children: [
               SizedBox(
-                width: 52,
-                height: 52,
+                width: 42,
+                height: 42,
                 child: CircularProgressIndicator(
-                  strokeWidth: 3,
+                  strokeWidth: 2.5,
                   color: Color(0xFF65D6C8),
                 ),
               ),
 
-              SizedBox(height: 14),
+              SizedBox(height: 10),
 
               Text(
                 'Searching nearby walkers',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
               ),
 
-              SizedBox(height: 6),
+              SizedBox(height: 4),
 
               Text(
                 'Searching',
                 style: TextStyle(
                   color: Color(0xFF8FFFEF),
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -301,7 +343,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 9),
 
         _buildStopSearchButton(),
       ],
@@ -315,7 +357,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
   Widget _buildStopSearchButton() {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 46,
       child: ElevatedButton(
         onPressed: _stopping ? null : _stopSearch,
         style: ElevatedButton.styleFrom(
@@ -324,20 +366,24 @@ extension _InstaWalkView on _InstaWalkContainerState {
           foregroundColor: Colors.white,
           disabledForegroundColor: Colors.white70,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+          ),
           side: BorderSide(
-            color: const Color(0xFFFF8A80).withValues(alpha: 0.45),
+            color: const Color(0xFFFF8A80).withValues(
+              alpha: 0.40,
+            ),
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(13),
           ),
         ),
         child: _stopping
             ? const SizedBox(
-                width: 21,
-                height: 21,
+                width: 19,
+                height: 19,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
+                  strokeWidth: 2.3,
                   color: Color(0xFF8FFFEF),
                 ),
               )
@@ -346,15 +392,15 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 children: [
                   Icon(
                     Icons.stop_circle_outlined,
-                    size: 22,
+                    size: 20,
                     color: Color(0xFFFF8A80),
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(width: 7),
                   Text(
                     'Stop Search',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -373,9 +419,13 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
     return Row(
       children: [
+        // ------------------------------------------------------
+        // ICON
+        // ------------------------------------------------------
+
         Container(
-          width: 52,
-          height: 52,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
@@ -383,22 +433,28 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 Color(0xFF8FFFEF),
               ],
             ),
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF65D6C8).withValues(alpha: 0.25),
-                blurRadius: 12,
+                color: const Color(0xFF65D6C8).withValues(
+                  alpha: 0.20,
+                ),
+                blurRadius: 9,
               ),
             ],
           ),
           child: const Icon(
             Icons.flash_on_rounded,
             color: Color(0xFF243746),
-            size: 29,
+            size: 25,
           ),
         ),
 
-        const SizedBox(width: 13),
+        const SizedBox(width: 11),
+
+        // ------------------------------------------------------
+        // TITLE
+        // ------------------------------------------------------
 
         Expanded(
           child: Column(
@@ -408,12 +464,12 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 'Insta Walk',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 21,
+                  fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
               ),
 
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
 
               Text(
                 isLive
@@ -423,7 +479,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white60,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -431,37 +487,47 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
         ),
 
+        const SizedBox(width: 7),
+
+        // ------------------------------------------------------
+        // STATUS
+        // ------------------------------------------------------
+
         Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: 9,
-            vertical: 6,
+            horizontal: 8,
+            vertical: 5,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF65D6C8).withValues(alpha: 0.12),
+            color: const Color(0xFF65D6C8).withValues(
+              alpha: 0.12,
+            ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF65D6C8).withValues(alpha: 0.25),
+              color: const Color(0xFF65D6C8).withValues(
+                alpha: 0.25,
+              ),
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 decoration: const BoxDecoration(
                   color: Color(0xFF65D6C8),
                   shape: BoxShape.circle,
                 ),
               ),
 
-              const SizedBox(width: 5),
+              const SizedBox(width: 4),
 
               Text(
                 isLive ? 'LIVE' : 'ACTIVE',
                 style: const TextStyle(
                   color: Color(0xFF8FFFEF),
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: FontWeight.w900,
                 ),
               ),
