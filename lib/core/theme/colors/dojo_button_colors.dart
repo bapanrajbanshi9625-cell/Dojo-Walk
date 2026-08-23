@@ -2,32 +2,69 @@ import 'package:flutter/material.dart';
 
 import 'dojo_brand_colors.dart';
 
-class DojoTabColors {
-  DojoTabColors._();
+class DojoButtonColors {
+  DojoButtonColors._();
+
+  // ==========================================================
+  // PRIMARY
+  // ==========================================================
+
+  static const Color primary =
+      DojoBrandColors.orange;
+
+  static const Color primaryDark =
+      DojoBrandColors.orangeDark;
+
+  static const Color primaryText =
+      Colors.white;
+
+  // ==========================================================
+  // SECONDARY
+  // ==========================================================
+
+  static const Color secondary =
+      DojoBrandColors.deepTeal;
+
+  static const Color secondaryText =
+      Colors.white;
+
+  // ==========================================================
+  // MINT
+  // ==========================================================
+
+  static const Color mint =
+      DojoBrandColors.mint;
+
+  static const Color mintText =
+      DojoBrandColors.slate;
 
   // ==========================================================
   // LIGHT
   // ==========================================================
 
-  static const Color lightSelected =
-      DojoBrandColors.slate;
+  static const Color lightBackground =
+      Color(0xFFF8FAFC);
 
-  static const Color lightUnselected =
-      Color(0xFF91A2A3);
-
-  static const Color lightIndicator =
-      DojoBrandColors.mintTint;
+  static const Color lightBorder =
+      Color(0xFFD9E5E5);
 
   // ==========================================================
   // DARK
   // ==========================================================
 
-  static const Color darkSelected =
-      DojoBrandColors.mint;
+  static const Color darkBackground =
+      Color(0xFF0B1719);
 
-  static const Color darkUnselected =
+  static const Color darkBorder =
+      Color(0xFF294347);
+
+  // ==========================================================
+  // DISABLED
+  // ==========================================================
+
+  static const Color disabled =
+      Color(0xFFB8C2C3);
+
+  static const Color disabledText =
       Color(0xFF718889);
-
-  static const Color darkIndicator =
-      Color(0x3358E0D0);
 }
