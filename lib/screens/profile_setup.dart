@@ -291,17 +291,6 @@ class _ProfileSetupScreenState
       // ========================================================
       // GO TO MAIN NAVIGATION
       // ========================================================
-      //
-      // MainNavigationScreen contains:
-      //
-      // Home
-      // Walks
-      // Menu
-      //
-      // pushAndRemoveUntil ensures that the user
-      // cannot press back and return to Profile Setup.
-      //
-      // ========================================================
 
       Navigator.of(context)
           .pushAndRemoveUntil(
@@ -353,6 +342,9 @@ class _ProfileSetupScreenState
     }
 
     ScaffoldMessenger.of(context)
+        .hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context)
         .showSnackBar(
       SnackBar(
         backgroundColor:
@@ -377,7 +369,7 @@ class _ProfileSetupScreenState
     required String? selected,
     required ValueChanged<String> onSelected,
   }) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor:
           Colors.white,
@@ -436,7 +428,7 @@ class _ProfileSetupScreenState
   void _showBreedPicker(
     PetData pet,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor:
           Colors.white,
@@ -522,7 +514,6 @@ class _ProfileSetupScreenState
         elevation: 0,
         automaticallyImplyLeading:
             false,
-
         title:
             const Row(
           children: [
@@ -556,7 +547,6 @@ class _ProfileSetupScreenState
             SingleChildScrollView(
           physics:
               const BouncingScrollPhysics(),
-
           padding:
               const EdgeInsets.fromLTRB(
             16,
@@ -564,12 +554,10 @@ class _ProfileSetupScreenState
             16,
             35,
           ),
-
           child:
               Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
-
             children: [
               // ==================================================
               // WELCOME
@@ -636,15 +624,12 @@ class _ProfileSetupScreenState
                       ),
                     ),
                   ),
-
                   Container(
                     padding:
                         const EdgeInsets
                             .symmetric(
-                      horizontal:
-                          10,
-                      vertical:
-                          5,
+                      horizontal: 10,
+                      vertical: 5,
                     ),
                     decoration:
                         BoxDecoration(
@@ -689,8 +674,7 @@ class _ProfileSetupScreenState
                     padding:
                         const EdgeInsets
                             .only(
-                      bottom:
-                          16,
+                      bottom: 16,
                     ),
                     child:
                         PetCard(
@@ -793,6 +777,30 @@ class _ProfileSetupScreenState
                     _isSaving,
                 onPressed:
                     _saveProfile,
+              ),
+
+              const SizedBox(
+                height: 12,
+              ),
+
+              // ==================================================
+              // SECURITY NOTE
+              // ==================================================
+
+              Center(
+                child:
+                    Text(
+                  'Your profile information is securely stored.',
+                  textAlign:
+                      TextAlign.center,
+                  style:
+                      TextStyle(
+                    color:
+                        Colors.grey.shade500,
+                    fontSize:
+                        11,
+                  ),
+                ),
               ),
             ],
           ),
