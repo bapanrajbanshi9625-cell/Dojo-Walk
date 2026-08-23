@@ -271,7 +271,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
       return Column(
         children: [
           InstaWalkSearching(
-            timerText: _timerText(),
             map: InstaWalkMapRadar(
               ownerPoint: LatLng(
                 _ownerPosition!.latitude,
@@ -307,9 +306,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
             color: Colors.black.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Column(
+          child: const Column(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 52,
                 height: 52,
                 child: CircularProgressIndicator(
@@ -318,9 +317,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 ),
               ),
 
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
 
-              const Text(
+              Text(
                 'Searching nearby walkers',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -330,13 +329,13 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 ),
               ),
 
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
 
               Text(
-                _timerText(),
-                style: const TextStyle(
+                'Searching',
+                style: TextStyle(
                   color: Color(0xFF8FFFEF),
-                  fontSize: 22,
+                  fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -437,8 +436,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
             borderRadius: BorderRadius.circular(17),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF65D6C8)
-                    .withValues(alpha: 0.25),
+                color: const Color(0xFF65D6C8).withValues(alpha: 0.25),
                 blurRadius: 12,
               ),
             ],
@@ -497,12 +495,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF65D6C8)
-                .withValues(alpha: 0.12),
+            color: const Color(0xFF65D6C8).withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF65D6C8)
-                  .withValues(alpha: 0.25),
+              color: const Color(0xFF65D6C8).withValues(alpha: 0.25),
             ),
           ),
           child: Row(
