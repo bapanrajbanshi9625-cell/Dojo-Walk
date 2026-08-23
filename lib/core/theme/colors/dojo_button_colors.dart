@@ -2,37 +2,32 @@ import 'package:flutter/material.dart';
 
 import 'dojo_brand_colors.dart';
 
-class DojoButtonColors {
-  DojoButtonColors._();
+class DojoTabColors {
+  DojoTabColors._();
 
-  // PRIMARY
-  static const Color primary =
-      DojoBrandColors.orange;
+  // ==========================================================
+  // LIGHT
+  // ==========================================================
 
-  static const Color primaryDark =
-      DojoBrandColors.orangeDark;
-
-  static const Color primaryForeground =
-      Colors.white;
-
-  // PREMIUM
-  static const Color mint =
-      DojoBrandColors.mint;
-
-  static const Color mintForeground =
+  static const Color lightSelected =
       DojoBrandColors.slate;
 
-  // SECONDARY
-  static const Color secondary =
-      DojoBrandColors.deepTeal;
+  static const Color lightUnselected =
+      Color(0xFF91A2A3);
 
-  static const Color secondaryForeground =
-      Colors.white;
+  static const Color lightIndicator =
+      DojoBrandColors.mintTint;
 
-  // DANGER
-  static const Color danger =
-      Color(0xFFE76565);
+  // ==========================================================
+  // DARK
+  // ==========================================================
 
-  static const Color dangerForeground =
-      Colors.white;
+  static const Color darkSelected =
+      DojoBrandColors.mint;
+
+  static const Color darkUnselected =
+      Color(0xFF718889);
+
+  static const Color darkIndicator =
+      Color(0x3358E0D0);
 }
