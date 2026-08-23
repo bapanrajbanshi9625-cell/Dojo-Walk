@@ -18,16 +18,7 @@ class ActiveWalkService {
       FirebaseFirestore.instance;
 
   // ==========================================================
-  // ACTIVE WALK COLLECTION
-  //
-  // active_walk = walker is on the way.
-  //
-  // This collection does NOT contain:
-  // peeCount
-  // poopCount
-  // routeCoordinates
-  // events
-  // elapsedSeconds
+  // ACTIVE WALK
   // ==========================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -68,10 +59,10 @@ class ActiveWalkService {
   }
 
   // ==========================================================
-  // WATCH ACTIVE WALK BY WALK ID
+  // WATCH BY WALK ID
   //
-  // IMPORTANT:
-  // Firestore field is exactly "Walkid"
+  // Firestore field:
+  // "Walkid"
   // ==========================================================
 
   Stream<QuerySnapshot<Map<String, dynamic>>>
@@ -113,7 +104,7 @@ class ActiveWalkService {
   }
 
   // ==========================================================
-  // GET ACTIVE WALK BY DOCUMENT ID ONCE
+  // GET BY DOCUMENT ID
   // ==========================================================
 
   Future<DocumentSnapshot<Map<String, dynamic>>>
@@ -127,11 +118,6 @@ class ActiveWalkService {
 
   // ==========================================================
   // CLOSE ACTIVE WALK
-  //
-  // active_walk only changes its status.
-  //
-  // It does NOT modify:
-  // liveWalkSessions
   // ==========================================================
 
   Future<void> closeActiveWalk({
