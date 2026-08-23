@@ -12,11 +12,11 @@ import '../features/home/widgets/home_section_title.dart';
 import '../features/home/widgets/home_weekly_processing.dart';
 import '../features/home/widgets/home_welcome_card.dart';
 
-// =====================================================
-// INSTA WALK
-// =====================================================
+import '../widgets/generate_qr_button.dart';
 
-import '../features/insta_walk/widgets/insta_walk_container.dart';
+// =====================================================
+// HOME SCREEN
+// =====================================================
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +31,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+// =====================================================
+// HOME STATE
+// =====================================================
+
 class _HomeScreenState extends State<HomeScreen> {
   // =====================================================
   // HOME DATA SERVICE
@@ -38,35 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final home_data.HomeDataService _homeDataService =
       home_data.HomeDataService.instance;
-
-  // =====================================================
-  // OPEN FULL INSTA WALK
-  // =====================================================
-
-  void _openInstaWalk() {
-    if (!mounted) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const Scaffold(
-          backgroundColor: HomeScreen.background,
-          appBar: CustomAppBar(),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              physics: AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.only(
-                bottom: 24,
-              ),
-              child: InstaWalkContainer(
-                fullScreen: true,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   // =====================================================
   // DETAILS DIALOG
@@ -153,7 +128,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: HomeScreen.background,
 
+      // ===================================================
+      // APP BAR
+      // ===================================================
+
       appBar: const CustomAppBar(),
+
+      // ===================================================
+      // BODY
+      // ===================================================
 
       body: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -168,31 +151,28 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // =========================================
+            // =============================================
             // WELCOME
-            // =========================================
+            // =============================================
 
             const HomeWelcomeCard(),
 
-            // =========================================
-            // INSTA WALK
-            // =========================================
+            // =============================================
+            // SCAN QR
+            // =============================================
+
+            const SizedBox(
+              height: 8,
+            ),
+
+            const GenerateQRButton(),
+
+            // =============================================
+            // WEEKLY PROCESSING
+            // =============================================
 
             const SizedBox(
               height: 14,
-            ),
-
-            InstaWalkContainer(
-              fullScreen: false,
-              onWalkerFound: _openInstaWalk,
-            ),
-
-            // =========================================
-            // WEEKLY PROCESSING
-            // =========================================
-
-            const SizedBox(
-              height: 19,
             ),
 
             const HomeSectionTitle(
@@ -216,9 +196,9 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
 
-            // =========================================
+            // =============================================
             // PAST WALK
-            // =========================================
+            // =============================================
 
             const SizedBox(
               height: 19,
@@ -232,6 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 9,
             ),
 
+            // =============================================
+            // PAST WALK STREAM
+            // =============================================
+
             StreamBuilder<
                 List<home_data.HomePastWalk>>(
               stream: _homeDataService.pastWalksStream(
@@ -239,9 +223,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               builder: (context, snapshot) {
-                // -------------------------------------
+                // =========================================
                 // ERROR
-                // -------------------------------------
+                // =========================================
 
                 if (snapshot.hasError) {
                   return Container(
@@ -249,7 +233,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: HomeScreen.card,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius:
+                          BorderRadius.circular(14),
                       border: Border.all(
                         color: const Color(0xFFD4D9DF),
                       ),
@@ -266,9 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
 
-                // -------------------------------------
+                // =========================================
                 // LOADING
-                // -------------------------------------
+                // =========================================
 
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
@@ -283,17 +268,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
 
-                // -------------------------------------
+                // =========================================
                 // DATA
-                // -------------------------------------
+                // =========================================
 
                 final List<home_data.HomePastWalk> walks =
                     snapshot.data ??
                         <home_data.HomePastWalk>[];
 
-                // -------------------------------------
+                // =========================================
                 // UI
-                // -------------------------------------
+                // =========================================
 
                 return HomePastWalk(
                   walks: _pastWalkMaps(
