@@ -102,6 +102,20 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String _petName = 'Your Pet';
 
   // ==========================================================
+  // TIMER COMPATIBILITY
+  //
+  // IMPORTANT:
+  // Other Insta Walk part files still reference these members.
+  //
+  // The timer is kept for request lifecycle compatibility.
+  // It is NOT displayed as a countdown in the UI.
+  // ==========================================================
+
+  Timer? _searchTimer;
+
+  int _secondsLeft = 0;
+
+  // ==========================================================
   // INIT
   // ==========================================================
 
@@ -125,6 +139,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
+    _stopTimer();
     _stopRadar();
 
     _service.dispose();
@@ -135,6 +150,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // SAFE STATE UPDATE
+  //
+  // Extensions cannot directly call protected setState().
+  // All Insta Walk extensions should use _updateState().
   // ==========================================================
 
   void _updateState(VoidCallback callback) {
@@ -188,17 +206,77 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
+  // START TIMER
+  //
+  // Kept because the existing Insta Walk part files call this.
+  //
+  // IMPORTANT:
+  // This does NOT show a countdown in the UI.
+  // It only maintains compatibility with the existing
+  // request lifecycle code.
+  // ==========================================================
+
+  void _startTimer() {
+    _stopTimer();
+
+    if (!mounted) {
+      return;
+    }
+
+    // Existing part files may set _secondsLeft before calling
+    // _startTimer(). If they don't, use a safe lifecycle value.
+    if (_secondsLeft <= 0) {
+      _secondsLeft = 30;
+    }
+
+    _searchTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (Timer timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        if (!_searching) {
+          timer.cancel();
+          return;
+        }
+
+        if (_secondsLeft > 0) {
+          _secondsLeft--;
+
+          // Timer value is intentionally not displayed.
+          return;
+        }
+
+        timer.cancel();
+      },
+    );
+  }
+
+  // ==========================================================
+  // STOP TIMER
+  // ==========================================================
+
+  void _stopTimer() {
+    _searchTimer?.cancel();
+    _searchTimer = null;
+  }
+
+  // ==========================================================
   // RESET SEARCH STATE
   // ==========================================================
 
   void _resetSearchState({
     bool finished = false,
   }) {
+    _stopTimer();
     _stopRadar();
 
     _requestId = null;
     _ownerPosition = null;
     _stopping = false;
+    _secondsLeft = 0;
 
     if (!mounted) {
       _setActive(false);
@@ -218,19 +296,25 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // FINISH SEARCH
   //
-  // No countdown timer.
-  // Search ends only when explicitly stopped,
-  // accepted, cancelled or recovery finds invalid state.
+  // Insta Walk has NO visible countdown.
+  //
+  // Search continues until:
+  // 1. Walker accepts
+  // 2. Owner stops search
+  // 3. Request is explicitly cancelled
+  // 4. Recovery detects a finished/invalid request
   // ==========================================================
 
   void _finishSearch({
     String? message,
   }) {
+    _stopTimer();
     _stopRadar();
 
     _requestId = null;
     _ownerPosition = null;
     _stopping = false;
+    _secondsLeft = 0;
 
     if (!mounted) {
       _setActive(false);
@@ -246,7 +330,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
     _setActive(false);
 
-    if (message != null && message.trim().isNotEmpty) {
+    if (message != null &&
+        message.trim().isNotEmpty) {
       _message(message);
     }
   }
@@ -359,29 +444,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     return null;
-  }
-
-  // ==========================================================
-  // TIMER COMPATIBILITY
-  //
-  // IMPORTANT:
-  // Insta Walk no longer uses a countdown timer.
-  //
-  // Older part files may still call these methods.
-  // Keeping these compatibility methods prevents the
-  // old part files from producing undefined-method errors.
-  // ==========================================================
-
-  void _startTimer() {
-    // No countdown timer.
-  }
-
-  void _stopTimer() {
-    // No countdown timer.
-  }
-
-  String _timerText() {
-    return 'Searching';
   }
 
   // ==========================================================
