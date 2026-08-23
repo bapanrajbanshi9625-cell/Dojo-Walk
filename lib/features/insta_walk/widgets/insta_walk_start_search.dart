@@ -14,6 +14,10 @@ extension _StartSearchRole on _InstaWalkContainerState {
     _stopTimer();
 
     try {
+      // ========================================================
+      // CREATE INSTA WALK REQUEST
+      // ========================================================
+
       final InstaWalkSearchResult result =
           await _service.startSearch(
         ownerId: ownerId,
@@ -29,12 +33,22 @@ extension _StartSearchRole on _InstaWalkContainerState {
         return;
       }
 
+      // ========================================================
+      // REQUEST FAILED
+      //
+      // IMPORTANT:
+      // expiresAt is NOT required anymore.
+      //
+      // Insta Walk has NO automatic expiry.
+      // ========================================================
+
       if (!result.success ||
           result.requestId == null ||
-          result.expiresAt == null) {
+          result.requestId!.trim().isEmpty) {
         _requestId = null;
 
         _stopRadar();
+        _stopTimer();
 
         _updateState(() {
           _checkingAddress = false;
@@ -54,68 +68,87 @@ extension _StartSearchRole on _InstaWalkContainerState {
         return;
       }
 
-      final String requestId =
-          result.requestId!;
+      // ========================================================
+      // REQUEST CREATED SUCCESSFULLY
+      // ========================================================
 
-      final DateTime expiresAt =
-          result.expiresAt!;
+      final String requestId =
+          result.requestId!.trim();
 
       _requestId = requestId;
 
-      Duration remaining =
-          expiresAt.difference(
-        DateTime.now(),
-      );
-
-      if (remaining.isNegative) {
-        remaining = Duration.zero;
-      }
-
-      if (remaining.inSeconds <= 0) {
-        await _service.expireRequest(
-          requestId: requestId,
-        );
-
-        if (!mounted) {
-          return;
-        }
-
-        _requestId = null;
-
-        _resetSearchState();
-
-        _setActive(false);
-
-        _message(
-          'Search expired. Please try again.',
-        );
-
-        return;
-      }
+      // ========================================================
+      // IMPORTANT
+      //
+      // Insta Walk has NO expiry.
+      // Do NOT calculate remaining time.
+      // Do NOT call expireRequest().
+      // Do NOT start countdown timer.
+      // ========================================================
 
       _updateState(() {
         _checkingAddress = false;
         _searching = true;
         _searchFinished = false;
-        _secondsLeft = remaining.inSeconds;
+        _secondsLeft = 0;
         _stopping = false;
       });
 
+      // ========================================================
+      // REPORT ACTIVE
+      // ========================================================
+
       _setActive(true);
 
+      // ========================================================
+      // START RADAR
+      // ========================================================
+
       _startRadar();
+
+      // ========================================================
+      // LISTEN FOR WALKER ACCEPTANCE
+      // ========================================================
 
       try {
         await _service.listenForRequest(
           requestId: requestId,
+
+          // ----------------------------------------------------
+          // WALKER ACCEPTED
+          // ----------------------------------------------------
+
           onAccepted: _walkerAccepted,
-          onExpired: _finishSearch,
+
+          // ----------------------------------------------------
+          // OLD EXPIRED STATE
+          //
+          // New Insta Walk requests never expire automatically.
+          // This is kept only for old/manual Firestore records.
+          // ----------------------------------------------------
+
+          onExpired: () {
+            _finishSearch(
+              message:
+                  'Walk request expired.',
+            );
+          },
+
+          // ----------------------------------------------------
+          // CANCELLED
+          // ----------------------------------------------------
+
           onCancelled: () {
             _finishSearch(
               message:
                   'Walk request was cancelled.',
             );
           },
+
+          // ----------------------------------------------------
+          // LISTENER ERROR
+          // ----------------------------------------------------
+
           onError: (Object error) {
             debugPrint(
               'Insta Walk listener error: $error',
@@ -126,15 +159,25 @@ extension _StartSearchRole on _InstaWalkContainerState {
         debugPrint(
           'Insta Walk listener setup error: $e',
         );
+
+        // Don't immediately kill an already-created request.
+        //
+        // Firestore listener errors can be transient.
+        // The request itself is already active.
       }
 
-      if (!mounted) {
-        return;
-      }
-
-      if (_searching) {
-        _startTimer();
-      }
+      // ========================================================
+      // IMPORTANT
+      //
+      // NO _startTimer()
+      //
+      // Insta Walk search is indefinite until:
+      //
+      // 1. Walker accepts
+      // 2. Owner cancels
+      // 3. Request is cancelled
+      //
+      // ========================================================
     } catch (e) {
       debugPrint(
         'Insta Walk search error: $e',
@@ -159,8 +202,12 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
       _setActive(false);
 
+      // ========================================================
+      // SHOW REAL ERROR
+      // ========================================================
+
       _message(
-        'Unable to start Insta Walk.',
+        'Unable to start Insta Walk: $e',
       );
     }
   }
