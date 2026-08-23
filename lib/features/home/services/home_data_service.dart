@@ -1,115 +1,100 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-/// ============================================================
-/// HOME OWNER SERVICE
-/// ============================================================
-///
-/// Firebase Auth UID -> ownerProfiles -> Owner Business ID
-///
-/// Example:
-/// authUid  = XDYijQj3wzfJj3PAETlP9L59Z3e2
-/// ownerId  = OWN26GH0002
-///
-/// ============================================================
+import '../models/home_past_walk.dart';
+import '../models/home_weekly_stats.dart';
 
-class HomeOwnerService {
-  HomeOwnerService._();
+import 'home_past_walk_service.dart';
+import 'home_stats_service.dart';
 
-  static final HomeOwnerService instance =
-      HomeOwnerService._();
+export '../models/home_live_walk.dart';
+export '../models/home_past_walk.dart';
+export '../models/home_weekly_stats.dart';
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class HomeDataService {
+  HomeDataService._();
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  static final HomeDataService instance =
+      HomeDataService._();
 
-  String? get authUid {
-    final User? user = _auth.currentUser;
+  final HomeLiveWalkService _live =
+      HomeLiveWalkService.instance;
 
-    if (user == null) {
-      return null;
-    }
+  final HomePastWalkService _past =
+      HomePastWalkService.instance;
 
-    final String uid = user.uid.trim();
+  final HomeStatsService _stats =
+      HomeStatsService.instance;
 
-    return uid.isEmpty ? null : uid;
+  // ==========================================================
+  // LIVE WALK
+  // ==========================================================
+
+  Stream<HomeLiveWalk?> liveWalkStream() {
+    return _live.liveWalkStream();
   }
 
-  /// ----------------------------------------------------------
-  /// Get current Owner Business ID
-  /// ----------------------------------------------------------
+  // ==========================================================
+  // PAST WALKS
+  // ==========================================================
 
-  Future<String?> getOwnerId() async {
-    final String? uid = authUid;
-
-    if (uid == null) {
-      return null;
-    }
-
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _firestore
-              .collection('ownerProfiles')
-              .where(
-                'authUid',
-                isEqualTo: uid,
-              )
-              .limit(1)
-              .get();
-
-      if (snapshot.docs.isEmpty) {
-        return null;
-      }
-
-      final Map<String, dynamic> data =
-          snapshot.docs.first.data();
-
-      final dynamic value = data['ownerId'];
-
-      if (value == null) {
-        return null;
-      }
-
-      final String ownerId =
-          value.toString().trim();
-
-      return ownerId.isEmpty ? null : ownerId;
-    } catch (_) {
-      return null;
-    }
+  Future<List<HomePastWalk>> getPastWalks({
+    int limit = 20,
+  }) {
+    return _past.getPastWalks(
+      limit: limit,
+    );
   }
 
-  /// ----------------------------------------------------------
-  /// Get Owner profile
-  /// ----------------------------------------------------------
+  Stream<List<HomePastWalk>> pastWalksStream({
+    int limit = 20,
+  }) {
+    return _past.pastWalksStream(
+      limit: limit,
+    );
+  }
 
-  Future<Map<String, dynamic>?> getOwnerProfile() async {
-    final String? uid = authUid;
+  // ==========================================================
+  // WEEKLY STATS
+  // ==========================================================
 
-    if (uid == null) {
-      return null;
+  Future<HomeWeeklyStats> getWeeklyStats() {
+    return _stats.getWeeklyStats();
+  }
+
+  // ==========================================================
+  // FORMATTERS
+  // ==========================================================
+
+  static String formatDistance(
+    double km,
+  ) {
+    if (km <= 0) {
+      return '0.0 km';
     }
 
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _firestore
-              .collection('ownerProfiles')
-              .where(
-                'authUid',
-                isEqualTo: uid,
-              )
-              .limit(1)
-              .get();
+    return '${km.toStringAsFixed(1)} km';
+  }
 
-      if (snapshot.docs.isEmpty) {
-        return null;
+  static String formatDuration(
+    int minutes,
+  ) {
+    if (minutes <= 0) {
+      return '0 mins';
+    }
+
+    final int hours =
+        minutes ~/ 60;
+
+    final int remaining =
+        minutes % 60;
+
+    if (hours > 0) {
+      if (remaining == 0) {
+        return '$hours hrs';
       }
 
-      return snapshot.docs.first.data();
-    } catch (_) {
-      return null;
+      return '$hours hrs $remaining mins';
     }
+
+    return '$minutes mins';
   }
 }
