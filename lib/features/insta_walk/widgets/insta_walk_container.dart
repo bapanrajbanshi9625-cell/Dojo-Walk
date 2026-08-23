@@ -61,12 +61,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   late final InstaWalkSearchService _service;
 
   // ==========================================================
-  // TIMER
-  // ==========================================================
-
-  Timer? _timer;
-
-  // ==========================================================
   // RADAR
   // ==========================================================
 
@@ -92,12 +86,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
 
   bool _activeReported = false;
-
-  // ==========================================================
-  // TIMER STATE
-  // ==========================================================
-
-  int _secondsLeft = 0;
 
   // ==========================================================
   // REQUEST
@@ -141,7 +129,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
-    _stopTimer();
     _stopRadar();
 
     _service.dispose();
@@ -153,7 +140,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // SAFE STATE UPDATE
   //
-  // IMPORTANT:
   // Extensions cannot directly call protected setState().
   // All insta_walk extensions should use _updateState().
   // ==========================================================
@@ -181,15 +167,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // STOP TIMER
-  // ==========================================================
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  // ==========================================================
   // STOP RADAR
   // ==========================================================
 
@@ -204,118 +181,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // RESET SEARCH STATE
-  // ==========================================================
-
-  void _resetSearchState({
-    bool finished = false,
-  }) {
-    _stopTimer();
-    _stopRadar();
-
-    _requestId = null;
-    _secondsLeft = 0;
-    _ownerPosition = null;
-    _stopping = false;
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _searching = false;
-      _searchFinished = finished;
-      _checkingAddress = false;
-      _recovering = false;
-    });
-
-    _setActive(false);
-  }
-
-  // ==========================================================
-  // TIMER
-  // ==========================================================
-
-  void _startTimer() {
-    _stopTimer();
-
-    if (!mounted || !_searching) {
-      return;
-    }
-
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (Timer timer) async {
-        if (!mounted || !_searching) {
-          timer.cancel();
-          _timer = null;
-          return;
-        }
-
-        if (_stopping) {
-          return;
-        }
-
-        final String? id = _requestId;
-
-        if (id == null || id.trim().isEmpty) {
-          timer.cancel();
-          _timer = null;
-
-          _finishSearch();
-          return;
-        }
-
-        if (_secondsLeft <= 1) {
-          timer.cancel();
-          _timer = null;
-
-          try {
-            final InstaWalkRequestState state =
-                await _service.getRequestState(id);
-
-            if (!mounted) {
-              return;
-            }
-
-            if (state.isAccepted) {
-              _walkerAccepted(
-                InstaWalkAcceptedData.fromMap(
-                  state.data ?? <String, dynamic>{},
-                ),
-              );
-
-              return;
-            }
-
-            if (state.isSearching) {
-              await _service.expireRequest(
-                requestId: id,
-              );
-            }
-          } catch (e) {
-            debugPrint(
-              'Insta Walk timer state error: $e',
-            );
-          }
-
-          if (!mounted) {
-            return;
-          }
-
-          _finishSearch();
-          return;
-        }
-
-        _updateState(() {
-          _secondsLeft--;
-        });
-      },
-    );
-  }
-
-  // ==========================================================
-  // RADAR
+  // START RADAR
   // ==========================================================
 
   void _startRadar() {
@@ -329,13 +195,12 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // FINISH SEARCH
+  // RESET SEARCH STATE
   // ==========================================================
 
-  void _finishSearch({
-    String? message,
+  void _resetSearchState({
+    bool finished = false,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
@@ -343,6 +208,42 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _stopping = false;
 
     if (!mounted) {
+      _setActive(false);
+      return;
+    }
+
+    _updateState(() {
+      _searching = false;
+      _searchFinished = finished;
+      _checkingAddress = false;
+      _recovering = false;
+    });
+
+    _setActive(false);
+  }
+
+  // ==========================================================
+  // FINISH SEARCH
+  //
+  // IMPORTANT:
+  // This is now ONLY called when the request actually finishes
+  // because of cancellation / failure / other explicit state.
+  //
+  // There is NO countdown.
+  // There is NO automatic expiry.
+  // ==========================================================
+
+  void _finishSearch({
+    String? message,
+  }) {
+    _stopRadar();
+
+    _requestId = null;
+    _ownerPosition = null;
+    _stopping = false;
+
+    if (!mounted) {
+      _setActive(false);
       return;
     }
 
@@ -350,15 +251,14 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _searching = false;
       _searchFinished = true;
       _checkingAddress = false;
-      _secondsLeft = 0;
     });
 
     _setActive(false);
 
-    _message(
-      message ??
-          'No walker accepted the request.',
-    );
+    if (message != null &&
+        message.trim().isNotEmpty) {
+      _message(message);
+    }
   }
 
   // ==========================================================
@@ -385,21 +285,35 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
+  // SEARCH STATUS
+  //
+  // Compatibility helper for any old part-file that still
+  // references the previous timer system.
+  //
+  // IMPORTANT:
+  // This does NOTHING now.
+  // Search has no countdown.
+  // ==========================================================
+
+  void _startTimer() {
+    // Intentionally empty.
+    //
+    // Insta Walk search continues indefinitely until:
+    //
+    // 1. Walker accepts
+    // 2. Owner cancels
+    // 3. Request is explicitly cancelled
+  }
+
+  // ==========================================================
   // TIMER TEXT
+  //
+  // Compatibility helper only.
+  // No countdown is displayed anymore.
   // ==========================================================
 
   String _timerText() {
-    final int safeSeconds =
-        _secondsLeft < 0 ? 0 : _secondsLeft;
-
-    final int minutes =
-        safeSeconds ~/ 60;
-
-    final int seconds =
-        safeSeconds % 60;
-
-    return '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
+    return 'Searching';
   }
 
   // ==========================================================
