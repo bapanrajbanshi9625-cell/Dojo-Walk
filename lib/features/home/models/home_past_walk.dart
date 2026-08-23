@@ -33,79 +33,72 @@ class HomePastWalk {
     String documentId,
     Map<String, dynamic> data,
   ) {
-    final dynamic dateValue =
-        data['date'] ??
-        data['createdAt'] ??
-        data['completedAt'] ??
-        data['endedAt'] ??
-        data['startTime'];
-
-    final dynamic distanceValue =
-        data['distanceKm'] ??
-        data['distance'] ??
-        data['totalDistance'];
-
-    final dynamic durationValue =
-        data['durationMinutes'] ??
-        data['duration'] ??
-        data['totalDuration'];
-
-    final dynamic stepsValue =
-        data['steps'] ??
-        data['totalSteps'];
-
     return HomePastWalk(
       documentId: documentId,
 
       walkId: _string(
-        data['walkId'] ??
-            data['Walkid'] ??
+        data['Walkid'] ??
+            data['walkId'] ??
+            data['walkID'] ??
             data['id'] ??
             documentId,
+        fallback: documentId,
       ),
 
       ownerUid: _string(
-        data['ownerId'] ??
-            data['ownerUid'] ??
-            data['ownerAuthUid'],
+        data['ownerUid'] ??
+            data['ownerUID'] ??
+            data['ownerId'],
       ),
 
       walkerUid: _string(
         data['walkerUid'] ??
+            data['walkerUID'] ??
             data['walkerId'],
       ),
 
       walkerName: _string(
-        data['walkerName'] ??
-            data['walker'],
+        data['walkerName'],
         fallback: 'Walker',
       ),
 
       dogName: _string(
         data['dogName'] ??
             data['petName'],
+        fallback: 'Pet',
       ),
 
-      distanceKm: _double(
-        distanceValue,
+      distanceKm: _distanceKm(
+        data['distanceKm'] ??
+            data['distance'] ??
+            data['totalDistance'],
       ),
 
-      durationMinutes: _int(
-        durationValue,
+      durationMinutes: _durationMinutes(
+        data['durationMinutes'] ??
+            data['duration'] ??
+            data['totalDuration'],
       ),
 
-      steps: _int(
-        stepsValue,
+      steps: _intValue(
+        data['steps'] ??
+            data['totalSteps'],
       ),
 
-      date: _date(
-        dateValue,
+      date: _dateValue(
+        data['date'] ??
+            data['walkDate'] ??
+            data['createdAt'] ??
+            data['completedAt'] ??
+            data['endedAt'] ??
+            data['startTime'],
       ),
 
       timeFormatted: _string(
         data['timeFormatted'] ??
             data['time'] ??
             data['formattedTime'],
+        fallback: '--',
       ),
 
       status: _string(
@@ -116,6 +109,10 @@ class HomePastWalk {
     );
   }
 
+  // ============================================================
+  // STRING
+  // ============================================================
+
   static String _string(
     dynamic value, {
     String fallback = '',
@@ -124,24 +121,21 @@ class HomePastWalk {
       return fallback;
     }
 
-    final String result =
+    final String text =
         value.toString().trim();
 
-    return result.isEmpty ? fallback : result;
+    return text.isEmpty
+        ? fallback
+        : text;
   }
 
-  static double _double(dynamic value) {
-    if (value is num) {
-      return value.toDouble();
-    }
+  // ============================================================
+  // INT
+  // ============================================================
 
-    return double.tryParse(
-          value?.toString().replaceAll(',', '') ?? '',
-        ) ??
-        0;
-  }
-
-  static int _int(dynamic value) {
+  static int _intValue(
+    dynamic value,
+  ) {
     if (value is num) {
       return value.toInt();
     }
@@ -152,7 +146,127 @@ class HomePastWalk {
         0;
   }
 
-  static DateTime _date(dynamic value) {
+  // ============================================================
+  // DISTANCE
+  // ============================================================
+
+  static double _distanceKm(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 0;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    String text =
+        value.toString()
+            .trim()
+            .toLowerCase();
+
+    if (text.isEmpty) {
+      return 0;
+    }
+
+    text = text.replaceAll(',', '');
+
+    final bool isMeters =
+        text.contains('meter') ||
+        text.endsWith(' m') ||
+        text.endsWith('m');
+
+    text = text
+        .replaceAll('kilometers', '')
+        .replaceAll('kilometer', '')
+        .replaceAll('kms', '')
+        .replaceAll('km', '')
+        .replaceAll('meters', '')
+        .replaceAll('meter', '')
+        .replaceAll('m', '')
+        .trim();
+
+    final double parsed =
+        double.tryParse(text) ?? 0;
+
+    if (isMeters) {
+      return parsed / 1000;
+    }
+
+    return parsed;
+  }
+
+  // ============================================================
+  // DURATION
+  // ============================================================
+
+  static int _durationMinutes(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 0;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    final String text =
+        value.toString()
+            .trim()
+            .toLowerCase();
+
+    if (text.isEmpty) {
+      return 0;
+    }
+
+    final RegExp hoursRegex =
+        RegExp(
+      r'(\d+)\s*(hr|hrs|hour|hours)',
+    );
+
+    final RegExp minutesRegex =
+        RegExp(
+      r'(\d+)\s*(min|mins|minute|minutes)',
+    );
+
+    final RegExpMatch? hoursMatch =
+        hoursRegex.firstMatch(text);
+
+    final RegExpMatch? minutesMatch =
+        minutesRegex.firstMatch(text);
+
+    final int hours =
+        hoursMatch == null
+            ? 0
+            : int.tryParse(
+                  hoursMatch.group(1) ?? '',
+                ) ??
+                0;
+
+    final int minutes =
+        minutesMatch == null
+            ? 0
+            : int.tryParse(
+                  minutesMatch.group(1) ?? '',
+                ) ??
+                0;
+
+    if (hours > 0 || minutes > 0) {
+      return (hours * 60) + minutes;
+    }
+
+    return int.tryParse(text) ?? 0;
+  }
+
+  // ============================================================
+  // DATE
+  // ============================================================
+
+  static DateTime _dateValue(
+    dynamic value,
+  ) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -167,5 +281,35 @@ class HomePastWalk {
     }
 
     return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  // ============================================================
+  // DISPLAY HELPERS
+  // ============================================================
+
+  String get formattedDistance {
+    return '${distanceKm.toStringAsFixed(1)} km';
+  }
+
+  String get formattedDuration {
+    if (durationMinutes <= 0) {
+      return '0 mins';
+    }
+
+    final int hours =
+        durationMinutes ~/ 60;
+
+    final int minutes =
+        durationMinutes % 60;
+
+    if (hours > 0 && minutes > 0) {
+      return '$hours hrs $minutes mins';
+    }
+
+    if (hours > 0) {
+      return '$hours hrs';
+    }
+
+    return '$minutes mins';
   }
 }
