@@ -31,6 +31,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     });
 
     try {
+      // ========================================================
+      // FIND OWNER PROFILE
+      // ========================================================
+
       final QueryDocumentSnapshot<
           Map<String, dynamic>>? ownerDoc =
           await _service.findOwnerProfile();
@@ -54,6 +58,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       final Map<String, dynamic> data =
           ownerDoc.data();
 
+      // ========================================================
+      // OWNER ID
+      // ========================================================
+
       final String ownerId =
           _readFirstString(
         data,
@@ -72,6 +80,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return;
       }
 
+      // ========================================================
+      // PET NAME
+      // ========================================================
+
       _petName = _readFirstString(
         data,
         const [
@@ -86,7 +98,11 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         _petName = 'Your Pet';
       }
 
-      final String address =
+      // ========================================================
+      // ADDRESS
+      // ========================================================
+
+      String address =
           _readFirstString(
         data,
         const [
@@ -96,6 +112,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
+      // ========================================================
+      // ADDRESS MISSING
+      // ========================================================
+
       if (address.isEmpty) {
         if (!mounted) {
           return;
@@ -104,6 +124,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         _updateState(() {
           _checkingAddress = false;
         });
+
+        // ------------------------------------------------------
+        // OPEN ADDRESS SCREEN
+        // ------------------------------------------------------
 
         await Navigator.push(
           context,
@@ -117,12 +141,31 @@ extension _FindWalkerRole on _InstaWalkContainerState {
           return;
         }
 
+        // ------------------------------------------------------
+        // ADDRESS SCREEN SE SAVE KARKE WAPAS AANE KE BAAD
+        // AUTOMATICALLY PROFILE DOBARA CHECK HOGA.
+        // ------------------------------------------------------
+
         _updateState(() {
           _checkingAddress = false;
         });
 
+        // ------------------------------------------------------
+        // IMPORTANT
+        //
+        // User ko Search button dobara press nahi karna padega.
+        // Address save hone ke baad _findWalker() automatically
+        // dobara chalega.
+        // ------------------------------------------------------
+
+        await _findWalker();
+
         return;
       }
+
+      // ========================================================
+      // OWNER NAME
+      // ========================================================
 
       String ownerName =
           _readFirstString(
@@ -139,6 +182,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ownerName = 'Dog Owner';
       }
 
+      // ========================================================
+      // GET CURRENT LOCATION
+      // ========================================================
+
       final Position? position =
           await _getLocation();
 
@@ -154,7 +201,15 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return;
       }
 
+      // ========================================================
+      // SAVE OWNER POSITION
+      // ========================================================
+
       _ownerPosition = position;
+
+      // ========================================================
+      // START INSTA WALK SEARCH
+      // ========================================================
 
       await _startSearch(
         ownerId: ownerId,
@@ -187,6 +242,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
   Future<Position?> _getLocation() async {
     try {
+      // ========================================================
+      // LOCATION SERVICE
+      // ========================================================
+
       final bool enabled =
           await Geolocator.isLocationServiceEnabled();
 
@@ -198,6 +257,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return null;
       }
 
+      // ========================================================
+      // LOCATION PERMISSION
+      // ========================================================
+
       LocationPermission permission =
           await Geolocator.checkPermission();
 
@@ -206,6 +269,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         permission =
             await Geolocator.requestPermission();
       }
+
+      // ========================================================
+      // PERMISSION DENIED
+      // ========================================================
 
       if (permission ==
               LocationPermission.denied ||
@@ -217,6 +284,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         return null;
       }
+
+      // ========================================================
+      // CURRENT LOCATION
+      // ========================================================
 
       return await Geolocator.getCurrentPosition();
     } catch (e) {
