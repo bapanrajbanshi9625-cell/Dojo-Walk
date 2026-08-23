@@ -1,162 +1,114 @@
 import 'package:flutter/material.dart';
 
-import '../theme/colors/dojo_brand_colors.dart';
-import '../theme/colors/dojo_card_colors.dart';
-import '../theme/colors/dojo_bottom_colors.dart';
-import '../theme/colors/dojo_light_colors.dart';
-import '../theme/colors/dojo_dark_colors.dart';
-
 /// ============================================================
-/// DOJO APP COLORS
+/// DOJO WALK - APP COLORS
 /// ============================================================
 ///
-/// Backward-compatible color facade.
+/// Central color compatibility layer.
 ///
-/// Existing screens still use:
-///     AppColors.primary
-///     AppColors.secondary
-///
-/// New theme system uses:
-///     DojoBrandColors
-///     DojoCardColors
-///     DojoBottomColors
-///     DojoLightColors
-///     DojoDarkColors
-///
-/// DO NOT remove this file unless every old AppColors reference
-/// in the project has been migrated.
+/// IMPORTANT:
+/// Existing screens use AppColors.card, AppColors.navy,
+/// AppColors.primary, etc.
+/// Do not remove these names unless all usages are migrated.
 /// ============================================================
 
 class AppColors {
   AppColors._();
 
   // ==========================================================
-  // PRIMARY BRAND
+  // BRAND
   // ==========================================================
 
-  static const Color primary =
-      DojoBrandColors.orange;
+  static const Color primary = Color(0xFFFF8A00);
+  static const Color secondary = Color(0xFF2DD4BF);
 
-  static const Color secondary =
-      DojoBrandColors.mint;
-
-  static const Color accent =
-      DojoBrandColors.orange;
+  static const Color orange = Color(0xFFFF8A00);
+  static const Color mint = Color(0xFF2DD4BF);
 
   // ==========================================================
-  // BRAND COLORS
+  // MAIN DARK / NAVY COLORS
   // ==========================================================
 
-  static const Color orange =
-      DojoBrandColors.orange;
+  static const Color navy = Color(0xFF0F172A);
+  static const Color darkNavy = Color(0xFF0F172A);
 
-  static const Color orangeLight =
-      DojoBrandColors.orangeLight;
-
-  static const Color orangeDark =
-      DojoBrandColors.orangeDark;
-
-  static const Color mint =
-      DojoBrandColors.mint;
-
-  static const Color glow =
-      DojoBrandColors.glow;
-
-  static const Color slate =
-      DojoBrandColors.slate;
-
-  static const Color deepTeal =
-      DojoBrandColors.deepTeal;
+  static const Color slate = Color(0xFF64748B);
+  static const Color darkSlate = Color(0xFF334155);
 
   // ==========================================================
-  // SOFT COLORS
+  // BACKGROUNDS
   // ==========================================================
 
-  static const Color mintTint =
-      DojoBrandColors.mintTint;
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color lightBackground = Color(0xFFF8FAFC);
 
-  static const Color aquaSoft =
-      DojoBrandColors.aquaSoft;
-
-  static const Color orangeSoft =
-      Color(0xFFFFE8DD);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color white = Colors.white;
 
   // ==========================================================
-  // LIGHT
+  // CARD
   // ==========================================================
 
-  static const Color background =
-      DojoLightColors.background;
-
-  static const Color surface =
-      DojoLightColors.surface;
-
-  static const Color text =
-      DojoLightColors.text;
-
-  static const Color border =
-      DojoLightColors.border;
-
-  static const Color secondaryText =
-      DojoCardColors.lightSecondaryText;
-
-  static const Color mutedText =
-      DojoCardColors.lightMutedText;
+  static const Color card = Color(0xFFFFFFFF);
+  static const Color cardBackground = Color(0xFFFFFFFF);
 
   // ==========================================================
-  // DARK
+  // TEXT
   // ==========================================================
 
-  static const Color darkBackground =
-      DojoDarkColors.background;
+  static const Color text = Color(0xFF0F172A);
+  static const Color primaryText = Color(0xFF0F172A);
 
-  static const Color darkSurface =
-      DojoDarkColors.surface;
+  static const Color secondaryText = Color(0xFF64748B);
+  static const Color mutedText = Color(0xFF94A3B8);
 
-  static const Color darkText =
-      DojoDarkColors.text;
-
-  static const Color darkBorder =
-      DojoDarkColors.border;
+  static const Color lightText = Color(0xFF64748B);
 
   // ==========================================================
-  // STATUS
+  // BORDER / DIVIDER
   // ==========================================================
 
-  static const Color success =
-      DojoCardColors.success;
-
-  static const Color successSoft =
-      DojoCardColors.successSoft;
-
-  static const Color warning =
-      DojoCardColors.warning;
-
-  static const Color warningSoft =
-      DojoCardColors.warningSoft;
-
-  static const Color error =
-      DojoCardColors.error;
-
-  static const Color errorSoft =
-      DojoCardColors.errorSoft;
-
-  static const Color info =
-      DojoCardColors.info;
-
-  static const Color infoSoft =
-      DojoCardColors.infoSoft;
+  static const Color border = Color(0xFFE2E8F0);
+  static const Color divider = Color(0xFFE2E8F0);
 
   // ==========================================================
-  // BOTTOM NAVIGATION
+  // STATUS COLORS
   // ==========================================================
 
-  static const Color bottomBackground =
-      DojoBottomColors.lightBackground;
+  static const Color success = Color(0xFF22C55E);
+  static const Color error = Color(0xFFE76565);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color info = Color(0xFF3B82F6);
 
-  static const Color bottomSelected =
-      DojoBottomColors.lightSelected;
+  // ==========================================================
+  // COMMON UI COLORS
+  // ==========================================================
 
-  static const Color bottomUnselected =
-      DojoBottomColors.lightUnselected;
+  static const Color red = Color(0xFFEF4444);
+  static const Color green = Color(0xFF22C55E);
+  static const Color blue = Color(0xFF3B82F6);
+  static const Color grey = Color(0xFF64748B);
+
+  // ==========================================================
+  // INPUT
+  // ==========================================================
+
+  static const Color inputBackground = Color(0xFFF1F5F9);
+  static const Color inputBorder = Color(0xFFE2E8F0);
+  static const Color hint = Color(0xFF94A3B8);
+
+  // ==========================================================
+  // NAVIGATION
+  // ==========================================================
+
+  static const Color navBackground = Colors.white;
+  static const Color navSelected = Color(0xFFFF8A00);
+  static const Color navUnselected = Color(0xFF64748B);
+
+  // ==========================================================
+  // ICON
+  // ==========================================================
+
+  static const Color icon = Color(0xFF64748B);
+  static const Color primaryIcon = Color(0xFFFF8A00);
 }
