@@ -106,6 +106,18 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String _petName = 'Your Pet';
 
   // ==========================================================
+  // LEGACY TIMER COMPATIBILITY
+  //
+  // IMPORTANT:
+  // There is NO real countdown anymore.
+  //
+  // These members are kept because older Insta Walk part files
+  // may still reference them.
+  // ==========================================================
+
+  int _secondsLeft = 0;
+
+  // ==========================================================
   // INIT
   // ==========================================================
 
@@ -129,6 +141,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
+    _stopTimer();
     _stopRadar();
 
     _service.dispose();
@@ -141,7 +154,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // SAFE STATE UPDATE
   //
   // Extensions cannot directly call protected setState().
-  // All insta_walk extensions should use _updateState().
+  // All insta_walk part files should use _updateState().
   // ==========================================================
 
   void _updateState(VoidCallback callback) {
@@ -164,6 +177,50 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _activeReported = active;
 
     widget.onActiveChanged?.call(active);
+  }
+
+  // ==========================================================
+  // STOP TIMER
+  //
+  // IMPORTANT:
+  // No countdown exists anymore.
+  //
+  // This method is only retained for compatibility with older
+  // Insta Walk part files.
+  // ==========================================================
+
+  void _stopTimer() {
+    // Intentionally empty.
+    //
+    // Insta Walk search is indefinite.
+    //
+    // Search ends only when:
+    // 1. Walker accepts
+    // 2. Owner cancels
+    // 3. Request is explicitly cancelled
+  }
+
+  // ==========================================================
+  // START TIMER
+  //
+  // LEGACY COMPATIBILITY ONLY
+  // ==========================================================
+
+  void _startTimer() {
+    // Intentionally empty.
+    //
+    // There is no countdown.
+    // There is no automatic expiry.
+  }
+
+  // ==========================================================
+  // TIMER TEXT
+  //
+  // LEGACY COMPATIBILITY ONLY
+  // ==========================================================
+
+  String _timerText() {
+    return 'Searching';
   }
 
   // ==========================================================
@@ -201,9 +258,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _resetSearchState({
     bool finished = false,
   }) {
+    _stopTimer();
     _stopRadar();
 
     _requestId = null;
+    _secondsLeft = 0;
     _ownerPosition = null;
     _stopping = false;
 
@@ -226,19 +285,20 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // FINISH SEARCH
   //
   // IMPORTANT:
-  // This is now ONLY called when the request actually finishes
-  // because of cancellation / failure / other explicit state.
+  // This does NOT mean timer expired.
   //
-  // There is NO countdown.
-  // There is NO automatic expiry.
+  // It is only used when search actually ends because of an
+  // explicit state such as cancellation/failure.
   // ==========================================================
 
   void _finishSearch({
     String? message,
   }) {
+    _stopTimer();
     _stopRadar();
 
     _requestId = null;
+    _secondsLeft = 0;
     _ownerPosition = null;
     _stopping = false;
 
@@ -282,38 +342,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     });
 
     await _findWalker();
-  }
-
-  // ==========================================================
-  // SEARCH STATUS
-  //
-  // Compatibility helper for any old part-file that still
-  // references the previous timer system.
-  //
-  // IMPORTANT:
-  // This does NOTHING now.
-  // Search has no countdown.
-  // ==========================================================
-
-  void _startTimer() {
-    // Intentionally empty.
-    //
-    // Insta Walk search continues indefinitely until:
-    //
-    // 1. Walker accepts
-    // 2. Owner cancels
-    // 3. Request is explicitly cancelled
-  }
-
-  // ==========================================================
-  // TIMER TEXT
-  //
-  // Compatibility helper only.
-  // No countdown is displayed anymore.
-  // ==========================================================
-
-  String _timerText() {
-    return 'Searching';
   }
 
   // ==========================================================
@@ -362,8 +390,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
         continue;
       }
 
-      final String result =
-          value.toString().trim();
+      final String result = value.toString().trim();
 
       if (result.isNotEmpty) {
         return result;
@@ -384,8 +411,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return null;
     }
 
-    final dynamic value =
-        data['ownerLocation'];
+    final dynamic value = data['ownerLocation'];
 
     if (value is GeoPoint) {
       return Position(
