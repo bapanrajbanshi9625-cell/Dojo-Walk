@@ -19,7 +19,6 @@ part 'insta_walk_start_search.dart';
 part 'insta_walk_stop_search.dart';
 part 'insta_walk_recovery.dart';
 part 'insta_walk_walker_accepted.dart';
-
 part 'insta_walk_view.dart';
 
 // ============================================================
@@ -106,18 +105,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String _petName = 'Your Pet';
 
   // ==========================================================
-  // LEGACY TIMER COMPATIBILITY
-  //
-  // IMPORTANT:
-  // There is NO real countdown anymore.
-  //
-  // These members are kept because older Insta Walk part files
-  // may still reference them.
-  // ==========================================================
-
-  int _secondsLeft = 0;
-
-  // ==========================================================
   // INIT
   // ==========================================================
 
@@ -141,7 +128,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
-    _stopTimer();
     _stopRadar();
 
     _service.dispose();
@@ -154,7 +140,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // SAFE STATE UPDATE
   //
   // Extensions cannot directly call protected setState().
-  // All insta_walk part files should use _updateState().
+  // All insta_walk extensions should use _updateState().
   // ==========================================================
 
   void _updateState(VoidCallback callback) {
@@ -177,50 +163,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _activeReported = active;
 
     widget.onActiveChanged?.call(active);
-  }
-
-  // ==========================================================
-  // STOP TIMER
-  //
-  // IMPORTANT:
-  // No countdown exists anymore.
-  //
-  // This method is only retained for compatibility with older
-  // Insta Walk part files.
-  // ==========================================================
-
-  void _stopTimer() {
-    // Intentionally empty.
-    //
-    // Insta Walk search is indefinite.
-    //
-    // Search ends only when:
-    // 1. Walker accepts
-    // 2. Owner cancels
-    // 3. Request is explicitly cancelled
-  }
-
-  // ==========================================================
-  // START TIMER
-  //
-  // LEGACY COMPATIBILITY ONLY
-  // ==========================================================
-
-  void _startTimer() {
-    // Intentionally empty.
-    //
-    // There is no countdown.
-    // There is no automatic expiry.
-  }
-
-  // ==========================================================
-  // TIMER TEXT
-  //
-  // LEGACY COMPATIBILITY ONLY
-  // ==========================================================
-
-  String _timerText() {
-    return 'Searching';
   }
 
   // ==========================================================
@@ -258,11 +200,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _resetSearchState({
     bool finished = false,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
-    _secondsLeft = 0;
     _ownerPosition = null;
     _stopping = false;
 
@@ -284,21 +224,21 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // FINISH SEARCH
   //
-  // IMPORTANT:
-  // This does NOT mean timer expired.
+  // Insta Walk has NO countdown.
   //
-  // It is only used when search actually ends because of an
-  // explicit state such as cancellation/failure.
+  // Search continues until:
+  // 1. Walker accepts
+  // 2. Owner stops search
+  // 3. Request is explicitly cancelled
+  // 4. Recovery detects a finished/invalid request
   // ==========================================================
 
   void _finishSearch({
     String? message,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
-    _secondsLeft = 0;
     _ownerPosition = null;
     _stopping = false;
 
@@ -311,6 +251,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _searching = false;
       _searchFinished = true;
       _checkingAddress = false;
+      _recovering = false;
     });
 
     _setActive(false);
