@@ -5,7 +5,10 @@ import 'dojo_brand_colors.dart';
 class DojoTabColors {
   DojoTabColors._();
 
+  // ==========================================================
   // LIGHT
+  // ==========================================================
+
   static const Color lightSelected =
       DojoBrandColors.slate;
 
@@ -15,7 +18,10 @@ class DojoTabColors {
   static const Color lightIndicator =
       DojoBrandColors.mintTint;
 
+  // ==========================================================
   // DARK
+  // ==========================================================
+
   static const Color darkSelected =
       DojoBrandColors.mint;
 
