@@ -34,10 +34,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
       ),
       child: Row(
         children: [
-          // ------------------------------------------------------
-          // ICON
-          // ------------------------------------------------------
-
           Container(
             width: 40,
             height: 40,
@@ -45,7 +41,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
               color: const Color(0xFF65D6C8).withValues(alpha: 0.14),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFF65D6C8).withValues(alpha: 0.20),
+                color:
+                    const Color(0xFF65D6C8).withValues(alpha: 0.20),
               ),
             ),
             child: const Icon(
@@ -56,10 +53,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
 
           const SizedBox(width: 11),
-
-          // ------------------------------------------------------
-          // TITLE
-          // ------------------------------------------------------
 
           Expanded(
             child: Column(
@@ -95,17 +88,14 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
           const SizedBox(width: 8),
 
-          // ------------------------------------------------------
-          // STATUS
-          // ------------------------------------------------------
-
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 8,
               vertical: 5,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF65D6C8).withValues(alpha: 0.14),
+              color:
+                  const Color(0xFF65D6C8).withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -182,10 +172,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
 
   Widget _buildFullScreenContent() {
-    // ----------------------------------------------------------
-    // RECOVERING
-    // ----------------------------------------------------------
-
     if (_recovering) {
       return const SizedBox(
         height: 180,
@@ -197,10 +183,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
         ),
       );
     }
-
-    // ----------------------------------------------------------
-    // CONTENT
-    // ----------------------------------------------------------
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,9 +204,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         const SizedBox(height: 20),
 
-        // ------------------------------------------------------
+        // ======================================================
         // FIND BUTTON
-        // ------------------------------------------------------
+        // ======================================================
 
         if (!_searching && !_searchFinished)
           SizedBox(
@@ -234,21 +216,20 @@ extension _InstaWalkView on _InstaWalkContainerState {
               text: _checkingAddress
                   ? 'Checking location...'
                   : 'Find a Walker Now',
-              onPressed: _checkingAddress
-                  ? null
-                  : _findWalker,
+              onPressed:
+                  _checkingAddress ? null : _findWalker,
             ),
           ),
 
-        // ------------------------------------------------------
-        // SEARCHING UI
-        // ------------------------------------------------------
+        // ======================================================
+        // SEARCHING
+        // ======================================================
 
         if (_searching) _buildSearching(),
 
-        // ------------------------------------------------------
-        // RETRY UI
-        // ------------------------------------------------------
+        // ======================================================
+        // RETRY
+        // ======================================================
 
         if (_searchFinished)
           InstaWalkRetry(
@@ -263,9 +244,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
 
   Widget _buildSearching() {
-    // ----------------------------------------------------------
+    // ==========================================================
     // MAP + RADAR
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (_ownerPosition != null) {
       return Column(
@@ -284,18 +265,14 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
           const SizedBox(height: 12),
 
-          // ----------------------------------------------------
-          // STOP SEARCH
-          // ----------------------------------------------------
-
           _buildStopSearchButton(),
         ],
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // FALLBACK SEARCHING UI
-    // ----------------------------------------------------------
+    // ==========================================================
 
     return Column(
       children: [
@@ -345,10 +322,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         const SizedBox(height: 12),
 
-        // ------------------------------------------------------
-        // STOP SEARCH
-        // ------------------------------------------------------
-
         _buildStopSearchButton(),
       ],
     );
@@ -372,7 +345,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 18),
           side: BorderSide(
-            color: const Color(0xFFFF8A80).withValues(alpha: 0.45),
+            color:
+                const Color(0xFFFF8A80).withValues(alpha: 0.45),
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -419,9 +393,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
     return Row(
       children: [
-        // ------------------------------------------------------
+        // ======================================================
         // ICON
-        // ------------------------------------------------------
+        // ======================================================
 
         Container(
           width: 52,
@@ -436,7 +410,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
             borderRadius: BorderRadius.circular(17),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF65D6C8).withValues(alpha: 0.25),
+                color:
+                    const Color(0xFF65D6C8).withValues(alpha: 0.25),
                 blurRadius: 12,
               ),
             ],
@@ -450,9 +425,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         const SizedBox(width: 13),
 
-        // ------------------------------------------------------
+        // ======================================================
         // TITLE
-        // ------------------------------------------------------
+        // ======================================================
 
         Expanded(
           child: Column(
@@ -485,9 +460,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
         ),
 
-        // ------------------------------------------------------
+        // ======================================================
         // LIVE / ACTIVE
-        // ------------------------------------------------------
+        // ======================================================
 
         Container(
           padding: const EdgeInsets.symmetric(
@@ -495,10 +470,12 @@ extension _InstaWalkView on _InstaWalkContainerState {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF65D6C8).withValues(alpha: 0.12),
+            color:
+                const Color(0xFF65D6C8).withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF65D6C8).withValues(alpha: 0.25),
+              color:
+                  const Color(0xFF65D6C8).withValues(alpha: 0.25),
             ),
           ),
           child: Row(
