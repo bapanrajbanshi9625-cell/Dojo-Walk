@@ -1,21 +1,15 @@
-// File location: lib/screens/walks_screen.dart
-
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/walks/containers/active_walker_container.dart';
+import '../features/walks/widgets/walks_offer_slider.dart';
 
 import 'custom_app_bar.dart';
 
 class WalksScreen extends StatelessWidget {
   const WalksScreen({super.key});
 
-  static const Color navy = Color(0xFF263746);
-  static const Color slate = Color(0xFF475569);
   static const Color background = Color(0xFFEDEFF2);
-
-  static const Color primary = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -35,57 +29,18 @@ class WalksScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           15,
-          18,
+          12,
           15,
           110,
         ),
         children: [
           // ==================================================
-          // TITLE
+          // OFFER / BANNER SLIDER
           // ==================================================
 
-          Row(
-            children: [
-              Container(
-                height: 21,
-                width: 4,
-                decoration: BoxDecoration(
-                  color: primary,
-                  borderRadius:
-                      BorderRadius.circular(5),
-                ),
-              ),
+          const WalksOfferSlider(),
 
-              const SizedBox(
-                width: 9,
-              ),
-
-              const Text(
-                'Walks',
-                style: TextStyle(
-                  color: navy,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(
-            height: 5,
-          ),
-
-          const Text(
-            'Find and manage your dog walks.',
-            style: TextStyle(
-              color: slate,
-              fontSize: 12,
-            ),
-          ),
-
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 12),
 
           // ==================================================
           // INSTA WALK
@@ -95,13 +50,11 @@ class WalksScreen extends StatelessWidget {
             fullScreen: true,
           ),
 
+          const SizedBox(height: 4),
+
           // ==================================================
           // ACTIVE WALKER
           // ==================================================
-
-          const SizedBox(
-            height: 4,
-          ),
 
           ActiveWalkerContainer(),
         ],
