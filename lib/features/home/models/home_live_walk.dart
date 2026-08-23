@@ -9,6 +9,8 @@ class HomeLiveWalk {
   final String? walkerPhone;
   final String status;
   final DateTime? startedAt;
+  final double currentLat;
+  final double currentLng;
 
   const HomeLiveWalk({
     required this.documentId,
@@ -19,30 +21,19 @@ class HomeLiveWalk {
     required this.walkerPhone,
     required this.status,
     required this.startedAt,
+    required this.currentLat,
+    required this.currentLng,
   });
 
   factory HomeLiveWalk.fromFirestore(
     String documentId,
     Map<String, dynamic> data,
   ) {
-    final dynamic startedAtValue =
-        data['startedAt'] ??
-        data['startTime'] ??
-        data['started_at'];
-
-    final String walkerName =
-        _string(
-          data['walkerName'] ??
-              data['walker'],
-          fallback: 'Walker',
-        );
-
-    final String walkerPhone =
-        _string(
-          data['walkerPhone'] ??
-              data['walkerMobile'] ??
-              data['phone'],
-        );
+    final String phone = _string(
+      data['walkerPhone'] ??
+          data['walkerMobile'] ??
+          data['phone'],
+    );
 
     return HomeLiveWalk(
       documentId: documentId,
@@ -55,8 +46,7 @@ class HomeLiveWalk {
       ),
 
       ownerId: _string(
-        data['ownerId'] ??
-            data['ownerUid'],
+        data['ownerId'],
       ),
 
       walkerId: _string(
@@ -65,12 +55,12 @@ class HomeLiveWalk {
             data['walkerUID'],
       ),
 
-      walkerName: walkerName,
+      walkerName: _string(
+        data['walkerName'],
+        fallback: 'Walker',
+      ),
 
-      walkerPhone:
-          walkerPhone.isEmpty
-              ? null
-              : walkerPhone,
+      walkerPhone: phone.isEmpty ? null : phone,
 
       status: _string(
         data['status'] ??
@@ -79,10 +69,21 @@ class HomeLiveWalk {
         fallback: 'active',
       ),
 
-      startedAt:
-          startedAtValue == null
-              ? null
-              : _date(startedAtValue),
+      startedAt: _date(
+        data['startedAt'] ??
+            data['startTime'] ??
+            data['started_at'],
+      ),
+
+      currentLat: _double(
+        data['currentLat'] ??
+            data['latitude'],
+      ),
+
+      currentLng: _double(
+        data['currentLng'] ??
+            data['longitude'],
+      ),
     );
   }
 
@@ -94,12 +95,20 @@ class HomeLiveWalk {
       return fallback;
     }
 
-    final String result =
-        value.toString().trim();
+    final String result = value.toString().trim();
 
-    return result.isEmpty
-        ? fallback
-        : result;
+    return result.isEmpty ? fallback : result;
+  }
+
+  static double _double(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+          value?.toString().trim() ?? '',
+        ) ??
+        0;
   }
 
   static DateTime? _date(dynamic value) {
