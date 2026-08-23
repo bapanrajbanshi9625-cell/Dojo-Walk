@@ -27,11 +27,8 @@ part 'insta_walk_view.dart';
 
 class InstaWalkContainer extends StatefulWidget {
   final VoidCallback? onWalkerFound;
-
   final ValueChanged<bool>? onActiveChanged;
-
   final bool fullScreen;
-
   final VoidCallback? onTap;
 
   const InstaWalkContainer({
@@ -138,9 +135,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // SAFE STATE UPDATE
-  //
-  // Extensions cannot directly call protected setState().
-  // All insta_walk extensions should use _updateState().
   // ==========================================================
 
   void _updateState(VoidCallback callback) {
@@ -224,13 +218,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // FINISH SEARCH
   //
-  // Insta Walk has NO countdown.
-  //
-  // Search continues until:
-  // 1. Walker accepts
-  // 2. Owner stops search
-  // 3. Request is explicitly cancelled
-  // 4. Recovery detects a finished/invalid request
+  // No countdown timer.
+  // Search ends only when explicitly stopped,
+  // accepted, cancelled or recovery finds invalid state.
   // ==========================================================
 
   void _finishSearch({
@@ -256,8 +246,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
     _setActive(false);
 
-    if (message != null &&
-        message.trim().isNotEmpty) {
+    if (message != null && message.trim().isNotEmpty) {
       _message(message);
     }
   }
@@ -370,6 +359,29 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     return null;
+  }
+
+  // ==========================================================
+  // TIMER COMPATIBILITY
+  //
+  // IMPORTANT:
+  // Insta Walk no longer uses a countdown timer.
+  //
+  // Older part files may still call these methods.
+  // Keeping these compatibility methods prevents the
+  // old part files from producing undefined-method errors.
+  // ==========================================================
+
+  void _startTimer() {
+    // No countdown timer.
+  }
+
+  void _stopTimer() {
+    // No countdown timer.
+  }
+
+  String _timerText() {
+    return 'Searching';
   }
 
   // ==========================================================
