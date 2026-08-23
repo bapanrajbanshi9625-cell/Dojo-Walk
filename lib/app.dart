@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'core/constants/app_colors.dart';
 import 'core/network/network_monitor.dart';
+import 'core/theme/colors/dojo_brand_colors.dart';
 import 'screens/splash_screen.dart';
 
 class DojoWalk extends StatelessWidget {
@@ -16,11 +16,14 @@ class DojoWalk extends StatelessWidget {
 
       theme: ThemeData(
         primarySwatch: Colors.orange,
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+
+        scaffoldBackgroundColor:
+            const Color(0xFFF8FAF9),
+
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
-          secondary: AppColors.secondary,
+          seedColor: DojoBrandColors.orange,
+          primary: DojoBrandColors.orange,
+          secondary: DojoBrandColors.mint,
         ),
       ),
 
