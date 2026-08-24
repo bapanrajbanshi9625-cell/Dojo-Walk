@@ -10,8 +10,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// ============================================================
 
 class QRData {
-  final String ownerId; // Owner Business ID
-  final String ownerUid; // Firebase Auth UID
+  final String ownerId;
+  final String ownerUid;
 
   final String ownerName;
   final String walkId;
@@ -58,17 +58,12 @@ class QRData {
     return {
       'type': 'dojo_owner_qr',
       'version': 1,
-
-      // Owner identity
       'ownerId': ownerId,
       'ownerUid': ownerUid,
-
       'ownerName': ownerName,
       'walkId': walkId,
-
       'dogName': dogName,
       'dogBreed': dogBreed,
-
       if (ownerPhone != null && ownerPhone!.isNotEmpty)
         'ownerPhone': ownerPhone,
     };
@@ -115,22 +110,16 @@ class QRScanState {
     return QRScanState(
       scanned: data['scanned'] == true,
       connected: data['connected'] == true,
-
       ownerId:
           (data['ownerId'] ?? '').toString().trim(),
-
       ownerUid:
           (data['ownerUid'] ?? '').toString().trim(),
-
       walkerId:
           (data['walkerId'] ?? '').toString().trim(),
-
       walkerUid:
           (data['walkerUid'] ?? '').toString().trim(),
-
       walkerName:
           (data['walkerName'] ?? '').toString().trim(),
-
       walkId:
           (data['walkId'] ?? '').toString().trim(),
     );
@@ -184,7 +173,7 @@ class QRService {
     }
 
     // ==========================================================
-    // OWNER FIREBASE AUTH UID
+    // FIREBASE AUTH UID
     // ==========================================================
 
     final String ownerUid =
@@ -198,6 +187,13 @@ class QRService {
 
     // ==========================================================
     // OWNER DATA
+    //
+    // Actual Firestore structure:
+    //
+    // owners/{OWNER BUSINESS ID}
+    //
+    // Example:
+    // owners/OWN26GS0003
     // ==========================================================
 
     String ownerId = '';
@@ -207,38 +203,61 @@ class QRService {
     String dogBreed = '';
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>>
-          ownerDoc =
+      // --------------------------------------------------------
+      // FIND OWNER DOCUMENT BY AUTH UID
+      //
+      // Actual document ID is Business ID.
+      // Therefore we query authUid instead of using
+      // .doc(ownerUid).
+      // --------------------------------------------------------
+
+      final QuerySnapshot<Map<String, dynamic>>
+          ownerQuery =
           await _firestore
               .collection('owners')
-              .doc(ownerUid)
+              .where(
+                'authUid',
+                isEqualTo: ownerUid,
+              )
+              .limit(1)
               .get();
+
+      if (ownerQuery.docs.isEmpty) {
+        throw Exception(
+          'Owner profile not found for this account.',
+        );
+      }
+
+      final DocumentSnapshot<Map<String, dynamic>>
+          ownerDoc =
+          ownerQuery.docs.first;
 
       final Map<String, dynamic> data =
           ownerDoc.data() ??
               <String, dynamic>{};
 
-      // ========================================================
+      // --------------------------------------------------------
       // OWNER BUSINESS ID
-      // ========================================================
+      //
+      // Document ID is the Business ID.
+      // Example:
+      // OWN26GS0003
+      // --------------------------------------------------------
 
       ownerId =
-          (
-            data['ownerId'] ??
-            data['Owner Id'] ??
-            data['Owner ID'] ??
-            data['ownerBusinessId'] ??
-            data['ownerBusinessID'] ??
-            data['businessId'] ??
-            data['Business ID'] ??
-            ''
-          )
-              .toString()
-              .trim();
+          ownerDoc.id.trim();
 
-      // ========================================================
+      // Fallback to field if document ID is somehow empty.
+      if (ownerId.isEmpty) {
+        ownerId =
+            (data['ownerId'] ?? '')
+                .toString()
+                .trim();
+      }
+
+      // --------------------------------------------------------
       // OWNER NAME
-      // ========================================================
+      // --------------------------------------------------------
 
       ownerName =
           (
@@ -252,12 +271,14 @@ class QRService {
               .toString()
               .trim();
 
-      // ========================================================
+      // --------------------------------------------------------
       // OWNER PHONE
-      // ========================================================
+      // --------------------------------------------------------
 
       ownerPhone =
           (
+            data['phone'] ??
+            data['mainPhone'] ??
             data['ownerPhone'] ??
             data['phoneNumber'] ??
             data['Mobile number'] ??
@@ -267,41 +288,89 @@ class QRService {
               .toString()
               .trim();
 
-      // ========================================================
-      // DOG NAME
-      // ========================================================
+      // --------------------------------------------------------
+      // PET DATA
+      //
+      // Actual Firestore structure:
+      //
+      // pets: [
+      //   {
+      //     name: "...",
+      //     breed: "...",
+      //     age: "...",
+      //     behaviour: "..."
+      //   }
+      // ]
+      // --------------------------------------------------------
 
-      dogName =
-          (
-            data['dogName'] ??
-            data['Dog Name'] ??
-            data['petName'] ??
-            data['Pet Name'] ??
-            'Dog'
-          )
-              .toString()
-              .trim();
+      final dynamic petsValue =
+          data['pets'];
 
-      // ========================================================
-      // DOG BREED
-      // ========================================================
+      if (petsValue is List &&
+          petsValue.isNotEmpty) {
+        final dynamic firstPet =
+            petsValue.first;
 
-      dogBreed =
-          (
-            data['dogBreed'] ??
-            data['Dog Breed'] ??
-            data['breed'] ??
-            data['Breed'] ??
-            ''
-          )
-              .toString()
-              .trim();
-    } catch (_) {
-      // Safe fallback.
+        if (firstPet is Map) {
+          dogName =
+              (
+                firstPet['name'] ??
+                firstPet['Name'] ??
+                'Dog'
+              )
+                  .toString()
+                  .trim();
+
+          dogBreed =
+              (
+                firstPet['breed'] ??
+                firstPet['Breed'] ??
+                ''
+              )
+                  .toString()
+                  .trim();
+        }
+      }
+
+      // --------------------------------------------------------
+      // FALLBACK FOR OLD DOG FIELDS
+      // --------------------------------------------------------
+
+      if (dogName.isEmpty || dogName == 'Dog') {
+        dogName =
+            (
+              data['dogName'] ??
+              data['Dog Name'] ??
+              data['petName'] ??
+              data['Pet Name'] ??
+              'Dog'
+            )
+                .toString()
+                .trim();
+      }
+
+      if (dogBreed.isEmpty) {
+        dogBreed =
+            (
+              data['dogBreed'] ??
+              data['Dog Breed'] ??
+              data['breed'] ??
+              data['Breed'] ??
+              ''
+            )
+                .toString()
+                .trim();
+      }
+    } catch (e) {
+      debugPrint(
+        'Owner QR profile lookup error: $e',
+      );
+
+      rethrow;
     }
 
     // ==========================================================
-    // OWNER BUSINESS ID IS REQUIRED
+    // VALIDATE OWNER BUSINESS ID
     // ==========================================================
 
     if (ownerId.isEmpty) {
@@ -333,7 +402,6 @@ class QRService {
       'type': 'dojo_owner_qr',
       'version': 1,
 
-      // Owner identity
       'ownerId': ownerId,
       'ownerUid': ownerUid,
 
@@ -352,13 +420,15 @@ class QRService {
         jsonEncode(payload);
 
     // ==========================================================
-    // FIRESTORE CONNECTION
+    // FIRESTORE QR CONNECTION
     //
-    // IMPORTANT:
-    // Document ID = OWNER BUSINESS ID
+    // Document ID:
+    // OWN26GS0003
     // ==========================================================
 
-    await _connections.doc(ownerId).set(
+    await _connections
+        .doc(ownerId)
+        .set(
       {
         'type': 'dojo_owner_qr',
         'version': 1,
@@ -366,7 +436,6 @@ class QRService {
         // OWNER
         'ownerId': ownerId,
         'ownerUid': ownerUid,
-
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
@@ -436,7 +505,9 @@ class QRService {
   ) {
     if (ownerId.trim().isEmpty) {
       return Stream<QRScanState>.error(
-        Exception('Invalid owner ID.'),
+        Exception(
+          'Invalid owner ID.',
+        ),
       );
     }
 
