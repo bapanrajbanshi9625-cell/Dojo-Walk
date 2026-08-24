@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +10,6 @@ import 'insta_walk_map_radar.dart';
 import 'insta_walk_retry.dart';
 import 'insta_walk_search_button.dart';
 import 'insta_walk_searching.dart';
-import '../../../screens/address_screen.dart';
 
 part 'insta_walk_find_walker.dart';
 part 'insta_walk_start_search.dart';
@@ -102,16 +99,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String _petName = 'Your Pet';
 
   // ==========================================================
-  // TIMER COMPATIBILITY
+  // COMPATIBILITY
+  //
+  // Kept because recovery/other part files may reference it.
   //
   // IMPORTANT:
-  // Search DOES NOT depend on this timer.
-  //
-  // Existing part files may still reference these members,
-  // so they are retained only for compatibility.
+  // There is NO timer and NO automatic expiry.
   // ==========================================================
-
-  Timer? _searchTimer;
 
   int _secondsLeft = 0;
 
@@ -130,16 +124,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       duration: const Duration(seconds: 2),
     );
 
-    // ========================================================
-    // IMPORTANT
-    //
-    // On every creation of this container we check Firestore.
-    //
-    // Therefore:
-    // Screen change -> screen recreated -> active request found
-    // App reopened  -> active request found
-    // ========================================================
-
     _recoverSearch();
   }
 
@@ -149,10 +133,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
-    _stopTimer();
     _stopRadar();
 
-    // Service cancels Firestore listener.
     _service.dispose();
 
     _radarController.dispose();
@@ -215,69 +197,12 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // START TIMER
-  //
-  // Compatibility only.
-  //
-  // THIS TIMER DOES NOT END THE SEARCH.
-  // ==========================================================
-
-  void _startTimer() {
-    _stopTimer();
-
-    if (!mounted) {
-      return;
-    }
-
-    if (_secondsLeft <= 0) {
-      _secondsLeft = 30;
-    }
-
-    _searchTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (Timer timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-
-        if (!_searching) {
-          timer.cancel();
-          return;
-        }
-
-        if (_secondsLeft > 0) {
-          _secondsLeft--;
-        }
-
-        // ======================================================
-        // IMPORTANT
-        //
-        // DO NOT stop searching when seconds become zero.
-        //
-        // Firestore decides the actual request state.
-        // ======================================================
-      },
-    );
-  }
-
-  // ==========================================================
-  // STOP TIMER
-  // ==========================================================
-
-  void _stopTimer() {
-    _searchTimer?.cancel();
-    _searchTimer = null;
-  }
-
-  // ==========================================================
   // RESET SEARCH STATE
   // ==========================================================
 
   void _resetSearchState({
     bool finished = false,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
@@ -303,20 +228,15 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // FINISH SEARCH
   //
-  // Search only finishes when:
+  // Search finishes ONLY when Firestore/request state says so.
   //
-  // 1. Walker accepted
-  // 2. Owner cancelled
-  // 3. Request explicitly cancelled
-  // 4. Old/manual expired request is detected
-  //
-  // NO automatic timer expiry.
+  // NO TIMER
+  // NO AUTOMATIC EXPIRY
   // ==========================================================
 
   void _finishSearch({
     String? message,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
