@@ -38,10 +38,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
       ),
       child: Row(
         children: [
-          // ----------------------------------------------------
-          // ICON
-          // ----------------------------------------------------
-
           Container(
             width: 36,
             height: 36,
@@ -65,10 +61,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
           const SizedBox(width: 10),
 
-          // ----------------------------------------------------
-          // TEXT
-          // ----------------------------------------------------
-
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -84,9 +76,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-
                 const SizedBox(height: 2),
-
                 Text(
                   _searching
                       ? 'Finding walker for $_petName'
@@ -104,10 +94,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
 
           const SizedBox(width: 7),
-
-          // ----------------------------------------------------
-          // STATUS
-          // ----------------------------------------------------
 
           Container(
             padding: const EdgeInsets.symmetric(
@@ -159,9 +145,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
   Widget _buildFullScreen() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        15,
+        8,
         6,
-        15,
+        8,
         12,
       ),
       child: Container(
@@ -235,10 +221,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         const SizedBox(height: 12),
 
-        // ======================================================
-        // FIND WALKER BUTTON
-        // ======================================================
-
         if (!_searching && !_searchFinished)
           InstaWalkSearchButton(
             loading: _checkingAddress,
@@ -250,15 +232,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 : _findWalker,
           ),
 
-        // ======================================================
-        // SEARCHING
-        // ======================================================
-
         if (_searching) _buildSearching(),
-
-        // ======================================================
-        // RETRY
-        // ======================================================
 
         if (_searchFinished)
           InstaWalkRetry(
@@ -419,10 +393,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
     return Row(
       children: [
-        // ------------------------------------------------------
-        // ICON
-        // ------------------------------------------------------
-
         Container(
           width: 46,
           height: 46,
@@ -451,10 +421,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
         ),
 
         const SizedBox(width: 11),
-
-        // ------------------------------------------------------
-        // TITLE
-        // ------------------------------------------------------
 
         Expanded(
           child: Column(
@@ -488,10 +454,6 @@ extension _InstaWalkView on _InstaWalkContainerState {
         ),
 
         const SizedBox(width: 7),
-
-        // ------------------------------------------------------
-        // STATUS
-        // ------------------------------------------------------
 
         Container(
           padding: const EdgeInsets.symmetric(
