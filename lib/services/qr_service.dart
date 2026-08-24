@@ -1,6 +1,5 @@
 // File: lib/services/qr_service.dart
 
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,7 +10,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// ============================================================
 
 class QRData {
-  final String ownerId;
+  final String ownerId; // Owner Business ID
+  final String ownerUid; // Firebase Auth UID
+
   final String ownerName;
   final String walkId;
   final String dogName;
@@ -21,6 +22,7 @@ class QRData {
 
   const QRData({
     required this.ownerId,
+    required this.ownerUid,
     required this.ownerName,
     required this.walkId,
     required this.dogName,
@@ -35,6 +37,7 @@ class QRData {
   }) {
     return QRData(
       ownerId: (map['ownerId'] ?? '').toString().trim(),
+      ownerUid: (map['ownerUid'] ?? '').toString().trim(),
       ownerName:
           (map['ownerName'] ?? 'Owner').toString().trim(),
       walkId:
@@ -55,11 +58,17 @@ class QRData {
     return {
       'type': 'dojo_owner_qr',
       'version': 1,
+
+      // Owner identity
       'ownerId': ownerId,
+      'ownerUid': ownerUid,
+
       'ownerName': ownerName,
       'walkId': walkId,
+
       'dogName': dogName,
       'dogBreed': dogBreed,
+
       if (ownerPhone != null && ownerPhone!.isNotEmpty)
         'ownerPhone': ownerPhone,
     };
@@ -79,7 +88,10 @@ class QRScanState {
   final bool connected;
 
   final String ownerId;
+  final String ownerUid;
+
   final String walkerId;
+  final String walkerUid;
   final String walkerName;
   final String walkId;
 
@@ -87,7 +99,9 @@ class QRScanState {
     this.scanned = false,
     this.connected = false,
     this.ownerId = '',
+    this.ownerUid = '',
     this.walkerId = '',
+    this.walkerUid = '',
     this.walkerName = '',
     this.walkId = '',
   });
@@ -101,10 +115,24 @@ class QRScanState {
     return QRScanState(
       scanned: data['scanned'] == true,
       connected: data['connected'] == true,
-      ownerId: (data['ownerId'] ?? '').toString(),
-      walkerId: (data['walkerId'] ?? '').toString(),
-      walkerName: (data['walkerName'] ?? '').toString(),
-      walkId: (data['walkId'] ?? '').toString(),
+
+      ownerId:
+          (data['ownerId'] ?? '').toString().trim(),
+
+      ownerUid:
+          (data['ownerUid'] ?? '').toString().trim(),
+
+      walkerId:
+          (data['walkerId'] ?? '').toString().trim(),
+
+      walkerUid:
+          (data['walkerUid'] ?? '').toString().trim(),
+
+      walkerName:
+          (data['walkerName'] ?? '').toString().trim(),
+
+      walkId:
+          (data['walkId'] ?? '').toString().trim(),
     );
   }
 
@@ -114,7 +142,9 @@ class QRScanState {
         'scanned: $scanned, '
         'connected: $connected, '
         'ownerId: $ownerId, '
+        'ownerUid: $ownerUid, '
         'walkerId: $walkerId, '
+        'walkerUid: $walkerUid, '
         'walkerName: $walkerName, '
         'walkId: $walkId'
         ')';
@@ -153,32 +183,62 @@ class QRService {
       );
     }
 
-    final String uid = user.uid.trim();
+    // ==========================================================
+    // OWNER FIREBASE AUTH UID
+    // ==========================================================
 
-    if (uid.isEmpty) {
+    final String ownerUid =
+        user.uid.trim();
+
+    if (ownerUid.isEmpty) {
       throw Exception(
         'Owner account is invalid.',
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // OWNER DATA
-    // ----------------------------------------------------------
+    // ==========================================================
 
+    String ownerId = '';
     String ownerName = 'Owner';
     String ownerPhone = '';
     String dogName = 'Dog';
     String dogBreed = '';
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> ownerDoc =
+      final DocumentSnapshot<Map<String, dynamic>>
+          ownerDoc =
           await _firestore
               .collection('owners')
-              .doc(uid)
+              .doc(ownerUid)
               .get();
 
       final Map<String, dynamic> data =
-          ownerDoc.data() ?? <String, dynamic>{};
+          ownerDoc.data() ??
+              <String, dynamic>{};
+
+      // ========================================================
+      // OWNER BUSINESS ID
+      // ========================================================
+
+      ownerId =
+          (
+            data['ownerId'] ??
+            data['Owner Id'] ??
+            data['Owner ID'] ??
+            data['ownerBusinessId'] ??
+            data['ownerBusinessID'] ??
+            data['businessId'] ??
+            data['Business ID'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      // ========================================================
+      // OWNER NAME
+      // ========================================================
 
       ownerName =
           (
@@ -192,6 +252,10 @@ class QRService {
               .toString()
               .trim();
 
+      // ========================================================
+      // OWNER PHONE
+      // ========================================================
+
       ownerPhone =
           (
             data['ownerPhone'] ??
@@ -202,6 +266,10 @@ class QRService {
           )
               .toString()
               .trim();
+
+      // ========================================================
+      // DOG NAME
+      // ========================================================
 
       dogName =
           (
@@ -214,6 +282,10 @@ class QRService {
               .toString()
               .trim();
 
+      // ========================================================
+      // DOG BREED
+      // ========================================================
+
       dogBreed =
           (
             data['dogBreed'] ??
@@ -225,7 +297,17 @@ class QRService {
               .toString()
               .trim();
     } catch (_) {
-      // Keep safe fallback values.
+      // Safe fallback.
+    }
+
+    // ==========================================================
+    // OWNER BUSINESS ID IS REQUIRED
+    // ==========================================================
+
+    if (ownerId.isEmpty) {
+      throw Exception(
+        'Owner Business ID not found.',
+      );
     }
 
     if (ownerName.isEmpty) {
@@ -236,22 +318,25 @@ class QRService {
       dogName = 'Dog';
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // WALK ID
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String walkId =
         'walk_${DateTime.now().millisecondsSinceEpoch}';
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // QR PAYLOAD
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final Map<String, dynamic> payload = {
       'type': 'dojo_owner_qr',
       'version': 1,
 
-      'ownerId': uid,
+      // Owner identity
+      'ownerId': ownerId,
+      'ownerUid': ownerUid,
+
       'ownerName': ownerName,
 
       'walkId': walkId,
@@ -266,32 +351,42 @@ class QRService {
     final String qrPayload =
         jsonEncode(payload);
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // FIRESTORE CONNECTION
-    // ----------------------------------------------------------
+    //
+    // IMPORTANT:
+    // Document ID = OWNER BUSINESS ID
+    // ==========================================================
 
-    await _connections.doc(uid).set(
+    await _connections.doc(ownerId).set(
       {
         'type': 'dojo_owner_qr',
         'version': 1,
 
-        'ownerId': uid,
-        'ownerUid': uid,
+        // OWNER
+        'ownerId': ownerId,
+        'ownerUid': ownerUid,
 
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
+        // WALK
         'walkId': walkId,
 
+        // DOG
         'dogName': dogName,
         'dogBreed': dogBreed,
 
+        // CONNECTION
         'scanned': false,
         'connected': false,
 
+        // WALKER
         'walkerId': null,
+        'walkerUid': null,
         'walkerName': null,
 
+        // LIVE WALK
         'activeWalkId': null,
 
         'createdAt':
@@ -305,14 +400,21 @@ class QRService {
       ),
     );
 
+    // ==========================================================
+    // RETURN QR DATA
+    // ==========================================================
+
     return QRData(
-      ownerId: uid,
+      ownerId: ownerId,
+      ownerUid: ownerUid,
       ownerName: ownerName,
       walkId: walkId,
       dogName: dogName,
       dogBreed: dogBreed,
       ownerPhone:
-          ownerPhone.isEmpty ? null : ownerPhone,
+          ownerPhone.isEmpty
+              ? null
+              : ownerPhone,
       qrPayload: qrPayload,
     );
   }
@@ -339,11 +441,12 @@ class QRService {
     }
 
     return _connections
-        .doc(ownerId)
+        .doc(ownerId.trim())
         .snapshots()
         .map(
       (
-        DocumentSnapshot<Map<String, dynamic>> snapshot,
+        DocumentSnapshot<Map<String, dynamic>>
+            snapshot,
       ) {
         if (!snapshot.exists) {
           return const QRScanState();
@@ -363,35 +466,49 @@ class QRService {
   Future<void> markWalkerConnected({
     required String ownerId,
     required String walkerId,
+    required String walkerUid,
     String walkerName = '',
     String? walkId,
   }) async {
     if (ownerId.trim().isEmpty) {
       throw Exception(
-        'Owner ID is required.',
+        'Owner Business ID is required.',
       );
     }
 
     if (walkerId.trim().isEmpty) {
       throw Exception(
-        'Walker ID is required.',
+        'Walker Business ID is required.',
       );
     }
 
-    await _connections.doc(ownerId).set(
+    if (walkerUid.trim().isEmpty) {
+      throw Exception(
+        'Walker Firebase UID is required.',
+      );
+    }
+
+    await _connections
+        .doc(ownerId.trim())
+        .set(
       {
-        'ownerId': ownerId,
-        'walkerId': walkerId,
-        'walkerName': walkerName,
+        'ownerId': ownerId.trim(),
+
+        'walkerId': walkerId.trim(),
+        'walkerUid': walkerUid.trim(),
+        'walkerName': walkerName.trim(),
 
         'scanned': true,
         'connected': true,
 
         if (walkId != null &&
             walkId.trim().isNotEmpty)
-          'walkId': walkId,
+          'walkId': walkId.trim(),
 
-        'activeWalkId': walkId,
+        'activeWalkId':
+            walkId?.trim().isNotEmpty == true
+                ? walkId!.trim()
+                : null,
 
         'updatedAt':
             FieldValue.serverTimestamp(),
@@ -409,32 +526,43 @@ class QRService {
   Future<void> markScanned({
     required String ownerId,
     required String walkerId,
+    required String walkerUid,
     String walkerName = '',
     String? walkId,
   }) async {
     if (ownerId.trim().isEmpty) {
       throw Exception(
-        'Owner ID is required.',
+        'Owner Business ID is required.',
       );
     }
 
     if (walkerId.trim().isEmpty) {
       throw Exception(
-        'Walker ID is required.',
+        'Walker Business ID is required.',
       );
     }
 
-    await _connections.doc(ownerId).set(
+    if (walkerUid.trim().isEmpty) {
+      throw Exception(
+        'Walker Firebase UID is required.',
+      );
+    }
+
+    await _connections
+        .doc(ownerId.trim())
+        .set(
       {
-        'ownerId': ownerId,
-        'walkerId': walkerId,
-        'walkerName': walkerName,
+        'ownerId': ownerId.trim(),
+
+        'walkerId': walkerId.trim(),
+        'walkerUid': walkerUid.trim(),
+        'walkerName': walkerName.trim(),
 
         'scanned': true,
 
         if (walkId != null &&
             walkId.trim().isNotEmpty)
-          'walkId': walkId,
+          'walkId': walkId.trim(),
 
         'updatedAt':
             FieldValue.serverTimestamp(),
@@ -456,12 +584,15 @@ class QRService {
       return;
     }
 
-    await _connections.doc(ownerId).set(
+    await _connections
+        .doc(ownerId.trim())
+        .set(
       {
         'scanned': false,
         'connected': false,
 
         'walkerId': null,
+        'walkerUid': null,
         'walkerName': null,
 
         'activeWalkId': null,
@@ -487,7 +618,7 @@ class QRService {
     }
 
     await _connections
-        .doc(ownerId)
+        .doc(ownerId.trim())
         .delete();
   }
 
@@ -527,7 +658,9 @@ class QRService {
         Map<String, dynamic>.from(decoded);
 
     final String type =
-        (data['type'] ?? '').toString().trim();
+        (data['type'] ?? '')
+            .toString()
+            .trim();
 
     if (type != 'dojo_owner_qr') {
       throw const FormatException(
@@ -535,17 +668,44 @@ class QRService {
       );
     }
 
+    // ==========================================================
+    // OWNER BUSINESS ID
+    // ==========================================================
+
     final String ownerId =
-        (data['ownerId'] ?? '').toString().trim();
+        (data['ownerId'] ?? '')
+            .toString()
+            .trim();
 
     if (ownerId.isEmpty) {
       throw const FormatException(
-        'Owner ID missing from QR.',
+        'Owner Business ID missing from QR.',
       );
     }
 
+    // ==========================================================
+    // OWNER FIREBASE UID
+    // ==========================================================
+
+    final String ownerUid =
+        (data['ownerUid'] ?? '')
+            .toString()
+            .trim();
+
+    if (ownerUid.isEmpty) {
+      throw const FormatException(
+        'Owner Firebase UID missing from QR.',
+      );
+    }
+
+    // ==========================================================
+    // WALK ID
+    // ==========================================================
+
     final String walkId =
-        (data['walkId'] ?? '').toString().trim();
+        (data['walkId'] ?? '')
+            .toString()
+            .trim();
 
     if (walkId.isEmpty) {
       throw const FormatException(
