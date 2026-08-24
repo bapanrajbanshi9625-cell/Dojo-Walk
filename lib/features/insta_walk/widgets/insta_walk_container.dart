@@ -99,16 +99,23 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String _petName = 'Your Pet';
 
   // ==========================================================
-  // LEGACY COMPATIBILITY
-  //
-  // Old part files may still reference this field.
+  // TIMER COMPATIBILITY
   //
   // IMPORTANT:
-  // This is NOT a countdown.
-  // Insta Walk does NOT automatically expire.
+  // Insta Walk has NO countdown.
+  // Insta Walk has NO automatic expiry.
+  //
+  // Some older part files still call _stopTimer().
+  // Keep the method so those files continue to compile.
+  // It intentionally does nothing.
   // ==========================================================
 
-  int _secondsLeft = 0;
+  void _stopTimer() {
+    // Intentionally empty.
+    //
+    // Insta Walk requests remain active until Firestore
+    // changes the request status.
+  }
 
   // ==========================================================
   // INIT
@@ -142,20 +149,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _radarController.dispose();
 
     super.dispose();
-  }
-
-  // ==========================================================
-  // TIMER COMPATIBILITY
-  //
-  // IMPORTANT:
-  // There is intentionally NO timer.
-  //
-  // Older Insta Walk part files may call _stopTimer().
-  // We keep this method so all part files compile.
-  // ==========================================================
-
-  void _stopTimer() {
-    _secondsLeft = 0;
   }
 
   // ==========================================================
@@ -236,7 +229,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _searchFinished = finished;
       _checkingAddress = false;
       _recovering = false;
-      _secondsLeft = 0;
     });
 
     _setActive(false);
@@ -245,13 +237,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // FINISH SEARCH
   //
-  // Search finishes ONLY when request state says so:
+  // Search finishes ONLY when Firestore/request state says so.
   //
-  // 1. Walker accepted
-  // 2. Owner cancelled
-  // 3. Request cancelled/expired manually
+  // There is:
   //
-  // NO AUTOMATIC TIMER
+  // NO TIMER
+  // NO COUNTDOWN
+  // NO AUTOMATIC EXPIRY
   // ==========================================================
 
   void _finishSearch({
@@ -274,12 +266,12 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _searchFinished = true;
       _checkingAddress = false;
       _recovering = false;
-      _secondsLeft = 0;
     });
 
     _setActive(false);
 
-    if (message != null && message.trim().isNotEmpty) {
+    if (message != null &&
+        message.trim().isNotEmpty) {
       _message(message);
     }
   }
