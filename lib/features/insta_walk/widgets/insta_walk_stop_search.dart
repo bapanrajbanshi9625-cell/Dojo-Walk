@@ -58,7 +58,6 @@ extension _StopSearchRole on _InstaWalkContainerState {
       // --------------------------------------------------------
 
       if (cancelled) {
-        _stopTimer();
         _stopRadar();
 
         _requestId = null;
