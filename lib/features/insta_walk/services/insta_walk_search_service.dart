@@ -3,12 +3,30 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+// ============================================================
+// INSTA WALK SEARCH SERVICE
+//
+// FIRESTORE IS THE SOURCE OF TRUTH.
+//
+// Search does NOT automatically expire.
+//
+// Search remains active until:
+//
+// 1. Owner stops it
+// 2. Walker accepts it
+// 3. Request is explicitly cancelled
+//
+// App close / background / screen change does NOT cancel it.
+// ============================================================
+
 class InstaWalkSearchService {
   InstaWalkSearchService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  })  : _firestore =
+            firestore ?? FirebaseFirestore.instance,
+        _auth =
+            auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -17,30 +35,24 @@ class InstaWalkSearchService {
   // COLLECTIONS
   // ============================================================
 
-  static const String walkRequestsCollection = 'walk_requests';
-  static const String ownerProfilesCollection = 'ownerProfiles';
+  static const String walkRequestsCollection =
+      'walk_requests';
+
+  static const String ownerProfilesCollection =
+      'ownerProfiles';
 
   // ============================================================
   // SEARCH CONFIGURATION
   // ============================================================
 
-  // Search radius remains 3 KM.
-  //
-  // IMPORTANT:
-  // There is NO automatic search duration anymore.
-  // Search continues until:
-  //
-  // 1. Owner cancels it
-  // 2. Walker accepts it
-  // 3. Request is explicitly cancelled
-  //
   static const double searchRadiusKm = 3.0;
 
   // ============================================================
   // INTERNAL STATE
   // ============================================================
 
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<
+      DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   String? _activeRequestId;
@@ -49,13 +61,15 @@ class InstaWalkSearchService {
   // GETTERS
   // ============================================================
 
-  String? get activeRequestId => _activeRequestId;
+  String? get activeRequestId =>
+      _activeRequestId;
 
   bool get hasActiveRequest =>
       _activeRequestId != null &&
       _activeRequestId!.trim().isNotEmpty;
 
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser =>
+      _auth.currentUser;
 
   // ============================================================
   // DISPOSE
@@ -68,7 +82,10 @@ class InstaWalkSearchService {
   // ============================================================
   // START SEARCH
   //
-  // SEARCH HAS NO TIME LIMIT.
+  // IMPORTANT:
+  // No expiry.
+  // No expiresAt.
+  // No automatic timeout.
   // ============================================================
 
   Future<InstaWalkSearchResult> startSearch({
@@ -77,7 +94,8 @@ class InstaWalkSearchService {
     required String address,
     required GeoPoint ownerLocation,
   }) async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return const InstaWalkSearchResult.failure(
@@ -85,14 +103,16 @@ class InstaWalkSearchService {
       );
     }
 
-    final String businessId = ownerId.trim();
+    final String businessId =
+        ownerId.trim();
 
     final String cleanOwnerName =
         ownerName.trim().isEmpty
             ? 'Dog Owner'
             : ownerName.trim();
 
-    final String cleanAddress = address.trim();
+    final String cleanAddress =
+        address.trim();
 
     if (businessId.isEmpty) {
       return const InstaWalkSearchResult.failure(
@@ -107,38 +127,34 @@ class InstaWalkSearchService {
     }
 
     // ==========================================================
-    // CHECK EXISTING ACTIVE REQUEST
+    // CHECK LOCAL ACTIVE REQUEST
     // ==========================================================
 
     if (hasActiveRequest) {
-      final String activeId = _activeRequestId!;
+      final String activeId =
+          _activeRequestId!;
 
       final InstaWalkRequestState state =
           await getRequestState(activeId);
 
-      // --------------------------------------------------------
-      // ALREADY SEARCHING
-      //
-      // Do NOT create another request.
-      // --------------------------------------------------------
-
       if (state.isSearching) {
+        // Make sure listener is alive.
+        await listenForRequest(
+          requestId: activeId,
+        );
+
         return InstaWalkSearchResult.success(
           requestId: activeId,
-          duration: null,
-          expiresAt: null,
         );
       }
 
-      // --------------------------------------------------------
-      // ALREADY ACCEPTED
-      // --------------------------------------------------------
-
       if (state.isAccepted) {
+        await listenForRequest(
+          requestId: activeId,
+        );
+
         return InstaWalkSearchResult.success(
           requestId: activeId,
-          duration: null,
-          expiresAt: null,
         );
       }
 
@@ -147,49 +163,64 @@ class InstaWalkSearchService {
 
     try {
       await _requestSubscription?.cancel();
+
       _requestSubscription = null;
 
       // ========================================================
-      // CREATE NEW REQUEST
+      // CREATE FIRESTORE REQUEST
       // ========================================================
 
-      final DocumentReference<Map<String, dynamic>> ref =
+      final DocumentReference<
+          Map<String, dynamic>> ref =
           _firestore
-              .collection(walkRequestsCollection)
+              .collection(
+                walkRequestsCollection,
+              )
               .doc();
 
-      // IMPORTANT:
-      // No expiresAt.
-      // No search duration.
-      // No 2/3/5 minute system.
-      // No search number.
       await ref.set({
         'requestId': ref.id,
+
+        // ======================================================
+        // SOURCE OF TRUTH
+        // ======================================================
 
         'status': 'searching',
 
         'searchType': 'insta_walk',
         'senderRole': 'owner',
 
+        // ======================================================
+        // OWNER
+        // ======================================================
+
         'senderUid': user.uid,
         'ownerAuthUid': user.uid,
 
         'businessId': businessId,
 
-        // Compatibility with existing code.
+        // Compatibility
         'ownerId': businessId,
 
         'ownerName': cleanOwnerName,
 
         'address': cleanAddress,
 
+        // ======================================================
+        // LOCATION
+        // ======================================================
+
         'searchRadiusKm': searchRadiusKm,
 
         'ownerLocation': ownerLocation,
 
-        'ownerLocationType': 'search_snapshot',
+        'ownerLocationType':
+            'search_snapshot',
 
-        // Walker information starts empty.
+        // ======================================================
+        // WALKER
+        // ======================================================
+
         'walkerUid': null,
         'walkerId': null,
         'walkerName': null,
@@ -197,15 +228,27 @@ class InstaWalkSearchService {
         'acceptedBy': null,
         'acceptedAt': null,
 
-        'createdAt': FieldValue.serverTimestamp(),
+        // ======================================================
+        // CREATED
+        // ======================================================
+
+        'createdAt':
+            FieldValue.serverTimestamp(),
       });
 
       _activeRequestId = ref.id;
 
+      // ========================================================
+      // IMPORTANT:
+      // Start Firestore listener immediately.
+      // ========================================================
+
+      await listenForRequest(
+        requestId: ref.id,
+      );
+
       return InstaWalkSearchResult.success(
         requestId: ref.id,
-        duration: null,
-        expiresAt: null,
       );
     } on FirebaseException catch (e) {
       _logFirebaseError(
@@ -214,7 +257,8 @@ class InstaWalkSearchService {
       );
 
       return InstaWalkSearchResult.failure(
-        message: _firebaseErrorMessage(e),
+        message:
+            _firebaseErrorMessage(e),
         errorCode: e.code,
       );
     } catch (e) {
@@ -224,7 +268,8 @@ class InstaWalkSearchService {
       );
 
       return const InstaWalkSearchResult.failure(
-        message: 'Unable to start Insta Walk search.',
+        message:
+            'Unable to start Insta Walk search.',
       );
     }
   }
@@ -233,18 +278,22 @@ class InstaWalkSearchService {
   // FIND OWNER PROFILE
   // ============================================================
 
-  Future<QueryDocumentSnapshot<Map<String, dynamic>>?>
-      findOwnerProfile() async {
-    final User? user = _auth.currentUser;
+  Future<QueryDocumentSnapshot<
+      Map<String, dynamic>>?> findOwnerProfile() async {
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
     try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
+      final QuerySnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
-              .collection(ownerProfilesCollection)
+              .collection(
+                ownerProfilesCollection,
+              )
               .where(
                 'authUid',
                 isEqualTo: user.uid,
@@ -278,25 +327,44 @@ class InstaWalkSearchService {
   // FIND ACTIVE REQUEST
   //
   // IMPORTANT:
-  // Searching request remains active indefinitely.
   //
-  // There is NO expiry check here.
+  // We search Firestore directly.
+  //
+  // searching = ACTIVE
+  // accepted  = ACTIVE FOR RECOVERY
+  //
+  // There is NO expiry check.
   // ============================================================
 
   Future<InstaWalkRequestState?> findActiveRequest({
     required String ownerId,
   }) async {
-    final User? user = _auth.currentUser;
-    final String businessId = ownerId.trim();
+    final User? user =
+        _auth.currentUser;
 
-    if (user == null || businessId.isEmpty) {
+    final String businessId =
+        ownerId.trim();
+
+    if (user == null ||
+        businessId.isEmpty) {
       return null;
     }
 
     try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
+      // ========================================================
+      // IMPORTANT:
+      //
+      // We avoid orderBy(createdAt) here.
+      // This reduces the chance of requiring an extra composite
+      // Firestore index.
+      // ========================================================
+
+      final QuerySnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
-              .collection(walkRequestsCollection)
+              .collection(
+                walkRequestsCollection,
+              )
               .where(
                 'businessId',
                 isEqualTo: businessId,
@@ -305,11 +373,7 @@ class InstaWalkSearchService {
                 'searchType',
                 isEqualTo: 'insta_walk',
               )
-              .orderBy(
-                'createdAt',
-                descending: true,
-              )
-              .limit(10)
+              .limit(50)
               .get();
 
       if (snapshot.docs.isEmpty) {
@@ -317,40 +381,91 @@ class InstaWalkSearchService {
         return null;
       }
 
-      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+      QueryDocumentSnapshot<
+          Map<String, dynamic>>? searchingDoc;
+
+      QueryDocumentSnapshot<
+          Map<String, dynamic>>? acceptedDoc;
+
+      DateTime latestSearching =
+          DateTime.fromMillisecondsSinceEpoch(0);
+
+      DateTime latestAccepted =
+          DateTime.fromMillisecondsSinceEpoch(0);
+
+      // ========================================================
+      // FIND LATEST ACTIVE REQUEST LOCALLY
+      // ========================================================
+
+      for (final QueryDocumentSnapshot<
+          Map<String, dynamic>> doc
           in snapshot.docs) {
-        final Map<String, dynamic> data = doc.data();
+        final Map<String, dynamic> data =
+            doc.data();
 
-        final String status = _statusFromData(data);
+        final String status =
+            _statusFromData(data);
 
-        // ------------------------------------------------------
-        // SEARCHING
-        //
-        // No expiry.
-        // ------------------------------------------------------
+        final DateTime createdAt =
+            _readTimestamp(
+                  data['createdAt'],
+                ) ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  0,
+                );
 
         if (status == 'searching') {
-          _activeRequestId = doc.id;
-
-          return InstaWalkRequestState(
-            status: InstaWalkRequestStatus.searching,
-            data: data,
-          );
+          if (createdAt.isAfter(
+            latestSearching,
+          )) {
+            latestSearching = createdAt;
+            searchingDoc = doc;
+          }
         }
-
-        // ------------------------------------------------------
-        // ACCEPTED
-        // ------------------------------------------------------
 
         if (status == 'accepted') {
-          _activeRequestId = doc.id;
-
-          return InstaWalkRequestState(
-            status: InstaWalkRequestStatus.accepted,
-            data: data,
-          );
+          if (createdAt.isAfter(
+            latestAccepted,
+          )) {
+            latestAccepted = createdAt;
+            acceptedDoc = doc;
+          }
         }
       }
+
+      // ========================================================
+      // SEARCHING HAS PRIORITY
+      // ========================================================
+
+      if (searchingDoc != null) {
+        _activeRequestId =
+            searchingDoc.id;
+
+        return InstaWalkRequestState(
+          status:
+              InstaWalkRequestStatus.searching,
+          data: searchingDoc.data(),
+        );
+      }
+
+      // ========================================================
+      // ACCEPTED
+      // ========================================================
+
+      if (acceptedDoc != null) {
+        _activeRequestId =
+            acceptedDoc.id;
+
+        return InstaWalkRequestState(
+          status:
+              InstaWalkRequestStatus.accepted,
+          data: acceptedDoc.data(),
+        );
+      }
+
+      // ========================================================
+      // NOTHING ACTIVE
+      // ========================================================
 
       _activeRequestId = null;
 
@@ -374,24 +489,52 @@ class InstaWalkSearchService {
 
   // ============================================================
   // LISTEN FOR REQUEST
+  //
+  // Firestore realtime listener.
+  //
+  // The UI/service can react to:
+  //
+  // searching
+  // accepted
+  // cancelled
+  // expired
   // ============================================================
 
   Future<void> listenForRequest({
     required String requestId,
-    required void Function(
+
+    // Optional because existing part files may only need
+    // accepted/cancelled callbacks.
+    void Function(
       InstaWalkAcceptedData data,
-    ) onAccepted,
+    )? onAccepted,
+
+    void Function()? onSearching,
+
+    void Function(
+      Map<String, dynamic> data,
+    )? onUpdated,
+
     void Function()? onExpired,
+
     void Function()? onCancelled,
+
     void Function(Object error)? onError,
   }) async {
-    final String id = requestId.trim();
+    final String id =
+        requestId.trim();
 
     if (id.isEmpty) {
       return;
     }
 
+    // ==========================================================
+    // CANCEL OLD LISTENER
+    // ==========================================================
+
     await _requestSubscription?.cancel();
+
+    _requestSubscription = null;
 
     _activeRequestId = id;
 
@@ -399,15 +542,28 @@ class InstaWalkSearchService {
     bool expiredSent = false;
     bool cancelledSent = false;
 
-    final DocumentReference<Map<String, dynamic>> ref =
+    final DocumentReference<
+        Map<String, dynamic>> ref =
         _firestore
-            .collection(walkRequestsCollection)
+            .collection(
+              walkRequestsCollection,
+            )
             .doc(id);
 
-    _requestSubscription = ref.snapshots().listen(
+    // ==========================================================
+    // REALTIME LISTENER
+    // ==========================================================
+
+    _requestSubscription =
+        ref.snapshots().listen(
       (
-        DocumentSnapshot<Map<String, dynamic>> snapshot,
+        DocumentSnapshot<
+            Map<String, dynamic>> snapshot,
       ) {
+        // ======================================================
+        // DOCUMENT DOES NOT EXIST
+        // ======================================================
+
         if (!snapshot.exists) {
           return;
         }
@@ -419,11 +575,34 @@ class InstaWalkSearchService {
           return;
         }
 
-        final String status = _statusFromData(data);
+        // ======================================================
+        // ALWAYS SEND LATEST DATA
+        // ======================================================
 
-        // ------------------------------------------------------
+        onUpdated?.call(
+          Map<String, dynamic>.from(
+            data,
+          ),
+        );
+
+        final String status =
+            _statusFromData(data);
+
+        // ======================================================
+        // SEARCHING
+        //
+        // IMPORTANT:
+        // Nothing expires here.
+        // ======================================================
+
+        if (status == 'searching') {
+          onSearching?.call();
+          return;
+        }
+
+        // ======================================================
         // ACCEPTED
-        // ------------------------------------------------------
+        // ======================================================
 
         if (status == 'accepted') {
           if (acceptedSent) {
@@ -432,19 +611,22 @@ class InstaWalkSearchService {
 
           acceptedSent = true;
 
-          onAccepted(
-            InstaWalkAcceptedData.fromMap(data),
-          );
+          if (onAccepted != null) {
+            onAccepted(
+              InstaWalkAcceptedData.fromMap(
+                data,
+              ),
+            );
+          }
 
           return;
         }
 
-        // ------------------------------------------------------
+        // ======================================================
         // EXPIRED
         //
-        // Kept only for compatibility with old Firestore
-        // requests. New requests will NEVER expire automatically.
-        // ------------------------------------------------------
+        // Only old/manual documents.
+        // ======================================================
 
         if (status == 'expired') {
           if (expiredSent) {
@@ -458,9 +640,9 @@ class InstaWalkSearchService {
           return;
         }
 
-        // ------------------------------------------------------
+        // ======================================================
         // CANCELLED
-        // ------------------------------------------------------
+        // ======================================================
 
         if (status == 'cancelled' ||
             status == 'owner_cancelled' ||
@@ -476,12 +658,9 @@ class InstaWalkSearchService {
           return;
         }
 
-        // ------------------------------------------------------
-        // SEARCHING
-        //
-        // Do nothing.
-        // It remains active indefinitely.
-        // ------------------------------------------------------
+        // ======================================================
+        // OTHER STATUS
+        // ======================================================
       },
       onError: (Object error) {
         onError?.call(error);
@@ -496,18 +675,23 @@ class InstaWalkSearchService {
   Future<InstaWalkRequestState> getRequestState(
     String requestId,
   ) async {
-    final String id = requestId.trim();
+    final String id =
+        requestId.trim();
 
     if (id.isEmpty) {
       return const InstaWalkRequestState(
-        status: InstaWalkRequestStatus.notFound,
+        status:
+            InstaWalkRequestStatus.notFound,
       );
     }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
-              .collection(walkRequestsCollection)
+              .collection(
+                walkRequestsCollection,
+              )
               .doc(id)
               .get();
 
@@ -518,7 +702,8 @@ class InstaWalkSearchService {
         }
 
         return const InstaWalkRequestState(
-          status: InstaWalkRequestStatus.notFound,
+          status:
+              InstaWalkRequestStatus.notFound,
         );
       }
 
@@ -530,17 +715,14 @@ class InstaWalkSearchService {
 
       // ========================================================
       // SEARCHING
-      //
-      // IMPORTANT:
-      // No expiresAt check.
-      // No automatic expiration.
       // ========================================================
 
       if (status == 'searching') {
         _activeRequestId = id;
 
         return InstaWalkRequestState(
-          status: InstaWalkRequestStatus.searching,
+          status:
+              InstaWalkRequestStatus.searching,
           data: data,
         );
       }
@@ -553,16 +735,14 @@ class InstaWalkSearchService {
         _activeRequestId = id;
 
         return InstaWalkRequestState(
-          status: InstaWalkRequestStatus.accepted,
+          status:
+              InstaWalkRequestStatus.accepted,
           data: data,
         );
       }
 
       // ========================================================
       // EXPIRED
-      //
-      // Only supports old/manual expired documents.
-      // New searches do not create this state automatically.
       // ========================================================
 
       if (status == 'expired') {
@@ -571,7 +751,8 @@ class InstaWalkSearchService {
         }
 
         return InstaWalkRequestState(
-          status: InstaWalkRequestStatus.expired,
+          status:
+              InstaWalkRequestStatus.expired,
           data: data,
         );
       }
@@ -588,24 +769,30 @@ class InstaWalkSearchService {
         }
 
         return InstaWalkRequestState(
-          status: InstaWalkRequestStatus.cancelled,
+          status:
+              InstaWalkRequestStatus.cancelled,
           data: data,
         );
       }
 
       return InstaWalkRequestState(
-        status: InstaWalkRequestStatus.unknown,
+        status:
+            InstaWalkRequestStatus.unknown,
         data: data,
       );
     } on FirebaseException catch (e) {
       return InstaWalkRequestState(
-        status: InstaWalkRequestStatus.error,
-        errorMessage: _firebaseErrorMessage(e),
+        status:
+            InstaWalkRequestStatus.error,
+        errorMessage:
+            _firebaseErrorMessage(e),
       );
     } catch (_) {
       return const InstaWalkRequestState(
-        status: InstaWalkRequestStatus.error,
-        errorMessage: 'Unable to check walk request.',
+        status:
+            InstaWalkRequestStatus.error,
+        errorMessage:
+            'Unable to check walk request.',
       );
     }
   }
@@ -613,7 +800,7 @@ class InstaWalkSearchService {
   // ============================================================
   // CANCEL SEARCH
   //
-  // THIS IS NOW THE MAIN WAY OWNER STOPS SEARCH.
+  // THIS IS THE ONLY OWNER STOP ACTION.
   // ============================================================
 
   Future<bool> cancelSearch({
@@ -622,17 +809,22 @@ class InstaWalkSearchService {
     final String? id =
         requestId ?? _activeRequestId;
 
-    if (id == null || id.trim().isEmpty) {
+    if (id == null ||
+        id.trim().isEmpty) {
       return false;
     }
 
     try {
-      final DocumentReference<Map<String, dynamic>> ref =
+      final DocumentReference<
+          Map<String, dynamic>> ref =
           _firestore
-              .collection(walkRequestsCollection)
+              .collection(
+                walkRequestsCollection,
+              )
               .doc(id.trim());
 
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
           await ref.get();
 
       if (!snapshot.exists) {
@@ -642,35 +834,39 @@ class InstaWalkSearchService {
 
       final String status =
           _statusFromData(
-        snapshot.data() ?? <String, dynamic>{},
+        snapshot.data() ??
+            <String, dynamic>{},
       );
 
-      // --------------------------------------------------------
-      // ACCEPTED CANNOT BE CANCELLED AS SEARCH
-      // --------------------------------------------------------
+      // ========================================================
+      // ACCEPTED
+      // ========================================================
 
       if (status == 'accepted') {
         return false;
       }
 
-      // --------------------------------------------------------
-      // ONLY SEARCHING REQUEST CAN BE CANCELLED
-      // --------------------------------------------------------
+      // ========================================================
+      // ONLY SEARCHING CAN BE CANCELLED
+      // ========================================================
 
       if (status != 'searching') {
         await clearActiveRequest();
         return false;
       }
 
-      // --------------------------------------------------------
+      // ========================================================
       // OWNER CANCEL
-      // --------------------------------------------------------
+      // ========================================================
 
       await ref.update({
         'status': 'owner_cancelled',
+
         'cancelledAt':
             FieldValue.serverTimestamp(),
+
         'cancelledBy': 'owner',
+
         'cancelledByType': 'business',
       });
 
@@ -697,31 +893,19 @@ class InstaWalkSearchService {
   // ============================================================
   // EXPIRE REQUEST
   //
-  // IMPORTANT:
-  // Automatic expiry has been removed.
-  //
-  // This method is kept only for compatibility with any old UI
-  // or service caller.
-  //
-  // It will NOT expire an active request.
+  // AUTOMATIC EXPIRATION IS REMOVED.
   // ============================================================
 
   Future<bool> expireRequest({
     String? requestId,
   }) async {
-    // No automatic expiration anymore.
-    //
-    // Search should continue until owner cancels
-    // or walker accepts.
     return false;
   }
 
   // ============================================================
   // REMAINING TIME
   //
-  // There is no countdown anymore.
-  //
-  // Kept for compatibility so existing callers don't break.
+  // No countdown.
   // ============================================================
 
   Future<Duration?> getRemainingTime(
@@ -738,6 +922,7 @@ class InstaWalkSearchService {
     await _requestSubscription?.cancel();
 
     _requestSubscription = null;
+
     _activeRequestId = null;
   }
 
@@ -753,6 +938,24 @@ class InstaWalkSearchService {
             .trim()
             .toLowerCase() ??
         '';
+  }
+
+  // ============================================================
+  // TIMESTAMP
+  // ============================================================
+
+  DateTime? _readTimestamp(
+    dynamic value,
+  ) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -784,7 +987,7 @@ class InstaWalkSearchService {
   }
 
   // ============================================================
-  // LOGGING
+  // LOG FIREBASE ERROR
   // ============================================================
 
   void _logFirebaseError(
@@ -797,6 +1000,10 @@ class InstaWalkSearchService {
       '${error.code} - ${error.message}',
     );
   }
+
+  // ============================================================
+  // LOG ERROR
+  // ============================================================
 
   void _logError(
     String method,
@@ -815,18 +1022,20 @@ class InstaWalkSearchService {
 
 class InstaWalkSearchResult {
   final bool success;
+
   final String? requestId;
 
-  // No expiry anymore.
+  // Compatibility only.
   final DateTime? expiresAt;
 
-  // No duration anymore.
+  // Compatibility only.
   final Duration? duration;
 
-  // Kept nullable for compatibility with old UI/code.
+  // Compatibility only.
   final int? searchNumber;
 
   final String? message;
+
   final String? errorCode;
 
   const InstaWalkSearchResult({
@@ -868,14 +1077,23 @@ class InstaWalkSearchResult {
 
 class InstaWalkAcceptedData {
   final String requestId;
+
   final String businessId;
+
   final String ownerId;
+
   final String ownerAuthUid;
+
   final String ownerName;
+
   final String walkerUid;
+
   final String walkerId;
+
   final String walkerName;
+
   final DateTime? acceptedAt;
+
   final Map<String, dynamic> rawData;
 
   const InstaWalkAcceptedData({
@@ -900,7 +1118,8 @@ class InstaWalkAcceptedData {
         data['acceptedAt'];
 
     if (acceptedValue is Timestamp) {
-      acceptedAt = acceptedValue.toDate();
+      acceptedAt =
+          acceptedValue.toDate();
     } else if (acceptedValue is DateTime) {
       acceptedAt = acceptedValue;
     }
@@ -927,19 +1146,22 @@ class InstaWalkAcceptedData {
     // BUSINESS ID
     // ==========================================================
 
-    final String businessId =
+    final String rawBusinessId =
         data['businessId']
-                    ?.toString()
-                    .trim()
-                    .isNotEmpty ==
-                true
-            ? data['businessId']
-                .toString()
-                .trim()
-            : data['ownerId']
-                    ?.toString()
-                    .trim() ??
-                '';
+                ?.toString()
+                .trim() ??
+            '';
+
+    final String rawOwnerId =
+        data['ownerId']
+                ?.toString()
+                .trim() ??
+            '';
+
+    final String businessId =
+        rawBusinessId.isNotEmpty
+            ? rawBusinessId
+            : rawOwnerId;
 
     // ==========================================================
     // RETURN
@@ -995,7 +1217,9 @@ class InstaWalkAcceptedData {
       acceptedAt: acceptedAt,
 
       rawData:
-          Map<String, dynamic>.from(data),
+          Map<String, dynamic>.from(
+        data,
+      ),
     );
   }
 
@@ -1024,7 +1248,9 @@ enum InstaWalkRequestStatus {
 
 class InstaWalkRequestState {
   final InstaWalkRequestStatus status;
+
   final Map<String, dynamic>? data;
+
   final String? errorMessage;
 
   const InstaWalkRequestState({
@@ -1033,17 +1259,37 @@ class InstaWalkRequestState {
     this.errorMessage,
   });
 
+  // ============================================================
+  // SEARCHING
+  // ============================================================
+
   bool get isSearching =>
-      status == InstaWalkRequestStatus.searching;
+      status ==
+      InstaWalkRequestStatus.searching;
+
+  // ============================================================
+  // ACCEPTED
+  // ============================================================
 
   bool get isAccepted =>
-      status == InstaWalkRequestStatus.accepted;
+      status ==
+      InstaWalkRequestStatus.accepted;
+
+  // ============================================================
+  // EXPIRED
+  // ============================================================
 
   bool get isExpired =>
-      status == InstaWalkRequestStatus.expired;
+      status ==
+      InstaWalkRequestStatus.expired;
+
+  // ============================================================
+  // CANCELLED
+  // ============================================================
 
   bool get isCancelled =>
-      status == InstaWalkRequestStatus.cancelled;
+      status ==
+      InstaWalkRequestStatus.cancelled;
 
   // ============================================================
   // REQUEST ID
@@ -1056,7 +1302,9 @@ class InstaWalkRequestState {
                 .trim() ??
             '';
 
-    return value.isEmpty ? null : value;
+    return value.isEmpty
+        ? null
+        : value;
   }
 
   // ============================================================
@@ -1064,19 +1312,29 @@ class InstaWalkRequestState {
   // ============================================================
 
   String? get businessId {
-    final String value =
+    final String fromBusiness =
         data?['businessId']
                 ?.toString()
                 .trim() ??
-            data?['ownerId']
-                    ?.toString()
-                    .trim() ??
-                '';
+            '';
 
-    return value.isEmpty ? null : value;
+    if (fromBusiness.isNotEmpty) {
+      return fromBusiness;
+    }
+
+    final String fromOwner =
+        data?['ownerId']
+                ?.toString()
+                .trim() ??
+            '';
+
+    return fromOwner.isEmpty
+        ? null
+        : fromOwner;
   }
 
-  String? get ownerId => businessId;
+  String? get ownerId =>
+      businessId;
 
   // ============================================================
   // OWNER AUTH UID
@@ -1089,15 +1347,15 @@ class InstaWalkRequestState {
                 .trim() ??
             '';
 
-    return value.isEmpty ? null : value;
+    return value.isEmpty
+        ? null
+        : value;
   }
 
   // ============================================================
   // EXPIRY
   //
-  // New requests have no expiry.
-  //
-  // Getter kept for compatibility with old code.
+  // New requests do not have expiresAt.
   // ============================================================
 
   DateTime? get expiresAt {
@@ -1118,9 +1376,7 @@ class InstaWalkRequestState {
   // ============================================================
   // SEARCH NUMBER
   //
-  // New system does not assign search numbers.
-  //
-  // Getter kept for compatibility with old documents.
+  // Compatibility only.
   // ============================================================
 
   int? get searchNumber {
