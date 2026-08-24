@@ -68,10 +68,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   bool _checkingAddress = false;
   bool _recovering = true;
 
-  // Compatibility state for older Insta Walk part files.
-  // Insta Walk has no countdown.
-  int _secondsLeft = 0;
-
+  // 
   // ==========================================================
   // STOP STATE
   // ==========================================================
