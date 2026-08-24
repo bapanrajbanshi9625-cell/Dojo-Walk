@@ -13,16 +13,58 @@ extension _StartSearchRole on _InstaWalkContainerState {
   }) async {
     _stopTimer();
 
+    // ==========================================================
+    // CLEAN REQUIRED VALUES
+    // ==========================================================
+
+    final String cleanOwnerId =
+        ownerId.trim();
+
+    final String cleanOwnerName =
+        ownerName.trim().isEmpty
+            ? 'Dog Owner'
+            : ownerName.trim();
+
+    final String cleanAddress =
+        address.trim();
+
+    // ==========================================================
+    // REQUIRED DATA CHECK
+    // ==========================================================
+
+    if (cleanOwnerId.isEmpty) {
+      _message(
+        'Business ID / Owner ID is missing.',
+      );
+      return;
+    }
+
+    if (cleanAddress.isEmpty) {
+      _message(
+        'Owner address is missing.',
+      );
+      return;
+    }
+
     try {
       // ========================================================
-      // CREATE INSTA WALK REQUEST
+      // FIRESTORE REQUEST
+      //
+      // This calls InstaWalkSearchService.startSearch()
+      //
+      // Firebase receives:
+      //
+      // ownerId
+      // ownerName
+      // address
+      // ownerLocation
       // ========================================================
 
       final InstaWalkSearchResult result =
           await _service.startSearch(
-        ownerId: ownerId,
-        ownerName: ownerName,
-        address: address,
+        ownerId: cleanOwnerId,
+        ownerName: cleanOwnerName,
+        address: cleanAddress,
         ownerLocation: GeoPoint(
           position.latitude,
           position.longitude,
@@ -34,12 +76,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // REQUEST FAILED
-      //
-      // IMPORTANT:
-      // expiresAt is NOT required anymore.
-      //
-      // Insta Walk has NO automatic expiry.
+      // FIRESTORE WRITE FAILED
       // ========================================================
 
       if (!result.success ||
@@ -62,14 +99,19 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
         _message(
           result.message ??
-              'Unable to start search.',
+              'Unable to create Insta Walk request.',
+        );
+
+        debugPrint(
+          'Insta Walk request failed: '
+          '${result.errorCode ?? 'unknown'}',
         );
 
         return;
       }
 
       // ========================================================
-      // REQUEST CREATED SUCCESSFULLY
+      // FIRESTORE REQUEST CREATED
       // ========================================================
 
       final String requestId =
@@ -77,13 +119,13 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
       _requestId = requestId;
 
+      debugPrint(
+        'Insta Walk request created successfully: '
+        '$requestId',
+      );
+
       // ========================================================
-      // IMPORTANT
-      //
-      // Insta Walk has NO expiry.
-      // Do NOT calculate remaining time.
-      // Do NOT call expireRequest().
-      // Do NOT start countdown timer.
+      // SEARCH ACTIVE
       // ========================================================
 
       _updateState(() {
@@ -94,10 +136,6 @@ extension _StartSearchRole on _InstaWalkContainerState {
         _stopping = false;
       });
 
-      // ========================================================
-      // REPORT ACTIVE
-      // ========================================================
-
       _setActive(true);
 
       // ========================================================
@@ -107,7 +145,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       _startRadar();
 
       // ========================================================
-      // LISTEN FOR WALKER ACCEPTANCE
+      // LISTEN FOR WALKER
       // ========================================================
 
       try {
@@ -118,13 +156,14 @@ extension _StartSearchRole on _InstaWalkContainerState {
           // WALKER ACCEPTED
           // ----------------------------------------------------
 
-          onAccepted: _walkerAccepted,
+          onAccepted: (
+            InstaWalkAcceptedData data,
+          ) {
+            _walkerAccepted(data);
+          },
 
           // ----------------------------------------------------
-          // OLD EXPIRED STATE
-          //
-          // New Insta Walk requests never expire automatically.
-          // This is kept only for old/manual Firestore records.
+          // OLD / MANUAL EXPIRED REQUEST
           // ----------------------------------------------------
 
           onExpired: () {
@@ -146,13 +185,22 @@ extension _StartSearchRole on _InstaWalkContainerState {
           },
 
           // ----------------------------------------------------
-          // LISTENER ERROR
+          // FIRESTORE LISTENER ERROR
           // ----------------------------------------------------
 
-          onError: (Object error) {
+          onError: (
+            Object error,
+          ) {
             debugPrint(
-              'Insta Walk listener error: $error',
+              'Insta Walk Firestore listener error: '
+              '$error',
             );
+
+            // IMPORTANT:
+            // Request ko searching state se remove
+            // nahi karna.
+            //
+            // Firestore document source of truth hai.
           },
         );
       } catch (e) {
@@ -160,24 +208,81 @@ extension _StartSearchRole on _InstaWalkContainerState {
           'Insta Walk listener setup error: $e',
         );
 
-        // Don't immediately kill an already-created request.
-        //
-        // Firestore listener errors can be transient.
-        // The request itself is already active.
+        // Request already Firebase me create ho chuka hai.
+        // Isliye search ko automatically cancel nahi karna.
       }
 
       // ========================================================
-      // IMPORTANT
+      // NO TIMER
+      // ========================================================
       //
-      // NO _startTimer()
-      //
-      // Insta Walk search is indefinite until:
+      // Insta Walk permanently searching rahega jab tak:
       //
       // 1. Walker accepts
-      // 2. Owner cancels
-      // 3. Request is cancelled
+      // 2. Owner stops search
+      // 3. Request manually cancelled
       //
       // ========================================================
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Insta Walk FirebaseException: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _stopTimer();
+      _stopRadar();
+
+      _requestId = null;
+
+      _updateState(() {
+        _checkingAddress = false;
+        _searching = false;
+        _searchFinished = false;
+        _secondsLeft = 0;
+        _stopping = false;
+      });
+
+      _setActive(false);
+
+      // ========================================================
+      // REAL FIREBASE ERROR
+      // ========================================================
+
+      String message;
+
+      switch (e.code) {
+        case 'permission-denied':
+          message =
+              'Firestore permission denied. '
+              'Request was not allowed.';
+          break;
+
+        case 'unauthenticated':
+          message =
+              'Firebase login expired. Please login again.';
+          break;
+
+        case 'unavailable':
+          message =
+              'Firebase is temporarily unavailable. '
+              'Please try again.';
+          break;
+
+        case 'failed-precondition':
+          message =
+              'Firestore requires an index or configuration fix.';
+          break;
+
+        default:
+          message =
+              'Firebase error: ${e.code}';
+      }
+
+      _message(message);
     } catch (e) {
       debugPrint(
         'Insta Walk search error: $e',
@@ -202,12 +307,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
       _setActive(false);
 
-      // ========================================================
-      // SHOW REAL ERROR
-      // ========================================================
-
       _message(
-        'Unable to start Insta Walk: $e',
+        'Unable to start Insta Walk.',
       );
     }
   }
