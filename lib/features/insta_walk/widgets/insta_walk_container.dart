@@ -68,6 +68,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   bool _checkingAddress = false;
   bool _recovering = true;
 
+  int _secondsLeft = 0;
+  
   // ==========================================================
   // STOP STATE
   // ==========================================================
