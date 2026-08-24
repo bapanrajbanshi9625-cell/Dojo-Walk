@@ -68,8 +68,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   bool _checkingAddress = false;
   bool _recovering = true;
 
-  int get _secondsLeft => 0;
-  
+  // Compatibility state for older Insta Walk part files.
+  // Insta Walk has no countdown.
+  int _secondsLeft = 0;
+
   // ==========================================================
   // STOP STATE
   // ==========================================================
@@ -107,16 +109,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // Insta Walk has NO countdown.
   // Insta Walk has NO automatic expiry.
   //
-  // Some older part files still call _stopTimer().
-  // Keep the method so those files continue to compile.
-  // It intentionally does nothing.
+  // Older part files may still call _stopTimer().
+  // This method only resets the compatibility state.
+  // It does NOT start or run any timer.
   // ==========================================================
 
   void _stopTimer() {
-    // Intentionally empty.
-    //
-    // Insta Walk requests remain active until Firestore
-    // changes the request status.
+    _secondsLeft = 0;
   }
 
   // ==========================================================
