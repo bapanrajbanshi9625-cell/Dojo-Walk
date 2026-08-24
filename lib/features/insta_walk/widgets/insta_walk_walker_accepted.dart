@@ -8,7 +8,6 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
   void _walkerAccepted(
     InstaWalkAcceptedData data,
   ) {
-    _stopTimer();
     _stopRadar();
 
     final String acceptedRequestId =
