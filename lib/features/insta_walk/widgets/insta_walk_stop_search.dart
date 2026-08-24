@@ -69,7 +69,6 @@ extension _StopSearchRole on _InstaWalkContainerState {
           _searchFinished = false;
           _checkingAddress = false;
           _recovering = false;
-          _secondsLeft = 0;
           _stopping = false;
         });
 
@@ -138,7 +137,6 @@ extension _StopSearchRole on _InstaWalkContainerState {
           _searchFinished = false;
           _checkingAddress = false;
           _recovering = false;
-          _secondsLeft = 0;
           _stopping = false;
         });
 
