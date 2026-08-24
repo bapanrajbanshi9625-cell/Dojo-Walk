@@ -105,10 +105,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // TIMER COMPATIBILITY
   //
   // IMPORTANT:
-  // Other Insta Walk part files still reference these members.
+  // Search DOES NOT depend on this timer.
   //
-  // The timer is kept for request lifecycle compatibility.
-  // It is NOT displayed as a countdown in the UI.
+  // Existing part files may still reference these members,
+  // so they are retained only for compatibility.
   // ==========================================================
 
   Timer? _searchTimer;
@@ -130,6 +130,16 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       duration: const Duration(seconds: 2),
     );
 
+    // ========================================================
+    // IMPORTANT
+    //
+    // On every creation of this container we check Firestore.
+    //
+    // Therefore:
+    // Screen change -> screen recreated -> active request found
+    // App reopened  -> active request found
+    // ========================================================
+
     _recoverSearch();
   }
 
@@ -142,7 +152,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _stopTimer();
     _stopRadar();
 
+    // Service cancels Firestore listener.
     _service.dispose();
+
     _radarController.dispose();
 
     super.dispose();
@@ -150,9 +162,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // SAFE STATE UPDATE
-  //
-  // Extensions cannot directly call protected setState().
-  // All Insta Walk extensions should use _updateState().
   // ==========================================================
 
   void _updateState(VoidCallback callback) {
@@ -208,12 +217,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // START TIMER
   //
-  // Kept because the existing Insta Walk part files call this.
+  // Compatibility only.
   //
-  // IMPORTANT:
-  // This does NOT show a countdown in the UI.
-  // It only maintains compatibility with the existing
-  // request lifecycle code.
+  // THIS TIMER DOES NOT END THE SEARCH.
   // ==========================================================
 
   void _startTimer() {
@@ -223,8 +229,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
-    // Existing part files may set _secondsLeft before calling
-    // _startTimer(). If they don't, use a safe lifecycle value.
     if (_secondsLeft <= 0) {
       _secondsLeft = 30;
     }
@@ -244,12 +248,15 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
         if (_secondsLeft > 0) {
           _secondsLeft--;
-
-          // Timer value is intentionally not displayed.
-          return;
         }
 
-        timer.cancel();
+        // ======================================================
+        // IMPORTANT
+        //
+        // DO NOT stop searching when seconds become zero.
+        //
+        // Firestore decides the actual request state.
+        // ======================================================
       },
     );
   }
@@ -296,13 +303,14 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // FINISH SEARCH
   //
-  // Insta Walk has NO visible countdown.
+  // Search only finishes when:
   //
-  // Search continues until:
-  // 1. Walker accepts
-  // 2. Owner stops search
-  // 3. Request is explicitly cancelled
-  // 4. Recovery detects a finished/invalid request
+  // 1. Walker accepted
+  // 2. Owner cancelled
+  // 3. Request explicitly cancelled
+  // 4. Old/manual expired request is detected
+  //
+  // NO automatic timer expiry.
   // ==========================================================
 
   void _finishSearch({
