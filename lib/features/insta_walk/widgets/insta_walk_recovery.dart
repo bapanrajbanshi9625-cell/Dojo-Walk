@@ -39,7 +39,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
         _searching = false;
         _searchFinished = false;
         _checkingAddress = false;
-        _secondsLeft = 0;
         _stopping = false;
       });
 
@@ -115,9 +114,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
       // ========================================================
       // FALLBACK
-      //
-      // If owner profile does not contain ownerId/businessId,
-      // use profile document ID.
       // ========================================================
 
       if (ownerId.isEmpty) {
@@ -284,9 +280,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     // ==========================================================
     // RESTORE OWNER LOCATION
-    //
-    // This is what allows the map to use the same Firestore
-    // search location after app restart.
     // ==========================================================
 
     _ownerPosition =
@@ -313,8 +306,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
       _checkingAddress = false;
 
       // NO COUNTDOWN
-      _secondsLeft = 0;
-
       _stopping = false;
     });
 
@@ -332,14 +323,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     // ==========================================================
     // REALTIME FIRESTORE LISTENER
-    //
-    // This remains active while the container is alive.
-    //
-    // If Firestore changes searching -> accepted,
-    // onAccepted runs.
-    //
-    // If Firestore changes searching -> cancelled,
-    // onCancelled runs.
     // ==========================================================
 
     try {
@@ -380,10 +363,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
         // ======================================================
         // LISTENER ERROR
-        //
-        // DO NOT turn searching off here.
-        //
-        // Firestore remains the source of truth.
         // ======================================================
 
         onError: (
@@ -405,9 +384,9 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // ==========================================================
     // IMPORTANT
     //
-    // DO NOT start a countdown timer.
+    // NO COUNTDOWN TIMER.
     //
-    // Search is permanent until:
+    // Search remains active until:
     // owner cancels OR walker accepts.
     // ==========================================================
   }
@@ -445,7 +424,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // ==========================================================
 
     _stopTimer();
-
     _stopRadar();
 
     // ==========================================================
@@ -464,8 +442,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
       _searchFinished = false;
 
       _checkingAddress = false;
-
-      _secondsLeft = 0;
 
       _stopping = false;
     });
