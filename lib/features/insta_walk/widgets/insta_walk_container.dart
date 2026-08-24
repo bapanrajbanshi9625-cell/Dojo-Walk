@@ -123,7 +123,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
-    _stopTimer();
     _stopRadar();
 
     _service.dispose();
@@ -194,7 +193,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _resetSearchState({
     bool finished = false,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
@@ -231,7 +229,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _finishSearch({
     String? message,
   }) {
-    _stopTimer();
     _stopRadar();
 
     _requestId = null;
