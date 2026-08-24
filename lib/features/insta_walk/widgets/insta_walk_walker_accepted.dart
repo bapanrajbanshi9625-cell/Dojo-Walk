@@ -26,7 +26,6 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       _searching = false;
       _searchFinished = false;
       _checkingAddress = false;
-      _secondsLeft = 0;
       _stopping = false;
     });
 
