@@ -59,24 +59,35 @@ extension _FindWalkerRole on _InstaWalkContainerState {
           ownerDoc.data();
 
       // ========================================================
-      // OWNER ID
+      // OWNER / BUSINESS ID
+      //
+      // Required by Firebase walk_requests.
       // ========================================================
 
-      final String ownerId =
-          _readFirstString(
+      String ownerId = _readFirstString(
         data,
         const [
+          'businessId',
+          'Business ID',
           'ownerId',
           'Owner ID',
         ],
       );
+
+      // Fallback to profile document ID.
+      if (ownerId.isEmpty) {
+        ownerId = ownerDoc.id.trim();
+      }
 
       if (ownerId.isEmpty) {
         _updateState(() {
           _checkingAddress = false;
         });
 
-        _message('Owner ID not found.');
+        _message(
+          'Business ID / Owner ID not found.',
+        );
+
         return;
       }
 
@@ -102,8 +113,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // ADDRESS
       // ========================================================
 
-      String address =
-          _readFirstString(
+      final String address = _readFirstString(
         data,
         const [
           'address',
@@ -112,53 +122,14 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
-      // ========================================================
-      // ADDRESS MISSING
-      // ========================================================
-
       if (address.isEmpty) {
-        if (!mounted) {
-          return;
-        }
-
         _updateState(() {
           _checkingAddress = false;
         });
 
-        // ------------------------------------------------------
-        // OPEN ADDRESS SCREEN
-        // ------------------------------------------------------
-
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                const AddressScreen(),
-          ),
+        _message(
+          'Owner address is missing. Please complete your address first.',
         );
-
-        if (!mounted) {
-          return;
-        }
-
-        // ------------------------------------------------------
-        // ADDRESS SCREEN SE SAVE KARKE WAPAS AANE KE BAAD
-        // AUTOMATICALLY PROFILE DOBARA CHECK HOGA.
-        // ------------------------------------------------------
-
-        _updateState(() {
-          _checkingAddress = false;
-        });
-
-        // ------------------------------------------------------
-        // IMPORTANT
-        //
-        // User ko Search button dobara press nahi karna padega.
-        // Address save hone ke baad _findWalker() automatically
-        // dobara chalega.
-        // ------------------------------------------------------
-
-        await _findWalker();
 
         return;
       }
@@ -167,8 +138,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // OWNER NAME
       // ========================================================
 
-      String ownerName =
-          _readFirstString(
+      String ownerName = _readFirstString(
         data,
         const [
           'fullName',
@@ -208,7 +178,29 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       _ownerPosition = position;
 
       // ========================================================
-      // START INSTA WALK SEARCH
+      // START FIRESTORE SEARCH
+      //
+      // This sends:
+      //
+      // requestId
+      // status
+      // searchType
+      // senderRole
+      // senderUid
+      // ownerAuthUid
+      // businessId
+      // ownerId
+      // ownerName
+      // address
+      // searchRadiusKm
+      // ownerLocation
+      // ownerLocationType
+      // walkerUid
+      // walkerId
+      // walkerName
+      // acceptedBy
+      // acceptedAt
+      // createdAt
       // ========================================================
 
       await _startSearch(
@@ -216,6 +208,25 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ownerName: ownerName,
         address: address,
         position: position,
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Insta Walk Firebase error: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _updateState(() {
+        _checkingAddress = false;
+      });
+
+      _message(
+        e.code == 'permission-denied'
+            ? 'Firestore permission denied. Please check Firebase rules.'
+            : 'Unable to start Insta Walk.',
       );
     } catch (e) {
       debugPrint(
@@ -289,7 +300,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // CURRENT LOCATION
       // ========================================================
 
-      return await Geolocator.getCurrentPosition();
+      final Position position =
+          await Geolocator.getCurrentPosition();
+
+      return position;
     } catch (e) {
       debugPrint(
         'Location error: $e',
