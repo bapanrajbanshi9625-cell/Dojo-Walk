@@ -3,29 +3,31 @@ part of 'insta_walk_container.dart';
 // ============================================================
 // SEARCH RECOVERY
 //
-// FIRESTORE IS THE SOURCE OF TRUTH.
+// FIRESTORE = SOURCE OF TRUTH
 //
-// Searching request has NO expiry.
+// SEARCHING REQUEST:
+//     - No expiry
+//     - No countdown
+//     - No automatic stop
+//     - Survives screen navigation
+//     - Survives app close
+//     - Recovers after app reopen
 //
-// App/screen close:
-//     Firestore request remains searching.
+// RADAR:
+//     Restored when status == searching
 //
-// App/screen open:
-//     This recovery finds it again.
-//
-// Only these states stop searching:
-//
-// 1. accepted
-// 2. owner_cancelled
-// 3. walker_cancelled
-// 4. cancelled
-// 5. old/manual expired
+// MAP:
+//     Restored from Firestore ownerLocation
 // ============================================================
 
 extension _RecoveryRole on _InstaWalkContainerState {
   Future<void> _recoverSearch() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
+
+    // ==========================================================
+    // NO LOGIN
+    // ==========================================================
 
     if (user == null) {
       if (!mounted) {
@@ -42,6 +44,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
       });
 
       _setActive(false);
+
       return;
     }
 
@@ -70,6 +73,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
         });
 
         _setActive(false);
+
         return;
       }
 
@@ -95,10 +99,10 @@ extension _RecoveryRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // OWNER / BUSINESS ID
+      // BUSINESS / OWNER ID
       // ========================================================
 
-      final String ownerId =
+      String ownerId =
           _readFirstString(
         ownerData,
         const [
@@ -108,6 +112,17 @@ extension _RecoveryRole on _InstaWalkContainerState {
           'Owner ID',
         ],
       );
+
+      // ========================================================
+      // FALLBACK
+      //
+      // If owner profile does not contain ownerId/businessId,
+      // use profile document ID.
+      // ========================================================
+
+      if (ownerId.isEmpty) {
+        ownerId = ownerDoc.id.trim();
+      }
 
       if (ownerId.isEmpty) {
         _resetSearchState();
@@ -121,11 +136,12 @@ extension _RecoveryRole on _InstaWalkContainerState {
         });
 
         _setActive(false);
+
         return;
       }
 
       // ========================================================
-      // FIND ACTIVE FIRESTORE REQUEST
+      // FIND FIRESTORE ACTIVE REQUEST
       // ========================================================
 
       final InstaWalkRequestState? active =
@@ -153,6 +169,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
         });
 
         _setActive(false);
+
         return;
       }
 
@@ -181,7 +198,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // OTHER STATE
+      // CANCELLED / EXPIRED / UNKNOWN
       // ========================================================
 
       _resetSearchState();
@@ -223,9 +240,13 @@ extension _RecoveryRole on _InstaWalkContainerState {
   //
   // IMPORTANT:
   //
-  // NO expiresAt.
-  // NO remaining time.
-  // NO automatic expiration.
+  // There is deliberately NO expiresAt check here.
+  //
+  // If Firestore says:
+  //
+  // status = searching
+  //
+  // then the UI must stay searching.
   // ============================================================
 
   Future<void> _recoverSearchingRequest(
@@ -235,7 +256,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
         active.requestId;
 
     // ==========================================================
-    // REQUEST ID MUST EXIST
+    // REQUEST ID REQUIRED
     // ==========================================================
 
     if (requestId == null ||
@@ -251,14 +272,22 @@ extension _RecoveryRole on _InstaWalkContainerState {
       });
 
       _setActive(false);
+
       return;
     }
 
     // ==========================================================
-    // RESTORE REQUEST
+    // RESTORE REQUEST ID
     // ==========================================================
 
-    _requestId = requestId;
+    _requestId = requestId.trim();
+
+    // ==========================================================
+    // RESTORE OWNER LOCATION
+    //
+    // This is what allows the map to use the same Firestore
+    // search location after app restart.
+    // ==========================================================
 
     _ownerPosition =
         _readOwnerPosition(
@@ -266,11 +295,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
     );
 
     // ==========================================================
-    // IMPORTANT:
-    //
-    // There is NO expiresAt check here.
-    //
-    // Searching means searching.
+    // RESTORE SEARCH UI
     // ==========================================================
 
     if (!mounted) {
@@ -279,91 +304,47 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     _updateState(() {
       _recovering = false;
+
+      // SEARCHING ON
       _searching = true;
+
       _searchFinished = false;
+
       _checkingAddress = false;
+
+      // NO COUNTDOWN
       _secondsLeft = 0;
+
       _stopping = false;
     });
 
+    // ==========================================================
+    // TELL PARENT THAT INSTA WALK IS ACTIVE
+    // ==========================================================
+
     _setActive(true);
+
+    // ==========================================================
+    // START RADAR
+    // ==========================================================
 
     _startRadar();
 
     // ==========================================================
     // REALTIME FIRESTORE LISTENER
+    //
+    // This remains active while the container is alive.
+    //
+    // If Firestore changes searching -> accepted,
+    // onAccepted runs.
+    //
+    // If Firestore changes searching -> cancelled,
+    // onCancelled runs.
     // ==========================================================
 
     try {
       await _service.listenForRequest(
         requestId: requestId,
-
-        // ======================================================
-        // SEARCHING
-        // ======================================================
-
-        onSearching: () {
-          if (!mounted) {
-            return;
-          }
-
-          _updateState(() {
-            _recovering = false;
-            _searching = true;
-            _searchFinished = false;
-            _checkingAddress = false;
-            _stopping = false;
-          });
-
-          _setActive(true);
-          _startRadar();
-        },
-
-        // ======================================================
-        // ANY FIRESTORE UPDATE
-        // ======================================================
-
-        onUpdated: (
-          Map<String, dynamic> data,
-        ) {
-          if (!mounted) {
-            return;
-          }
-
-          final String status =
-              data['status']
-                      ?.toString()
-                      .trim()
-                      .toLowerCase() ??
-                  '';
-
-          // ----------------------------------------------------
-          // SEARCHING
-          // ----------------------------------------------------
-
-          if (status == 'searching') {
-            _updateState(() {
-              _searching = true;
-              _searchFinished = false;
-              _recovering = false;
-            });
-
-            _setActive(true);
-            _startRadar();
-
-            return;
-          }
-
-          // ----------------------------------------------------
-          // ACCEPTED
-          //
-          // onAccepted handles the actual UI.
-          // ----------------------------------------------------
-
-          if (status == 'accepted') {
-            return;
-          }
-        },
 
         // ======================================================
         // WALKER ACCEPTED
@@ -376,9 +357,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
         },
 
         // ======================================================
-        // EXPIRED
-        //
-        // Only old/manual Firestore documents.
+        // OLD / MANUAL EXPIRED
         // ======================================================
 
         onExpired: () {
@@ -400,26 +379,37 @@ extension _RecoveryRole on _InstaWalkContainerState {
         },
 
         // ======================================================
-        // FIRESTORE ERROR
+        // LISTENER ERROR
         //
-        // IMPORTANT:
-        // Do NOT stop searching because of temporary listener
-        // error. Firestore request still exists.
+        // DO NOT turn searching off here.
+        //
+        // Firestore remains the source of truth.
         // ======================================================
 
         onError: (
           Object error,
         ) {
           debugPrint(
-            'Insta Walk Firestore listener error: $error',
+            'Insta Walk Firestore listener error: '
+            '$error',
           );
         },
       );
     } catch (e) {
       debugPrint(
-        'Insta Walk listener setup error: $e',
+        'Insta Walk listener setup error: '
+        '$e',
       );
     }
+
+    // ==========================================================
+    // IMPORTANT
+    //
+    // DO NOT start a countdown timer.
+    //
+    // Search is permanent until:
+    // owner cancels OR walker accepts.
+    // ==========================================================
   }
 
   // ============================================================
@@ -438,6 +428,10 @@ extension _RecoveryRole on _InstaWalkContainerState {
       data,
     );
 
+    // ==========================================================
+    // RESTORE REQUEST ID
+    // ==========================================================
+
     final String recoveredId =
         accepted.requestId.trim();
 
@@ -446,8 +440,17 @@ extension _RecoveryRole on _InstaWalkContainerState {
             ? active.requestId
             : recoveredId;
 
+    // ==========================================================
+    // STOP SEARCH VISUALS
+    // ==========================================================
+
     _stopTimer();
+
     _stopRadar();
+
+    // ==========================================================
+    // UPDATE STATE
+    // ==========================================================
 
     if (!mounted) {
       return;
@@ -455,17 +458,26 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     _updateState(() {
       _recovering = false;
+
       _searching = false;
+
       _searchFinished = false;
+
       _checkingAddress = false;
+
       _secondsLeft = 0;
+
       _stopping = false;
     });
+
+    // ==========================================================
+    // KEEP ACTIVE BECAUSE WALKER WAS FOUND
+    // ==========================================================
 
     _setActive(true);
 
     // ==========================================================
-    // SHOW WALKER FOUND / ACCEPTED STATE
+    // SHOW WALKER FOUND SCREEN
     // ==========================================================
 
     widget.onWalkerFound?.call();
