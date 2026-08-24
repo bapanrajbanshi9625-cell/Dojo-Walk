@@ -100,22 +100,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String _petName = 'Your Pet';
 
   // ==========================================================
-  // TIMER COMPATIBILITY
-  //
-  // IMPORTANT:
-  // Insta Walk has NO countdown.
-  // Insta Walk has NO automatic expiry.
-  //
-  // Older part files may still call _stopTimer().
-  // This method only resets the compatibility state.
-  // It does NOT start or run any timer.
-  // ==========================================================
-
-  void _stopTimer() {
-    _secondsLeft = 0;
-  }
-
-  // ==========================================================
   // INIT
   // ==========================================================
 
