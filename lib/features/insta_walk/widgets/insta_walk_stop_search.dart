@@ -125,7 +125,6 @@ extension _StopSearchRole on _InstaWalkContainerState {
           state.isCancelled ||
           state.status ==
               InstaWalkRequestStatus.notFound) {
-        _stopTimer();
         _stopRadar();
 
         _requestId = null;
