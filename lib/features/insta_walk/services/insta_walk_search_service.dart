@@ -54,9 +54,8 @@ class InstaWalkSearchService {
   // LISTENER
   // ==========================================================
 
-  StreamSubscription<
-          DocumentSnapshot<Map<String, dynamic>>>?
-      _requestSubscription;
+  StreamSubscription<InstaWalkRequestState>?
+    _requestSubscription;
 
   // ==========================================================
   // ACTIVE REQUEST
