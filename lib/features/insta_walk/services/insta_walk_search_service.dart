@@ -463,48 +463,122 @@ class InstaWalkSearchService {
   // ==========================================================
 
   Future<bool> cancelSearch({
-    required String requestId,
-  }) async {
+  required String requestId,
+}) async {
 
-    try {
+  final String cleanRequestId =
+      requestId.trim();
 
-      await _firestore
-          .collection(
-            walkRequestsCollection,
-          )
-          .doc(requestId)
-          .update({
-
-            'status':
-                'cancelled',
-
-            'cancelledAt':
-                FieldValue.serverTimestamp(),
-
-          });
-
-
-
-      if (_activeRequestId ==
-          requestId) {
-
-        _activeRequestId = null;
-
-      }
-
-
-
-      return true;
-
-
-    } catch (e) {
-
-      return false;
-
-    }
-
+  if (cleanRequestId.isEmpty) {
+    return false;
   }
 
+  final User? user =
+      _auth.currentUser;
+
+  if (user == null) {
+    return false;
+  }
+
+  try {
+
+    final DocumentReference<
+        Map<String, dynamic>> requestRef =
+        _firestore
+            .collection(
+              walkRequestsCollection,
+            )
+            .doc(
+              cleanRequestId,
+            );
+
+    final bool cancelled =
+        await _firestore.runTransaction<bool>(
+      (transaction) async {
+
+        final DocumentSnapshot<
+            Map<String, dynamic>> snapshot =
+            await transaction.get(
+          requestRef,
+        );
+
+        if (!snapshot.exists) {
+          return true;
+        }
+
+        final Map<String, dynamic> data =
+            snapshot.data() ??
+                <String, dynamic>{};
+
+        final String status =
+            (data['status'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+
+        if (status == 'cancelled' ||
+            status == 'expired' ||
+            status == 'completed') {
+          return true;
+        }
+
+        if (status == 'accepted') {
+          return false;
+        }
+
+        if (status != 'searching') {
+          return false;
+        }
+
+        final String ownerAuthUid =
+            (data['ownerAuthUid'] ?? '')
+                .toString()
+                .trim();
+
+        if (ownerAuthUid != user.uid) {
+          return false;
+        }
+
+        transaction.update(
+          requestRef,
+          <String, dynamic>{
+            'status': 'cancelled',
+            'cancelledAt':
+                FieldValue.serverTimestamp(),
+          },
+        );
+
+        return true;
+      },
+    );
+
+    if (cancelled &&
+        _activeRequestId ==
+            cleanRequestId) {
+
+      _activeRequestId = null;
+    }
+
+    return cancelled;
+
+  } on FirebaseException catch (e) {
+
+    print(
+      'cancelSearch Firebase error: '
+      '${e.code} - ${e.message}',
+    );
+
+    return false;
+
+  } catch (e) {
+
+    print(
+      'cancelSearch error: $e',
+    );
+
+    return false;
+  }
+  }
 
 
   // ==========================================================
