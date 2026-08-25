@@ -31,22 +31,26 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     });
 
     try {
+
       // ========================================================
       // FIND OWNER PROFILE
       // ========================================================
 
-      final QueryDocumentSnapshot<
-          Map<String, dynamic>>? ownerDoc =
+      final Map<String, dynamic>? ownerData =
           await _service.findOwnerProfile();
+
 
       if (!mounted) {
         return;
       }
 
-      if (ownerDoc == null) {
+
+      if (ownerData == null) {
+
         _updateState(() {
           _checkingAddress = false;
         });
+
 
         _message(
           'Owner profile not found. Please complete your profile.',
@@ -55,16 +59,17 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return;
       }
 
-      final Map<String, dynamic> data =
-          ownerDoc.data();
+
+      final Map<String,dynamic> data =
+          ownerData;
+
 
       // ========================================================
       // OWNER / BUSINESS ID
-      //
-      // Required by Firebase walk_requests.
       // ========================================================
 
-      String ownerId = _readFirstString(
+      String ownerId =
+          _readFirstString(
         data,
         const [
           'businessId',
@@ -74,28 +79,38 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
-      // Fallback to profile document ID.
-      if (ownerId.isEmpty) {
-        ownerId = ownerDoc.id.trim();
+
+      if(ownerId.isEmpty){
+
+        ownerId =
+            user.uid.trim();
+
       }
 
-      if (ownerId.isEmpty) {
+
+      if(ownerId.isEmpty){
+
         _updateState(() {
           _checkingAddress = false;
         });
+
 
         _message(
           'Business ID / Owner ID not found.',
         );
 
         return;
+
       }
+
+
 
       // ========================================================
       // PET NAME
       // ========================================================
 
-      _petName = _readFirstString(
+      _petName =
+          _readFirstString(
         data,
         const [
           'petName',
@@ -105,15 +120,22 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
-      if (_petName.isEmpty) {
-        _petName = 'Your Pet';
+
+      if(_petName.isEmpty){
+
+        _petName =
+            'Your Pet';
+
       }
+
+
 
       // ========================================================
       // ADDRESS
       // ========================================================
 
-      final String address = _readFirstString(
+      final String address =
+          _readFirstString(
         data,
         const [
           'address',
@@ -122,23 +144,32 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
-      if (address.isEmpty) {
+
+      if(address.isEmpty){
+
         _updateState(() {
           _checkingAddress = false;
         });
+
 
         _message(
           'Owner address is missing. Please complete your address first.',
         );
 
+
         return;
+
       }
+
+
+
 
       // ========================================================
       // OWNER NAME
       // ========================================================
 
-      String ownerName = _readFirstString(
+      String ownerName =
+          _readFirstString(
         data,
         const [
           'fullName',
@@ -148,59 +179,52 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
-      if (ownerName.isEmpty) {
-        ownerName = 'Dog Owner';
+
+      if(ownerName.isEmpty){
+
+        ownerName =
+            'Dog Owner';
+
       }
 
+
+
       // ========================================================
-      // GET CURRENT LOCATION
+      // LOCATION
       // ========================================================
 
       final Position? position =
           await _getLocation();
 
-      if (!mounted) {
+
+
+      if(!mounted){
+
         return;
+
       }
 
-      if (position == null) {
+
+      if(position == null){
+
         _updateState(() {
           _checkingAddress = false;
         });
 
+
         return;
+
       }
 
-      // ========================================================
-      // SAVE OWNER POSITION
-      // ========================================================
 
-      _ownerPosition = position;
+
+      _ownerPosition =
+          position;
+
+
 
       // ========================================================
-      // START FIRESTORE SEARCH
-      //
-      // This sends:
-      //
-      // requestId
-      // status
-      // searchType
-      // senderRole
-      // senderUid
-      // ownerAuthUid
-      // businessId
-      // ownerId
-      // ownerName
-      // address
-      // searchRadiusKm
-      // ownerLocation
-      // ownerLocationType
-      // walkerUid
-      // walkerId
-      // walkerName
-      // acceptedBy
-      // acceptedAt
-      // createdAt
+      // START SEARCH
       // ========================================================
 
       await _startSearch(
@@ -209,111 +233,144 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         address: address,
         position: position,
       );
-    } on FirebaseException catch (e) {
+
+
+    } on FirebaseException catch(e){
+
+
       debugPrint(
         'Insta Walk Firebase error: '
         '${e.code} - ${e.message}',
       );
 
-      if (!mounted) {
+
+      if(!mounted){
+
         return;
+
       }
+
 
       _updateState(() {
         _checkingAddress = false;
       });
+
 
       _message(
         e.code == 'permission-denied'
             ? 'Firestore permission denied. Please check Firebase rules.'
             : 'Unable to start Insta Walk.',
       );
-    } catch (e) {
+
+
+    } catch(e){
+
+
       debugPrint(
         'Insta Walk start error: $e',
       );
 
-      if (!mounted) {
+
+      if(!mounted){
+
         return;
+
       }
+
 
       _updateState(() {
         _checkingAddress = false;
       });
 
+
       _message(
         'Unable to start Insta Walk.',
       );
+
     }
+
   }
+
+
 
   // ============================================================
   // LOCATION
   // ============================================================
 
   Future<Position?> _getLocation() async {
+
     try {
-      // ========================================================
-      // LOCATION SERVICE
-      // ========================================================
+
 
       final bool enabled =
           await Geolocator.isLocationServiceEnabled();
 
-      if (!enabled) {
+
+
+      if(!enabled){
+
         _message(
           'Please turn on location service.',
         );
 
         return null;
+
       }
 
-      // ========================================================
-      // LOCATION PERMISSION
-      // ========================================================
+
 
       LocationPermission permission =
           await Geolocator.checkPermission();
 
-      if (permission ==
-          LocationPermission.denied) {
+
+
+      if(permission ==
+          LocationPermission.denied){
+
         permission =
             await Geolocator.requestPermission();
+
       }
 
-      // ========================================================
-      // PERMISSION DENIED
-      // ========================================================
 
-      if (permission ==
+
+      if(permission ==
               LocationPermission.denied ||
           permission ==
-              LocationPermission.deniedForever) {
+              LocationPermission.deniedForever){
+
         _message(
           'Location permission is required.',
         );
 
+
         return null;
+
       }
 
-      // ========================================================
-      // CURRENT LOCATION
-      // ========================================================
 
-      final Position position =
-          await Geolocator.getCurrentPosition();
 
-      return position;
-    } catch (e) {
+      return await Geolocator.getCurrentPosition();
+
+
+
+    } catch(e){
+
+
       debugPrint(
         'Location error: $e',
       );
+
 
       _message(
         'Unable to get your current location.',
       );
 
+
       return null;
+
     }
+
   }
+
 }
