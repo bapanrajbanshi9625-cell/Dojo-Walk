@@ -1,139 +1,191 @@
-import 'dart:async';
+// ==========================================================
+// START SEARCH
+// ==========================================================
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+Future<InstaWalkSearchResult> startSearch({
+  required String ownerId,
+  required String ownerName,
+  required String address,
+  required GeoPoint ownerLocation,
+}) async {
 
-import '../models/insta_walk_accepted_data.dart';
-import '../models/insta_walk_request_state.dart';
-import '../models/insta_walk_search_result.dart';
-
-import 'insta_walk_firestore_helper.dart';
-import 'insta_walk_status_helper.dart';
-
-
-// ============================================================
-// INSTA WALK SEARCH SERVICE
-// ============================================================
-
-class InstaWalkSearchService {
-
-
-  InstaWalkSearchService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-  })  : _firestore =
-            firestore ?? FirebaseFirestore.instance,
-        _auth =
-            auth ?? FirebaseAuth.instance,
-
-        _helper =
-            InstaWalkFirestoreHelper(
-              firestore:
-                  firestore ??
-                  FirebaseFirestore.instance,
-            );
-
-
-
-  final FirebaseFirestore _firestore;
-
-  final FirebaseAuth _auth;
-
-  final InstaWalkFirestoreHelper _helper;
-
-
-
-  // ==========================================================
-  // COLLECTION
-  // ==========================================================
-
-  static const String walkRequestsCollection =
-      'walk_requests';
-
-
-
-  // ==========================================================
-  // STATE
-  // ==========================================================
-
-  StreamSubscription<
-      DocumentSnapshot<Map<String, dynamic>>>?
-      _subscription;
-
-
-  String? _activeRequestId;
-
-
-
-  String? get activeRequestId =>
-      _activeRequestId;
-
-
-
-  bool get hasActiveRequest =>
-      _activeRequestId != null &&
-      _activeRequestId!.isNotEmpty;
-
-
-
-  User? get currentUser =>
+  final User? user =
       _auth.currentUser;
 
 
-
-  // ==========================================================
-  // DISPOSE
-  // ==========================================================
-
-  Future<void> dispose() async {
-
-    await _subscription?.cancel();
-
-    _subscription = null;
-
-    _activeRequestId = null;
+  if (user == null) {
+    return const InstaWalkSearchResult.failure(
+      message: 'Please login first.',
+      errorCode: 'unauthenticated',
+    );
   }
 
 
 
-  // ==========================================================
-  // START SEARCH
-  //
-  // NOTE:
-  // Full create logic next part में आएगा.
-  //
-  // ==========================================================
+  final String cleanOwnerId =
+      ownerId.trim();
 
-  Future<InstaWalkSearchResult> startSearch({
-    required String ownerId,
-    required String ownerName,
-    required String address,
-    required GeoPoint ownerLocation,
-  }) async {
+  final String cleanOwnerName =
+      ownerName.trim().isEmpty
+          ? 'Dog Owner'
+          : ownerName.trim();
 
 
-    final User? user =
-        _auth.currentUser;
+  final String cleanAddress =
+      address.trim();
 
 
-    if (user == null) {
 
-      return const InstaWalkSearchResult.failure(
-        message:
-            'Please login first.',
-        errorCode:
-            'unauthenticated',
-      );
-    }
+  if (cleanOwnerId.isEmpty) {
+    return const InstaWalkSearchResult.failure(
+      message: 'Owner ID missing.',
+      errorCode: 'missing-owner-id',
+    );
+  }
 
 
-    // आगे create request वाला code Step 7 में आएगा
+  if (cleanAddress.isEmpty) {
+    return const InstaWalkSearchResult.failure(
+      message: 'Address missing.',
+      errorCode: 'missing-address',
+    );
+  }
+
+
+
+  try {
+
+
+    final DocumentReference<
+        Map<String, dynamic>> ref =
+        await _helper.createRequest(
+      data: {
+
+        // ==================================================
+        // STATUS
+        // ==================================================
+
+        'status':
+            'searching',
+
+
+        // ==================================================
+        // TYPE
+        // ==================================================
+
+        'searchType':
+            'insta_walk',
+
+        'senderRole':
+            'owner',
+
+
+
+        // ==================================================
+        // AUTH
+        // ==================================================
+
+        'senderUid':
+            user.uid,
+
+        'ownerAuthUid':
+            user.uid,
+
+
+
+        // ==================================================
+        // OWNER
+        // ==================================================
+
+        'ownerId':
+            cleanOwnerId,
+
+        'businessId':
+            cleanOwnerId,
+
+        'ownerName':
+            cleanOwnerName,
+
+        'address':
+            cleanAddress,
+
+
+
+        // ==================================================
+        // LOCATION
+        // ==================================================
+
+        'ownerLocation':
+            ownerLocation,
+
+        'ownerLocationType':
+            'search_snapshot',
+
+
+
+        // ==================================================
+        // WALKER
+        // ==================================================
+
+        'walkerUid':
+            null,
+
+        'walkerId':
+            null,
+
+        'walkerName':
+            null,
+
+
+        'acceptedBy':
+            null,
+
+        'acceptedAt':
+            null,
+
+
+
+        // ==================================================
+        // TIME
+        // ==================================================
+
+        'createdAt':
+            FieldValue.serverTimestamp(),
+      },
+    );
+
+
+
+    _activeRequestId =
+        ref.id;
+
+
+
+    return InstaWalkSearchResult.success(
+      requestId:
+          ref.id,
+    );
+
+
+  } on FirebaseException catch (e) {
+
+
+    return InstaWalkSearchResult.failure(
+      message:
+          e.message ??
+          'Firestore error',
+      errorCode:
+          e.code,
+    );
+
+
+  } catch (e) {
 
 
     return const InstaWalkSearchResult.failure(
       message:
-          'Start search logic pending.',
+          'Unable to start search.',
     );
-  }
 
+  }
 }
