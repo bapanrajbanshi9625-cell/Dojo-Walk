@@ -26,7 +26,7 @@ class ActiveWalkService {
   //
   // Walker accepts request.
   //
-  // destinationLocation = OWNER PICKUP LOCATION
+  // destinationLocation = OWNER'S PICKUP LOCATION
   // status = On that way
   // ==========================================================
 
@@ -59,6 +59,10 @@ class ActiveWalkService {
 
     await reference.set(
       <String, dynamic>{
+        // ------------------------------------------------------
+        // BASIC
+        // ------------------------------------------------------
+
         'walkId': cleanWalkId,
 
         // ------------------------------------------------------
@@ -88,13 +92,14 @@ class ActiveWalkService {
         'dogPhoto': dogPhoto.trim(),
 
         // ------------------------------------------------------
-        // OWNER PICKUP
+        // OWNER PICKUP LOCATION
         // ------------------------------------------------------
 
         'address': address.trim(),
 
         // IMPORTANT:
-        // This is the owner's setup pickup location.
+        // Owner द्वारा setup की गई pickup location.
+        // Walker इसी location पर जाएगा.
         'destinationLocation':
             destinationLocation,
 
@@ -105,13 +110,18 @@ class ActiveWalkService {
         'status': 'On that way',
 
         // ------------------------------------------------------
-        // INITIAL VALUES
+        // INITIAL WALK DATA
         // ------------------------------------------------------
 
         'steps': 0,
         'peeCount': 0,
         'poopCount': 0,
         'distanceKm': 0.0,
+        'durationMinutes': 0.0,
+        'timeFormatted': '',
+
+        'routeDistanceKm': 0.0,
+        'routeDurationMinutes': 0.0,
 
         'routePolyline':
             <Map<String, dynamic>>[],
@@ -139,15 +149,18 @@ class ActiveWalkService {
       watchActiveWalk(
     String walkId,
   ) {
+    final String cleanWalkId =
+        walkId.trim();
+
     return _activeWalks
-        .doc(walkId.trim())
+        .doc(cleanWalkId)
         .snapshots();
   }
 
   // ==========================================================
   // WALKER REACHED PICKUP
   //
-  // Does NOT start walk.
+  // This does NOT start the walk.
   // ==========================================================
 
   Future<void> markReached({
@@ -176,7 +189,7 @@ class ActiveWalkService {
   // ==========================================================
   // START WALK
   //
-  // Only after Reached.
+  // Only after walker reaches owner's pickup location.
   // ==========================================================
 
   Future<void> startWalk({
@@ -210,7 +223,8 @@ class ActiveWalkService {
         'currentLocation':
             startLocation,
 
-        'routePolyline': [
+        'routePolyline':
+            <Map<String, dynamic>>[
           <String, dynamic>{
             'latitude':
                 startLocation.latitude,
@@ -223,6 +237,10 @@ class ActiveWalkService {
         'peeCount': 0,
         'poopCount': 0,
         'distanceKm': 0.0,
+        'durationMinutes': 0.0,
+        'timeFormatted': '',
+        'routeDistanceKm': 0.0,
+        'routeDurationMinutes': 0.0,
       },
     );
   }
@@ -230,7 +248,7 @@ class ActiveWalkService {
   // ==========================================================
   // UPDATE WALKER LIVE LOCATION
   //
-  // Only while Started.
+  // Only while status == Started.
   // ==========================================================
 
   Future<void> updateWalkerLocation({
@@ -257,12 +275,12 @@ class ActiveWalkService {
   // ==========================================================
   // ADD ROUTE POINT
   //
-  // Stores:
+  // routePolyline:
   //
-  // routePolyline: [
+  // [
   //   {
-  //     latitude: ...,
-  //     longitude: ...
+  //     latitude: 28.123,
+  //     longitude: 77.123
   //   }
   // ]
   // ==========================================================
@@ -294,6 +312,7 @@ class ActiveWalkService {
         snapshot.data() ??
             <String, dynamic>{};
 
+    // Only save route when actual walk has started.
     if (data['status'] != 'Started') {
       return;
     }
@@ -306,7 +325,7 @@ class ActiveWalkService {
             : <dynamic>[];
 
     // ----------------------------------------------------------
-    // Avoid saving an almost identical consecutive point.
+    // Avoid duplicate consecutive points.
     // ----------------------------------------------------------
 
     if (existing.isNotEmpty) {
@@ -399,10 +418,15 @@ class ActiveWalkService {
 
     if (distanceKm != null) {
       data['distanceKm'] = distanceKm;
+      data['routeDistanceKm'] =
+          distanceKm;
     }
 
     if (durationMinutes != null) {
       data['durationMinutes'] =
+          durationMinutes;
+
+      data['routeDurationMinutes'] =
           durationMinutes;
     }
 
@@ -424,10 +448,9 @@ class ActiveWalkService {
   // END WALK
   //
   // 1. Read active_walk
-  // 2. Save complete walk_history
+  // 2. Save walk_history
   // 3. Mark active_walk Completed
   //
-  // routePolyline remains in history.
   // ==========================================================
 
   Future<void> endWalk({
@@ -487,7 +510,7 @@ class ActiveWalkService {
             <String, dynamic>{};
 
     // ========================================================
-    // READ ACTIVE DATA
+    // LOCATIONS
     // ========================================================
 
     final GeoPoint? finalStartLocation =
@@ -505,6 +528,8 @@ class ActiveWalkService {
               activeData['currentLocation'],
             );
 
+    // IMPORTANT:
+    // Destination remains owner's pickup location.
     final GeoPoint? finalDestination =
         destinationLocation ??
             _readGeoPoint(
@@ -518,16 +543,14 @@ class ActiveWalkService {
     // ========================================================
 
     final List<dynamic> routePolyline =
-        activeData['routePolyline']
-                is List
+        activeData['routePolyline'] is List
             ? List<dynamic>.from(
-                activeData[
-                    'routePolyline'],
+                activeData['routePolyline'],
               )
             : <dynamic>[];
 
     // ========================================================
-    // USE ACTIVE VALUES WHEN ARGUMENT IS DEFAULT
+    // STATS
     // ========================================================
 
     final int finalSteps =
@@ -552,17 +575,15 @@ class ActiveWalkService {
               );
 
     final double finalDistance =
-        distanceKm != 0
+        distanceKm != 0.0
             ? distanceKm
             : _readDouble(
-                  activeData[
-                    'distanceKm',
-                  ],
+                  activeData['distanceKm'],
                 ) ??
                 0.0;
 
     final double finalDuration =
-        durationMinutes != 0
+        durationMinutes != 0.0
             ? durationMinutes
             : _readDouble(
                   activeData[
@@ -601,7 +622,7 @@ class ActiveWalkService {
         _firestore.batch();
 
     // ========================================================
-    // SAVE HISTORY
+    // SAVE WALK HISTORY
     // ========================================================
 
     batch.set(
@@ -612,7 +633,6 @@ class ActiveWalkService {
         // ------------------------------------------------------
 
         'walkId': cleanWalkId,
-
         'status': 'Completed',
 
         // ------------------------------------------------------
@@ -642,7 +662,7 @@ class ActiveWalkService {
         'dogPhoto': dogPhoto.trim(),
 
         // ------------------------------------------------------
-        // PICKUP
+        // OWNER PICKUP
         // ------------------------------------------------------
 
         'address': finalAddress,
@@ -651,7 +671,7 @@ class ActiveWalkService {
             finalDestination,
 
         // ------------------------------------------------------
-        // ROUTE
+        // WALK ROUTE
         // ------------------------------------------------------
 
         'startLocation':
@@ -668,9 +688,7 @@ class ActiveWalkService {
         // ------------------------------------------------------
 
         'steps': finalSteps,
-
         'peeCount': finalPee,
-
         'poopCount': finalPoop,
 
         'distanceKm':
@@ -753,9 +771,11 @@ class ActiveWalkService {
 
         'steps': finalSteps,
 
-        'peeCount': finalPee,
+        'peeCount':
+            finalPee,
 
-        'poopCount': finalPoop,
+        'poopCount':
+            finalPoop,
 
         'routeDistanceKm':
             finalDistance,
@@ -814,9 +834,11 @@ class ActiveWalkService {
     final String result =
         value.toString().trim();
 
-    return result.isEmpty
-        ? null
-        : result;
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result;
   }
 
   int _readInt(
@@ -856,10 +878,14 @@ class ActiveWalkService {
     DateTime date,
   ) {
     final String day =
-        date.day.toString().padLeft(2, '0');
+        date.day
+            .toString()
+            .padLeft(2, '0');
 
     final String month =
-        date.month.toString().padLeft(2, '0');
+        date.month
+            .toString()
+            .padLeft(2, '0');
 
     return '${date.year}-$month-$day';
   }
