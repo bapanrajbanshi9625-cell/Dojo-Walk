@@ -11,34 +11,31 @@ import 'insta_walk_firestore_helper.dart';
 import 'insta_walk_status_helper.dart';
 
 
-// ============================================================
-// INSTA WALK SEARCH SERVICE
-// ============================================================
-
 class InstaWalkSearchService {
 
 
   InstaWalkSearchService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore =
-            firestore ?? FirebaseFirestore.instance,
+  }) :
+    _firestore =
+        firestore ?? FirebaseFirestore.instance,
 
-        _auth =
-            auth ?? FirebaseAuth.instance,
+    _auth =
+        auth ?? FirebaseAuth.instance,
 
-        _helper =
-            InstaWalkFirestoreHelper(
-              firestore:
-                  firestore ??
-                  FirebaseFirestore.instance,
-            );
+    _helper =
+        InstaWalkFirestoreHelper(
+          firestore:
+              firestore ?? FirebaseFirestore.instance,
+        );
 
 
 
   final FirebaseFirestore _firestore;
 
   final FirebaseAuth _auth;
+
 
   final InstaWalkFirestoreHelper _helper;
 
@@ -50,7 +47,7 @@ class InstaWalkSearchService {
 
 
   StreamSubscription<
-      DocumentSnapshot<Map<String, dynamic>>>?
+      DocumentSnapshot<Map<String,dynamic>>>?
       _requestSubscription;
 
 
@@ -62,11 +59,9 @@ class InstaWalkSearchService {
       _activeRequestId;
 
 
-
   bool get hasActiveRequest =>
       _activeRequestId != null &&
-      _activeRequestId!.trim().isNotEmpty;
-
+      _activeRequestId!.isNotEmpty;
 
 
   User? get currentUser =>
@@ -79,10 +74,15 @@ class InstaWalkSearchService {
   // ==========================================================
 
   Future<InstaWalkSearchResult> startSearch({
+
     required String ownerId,
+
     required String ownerName,
+
     required String address,
+
     required GeoPoint ownerLocation,
+
   }) async {
 
 
@@ -90,11 +90,11 @@ class InstaWalkSearchService {
         _auth.currentUser;
 
 
-    if (user == null) {
+    if(user == null){
 
       return const InstaWalkSearchResult.failure(
-        message: 'Please login first.',
-        errorCode: 'unauthenticated',
+        message:'Please login first.',
+        errorCode:'unauthenticated',
       );
 
     }
@@ -107,9 +107,8 @@ class InstaWalkSearchService {
 
     final String cleanOwnerName =
         ownerName.trim().isEmpty
-            ? 'Dog Owner'
-            : ownerName.trim();
-
+        ? 'Dog Owner'
+        : ownerName.trim();
 
 
     final String cleanAddress =
@@ -117,111 +116,115 @@ class InstaWalkSearchService {
 
 
 
-    if (cleanOwnerId.isEmpty) {
+    if(cleanOwnerId.isEmpty){
 
       return const InstaWalkSearchResult.failure(
-        message: 'Owner ID missing.',
-        errorCode: 'missing-owner-id',
+        message:'Owner ID missing.',
+        errorCode:'missing-owner-id',
       );
 
     }
 
 
 
-    if (cleanAddress.isEmpty) {
+    if(cleanAddress.isEmpty){
 
       return const InstaWalkSearchResult.failure(
-        message: 'Address missing.',
-        errorCode: 'missing-address',
+        message:'Address missing.',
+        errorCode:'missing-address',
       );
 
     }
 
 
 
-    try {
+    try{
 
 
       final DocumentReference<
-          Map<String, dynamic>> ref =
+          Map<String,dynamic>> ref =
+
           await _helper.createRequest(
-        data: {
+
+            data:{
 
 
-          'status':
-              'searching',
+              'status':
+                  'searching',
 
 
-          'searchType':
-              'insta_walk',
+              'searchType':
+                  'insta_walk',
 
 
-          'senderRole':
-              'owner',
-
-
-
-          'senderUid':
-              user.uid,
-
-
-          'ownerAuthUid':
-              user.uid,
+              'senderRole':
+                  'owner',
 
 
 
-          'ownerId':
-              cleanOwnerId,
+              'senderUid':
+                  user.uid,
 
 
-          'businessId':
-              cleanOwnerId,
-
-
-          'ownerName':
-              cleanOwnerName,
-
-
-          'address':
-              cleanAddress,
+              'ownerAuthUid':
+                  user.uid,
 
 
 
-          'ownerLocation':
-              ownerLocation,
+              'ownerId':
+                  cleanOwnerId,
 
 
-          'ownerLocationType':
-              'search_snapshot',
+              'businessId':
+                  cleanOwnerId,
 
 
-
-          'walkerUid':
-              null,
-
-
-          'walkerId':
-              null,
+              'ownerName':
+                  cleanOwnerName,
 
 
-          'walkerName':
-              null,
-
-
-          'acceptedBy':
-              null,
-
-
-          'acceptedAt':
-              null,
+              'address':
+                  cleanAddress,
 
 
 
-          'createdAt':
-              FieldValue.serverTimestamp(),
+              'ownerLocation':
+                  ownerLocation,
 
-        },
-      );
+
+              'ownerLocationType':
+                  'search_snapshot',
+
+
+
+              'walkerUid':
+                  null,
+
+
+              'walkerId':
+                  null,
+
+
+              'walkerName':
+                  null,
+
+
+
+              'acceptedBy':
+                  null,
+
+
+              'acceptedAt':
+                  null,
+
+
+
+              'createdAt':
+                  FieldValue.serverTimestamp(),
+
+            },
+
+          );
 
 
 
@@ -236,28 +239,46 @@ class InstaWalkSearchService {
       );
 
 
-    } on FirebaseException catch (e) {
+    }
+    on FirebaseException catch(e){
 
 
       return InstaWalkSearchResult.failure(
+
         message:
             e.message ??
             'Firestore error',
 
         errorCode:
             e.code,
+
       );
 
 
-    } catch (e) {
+    }
+    catch(e){
 
 
       return const InstaWalkSearchResult.failure(
+
         message:
             'Unable to start search.',
+
       );
 
     }
+
   }
+
+
+
+  // ==========================================================
+  // NEXT FUNCTIONS WILL COME HERE
+  // listenForRequest()
+  // getRequestState()
+  // cancelSearch()
+  // clearActiveRequest()
+  // ==========================================================
+
 
 }
