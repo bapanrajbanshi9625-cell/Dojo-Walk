@@ -347,54 +347,51 @@ class InstaWalkSearchService {
   // FIRESTORE:
   // ownerProfiles/{uid}
   // ==========================================================
-
+  
   Future<DocumentSnapshot<Map<String, dynamic>>?>
-      findOwnerProfile() async {
+    findOwnerProfile() async {
 
+  final User? user = _auth.currentUser;
 
-    final User? user =
-        _auth.currentUser;
-
-
-    if (user == null) {
-
-      return null;
-
-    }
-
-
-
-    final DocumentSnapshot<
-        Map<String, dynamic>> doc =
-        await _firestore
-            .collection(
-              'ownerProfiles',
-            )
-            .doc(
-              user.uid,
-            )
-            .get();
-
-
-
-    if (!doc.exists) {
-
-      return null;
-
-    }
-
-
-
-    return doc;
-
+  if (user == null) {
+    return null;
   }
 
+  try {
+    final QuerySnapshot<Map<String, dynamic>> snapshot =
+        await _firestore
+            .collection('ownerProfiles')
+            .where(
+              'authUid',
+              isEqualTo: user.uid,
+            )
+            .limit(1)
+            .get();
 
+    if (snapshot.docs.isEmpty) {
+      return null;
+    }
 
+    return snapshot.docs.first;
+  } on FirebaseException catch (e) {
+    print(
+      'findOwnerProfile Firebase error: '
+      '${e.code} - ${e.message}',
+    );
+    rethrow;
+  } catch (e) {
+    print(
+      'findOwnerProfile error: $e',
+    );
+    rethrow;
+  }
+  }
+  
   // ==========================================================
   // FIND ACTIVE REQUEST
   // ==========================================================
 
+  
   Future<InstaWalkRequestState?>
       findActiveRequest({
         required String ownerId,
