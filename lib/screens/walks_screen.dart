@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/widgets/insta_walk_container.dart';
-import '../features/active_/containers/active_walker_container.dart';
+import '../features/active_walk/containers/active_walker_container.dart';
 import '../features/walks/widgets/walks_offer_slider.dart';
 
 import 'custom_app_bar.dart';
