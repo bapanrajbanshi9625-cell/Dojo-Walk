@@ -21,6 +21,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       return;
     }
 
+    final String ownerId = user.uid;
+
     if (!mounted) {
       return;
     }
@@ -31,46 +33,38 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     });
 
     try {
-
       // ========================================================
       // FIND OWNER PROFILE
-      // =======================================================
-
+      // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
-    await _service.findOwnerProfile();
+          await _service.findOwnerProfile();
 
+      if (!mounted) {
+        return;
+      }
 
-if (!mounted) {
-  return;
-}
+      if (ownerDoc == null) {
+        _updateState(() {
+          _checkingAddress = false;
+        });
 
+        _message(
+          'Owner profile not found. Please complete your profile.',
+        );
 
-if (ownerDoc == null) {
+        return;
+      }
 
-  _updateState(() {
-    _checkingAddress = false;
-  });
-
-
-  _message(
-    'Owner profile not found. Please complete your profile.',
-  );
-
-  return;
-}
-
-
-final Map<String, dynamic> data =
-    ownerDoc.data() ?? <String, dynamic>{};
+      final Map<String, dynamic> data =
+          ownerDoc.data() ?? <String, dynamic>{};
 
 
       // ========================================================
       // PET NAME
       // ========================================================
 
-      _petName =
-          _readFirstString(
+      _petName = _readFirstString(
         data,
         const [
           'petName',
@@ -80,14 +74,9 @@ final Map<String, dynamic> data =
         ],
       );
 
-
-      if(_petName.isEmpty){
-
-        _petName =
-            'Your Pet';
-
+      if (_petName.isEmpty) {
+        _petName = 'Your Pet';
       }
-
 
 
       // ========================================================
@@ -104,24 +93,17 @@ final Map<String, dynamic> data =
         ],
       );
 
-
-      if(address.isEmpty){
-
+      if (address.isEmpty) {
         _updateState(() {
           _checkingAddress = false;
         });
-
 
         _message(
           'Owner address is missing. Please complete your address first.',
         );
 
-
         return;
-
       }
-
-
 
 
       // ========================================================
@@ -139,14 +121,9 @@ final Map<String, dynamic> data =
         ],
       );
 
-
-      if(ownerName.isEmpty){
-
-        ownerName =
-            'Dog Owner';
-
+      if (ownerName.isEmpty) {
+        ownerName = 'Dog Owner';
       }
-
 
 
       // ========================================================
@@ -156,31 +133,20 @@ final Map<String, dynamic> data =
       final Position? position =
           await _getLocation();
 
-
-
-      if(!mounted){
-
+      if (!mounted) {
         return;
-
       }
 
-
-      if(position == null){
-
+      if (position == null) {
         _updateState(() {
           _checkingAddress = false;
         });
 
-
         return;
-
       }
 
 
-
-      _ownerPosition =
-          position;
-
+      _ownerPosition = position;
 
 
       // ========================================================
@@ -195,26 +161,20 @@ final Map<String, dynamic> data =
       );
 
 
-    } on FirebaseException catch(e){
-
+    } on FirebaseException catch (e) {
 
       debugPrint(
         'Insta Walk Firebase error: '
         '${e.code} - ${e.message}',
       );
 
-
-      if(!mounted){
-
+      if (!mounted) {
         return;
-
       }
-
 
       _updateState(() {
         _checkingAddress = false;
       });
-
 
       _message(
         e.code == 'permission-denied'
@@ -223,32 +183,24 @@ final Map<String, dynamic> data =
       );
 
 
-    } catch(e){
-
+    } catch (e) {
 
       debugPrint(
         'Insta Walk start error: $e',
       );
 
-
-      if(!mounted){
-
+      if (!mounted) {
         return;
-
       }
-
 
       _updateState(() {
         _checkingAddress = false;
       });
 
-
       _message(
         'Unable to start Insta Walk.',
       );
-
     }
-
   }
 
 
@@ -261,76 +213,58 @@ final Map<String, dynamic> data =
 
     try {
 
-
       final bool enabled =
           await Geolocator.isLocationServiceEnabled();
 
-
-
-      if(!enabled){
+      if (!enabled) {
 
         _message(
           'Please turn on location service.',
         );
 
         return null;
-
       }
-
 
 
       LocationPermission permission =
           await Geolocator.checkPermission();
 
 
-
-      if(permission ==
-          LocationPermission.denied){
+      if (permission ==
+          LocationPermission.denied) {
 
         permission =
             await Geolocator.requestPermission();
-
       }
 
 
-
-      if(permission ==
+      if (permission ==
               LocationPermission.denied ||
           permission ==
-              LocationPermission.deniedForever){
+              LocationPermission.deniedForever) {
 
         _message(
           'Location permission is required.',
         );
 
-
         return null;
-
       }
-
 
 
       return await Geolocator.getCurrentPosition();
 
 
-
-    } catch(e){
-
+    } catch (e) {
 
       debugPrint(
         'Location error: $e',
       );
 
-
       _message(
         'Unable to get your current location.',
       );
 
-
       return null;
-
     }
-
   }
-
 }
