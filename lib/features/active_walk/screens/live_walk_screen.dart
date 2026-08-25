@@ -37,32 +37,85 @@ class _LiveWalkScreenState
       DocumentSnapshot<Map<String, dynamic>>>?
       _subscription;
 
+  Timer? _timer;
+
+  // ==========================================================
+  // LIVE LOCATION
+  // ==========================================================
+
+  LatLng? _walkerLocation;
+
+  LatLng? _destination;
+
+  // ==========================================================
+  // ROUTE / POLYLINE
+  //
+  // Saved in active_walk as:
+  // routePoints: [GeoPoint(...), GeoPoint(...)]
+  //
+  // History will receive same points when walk ends.
+  // ==========================================================
+
+  final List<LatLng> _routePoints =
+      <LatLng>[];
+
+  // ==========================================================
+  // OWNER / DOG
+  // ==========================================================
+
+  String _ownerId = '';
+
+  String _ownerName = '';
+
+  String _dogName = 'Dog';
+
+  String _dogBreed =
+      'Breed not available';
+
+  // ==========================================================
+  // WALKER
+  // ==========================================================
+
+  String _walkerId = '';
+
+  String _walkerUid = '';
+
+  String _walkerName = 'Walker';
+
+  String _walkerPhone = '';
+
+  // ==========================================================
+  // DESTINATION
+  // ==========================================================
+
+  String _destinationAddress =
+      'Destination not available';
+
+  // ==========================================================
+  // WALK STATS
+  // ==========================================================
+
+  String _duration = '00:00';
+
+  String _distance = '0.0 km';
+
+  int _steps = 0;
+
+  int _peeCount = 0;
+
+  int _poopCount = 0;
+
   // ==========================================================
   // STATE
   // ==========================================================
 
-  LatLng? _walkerLocation;
-  LatLng? _destination;
-
-  String _dogName = 'Dog';
-  String _dogBreed = 'Breed not available';
-  String _walkerName = 'Walker';
-  String _walkerPhone = '';
-  String _destinationAddress = 'Destination not available';
-
-  String _duration = '00:00';
-  String _distance = '0.0 km';
-
-  int _steps = 0;
-  int _peeCount = 0;
-  int _poopCount = 0;
-
   bool _loading = true;
+
   bool _ending = false;
 
-  Timer? _timer;
-
   DateTime? _startedAt;
+
+  bool _didInitialCenter = false;
 
   // ==========================================================
   // COLORS
@@ -86,6 +139,12 @@ class _LiveWalkScreenState
   static const Color slate =
       Color(0xFF475569);
 
+  static const Color lightBg =
+      Color(0xFFF7F8F9);
+
+  static const Color border =
+      Color(0xFFE5E7EB);
+
   // ==========================================================
   // INIT
   // ==========================================================
@@ -107,9 +166,19 @@ class _LiveWalkScreenState
         .doc(widget.activeWalkId)
         .snapshots()
         .listen(
-      (DocumentSnapshot<Map<String, dynamic>>
-          snapshot) {
+      (
+        DocumentSnapshot<
+            Map<String, dynamic>> snapshot,
+      ) {
         if (!snapshot.exists) {
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {
+            _loading = false;
+          });
+
           return;
         }
 
@@ -126,10 +195,12 @@ class _LiveWalkScreenState
         setState(() {
           _loading = false;
         });
+
+        _centerMapOnce();
       },
       onError: (Object error) {
         debugPrint(
-          'Live walk listener error: $error',
+          'LiveWalkScreen listener error: $error',
         );
 
         if (!mounted) {
@@ -144,56 +215,104 @@ class _LiveWalkScreenState
   }
 
   // ==========================================================
-  // READ FIRESTORE DATA
+  // READ WALK DATA
   // ==========================================================
 
   void _readWalkData(
     Map<String, dynamic> data,
   ) {
+    _ownerId =
+        _readString(
+          data['ownerId'],
+        );
+
+    _ownerName =
+        _readString(
+          data['ownerName'],
+        );
+
+    _walkerId =
+        _readString(
+          data['walkerId'],
+        );
+
+    _walkerUid =
+        _readString(
+          data['walkerUid'],
+        );
+
     _dogName =
         _readString(
           data['dogName'],
-        ) ??
-        _readString(
-          data['petName'],
-        ) ??
-        'Dog';
+        );
+
+    if (_dogName.isEmpty) {
+      _dogName =
+          _readString(
+            data['petName'],
+          );
+    }
+
+    if (_dogName.isEmpty) {
+      _dogName = 'Dog';
+    }
 
     _dogBreed =
         _readString(
           data['dogBreed'],
-        ) ??
-        _readString(
-          data['breed'],
-        ) ??
-        'Breed not available';
+        );
+
+    if (_dogBreed.isEmpty) {
+      _dogBreed =
+          _readString(
+            data['breed'],
+          );
+    }
+
+    if (_dogBreed.isEmpty) {
+      _dogBreed =
+          'Breed not available';
+    }
 
     _walkerName =
         _readString(
           data['walkerName'],
-        ) ??
-        'Walker';
+        );
+
+    if (_walkerName.isEmpty) {
+      _walkerName = 'Walker';
+    }
 
     _walkerPhone =
         _readString(
           data['walkerPhone'],
-        ) ??
-        '';
+        );
 
     _destinationAddress =
         _readString(
           data['address'],
-        ) ??
-        _readString(
-          data['destinationAddress'],
-        ) ??
-        'Destination not available';
+        );
+
+    if (_destinationAddress.isEmpty) {
+      _destinationAddress =
+          _readString(
+            data['destinationAddress'],
+          );
+    }
+
+    if (_destinationAddress.isEmpty) {
+      _destinationAddress =
+          'Destination not available';
+    }
 
     _distance =
         _readString(
           data['distance'],
-        ) ??
-        '0.0 km';
+        );
+
+    if (_distance.isEmpty) {
+      _distance = '0.0 km';
+    }
 
     _steps =
         _readInt(
@@ -211,27 +330,79 @@ class _LiveWalkScreenState
         );
 
     _walkerLocation =
-        _readGeoPoint(
+        _geoPointToLatLng(
           data['walkerLocation'],
-        ) ??
-        _readGeoPoint(
-          data['currentLocation'],
         );
 
+    if (_walkerLocation == null) {
+      _walkerLocation =
+          _geoPointToLatLng(
+            data['currentLocation'],
+          );
+    }
+
     _destination =
-        _readGeoPoint(
+        _geoPointToLatLng(
           data['ownerLocation'],
-        ) ??
-        _readGeoPoint(
-          data['destinationLocation'],
         );
+
+    if (_destination == null) {
+      _destination =
+          _geoPointToLatLng(
+            data['destinationLocation'],
+          );
+    }
 
     _startedAt =
         _readDate(
           data['startedAt'],
         );
 
+    // ========================================================
+    // READ ROUTE POINTS
+    // ========================================================
+
+    _readRoutePoints(
+      data['routePoints'],
+    );
+
+    // ========================================================
+    // DURATION
+    // ========================================================
+
     _updateDuration();
+  }
+
+  // ==========================================================
+  // ROUTE POINTS
+  // ==========================================================
+
+  void _readRoutePoints(
+    dynamic value,
+  ) {
+    if (value is! List) {
+      return;
+    }
+
+    final List<LatLng> points =
+        <LatLng>[];
+
+    for (final dynamic item in value) {
+      final LatLng? point =
+          _geoPointToLatLng(item);
+
+      if (point != null) {
+        points.add(point);
+      }
+    }
+
+    if (points.isEmpty) {
+      return;
+    }
+
+    _routePoints
+      ..clear()
+      ..addAll(points);
   }
 
   // ==========================================================
@@ -253,12 +424,12 @@ class _LiveWalkScreenState
           return;
         }
 
-        setState(() {
-          final Duration difference =
-              DateTime.now().difference(
-            start,
-          );
+        final Duration difference =
+            DateTime.now().difference(
+          start,
+        );
 
+        setState(() {
           _duration =
               _formatDuration(
             difference,
@@ -266,6 +437,12 @@ class _LiveWalkScreenState
         });
       },
     );
+
+    final Duration difference =
+        DateTime.now().difference(start);
+
+    _duration =
+        _formatDuration(difference);
   }
 
   String _formatDuration(
@@ -299,8 +476,7 @@ class _LiveWalkScreenState
     BuildContext context,
   ) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF7F8F9),
+      backgroundColor: lightBg,
       body: SafeArea(
         child: _loading
             ? const Center(
@@ -313,8 +489,7 @@ class _LiveWalkScreenState
                 children: [
                   _buildTopBar(),
                   Expanded(
-                    child:
-                        _buildMap(),
+                    child: _buildMap(),
                   ),
                   _buildBottomPanel(),
                 ],
@@ -332,11 +507,9 @@ class _LiveWalkScreenState
       height: 66,
       padding:
           const EdgeInsets.symmetric(
-        horizontal: 15,
+        horizontal: 12,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-      ),
+      color: Colors.white,
       child: Row(
         children: [
           IconButton(
@@ -358,9 +531,11 @@ class _LiveWalkScreenState
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'LIVE WALK',
-                  style: TextStyle(
+                Text(
+                  widget.isWalker
+                      ? 'LIVE WALK'
+                      : 'WALKER ON THE WAY',
+                  style: const TextStyle(
                     color: primary,
                     fontSize: 10,
                     fontWeight:
@@ -424,8 +599,6 @@ class _LiveWalkScreenState
 
   // ==========================================================
   // OSM MAP
-  //
-  // NO POLYLINE HERE
   // ==========================================================
 
   Widget _buildMap() {
@@ -456,6 +629,25 @@ class _LiveWalkScreenState
                   'com.doojowalker.app',
             ),
 
+            // ==================================================
+            // POLYLINE
+            // ==================================================
+
+            if (_routePoints.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: _routePoints,
+                    strokeWidth: 5,
+                    color: primary,
+                  ),
+                ],
+              ),
+
+            // ==================================================
+            // MARKERS
+            // ==================================================
+
             MarkerLayer(
               markers: [
                 if (_destination != null)
@@ -482,9 +674,9 @@ class _LiveWalkScreenState
           ],
         ),
 
-        // ====================================================
+        // ======================================================
         // RECENTER
-        // ====================================================
+        // ======================================================
 
         Positioned(
           right: 14,
@@ -534,8 +726,7 @@ class _LiveWalkScreenState
             ),
             boxShadow: const [
               BoxShadow(
-                color:
-                    Colors.black26,
+                color: Colors.black26,
                 blurRadius: 8,
               ),
             ],
@@ -575,8 +766,7 @@ class _LiveWalkScreenState
             ),
             boxShadow: const [
               BoxShadow(
-                color:
-                    Colors.black26,
+                color: Colors.black26,
                 blurRadius: 8,
               ),
             ],
@@ -624,114 +814,123 @@ class _LiveWalkScreenState
           ),
         ],
       ),
-      child: Column(
-        children: [
-          _buildDestination(),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildDestination(),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          _buildStats(),
+            _buildStats(),
 
-          const SizedBox(height: 11),
+            const SizedBox(height: 11),
 
-          _buildToiletStats(),
+            _buildToiletStats(),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          Row(
-            children: [
-              Expanded(
-                child:
-                    _actionButton(
-                  icon:
-                      Icons.call_rounded,
-                  label: 'Call',
-                  color: green,
-                  onTap:
-                      _callWalker,
+            Row(
+              children: [
+                Expanded(
+                  child: _actionButton(
+                    icon:
+                        Icons.call_rounded,
+                    label: 'Call',
+                    color: green,
+                    onTap:
+                        _callWalker,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child:
-                    _actionButton(
-                  icon:
-                      Icons.chat_rounded,
-                  label: 'Chat',
-                  color: blue,
-                  onTap:
-                      _openChat,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionButton(
+                    icon:
+                        Icons.chat_rounded,
+                    label: 'Chat',
+                    color: blue,
+                    onTap:
+                        _openChat,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child:
-                    _actionButton(
-                  icon: Icons
-                      .location_on_rounded,
-                  label: 'Map',
-                  color: primary,
-                  onTap:
-                      _recenterOnWalker,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionButton(
+                    icon:
+                        Icons.location_on_rounded,
+                    label: 'Map',
+                    color: primary,
+                    onTap:
+                        _recenterOnWalker,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          const SizedBox(height: 10),
+            const SizedBox(height: 10),
 
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: ElevatedButton.icon(
-              onPressed:
-                  _ending
-                      ? null
-                      : _endWalk,
-              icon: _ending
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child:
-                          CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color:
-                            Colors.white,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.flag_rounded,
+            // ==================================================
+            // END WALK
+            //
+            // Walker should end the actual walk.
+            // Owner can see live walk but normally should not
+            // finish it.
+            // ==================================================
+
+            if (widget.isWalker)
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child:
+                    ElevatedButton.icon(
+                  onPressed:
+                      _ending
+                          ? null
+                          : _endWalk,
+                  icon: _ending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color:
+                                Colors.white,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.flag_rounded,
+                        ),
+                  label: Text(
+                    _ending
+                        ? 'Ending Walk...'
+                        : 'End Walk',
+                    style:
+                        const TextStyle(
+                      fontWeight:
+                          FontWeight.w900,
                     ),
-              label: Text(
-                _ending
-                    ? 'Ending Walk...'
-                    : 'End Walk',
-                style:
-                    const TextStyle(
-                  fontWeight:
-                      FontWeight.w900,
-                ),
-              ),
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    navy,
-                foregroundColor:
-                    Colors.white,
-                disabledBackgroundColor:
-                    navy.withOpacity(.5),
-                elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
+                  ),
+                  style: ElevatedButton
+                      .styleFrom(
+                    backgroundColor:
+                        navy,
+                    foregroundColor:
+                        Colors.white,
+                    disabledBackgroundColor:
+                        navy.withOpacity(.5),
+                    elevation: 0,
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(
+                        13,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -746,10 +945,12 @@ class _LiveWalkScreenState
       padding:
           const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFF7F8F9),
+        color: lightBg,
         borderRadius:
             BorderRadius.circular(14),
+        border: Border.all(
+          color: border,
+        ),
       ),
       child: Row(
         children: [
@@ -761,9 +962,7 @@ class _LiveWalkScreenState
               color:
                   primary.withOpacity(.10),
               borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
+                  BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.location_on_rounded,
@@ -855,8 +1054,7 @@ class _LiveWalkScreenState
         horizontal: 5,
       ),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFF7F8F9),
+        color: lightBg,
         borderRadius:
             BorderRadius.circular(12),
       ),
@@ -904,7 +1102,8 @@ class _LiveWalkScreenState
       children: [
         Expanded(
           child: _toiletCard(
-            icon: Icons.water_drop_rounded,
+            icon:
+                Icons.water_drop_rounded,
             title: 'Pee',
             value: _peeCount,
           ),
@@ -933,13 +1132,11 @@ class _LiveWalkScreenState
         horizontal: 12,
       ),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFF7F8F9),
+        color: lightBg,
         borderRadius:
             BorderRadius.circular(12),
         border: Border.all(
-          color:
-              const Color(0xFFE5E7EB),
+          color: border,
         ),
       ),
       child: Row(
@@ -1017,9 +1214,7 @@ class _LiveWalkScreenState
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              11,
-            ),
+                BorderRadius.circular(11),
           ),
         ),
       ),
@@ -1035,12 +1230,59 @@ class _LiveWalkScreenState
         _walkerLocation;
 
     if (location == null) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Walker location is not available yet.',
+          ),
+        ),
+      );
+
       return;
     }
 
     _mapController.move(
       location,
       17,
+    );
+  }
+
+  // ==========================================================
+  // INITIAL CENTER
+  // ==========================================================
+
+  void _centerMapOnce() {
+    if (_didInitialCenter) {
+      return;
+    }
+
+    final LatLng? location =
+        _walkerLocation ??
+            _destination;
+
+    if (location == null) {
+      return;
+    }
+
+    _didInitialCenter = true;
+
+    WidgetsBinding.instance
+        .addPostFrameCallback(
+      (_) {
+        if (!mounted) {
+          return;
+        }
+
+        _mapController.move(
+          location,
+          16,
+        );
+      },
     );
   }
 
@@ -1052,6 +1294,19 @@ class _LiveWalkScreenState
     if (_walkerPhone
         .trim()
         .isEmpty) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Walker phone number is not available.',
+          ),
+        ),
+      );
+
       return;
     }
 
@@ -1061,7 +1316,13 @@ class _LiveWalkScreenState
           _walkerPhone.trim(),
     );
 
-    await launchUrl(uri);
+    try {
+      await launchUrl(uri);
+    } catch (e) {
+      debugPrint(
+        'Call error: $e',
+      );
+    }
   }
 
   // ==========================================================
@@ -1073,7 +1334,7 @@ class _LiveWalkScreenState
         .showSnackBar(
       const SnackBar(
         content: Text(
-          'Chat screen will open here.',
+          'Chat screen will be connected next.',
         ),
       ),
     );
@@ -1082,8 +1343,7 @@ class _LiveWalkScreenState
   // ==========================================================
   // END WALK
   //
-  // Polyline/history saving should happen
-  // inside the ActiveWalkService.
+  // ACTIVE WALK → WALK HISTORY
   // ==========================================================
 
   Future<void> _endWalk() async {
@@ -1094,7 +1354,7 @@ class _LiveWalkScreenState
     final bool? confirm =
         await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text(
             'End Walk?',
@@ -1106,7 +1366,7 @@ class _LiveWalkScreenState
             TextButton(
               onPressed: () {
                 Navigator.pop(
-                  context,
+                  dialogContext,
                   false,
                 );
               },
@@ -1117,7 +1377,7 @@ class _LiveWalkScreenState
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(
-                  context,
+                  dialogContext,
                   true,
                 );
               },
@@ -1143,19 +1403,171 @@ class _LiveWalkScreenState
     });
 
     try {
-      // ------------------------------------------------------
-      // IMPORTANT:
-      // Replace this update with your existing
-      // ActiveWalkService.endWalk() once that method
-      // is connected to your History collection.
-      // ------------------------------------------------------
+      final DocumentReference<
+          Map<String, dynamic>> activeRef =
+          _firestore
+              .collection('active_walk')
+              .doc(widget.activeWalkId);
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
+          await activeRef.get();
+
+      if (!snapshot.exists) {
+        throw Exception(
+          'Active walk does not exist.',
+        );
+      }
+
+      final Map<String, dynamic> activeData =
+          snapshot.data() ??
+              <String, dynamic>{};
+
+      // ======================================================
+      // FINAL ROUTE
+      // ======================================================
+
+      final List<GeoPoint> historyRoute =
+          _routePoints
+              .map(
+                (LatLng point) =>
+                    GeoPoint(
+                  point.latitude,
+                  point.longitude,
+                ),
+              )
+              .toList();
+
+      // Add final walker location if not already present.
+      if (_walkerLocation != null) {
+        final GeoPoint finalPoint =
+            GeoPoint(
+          _walkerLocation!.latitude,
+          _walkerLocation!.longitude,
+        );
+
+        if (historyRoute.isEmpty ||
+            historyRoute.last.latitude !=
+                finalPoint.latitude ||
+            historyRoute.last.longitude !=
+                finalPoint.longitude) {
+          historyRoute.add(finalPoint);
+        }
+      }
+
+      // ======================================================
+      // HISTORY DATA
+      // ======================================================
+
+      final Map<String, dynamic>
+          historyData =
+          <String, dynamic>{
+        ...activeData,
+
+        'activeWalkId':
+            widget.activeWalkId,
+
+        'status':
+            'completed',
+
+        'startedAt':
+            activeData['startedAt'] ??
+                _startedAt,
+
+        'endedAt':
+            FieldValue.serverTimestamp(),
+
+        'duration':
+            _duration,
+
+        'distance':
+            _distance,
+
+        'steps':
+            _steps,
+
+        'peeCount':
+            _peeCount,
+
+        'poopCount':
+            _poopCount,
+
+        'dogName':
+            _dogName,
+
+        'dogBreed':
+            _dogBreed,
+
+        'ownerId':
+            _ownerId,
+
+        'ownerName':
+            _ownerName,
+
+        'walkerId':
+            _walkerId,
+
+        'walkerUid':
+            _walkerUid,
+
+        'walkerName':
+            _walkerName,
+
+        'walkerPhone':
+            _walkerPhone,
+
+        'address':
+            _destinationAddress,
+
+        'ownerLocation':
+            _destination != null
+                ? GeoPoint(
+                    _destination!.latitude,
+                    _destination!.longitude,
+                  )
+                : activeData[
+                    'ownerLocation'],
+
+        // ====================================================
+        // PERMANENT HISTORY POLYLINE
+        // ====================================================
+
+        'routePoints':
+            historyRoute,
+
+        'completedAt':
+            FieldValue.serverTimestamp(),
+      };
+
+      // ======================================================
+      // SAVE HISTORY
+      // ======================================================
 
       await _firestore
-          .collection('active_walk')
+          .collection('walk_history')
           .doc(widget.activeWalkId)
-          .update({
+          .set(
+            historyData,
+            SetOptions(
+              merge: true,
+            ),
+          );
+
+      // ======================================================
+      // MARK ACTIVE WALK COMPLETED
+      // ======================================================
+
+      await activeRef.update({
         'status': 'completed',
         'endedAt':
+            FieldValue.serverTimestamp(),
+        'duration': _duration,
+        'distance': _distance,
+        'steps': _steps,
+        'peeCount': _peeCount,
+        'poopCount': _poopCount,
+        'routePoints': historyRoute,
+        'completedAt':
             FieldValue.serverTimestamp(),
       });
 
@@ -1179,9 +1591,9 @@ class _LiveWalkScreenState
 
       ScaffoldMessenger.of(context)
           .showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Unable to end walk.',
+            'Unable to end walk: $e',
           ),
         ),
       );
@@ -1189,23 +1601,24 @@ class _LiveWalkScreenState
   }
 
   // ==========================================================
-  // HELPERS
+  // STRING
   // ==========================================================
 
-  String? _readString(
+  String _readString(
     dynamic value,
   ) {
     if (value == null) {
-      return null;
+      return '';
     }
 
-    final String result =
-        value.toString().trim();
-
-    return result.isEmpty
-        ? null
-        : result;
+    return value
+        .toString()
+        .trim();
   }
+
+  // ==========================================================
+  // INT
+  // ==========================================================
 
   int _readInt(
     dynamic value,
@@ -1224,17 +1637,11 @@ class _LiveWalkScreenState
         0;
   }
 
-  GeoPoint? _readGeoPoint(
-    dynamic value,
-  ) {
-    if (value is GeoPoint) {
-      return value;
-    }
+  // ==========================================================
+  // GEOPOINT → LATLNG
+  // ==========================================================
 
-    return null;
-  }
-
-  LatLng? _readLatLng(
+  LatLng? _geoPointToLatLng(
     dynamic value,
   ) {
     if (value is GeoPoint) {
@@ -1244,8 +1651,40 @@ class _LiveWalkScreenState
       );
     }
 
+    if (value is Map) {
+      final dynamic lat =
+          value['latitude'] ??
+              value['lat'];
+
+      final dynamic lng =
+          value['longitude'] ??
+              value['lng'];
+
+      final double? latitude =
+          double.tryParse(
+        lat?.toString() ?? '',
+      );
+
+      final double? longitude =
+          double.tryParse(
+        lng?.toString() ?? '',
+      );
+
+      if (latitude != null &&
+          longitude != null) {
+        return LatLng(
+          latitude,
+          longitude,
+        );
+      }
+    }
+
     return null;
   }
+
+  // ==========================================================
+  // DATE
+  // ==========================================================
 
   DateTime? _readDate(
     dynamic value,
@@ -1258,6 +1697,12 @@ class _LiveWalkScreenState
       return value;
     }
 
+    if (value is String) {
+      return DateTime.tryParse(
+        value,
+      );
+    }
+
     return null;
   }
 
@@ -1268,6 +1713,7 @@ class _LiveWalkScreenState
   @override
   void dispose() {
     _subscription?.cancel();
+
     _timer?.cancel();
 
     super.dispose();
