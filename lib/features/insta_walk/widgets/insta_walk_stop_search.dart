@@ -1,48 +1,54 @@
 part of 'insta_walk_container.dart';
 
 // ============================================================
-// STOP SEARCH
+// STOP INSTA WALK SEARCH
 // ============================================================
 
 extension _StopSearchRole on _InstaWalkContainerState {
   Future<void> _stopSearch() async {
+    // ==========================================================
+    // GUARDS
+    // ==========================================================
+
     if (_stopping) {
       return;
     }
 
-    final String? requestId =
-        _requestId;
+    final String requestId =
+        (_requestId ?? '').trim();
 
-    // ----------------------------------------------------------
-    // NO REQUEST
-    // ----------------------------------------------------------
-
-    if (requestId == null ||
-        requestId.trim().isEmpty) {
-      _resetSearchState();
+    if (requestId.isEmpty) {
+      _finishSearch(
+        message: 'No active Insta Walk request found.',
+      );
       return;
     }
 
-    // ----------------------------------------------------------
-    // ONLY ACTIVE SEARCH
-    // ----------------------------------------------------------
+    // ==========================================================
+    // STOPPING STATE
+    // ==========================================================
 
-    if (!_searching) {
-      return;
+    if (mounted) {
+      _updateState(() {
+        _stopping = true;
+      });
     }
-
-    if (!mounted) {
-      return;
-    }
-
-    _updateState(() {
-      _stopping = true;
-    });
 
     try {
-      // --------------------------------------------------------
+      // ========================================================
       // CANCEL FIRESTORE REQUEST
-      // --------------------------------------------------------
+      //
+      // COLLECTION:
+      // walk_requests/{requestId}
+      //
+      // Service checks:
+      // ownerAuthUid == currentUser.uid
+      // status == searching
+      //
+      // Then updates:
+      // status = cancelled
+      // cancelledAt = serverTimestamp()
+      // ========================================================
 
       final bool cancelled =
           await _service.cancelSearch(
@@ -53,9 +59,9 @@ extension _StopSearchRole on _InstaWalkContainerState {
         return;
       }
 
-      // --------------------------------------------------------
-      // SUCCESSFULLY CANCELLED
-      // --------------------------------------------------------
+      // ========================================================
+      // SUCCESS
+      // ========================================================
 
       if (cancelled) {
         _stopRadar();
@@ -65,7 +71,7 @@ extension _StopSearchRole on _InstaWalkContainerState {
 
         _updateState(() {
           _searching = false;
-          _searchFinished = false;
+          _searchFinished = true;
           _checkingAddress = false;
           _recovering = false;
           _stopping = false;
@@ -80,83 +86,59 @@ extension _StopSearchRole on _InstaWalkContainerState {
         return;
       }
 
-      // --------------------------------------------------------
-      // CANCEL FAILED
-      // READ FIRESTORE AGAIN
-      // --------------------------------------------------------
-
-      final InstaWalkRequestState state =
-          await _service.getRequestState(
-        requestId,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      // --------------------------------------------------------
-      // WALKER ACCEPTED DURING STOP
-      // --------------------------------------------------------
-
-      if (state.isAccepted) {
-        _updateState(() {
-          _stopping = false;
-        });
-
-        _walkerAccepted(
-          InstaWalkAcceptedData.fromMap(
-            state.data ??
-                <String, dynamic>{},
-          ),
-        );
-
-        _message(
-          'Walker already accepted this request.',
-        );
-
-        return;
-      }
-
-      // --------------------------------------------------------
-      // REQUEST ALREADY ENDED
-      // --------------------------------------------------------
-
-      if (state.isExpired ||
-          state.isCancelled ||
-          state.status ==
-              InstaWalkRequestStatus.notFound) {
-        _stopRadar();
-
-        _requestId = null;
-        _ownerPosition = null;
-
-        _updateState(() {
-          _searching = false;
-          _searchFinished = false;
-          _checkingAddress = false;
-          _recovering = false;
-          _stopping = false;
-        });
-
-        _setActive(false);
-
-        return;
-      }
-
-      // --------------------------------------------------------
-      // STILL SEARCHING
-      // --------------------------------------------------------
+      // ========================================================
+      // FAILED TO CANCEL
+      //
+      // Possible reasons:
+      //
+      // 1. Walker already accepted
+      // 2. Request is not searching
+      // 3. Owner does not own request
+      // 4. Firestore permission denied
+      // ========================================================
 
       _updateState(() {
         _stopping = false;
       });
 
       _message(
-        'Unable to stop search. Please try again.',
+        'Unable to stop Insta Walk search.',
       );
-    } catch (e) {
+    } on FirebaseException catch (e) {
+      // ========================================================
+      // FIREBASE ERROR
+      // ========================================================
+
       debugPrint(
-        'Insta Walk stop search error: $e',
+        'Stop Insta Walk Firebase error: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _updateState(() {
+        _stopping = false;
+      });
+
+      if (e.code == 'permission-denied') {
+        _message(
+          'Permission denied. Please check Firestore rules.',
+        );
+      } else {
+        _message(
+          e.message ??
+              'Unable to stop Insta Walk search.',
+        );
+      }
+    } catch (e) {
+      // ========================================================
+      // UNKNOWN ERROR
+      // ========================================================
+
+      debugPrint(
+        'Stop Insta Walk error: $e',
       );
 
       if (!mounted) {
@@ -168,7 +150,7 @@ extension _StopSearchRole on _InstaWalkContainerState {
       });
 
       _message(
-        'Unable to stop search. Please try again.',
+        'Unable to stop Insta Walk search.',
       );
     }
   }
