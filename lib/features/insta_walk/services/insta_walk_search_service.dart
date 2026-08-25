@@ -11,23 +11,18 @@ import 'insta_walk_firestore_helper.dart';
 
 class InstaWalkSearchService {
 
-
   InstaWalkSearchService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  }) :
-    _firestore =
-        firestore ?? FirebaseFirestore.instance,
-
-    _auth =
-        auth ?? FirebaseAuth.instance,
-
-    _helper =
-        InstaWalkFirestoreHelper(
+  })  : _firestore =
+            firestore ?? FirebaseFirestore.instance,
+        _auth =
+            auth ?? FirebaseAuth.instance,
+        _helper =
+            InstaWalkFirestoreHelper(
           firestore:
               firestore ?? FirebaseFirestore.instance,
         );
-
 
 
   final FirebaseFirestore _firestore;
@@ -37,37 +32,29 @@ class InstaWalkSearchService {
   final InstaWalkFirestoreHelper _helper;
 
 
-
   static const String walkRequestsCollection =
       'walk_requests';
 
 
-
-  // Search radius used by UI
-
-  static const double searchRadiusKm = 3.5;
-
+  static const double searchRadiusKm =
+      3.5;
 
 
   StreamSubscription<
-      DocumentSnapshot<Map<String,dynamic>>>?
+      DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
 
-
   String? _activeRequestId;
-
 
 
   String? get activeRequestId =>
       _activeRequestId;
 
 
-
   bool get hasActiveRequest =>
       _activeRequestId != null &&
       _activeRequestId!.trim().isNotEmpty;
-
 
 
   User? get currentUser =>
@@ -78,7 +65,6 @@ class InstaWalkSearchService {
   // ==========================================================
   // START SEARCH
   // ==========================================================
-
 
   Future<InstaWalkSearchResult> startSearch({
 
@@ -97,15 +83,16 @@ class InstaWalkSearchService {
         _auth.currentUser;
 
 
-    if(user == null){
+    if (user == null) {
 
       return const InstaWalkSearchResult.failure(
-        message:'Please login first.',
-        errorCode:'unauthenticated',
+        message:
+            'Please login first.',
+        errorCode:
+            'unauthenticated',
       );
 
     }
-
 
 
     final String cleanOwnerId =
@@ -114,9 +101,8 @@ class InstaWalkSearchService {
 
     final String cleanOwnerName =
         ownerName.trim().isEmpty
-        ? 'Dog Owner'
-        : ownerName.trim();
-
+            ? 'Dog Owner'
+            : ownerName.trim();
 
 
     final String cleanAddress =
@@ -124,121 +110,119 @@ class InstaWalkSearchService {
 
 
 
-    if(cleanOwnerId.isEmpty){
+    if (cleanOwnerId.isEmpty) {
 
       return const InstaWalkSearchResult.failure(
-        message:'Owner ID missing.',
-        errorCode:'missing-owner-id',
+        message:
+            'Owner ID missing.',
+        errorCode:
+            'missing-owner-id',
       );
 
     }
 
 
 
-    if(cleanAddress.isEmpty){
+    if (cleanAddress.isEmpty) {
 
       return const InstaWalkSearchResult.failure(
-        message:'Address missing.',
-        errorCode:'missing-address',
+        message:
+            'Address missing.',
+        errorCode:
+            'missing-address',
       );
 
     }
 
 
 
-    try{
-
+    try {
 
       final DocumentReference<
-          Map<String,dynamic>> ref =
-
+          Map<String, dynamic>> ref =
           await _helper.createRequest(
 
-            data:{
+        data: {
 
 
-              'status':
-                  'searching',
+          'status':
+              'searching',
 
 
-              'searchType':
-                  'insta_walk',
+          'searchType':
+              'insta_walk',
 
 
-              'senderRole':
-                  'owner',
+          'senderRole':
+              'owner',
 
 
-
-              'senderUid':
-                  user.uid,
-
-
-              'ownerAuthUid':
-                  user.uid,
+          'senderUid':
+              user.uid,
 
 
-
-              'ownerId':
-                  cleanOwnerId,
-
-
-              'businessId':
-                  cleanOwnerId,
+          'ownerAuthUid':
+              user.uid,
 
 
-              'ownerName':
-                  cleanOwnerName,
+          'ownerId':
+              cleanOwnerId,
 
 
-              'address':
-                  cleanAddress,
+          'businessId':
+              cleanOwnerId,
 
 
-
-              'ownerLocation':
-                  ownerLocation,
-
-
-              'ownerLocationType':
-                  'search_snapshot',
+          'ownerName':
+              cleanOwnerName,
 
 
-
-              'walkerUid':
-                  null,
-
-
-              'walkerId':
-                  null,
+          'address':
+              cleanAddress,
 
 
-              'walkerName':
-                  null,
+          'ownerLocation':
+              ownerLocation,
 
 
-
-              'acceptedBy':
-                  null,
-
-
-              'acceptedAt':
-                  null,
+          'ownerLocationType':
+              'search_snapshot',
 
 
+          'searchRadiusKm':
+              searchRadiusKm,
 
-              'createdAt':
-                  FieldValue.serverTimestamp(),
 
-            },
+          'walkerUid':
+              null,
 
-          );
 
+          'walkerId':
+              null,
+
+
+          'walkerName':
+              null,
+
+
+          'acceptedBy':
+              null,
+
+
+          'acceptedAt':
+              null,
+
+
+          'createdAt':
+              FieldValue.serverTimestamp(),
+
+        },
+
+      );
 
 
       _activeRequestId =
           ref.id;
-
 
 
       return InstaWalkSearchResult.success(
@@ -247,8 +231,7 @@ class InstaWalkSearchService {
       );
 
 
-    }
-    on FirebaseException catch(e){
+    } on FirebaseException catch (e) {
 
 
       return InstaWalkSearchResult.failure(
@@ -263,8 +246,7 @@ class InstaWalkSearchService {
       );
 
 
-    }
-    catch(e){
+    } catch (e) {
 
 
       return const InstaWalkSearchResult.failure(
@@ -278,7 +260,8 @@ class InstaWalkSearchService {
 
   }
 
-  // ==========================================================
+
+    // ==========================================================
   // LISTEN FOR REQUEST
   // ==========================================================
 
@@ -290,7 +273,9 @@ class InstaWalkSearchService {
 
 
     return _firestore
-        .collection(walkRequestsCollection)
+        .collection(
+          walkRequestsCollection,
+        )
         .doc(requestId)
         .snapshots()
         .map(
@@ -305,14 +290,10 @@ class InstaWalkSearchService {
             }
 
 
-            final data =
-                snapshot.data()
-                ?? <String,dynamic>{};
-
-
             return InstaWalkRequestState.fromMap(
               requestId,
-              data,
+              snapshot.data()
+                  ?? <String, dynamic>{},
             );
 
           },
@@ -330,9 +311,8 @@ class InstaWalkSearchService {
     String requestId,
   ) async {
 
-
     final DocumentSnapshot<
-        Map<String,dynamic>> snapshot =
+        Map<String, dynamic>> snapshot =
         await _firestore
             .collection(
               walkRequestsCollection,
@@ -342,7 +322,7 @@ class InstaWalkSearchService {
 
 
 
-    if(!snapshot.exists){
+    if (!snapshot.exists) {
 
       return InstaWalkRequestState.notFound(
         requestId: requestId,
@@ -355,7 +335,7 @@ class InstaWalkSearchService {
     return InstaWalkRequestState.fromMap(
       requestId,
       snapshot.data()
-          ?? <String,dynamic>{},
+          ?? <String, dynamic>{},
     );
 
   }
@@ -364,17 +344,20 @@ class InstaWalkSearchService {
 
   // ==========================================================
   // FIND OWNER PROFILE
+  //
+  // FIRESTORE:
+  // ownerProfiles/{uid}
   // ==========================================================
 
-  Future<Map<String,dynamic>?> findOwnerProfile()
-  async {
+  Future<DocumentSnapshot<Map<String, dynamic>>?>
+      findOwnerProfile() async {
 
 
     final User? user =
         _auth.currentUser;
 
 
-    if(user == null){
+    if (user == null) {
 
       return null;
 
@@ -383,15 +366,19 @@ class InstaWalkSearchService {
 
 
     final DocumentSnapshot<
-        Map<String,dynamic>> doc =
+        Map<String, dynamic>> doc =
         await _firestore
-            .collection('ownerProfiles')
-            .doc(user.uid)
+            .collection(
+              'ownerProfiles',
+            )
+            .doc(
+              user.uid,
+            )
             .get();
 
 
 
-    if(!doc.exists){
+    if (!doc.exists) {
 
       return null;
 
@@ -399,7 +386,7 @@ class InstaWalkSearchService {
 
 
 
-    return doc.data();
+    return doc;
 
   }
 
@@ -409,15 +396,17 @@ class InstaWalkSearchService {
   // FIND ACTIVE REQUEST
   // ==========================================================
 
-  Future<InstaWalkRequestState?> findActiveRequest()
-  async {
+  Future<InstaWalkRequestState?>
+      findActiveRequest({
+        required String ownerId,
+      }) async {
 
 
     final User? user =
         _auth.currentUser;
 
 
-    if(user == null){
+    if (user == null) {
 
       return null;
 
@@ -426,25 +415,27 @@ class InstaWalkSearchService {
 
 
     final QuerySnapshot<
-        Map<String,dynamic>> snapshot =
+        Map<String, dynamic>> snapshot =
         await _firestore
             .collection(
               walkRequestsCollection,
             )
             .where(
               'ownerAuthUid',
-              isEqualTo: user.uid,
+              isEqualTo:
+                  user.uid,
             )
             .where(
               'status',
-              isEqualTo: 'searching',
+              isEqualTo:
+                  'searching',
             )
             .limit(1)
             .get();
 
 
 
-    if(snapshot.docs.isEmpty){
+    if (snapshot.docs.isEmpty) {
 
       return null;
 
@@ -452,9 +443,9 @@ class InstaWalkSearchService {
 
 
 
-    final doc =
+    final QueryDocumentSnapshot<
+        Map<String, dynamic>> doc =
         snapshot.docs.first;
-
 
 
     _activeRequestId =
@@ -479,9 +470,7 @@ class InstaWalkSearchService {
     required String requestId,
   }) async {
 
-
     try {
-
 
       await _firestore
           .collection(
@@ -500,8 +489,8 @@ class InstaWalkSearchService {
 
 
 
-      if(_activeRequestId ==
-          requestId){
+      if (_activeRequestId ==
+          requestId) {
 
         _activeRequestId = null;
 
@@ -512,7 +501,7 @@ class InstaWalkSearchService {
       return true;
 
 
-    } catch(e){
+    } catch (e) {
 
       return false;
 
@@ -526,13 +515,12 @@ class InstaWalkSearchService {
   // DISPOSE
   // ==========================================================
 
-  void dispose(){
+  void dispose() {
 
     _requestSubscription?.cancel();
 
     _requestSubscription = null;
 
   }
-
 
 }
