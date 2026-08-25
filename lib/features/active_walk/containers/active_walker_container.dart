@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/active_walk.dart';
 import '../models/active_walk_mapper.dart';
-import '../services/active_walk_service.dart';
 
 class ActiveWalkerContainer extends StatelessWidget {
   ActiveWalkerContainer({
