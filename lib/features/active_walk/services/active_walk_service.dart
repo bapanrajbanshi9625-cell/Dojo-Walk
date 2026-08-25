@@ -10,19 +10,24 @@ class ActiveWalkService {
       FirebaseFirestore.instance;
 
   // ==========================================================
-  // COLLECTION
+  // COLLECTIONS
   // ==========================================================
 
   CollectionReference<Map<String, dynamic>>
       get _activeWalks =>
           _firestore.collection('active_walk');
 
+  CollectionReference<Map<String, dynamic>>
+      get _history =>
+          _firestore.collection('walk_history');
+
   // ==========================================================
   // CREATE ACTIVE WALK
   //
-  // Called after Walker accepts the request.
+  // Walker accepts request.
   //
   // destinationLocation = OWNER PICKUP LOCATION
+  // status = On that way
   // ==========================================================
 
   Future<String> createActiveWalk({
@@ -35,9 +40,12 @@ class ActiveWalkService {
     required String dogBreed,
     required String address,
     required GeoPoint destinationLocation,
+    String walkerUid = '',
+    String walkerPhone = '',
+    String dogPhoto = '',
+    String walkerProfileImage = '',
   }) async {
-    final String cleanWalkId =
-        walkId.trim();
+    final String cleanWalkId = walkId.trim();
 
     if (cleanWalkId.isEmpty) {
       throw ArgumentError(
@@ -45,8 +53,8 @@ class ActiveWalkService {
       );
     }
 
-    final DocumentReference<
-        Map<String, dynamic>> reference =
+    final DocumentReference<Map<String, dynamic>>
+        reference =
         _activeWalks.doc(cleanWalkId);
 
     await reference.set(
@@ -65,7 +73,11 @@ class ActiveWalkService {
         // ------------------------------------------------------
 
         'walkerId': walkerId.trim(),
+        'walkerUid': walkerUid.trim(),
         'walkerName': walkerName.trim(),
+        'walkerPhone': walkerPhone.trim(),
+        'walkerProfileImage':
+            walkerProfileImage.trim(),
 
         // ------------------------------------------------------
         // DOG
@@ -73,15 +85,16 @@ class ActiveWalkService {
 
         'dogName': dogName.trim(),
         'dogBreed': dogBreed.trim(),
+        'dogPhoto': dogPhoto.trim(),
 
         // ------------------------------------------------------
-        // PICKUP
+        // OWNER PICKUP
         // ------------------------------------------------------
 
         'address': address.trim(),
 
         // IMPORTANT:
-        // This is OWNER'S setup pickup location.
+        // This is the owner's setup pickup location.
         'destinationLocation':
             destinationLocation,
 
@@ -90,6 +103,18 @@ class ActiveWalkService {
         // ------------------------------------------------------
 
         'status': 'On that way',
+
+        // ------------------------------------------------------
+        // INITIAL VALUES
+        // ------------------------------------------------------
+
+        'steps': 0,
+        'peeCount': 0,
+        'poopCount': 0,
+        'distanceKm': 0.0,
+
+        'routePolyline':
+            <Map<String, dynamic>>[],
 
         // ------------------------------------------------------
         // CREATED
@@ -122,7 +147,7 @@ class ActiveWalkService {
   // ==========================================================
   // WALKER REACHED PICKUP
   //
-  // This does NOT start the walk.
+  // Does NOT start walk.
   // ==========================================================
 
   Future<void> markReached({
@@ -142,7 +167,6 @@ class ActiveWalkService {
         .update(
       <String, dynamic>{
         'status': 'Reached',
-
         'reachedAt':
             FieldValue.serverTimestamp(),
       },
@@ -152,56 +176,12 @@ class ActiveWalkService {
   // ==========================================================
   // START WALK
   //
-  // ONLY AFTER WALKER HAS REACHED PICKUP.
+  // Only after Reached.
   // ==========================================================
 
   Future<void> startWalk({
     required String walkId,
-    GeoPoint? startLocation,
-  }) async {
-    final String cleanWalkId =
-        walkId.trim();
-
-    if (cleanWalkId.isEmpty) {
-      throw ArgumentError(
-        'walkId cannot be empty.',
-      );
-    }
-
-    final Map<String, dynamic> data =
-        <String, dynamic>{
-      'status': 'Started',
-
-      'startedAt':
-          FieldValue.serverTimestamp(),
-
-      'routePolyline':
-          <Map<String, dynamic>>[],
-    };
-
-    if (startLocation != null) {
-      data['startLocation'] =
-          startLocation;
-
-      // Initial live position.
-      data['walkerLocation'] =
-          startLocation;
-    }
-
-    await _activeWalks
-        .doc(cleanWalkId)
-        .update(data);
-  }
-
-  // ==========================================================
-  // UPDATE WALKER LIVE LOCATION
-  //
-  // Only use while status == Started.
-  // ==========================================================
-
-  Future<void> updateWalkerLocation({
-    required String walkId,
-    required GeoPoint location,
+    required GeoPoint startLocation,
   }) async {
     final String cleanWalkId =
         walkId.trim();
@@ -216,8 +196,168 @@ class ActiveWalkService {
         .doc(cleanWalkId)
         .update(
       <String, dynamic>{
+        'status': 'Started',
+
+        'startedAt':
+            FieldValue.serverTimestamp(),
+
+        'startLocation':
+            startLocation,
+
+        'walkerLocation':
+            startLocation,
+
+        'currentLocation':
+            startLocation,
+
+        'routePolyline': [
+          <String, dynamic>{
+            'latitude':
+                startLocation.latitude,
+            'longitude':
+                startLocation.longitude,
+          },
+        ],
+
+        'steps': 0,
+        'peeCount': 0,
+        'poopCount': 0,
+        'distanceKm': 0.0,
+      },
+    );
+  }
+
+  // ==========================================================
+  // UPDATE WALKER LIVE LOCATION
+  //
+  // Only while Started.
+  // ==========================================================
+
+  Future<void> updateWalkerLocation({
+    required String walkId,
+    required GeoPoint location,
+  }) async {
+    final String cleanWalkId =
+        walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      return;
+    }
+
+    await _activeWalks
+        .doc(cleanWalkId)
+        .update(
+      <String, dynamic>{
         'walkerLocation': location,
         'currentLocation': location,
+      },
+    );
+  }
+
+  // ==========================================================
+  // ADD ROUTE POINT
+  //
+  // Stores:
+  //
+  // routePolyline: [
+  //   {
+  //     latitude: ...,
+  //     longitude: ...
+  //   }
+  // ]
+  // ==========================================================
+
+  Future<void> addRoutePoint({
+    required String walkId,
+    required GeoPoint location,
+  }) async {
+    final String cleanWalkId =
+        walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      return;
+    }
+
+    final DocumentReference<
+        Map<String, dynamic>> reference =
+        _activeWalks.doc(cleanWalkId);
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> snapshot =
+        await reference.get();
+
+    if (!snapshot.exists) {
+      return;
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    if (data['status'] != 'Started') {
+      return;
+    }
+
+    final List<dynamic> existing =
+        data['routePolyline'] is List
+            ? List<dynamic>.from(
+                data['routePolyline'],
+              )
+            : <dynamic>[];
+
+    // ----------------------------------------------------------
+    // Avoid saving an almost identical consecutive point.
+    // ----------------------------------------------------------
+
+    if (existing.isNotEmpty) {
+      final dynamic last =
+          existing.last;
+
+      if (last is Map) {
+        final double? lastLat =
+            _readDouble(
+          last['latitude'],
+        );
+
+        final double? lastLng =
+            _readDouble(
+          last['longitude'],
+        );
+
+        if (lastLat != null &&
+            lastLng != null) {
+          final double latDifference =
+              (lastLat -
+                      location.latitude)
+                  .abs();
+
+          final double lngDifference =
+              (lastLng -
+                      location.longitude)
+                  .abs();
+
+          if (latDifference < 0.00001 &&
+              lngDifference < 0.00001) {
+            return;
+          }
+        }
+      }
+    }
+
+    existing.add(
+      <String, dynamic>{
+        'latitude':
+            location.latitude,
+        'longitude':
+            location.longitude,
+      },
+    );
+
+    await reference.update(
+      <String, dynamic>{
+        'walkerLocation': location,
+        'currentLocation': location,
+        'routePolyline': existing,
       },
     );
   }
@@ -232,7 +372,16 @@ class ActiveWalkService {
     int? peeCount,
     int? poopCount,
     double? distanceKm,
+    double? durationMinutes,
+    String? timeFormatted,
   }) async {
+    final String cleanWalkId =
+        walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      return;
+    }
+
     final Map<String, dynamic> data =
         <String, dynamic>{};
 
@@ -252,49 +401,33 @@ class ActiveWalkService {
       data['distanceKm'] = distanceKm;
     }
 
+    if (durationMinutes != null) {
+      data['durationMinutes'] =
+          durationMinutes;
+    }
+
+    if (timeFormatted != null) {
+      data['timeFormatted'] =
+          timeFormatted;
+    }
+
     if (data.isEmpty) {
       return;
     }
 
     await _activeWalks
-        .doc(walkId.trim())
+        .doc(cleanWalkId)
         .update(data);
-  }
-
-  // ==========================================================
-  // ADD ROUTE POINT
-  //
-  // Polyline is stored as latitude/longitude maps.
-  // This is for HISTORY.
-  // ==========================================================
-
-  Future<void> addRoutePoint({
-    required String walkId,
-    required GeoPoint location,
-  }) async {
-    await _activeWalks
-        .doc(walkId.trim())
-        .update(
-      <String, dynamic>{
-        'routePolyline':
-            FieldValue.arrayUnion(
-          <Map<String, dynamic>>[
-            <String, dynamic>{
-              'latitude':
-                  location.latitude,
-              'longitude':
-                  location.longitude,
-            },
-          ],
-        ),
-      },
-    );
   }
 
   // ==========================================================
   // END WALK
   //
-  // Saves final data into walk_history.
+  // 1. Read active_walk
+  // 2. Save complete walk_history
+  // 3. Mark active_walk Completed
+  //
+  // routePolyline remains in history.
   // ==========================================================
 
   Future<void> endWalk({
@@ -305,18 +438,23 @@ class ActiveWalkService {
     required String walkerName,
     required String dogName,
     required String dogBreed,
+
     GeoPoint? startLocation,
     GeoPoint? endLocation,
     GeoPoint? destinationLocation,
+
     String dogPhoto = '',
     String walkerProfileImage = '',
     String walkerUid = '',
     String address = '',
+
     int steps = 0,
     int peeCount = 0,
     int poopCount = 0,
-    double distanceKm = 0,
-    double durationMinutes = 0,
+
+    double distanceKm = 0.0,
+    double durationMinutes = 0.0,
+
     String timeFormatted = '',
     String badge = '',
     String walkerNote = '',
@@ -338,23 +476,19 @@ class ActiveWalkService {
         Map<String, dynamic>> snapshot =
         await activeReference.get();
 
+    if (!snapshot.exists) {
+      throw StateError(
+        'Active walk does not exist.',
+      );
+    }
+
     final Map<String, dynamic> activeData =
         snapshot.data() ??
             <String, dynamic>{};
 
-    // ----------------------------------------------------------
-    // Get route from active_walk.
-    // ----------------------------------------------------------
-
-    final dynamic savedPolyline =
-        activeData['routePolyline'];
-
-    final List<dynamic> routePolyline =
-        savedPolyline is List
-            ? List<dynamic>.from(
-                savedPolyline,
-              )
-            : <dynamic>[];
+    // ========================================================
+    // READ ACTIVE DATA
+    // ========================================================
 
     final GeoPoint? finalStartLocation =
         startLocation ??
@@ -374,26 +508,112 @@ class ActiveWalkService {
     final GeoPoint? finalDestination =
         destinationLocation ??
             _readGeoPoint(
-              activeData['destinationLocation'],
+              activeData[
+                'destinationLocation',
+              ],
             );
+
+    // ========================================================
+    // ROUTE
+    // ========================================================
+
+    final List<dynamic> routePolyline =
+        activeData['routePolyline']
+                is List
+            ? List<dynamic>.from(
+                activeData[
+                    'routePolyline'],
+              )
+            : <dynamic>[];
+
+    // ========================================================
+    // USE ACTIVE VALUES WHEN ARGUMENT IS DEFAULT
+    // ========================================================
+
+    final int finalSteps =
+        steps != 0
+            ? steps
+            : _readInt(
+                activeData['steps'],
+              );
+
+    final int finalPee =
+        peeCount != 0
+            ? peeCount
+            : _readInt(
+                activeData['peeCount'],
+              );
+
+    final int finalPoop =
+        poopCount != 0
+            ? poopCount
+            : _readInt(
+                activeData['poopCount'],
+              );
+
+    final double finalDistance =
+        distanceKm != 0
+            ? distanceKm
+            : _readDouble(
+                  activeData[
+                    'distanceKm',
+                  ],
+                ) ??
+                0.0;
+
+    final double finalDuration =
+        durationMinutes != 0
+            ? durationMinutes
+            : _readDouble(
+                  activeData[
+                    'durationMinutes',
+                  ],
+                ) ??
+                0.0;
+
+    final String finalTime =
+        timeFormatted.trim().isNotEmpty
+            ? timeFormatted.trim()
+            : _readString(
+                  activeData[
+                    'timeFormatted',
+                  ],
+                ) ??
+                '';
+
+    final String finalAddress =
+        address.trim().isNotEmpty
+            ? address.trim()
+            : _readString(
+                  activeData['address'],
+                ) ??
+                '';
+
+    // ========================================================
+    // HISTORY REFERENCE
+    // ========================================================
 
     final DocumentReference<
         Map<String, dynamic>> historyReference =
-        _firestore
-            .collection('walk_history')
-            .doc(cleanWalkId);
+        _history.doc(cleanWalkId);
 
     final WriteBatch batch =
         _firestore.batch();
 
-    // ----------------------------------------------------------
-    // HISTORY
-    // ----------------------------------------------------------
+    // ========================================================
+    // SAVE HISTORY
+    // ========================================================
 
     batch.set(
       historyReference,
       <String, dynamic>{
+        // ------------------------------------------------------
+        // BASIC
+        // ------------------------------------------------------
+
         'walkId': cleanWalkId,
+
+        'status': 'Completed',
 
         // ------------------------------------------------------
         // OWNER
@@ -407,8 +627,9 @@ class ActiveWalkService {
         // ------------------------------------------------------
 
         'walkerId': walkerId.trim(),
-        'walkerName': walkerName.trim(),
         'walkerUid': walkerUid.trim(),
+        'walkerName': walkerName.trim(),
+
         'walkerProfileImage':
             walkerProfileImage.trim(),
 
@@ -421,10 +642,11 @@ class ActiveWalkService {
         'dogPhoto': dogPhoto.trim(),
 
         // ------------------------------------------------------
-        // PICKUP / DESTINATION
+        // PICKUP
         // ------------------------------------------------------
 
-        'address': address.trim(),
+        'address': finalAddress,
+
         'destinationLocation':
             finalDestination,
 
@@ -445,28 +667,45 @@ class ActiveWalkService {
         // STATS
         // ------------------------------------------------------
 
-        'steps': steps,
-        'peeCount': peeCount,
-        'poopCount': poopCount,
+        'steps': finalSteps,
 
-        'distanceKm': distanceKm,
+        'peeCount': finalPee,
+
+        'poopCount': finalPoop,
+
+        'distanceKm':
+            finalDistance,
+
         'durationMinutes':
-            durationMinutes,
+            finalDuration,
 
         'timeFormatted':
-            timeFormatted,
+            finalTime,
+
+        // ------------------------------------------------------
+        // ROUTE SUMMARY
+        // ------------------------------------------------------
+
+        'routeDistanceKm':
+            finalDistance,
+
+        'routeDurationMinutes':
+            finalDuration,
 
         // ------------------------------------------------------
         // OTHER
         // ------------------------------------------------------
 
-        'badge': badge,
+        'badge': badge.trim(),
+
         'walkerNote':
             walkerNote.trim(),
 
         'rating': 0,
 
-        'status': 'Completed',
+        // ------------------------------------------------------
+        // TIME
+        // ------------------------------------------------------
 
         'startedAt':
             activeData['startedAt'],
@@ -477,23 +716,55 @@ class ActiveWalkService {
         'createdAt':
             DateTime.now()
                 .millisecondsSinceEpoch,
+
+        'date':
+            _formatDate(
+          DateTime.now(),
+        ),
       },
       SetOptions(
         merge: true,
       ),
     );
 
-    // ----------------------------------------------------------
-    // ACTIVE WALK COMPLETED
-    // ----------------------------------------------------------
+    // ========================================================
+    // MARK ACTIVE WALK COMPLETED
+    // ========================================================
 
     batch.update(
       activeReference,
       <String, dynamic>{
         'status': 'Completed',
 
+        'endLocation':
+            finalEndLocation,
+
         'completedAt':
             FieldValue.serverTimestamp(),
+
+        'distanceKm':
+            finalDistance,
+
+        'durationMinutes':
+            finalDuration,
+
+        'timeFormatted':
+            finalTime,
+
+        'steps': finalSteps,
+
+        'peeCount': finalPee,
+
+        'poopCount': finalPoop,
+
+        'routeDistanceKm':
+            finalDistance,
+
+        'routeDurationMinutes':
+            finalDuration,
+
+        'routePolyline':
+            routePolyline,
       },
     );
 
@@ -520,7 +791,7 @@ class ActiveWalkService {
   }
 
   // ==========================================================
-  // GEOPOINT HELPER
+  // HELPERS
   // ==========================================================
 
   GeoPoint? _readGeoPoint(
@@ -531,5 +802,65 @@ class ActiveWalkService {
     }
 
     return null;
+  }
+
+  String? _readString(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    final String result =
+        value.toString().trim();
+
+    return result.isEmpty
+        ? null
+        : result;
+  }
+
+  int _readInt(
+    dynamic value,
+  ) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
+  }
+
+  double? _readDouble(
+    dynamic value,
+  ) {
+    if (value is double) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value?.toString() ?? '',
+    );
+  }
+
+  String _formatDate(
+    DateTime date,
+  ) {
+    final String day =
+        date.day.toString().padLeft(2, '0');
+
+    final String month =
+        date.month.toString().padLeft(2, '0');
+
+    return '${date.year}-$month-$day';
   }
 }
