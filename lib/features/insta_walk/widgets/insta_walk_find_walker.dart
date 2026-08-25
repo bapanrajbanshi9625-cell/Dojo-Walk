@@ -34,75 +34,35 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
       // ========================================================
       // FIND OWNER PROFILE
-      // ========================================================
-
-      final Map<String, dynamic>? ownerData =
-          await _service.findOwnerProfile();
+      // =======================================================
 
 
-      if (!mounted) {
-        return;
-      }
+      final DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
+    await _service.findOwnerProfile();
 
 
-      if (ownerData == null) {
-
-        _updateState(() {
-          _checkingAddress = false;
-        });
+if (!mounted) {
+  return;
+}
 
 
-        _message(
-          'Owner profile not found. Please complete your profile.',
-        );
+if (ownerDoc == null) {
 
-        return;
-      }
-
-
-      final Map<String,dynamic> data =
-          ownerData;
+  _updateState(() {
+    _checkingAddress = false;
+  });
 
 
-      // ========================================================
-      // OWNER / BUSINESS ID
-      // ========================================================
+  _message(
+    'Owner profile not found. Please complete your profile.',
+  );
 
-      String ownerId =
-          _readFirstString(
-        data,
-        const [
-          'businessId',
-          'Business ID',
-          'ownerId',
-          'Owner ID',
-        ],
-      );
+  return;
+}
 
 
-      if(ownerId.isEmpty){
-
-        ownerId =
-            user.uid.trim();
-
-      }
-
-
-      if(ownerId.isEmpty){
-
-        _updateState(() {
-          _checkingAddress = false;
-        });
-
-
-        _message(
-          'Business ID / Owner ID not found.',
-        );
-
-        return;
-
-      }
-
+final Map<String, dynamic> data =
+    ownerDoc.data() ?? <String, dynamic>{};
 
 
       // ========================================================
