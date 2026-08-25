@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/active_walk.dart';
 import '../models/active_walk_mapper.dart';
+import '../services/active_walk_service.dart';
 
 class ActiveWalkerContainer extends StatelessWidget {
   ActiveWalkerContainer({
@@ -199,9 +200,7 @@ class ActiveWalkerContainer extends StatelessWidget {
     );
 
     // ========================================================
-    // IMPORTANT
-    //
-    // ActiveWalk अब requestId रखता है।
+    // OWNER LOCATION
     // ========================================================
 
     final GeoPoint? ownerLocation =
@@ -890,11 +889,26 @@ class ActiveWalkerContainer extends StatelessWidget {
     required ActiveWalk activeWalk,
   }) async {
     try {
-      final FirebaseAuth auth =
-          FirebaseAuth.instance;
+      final User? user =
+          FirebaseAuth.instance.currentUser;
 
-      final String? uid =
-          auth.currentUser?.uid;
+      if (user == null) {
+        return;
+      }
+
+      final String uid = user.uid;
+
+      // ======================================================
+      // REQUEST ID
+      //
+      // ActiveWalk.requestId = original
+      // walk_requests document ID.
+      // ======================================================
+
+      final String requestId =
+          _readActiveWalkRequestId(
+        activeWalk,
+      );
 
       // ======================================================
       // ACTIVE WALK
@@ -919,16 +933,8 @@ class ActiveWalkerContainer extends StatelessWidget {
       );
 
       // ======================================================
-      // REQUEST
-      //
-      // IMPORTANT:
-      // ActiveWalk.requestId से original request मिलेगा.
+      // ORIGINAL WALK REQUEST
       // ======================================================
-
-      final String requestId =
-          _readActiveWalkRequestId(
-        activeWalk,
-      );
 
       if (requestId.isNotEmpty) {
         await FirebaseFirestore.instance
