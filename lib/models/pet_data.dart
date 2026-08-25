@@ -1,19 +1,52 @@
-class PetData {
-  final String name;
-  final int age;
-  final String breed;
-  final String behaviour;
+import 'package:flutter/material.dart';
 
-  const PetData({
-    required this.name,
-    required this.age,
-    required this.breed,
-    required this.behaviour,
-  });
+class PetData {
+  // ============================================================
+  // PET NAME
+  // ============================================================
+
+  final TextEditingController nameController;
+
+  // ============================================================
+  // PET DETAILS
+  // ============================================================
+
+  String? age;
+  String? breed;
+  String? behaviour;
+
+  // ============================================================
+  // CONSTRUCTOR
+  // ============================================================
+
+  PetData({
+    String? name,
+    this.age,
+    this.breed,
+    this.behaviour,
+  }) : nameController = TextEditingController(
+          text: name ?? '',
+        );
+
+  // ============================================================
+  // NAME
+  // ============================================================
+
+  String get name {
+    return nameController.text.trim();
+  }
+
+  set name(String value) {
+    nameController.text = value;
+  }
+
+  // ============================================================
+  // COPY
+  // ============================================================
 
   PetData copyWith({
     String? name,
-    int? age,
+    String? age,
     String? breed,
     String? behaviour,
   }) {
@@ -25,8 +58,12 @@ class PetData {
     );
   }
 
+  // ============================================================
+  // FIRESTORE MAP
+  // ============================================================
+
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'name': name,
       'age': age,
       'breed': breed,
@@ -34,14 +71,26 @@ class PetData {
     };
   }
 
-  factory PetData.fromMap(Map<String, dynamic> map) {
+  // ============================================================
+  // FROM FIRESTORE
+  // ============================================================
+
+  factory PetData.fromMap(
+    Map<String, dynamic> map,
+  ) {
     return PetData(
       name: map['name']?.toString() ?? '',
-      age: map['age'] is int
-          ? map['age'] as int
-          : int.tryParse(map['age']?.toString() ?? '') ?? 0,
-      breed: map['breed']?.toString() ?? '',
-      behaviour: map['behaviour']?.toString() ?? '',
+      age: map['age']?.toString(),
+      breed: map['breed']?.toString(),
+      behaviour: map['behaviour']?.toString(),
     );
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  void dispose() {
+    nameController.dispose();
   }
 }
