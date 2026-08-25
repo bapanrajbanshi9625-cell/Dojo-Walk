@@ -68,7 +68,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   bool _checkingAddress = false;
   bool _recovering = true;
 
-  // 
   // ==========================================================
   // STOP STATE
   // ==========================================================
@@ -119,12 +118,42 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // DISPOSE
+  //
+  // IMPORTANT:
+  //
+  // Disposing this widget MUST NOT cancel the actual
+  // Insta Walk request in Firestore.
+  //
+  // The Firestore document remains:
+  //
+  // status = searching
+  //
+  // Therefore:
+  //
+  // Back                    -> search continues
+  // Screen navigation       -> search continues
+  // Widget dispose          -> search continues
+  // App closed              -> Firestore request remains
+  // App reopened            -> recovery restores search
+  //
+  // Actual cancellation is handled ONLY by:
+  //
+  // InstaWalkSearchService.cancelSearch()
+  //
   // ==========================================================
 
   @override
   void dispose() {
+    // Stop only the local radar animation.
     _stopRadar();
 
+    // Clean up the local Firestore listener.
+    //
+    // IMPORTANT:
+    // InstaWalkSearchService.dispose() must NOT call
+    // clearActiveRequest() or cancelSearch().
+    //
+    // The Firestore request itself remains active.
     _service.dispose();
 
     _radarController.dispose();
@@ -188,6 +217,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // RESET SEARCH STATE
+  //
+  // IMPORTANT:
+  //
+  // This only resets LOCAL UI state.
+  //
+  // It does NOT change Firestore.
+  //
   // ==========================================================
 
   void _resetSearchState({
@@ -219,11 +255,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   //
   // Search finishes ONLY when Firestore/request state says so.
   //
-  // There is:
-  //
   // NO TIMER
   // NO COUNTDOWN
   // NO AUTOMATIC EXPIRY
+  //
   // ==========================================================
 
   void _finishSearch({
