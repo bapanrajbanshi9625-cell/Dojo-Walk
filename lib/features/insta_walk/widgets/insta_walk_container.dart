@@ -30,12 +30,15 @@ class InstaWalkContainer extends StatefulWidget {
   final bool fullScreen;
   final VoidCallback? onTap;
 
+  final ValueChanged<InstaWalkAcceptedData>? onAccepted;
+
   const InstaWalkContainer({
     super.key,
     this.onWalkerFound,
     this.onActiveChanged,
     this.fullScreen = false,
     this.onTap,
+    this.onAccepted,
   });
 
   @override
