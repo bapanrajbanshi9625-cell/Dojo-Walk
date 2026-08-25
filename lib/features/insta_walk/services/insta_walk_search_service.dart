@@ -3,12 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'insta_walk_accepted_data.dart';
-import 'insta_walk_request_state.dart';
 import 'insta_walk_search_result.dart';
-
+import 'insta_walk_request_state.dart';
+import 'insta_walk_accepted_data.dart';
 import 'insta_walk_firestore_helper.dart';
-import 'insta_walk_status_helper.dart';
 
 
 class InstaWalkSearchService {
@@ -36,7 +34,6 @@ class InstaWalkSearchService {
 
   final FirebaseAuth _auth;
 
-
   final InstaWalkFirestoreHelper _helper;
 
 
@@ -46,9 +43,16 @@ class InstaWalkSearchService {
 
 
 
+  // Search radius used by UI
+
+  static const double searchRadiusKm = 3.5;
+
+
+
   StreamSubscription<
       DocumentSnapshot<Map<String,dynamic>>>?
       _requestSubscription;
+
 
 
   String? _activeRequestId;
@@ -59,9 +63,11 @@ class InstaWalkSearchService {
       _activeRequestId;
 
 
+
   bool get hasActiveRequest =>
       _activeRequestId != null &&
-      _activeRequestId!.isNotEmpty;
+      _activeRequestId!.trim().isNotEmpty;
+
 
 
   User? get currentUser =>
@@ -72,6 +78,7 @@ class InstaWalkSearchService {
   // ==========================================================
   // START SEARCH
   // ==========================================================
+
 
   Future<InstaWalkSearchResult> startSearch({
 
@@ -109,6 +116,7 @@ class InstaWalkSearchService {
         ownerName.trim().isEmpty
         ? 'Dog Owner'
         : ownerName.trim();
+
 
 
     final String cleanAddress =
@@ -270,15 +278,261 @@ class InstaWalkSearchService {
 
   }
 
+  // ==========================================================
+  // LISTEN FOR REQUEST
+  // ==========================================================
+
+  Stream<InstaWalkRequestState> listenForRequest(
+    String requestId,
+  ) {
+
+    _requestSubscription?.cancel();
+
+
+    return _firestore
+        .collection(walkRequestsCollection)
+        .doc(requestId)
+        .snapshots()
+        .map(
+          (snapshot) {
+
+            if (!snapshot.exists) {
+
+              return InstaWalkRequestState.notFound(
+                requestId: requestId,
+              );
+
+            }
+
+
+            final data =
+                snapshot.data()
+                ?? <String,dynamic>{};
+
+
+            return InstaWalkRequestState.fromMap(
+              requestId,
+              data,
+            );
+
+          },
+        );
+
+  }
+
 
 
   // ==========================================================
-  // NEXT FUNCTIONS WILL COME HERE
-  // listenForRequest()
-  // getRequestState()
-  // cancelSearch()
-  // clearActiveRequest()
+  // GET REQUEST STATE
   // ==========================================================
+
+  Future<InstaWalkRequestState> getRequestState(
+    String requestId,
+  ) async {
+
+
+    final DocumentSnapshot<
+        Map<String,dynamic>> snapshot =
+        await _firestore
+            .collection(
+              walkRequestsCollection,
+            )
+            .doc(requestId)
+            .get();
+
+
+
+    if(!snapshot.exists){
+
+      return InstaWalkRequestState.notFound(
+        requestId: requestId,
+      );
+
+    }
+
+
+
+    return InstaWalkRequestState.fromMap(
+      requestId,
+      snapshot.data()
+          ?? <String,dynamic>{},
+    );
+
+  }
+
+
+
+  // ==========================================================
+  // FIND OWNER PROFILE
+  // ==========================================================
+
+  Future<Map<String,dynamic>?> findOwnerProfile()
+  async {
+
+
+    final User? user =
+        _auth.currentUser;
+
+
+    if(user == null){
+
+      return null;
+
+    }
+
+
+
+    final DocumentSnapshot<
+        Map<String,dynamic>> doc =
+        await _firestore
+            .collection('ownerProfiles')
+            .doc(user.uid)
+            .get();
+
+
+
+    if(!doc.exists){
+
+      return null;
+
+    }
+
+
+
+    return doc.data();
+
+  }
+
+
+
+  // ==========================================================
+  // FIND ACTIVE REQUEST
+  // ==========================================================
+
+  Future<InstaWalkRequestState?> findActiveRequest()
+  async {
+
+
+    final User? user =
+        _auth.currentUser;
+
+
+    if(user == null){
+
+      return null;
+
+    }
+
+
+
+    final QuerySnapshot<
+        Map<String,dynamic>> snapshot =
+        await _firestore
+            .collection(
+              walkRequestsCollection,
+            )
+            .where(
+              'ownerAuthUid',
+              isEqualTo: user.uid,
+            )
+            .where(
+              'status',
+              isEqualTo: 'searching',
+            )
+            .limit(1)
+            .get();
+
+
+
+    if(snapshot.docs.isEmpty){
+
+      return null;
+
+    }
+
+
+
+    final doc =
+        snapshot.docs.first;
+
+
+
+    _activeRequestId =
+        doc.id;
+
+
+
+    return InstaWalkRequestState.fromMap(
+      doc.id,
+      doc.data(),
+    );
+
+  }
+
+
+
+  // ==========================================================
+  // CANCEL SEARCH
+  // ==========================================================
+
+  Future<bool> cancelSearch({
+    required String requestId,
+  }) async {
+
+
+    try {
+
+
+      await _firestore
+          .collection(
+            walkRequestsCollection,
+          )
+          .doc(requestId)
+          .update({
+
+            'status':
+                'cancelled',
+
+            'cancelledAt':
+                FieldValue.serverTimestamp(),
+
+          });
+
+
+
+      if(_activeRequestId ==
+          requestId){
+
+        _activeRequestId = null;
+
+      }
+
+
+
+      return true;
+
+
+    } catch(e){
+
+      return false;
+
+    }
+
+  }
+
+
+
+  // ==========================================================
+  // DISPOSE
+  // ==========================================================
+
+  void dispose(){
+
+    _requestSubscription?.cancel();
+
+    _requestSubscription = null;
+
+  }
 
 
 }
