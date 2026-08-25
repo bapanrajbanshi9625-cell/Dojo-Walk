@@ -16,6 +16,13 @@ class InstaWalkAcceptedData {
   final String address;
 
   // ==========================================================
+  // DOG
+  // ==========================================================
+
+  final String dogName;
+  final String dogBreed;
+
+  // ==========================================================
   // WALKER
   // ==========================================================
 
@@ -45,6 +52,8 @@ class InstaWalkAcceptedData {
     required this.ownerId,
     required this.ownerName,
     required this.address,
+    required this.dogName,
+    required this.dogBreed,
     required this.walkerId,
     required this.walkerUid,
     required this.walkerName,
@@ -62,12 +71,9 @@ class InstaWalkAcceptedData {
     String requestId = '',
   }) {
     return InstaWalkAcceptedData(
-      // ------------------------------------------------------
+      // ======================================================
       // REQUEST ID
-      //
-      // Prefer explicit requestId.
-      // Otherwise read requestId from the document data.
-      // ------------------------------------------------------
+      // ======================================================
 
       requestId: requestId.trim().isNotEmpty
           ? requestId.trim()
@@ -75,9 +81,9 @@ class InstaWalkAcceptedData {
               map['requestId'],
             ),
 
-      // ------------------------------------------------------
+      // ======================================================
       // OWNER
-      // ------------------------------------------------------
+      // ======================================================
 
       ownerId: _readString(
         map['ownerId'],
@@ -88,13 +94,54 @@ class InstaWalkAcceptedData {
         fallback: 'Dog Owner',
       ),
 
-      address: _readString(
-        map['address'],
+      address: _readFirstString(
+        map,
+        const [
+          'address',
+          'Adress',
+          'Address',
+        ],
       ),
 
-      // ------------------------------------------------------
+      // ======================================================
+      // DOG NAME
+      //
+      // Firestore/Admin compatibility:
+      // dogName → petName → Dog Name
+      // ======================================================
+
+      dogName: _readFirstString(
+        map,
+        const [
+          'dogName',
+          'petName',
+          'Dog Name',
+          'Pet Name',
+        ],
+        fallback: 'Your Dog',
+      ),
+
+      // ======================================================
+      // DOG BREED
+      //
+      // Firestore/Admin compatibility:
+      // dogBreed → breed → Dog Breed
+      // ======================================================
+
+      dogBreed: _readFirstString(
+        map,
+        const [
+          'dogBreed',
+          'breed',
+          'Dog Breed',
+          'Breed',
+        ],
+        fallback: 'Breed not available',
+      ),
+
+      // ======================================================
       // WALKER
-      // ------------------------------------------------------
+      // ======================================================
 
       walkerId: _readString(
         map['walkerId'],
@@ -113,18 +160,20 @@ class InstaWalkAcceptedData {
         map['walkerPhone'],
       ),
 
-      // ------------------------------------------------------
+      // ======================================================
       // OWNER LOCATION
-      // ------------------------------------------------------
+      //
+      // Used by OSM map.
+      // ======================================================
 
       ownerLocation:
           map['ownerLocation'] is GeoPoint
               ? map['ownerLocation'] as GeoPoint
               : null,
 
-      // ------------------------------------------------------
+      // ======================================================
       // ACCEPTED AT
-      // ------------------------------------------------------
+      // ======================================================
 
       acceptedAt: _parseDate(
         map['acceptedAt'],
@@ -146,6 +195,33 @@ class InstaWalkAcceptedData {
       data,
       requestId: document.id,
     );
+  }
+
+  // ==========================================================
+  // READ FIRST AVAILABLE STRING
+  // ==========================================================
+
+  static String _readFirstString(
+    Map<String, dynamic> map,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final String key in keys) {
+      final dynamic value = map[key];
+
+      if (value == null) {
+        continue;
+      }
+
+      final String result =
+          value.toString().trim();
+
+      if (result.isNotEmpty) {
+        return result;
+      }
+    }
+
+    return fallback;
   }
 
   // ==========================================================
@@ -215,9 +291,7 @@ class InstaWalkAcceptedData {
     // String fallback
     if (value is String) {
       try {
-        return DateTime.parse(
-          value,
-        );
+        return DateTime.parse(value);
       } catch (_) {
         return null;
       }
