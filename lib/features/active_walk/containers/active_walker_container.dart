@@ -199,10 +199,6 @@ class ActiveWalkerContainer extends StatelessWidget {
       fallback: 'Address not available',
     );
 
-    // ========================================================
-    // OWNER LOCATION
-    // ========================================================
-
     final GeoPoint? ownerLocation =
         _readGeoPoint(
       data,
@@ -217,10 +213,11 @@ class ActiveWalkerContainer extends StatelessWidget {
     final String walkerPhone =
         activeWalk.walkerPhone.trim();
 
-    final String status =
-        _readString(
+    final String status = _readString(
       data,
-      const ['status'],
+      const [
+        'status',
+      ],
       fallback: 'On that way',
     );
 
@@ -232,13 +229,15 @@ class ActiveWalkerContainer extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         border: Border.all(
           color: primary.withOpacity(.22),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.04),
+            color:
+                Colors.black.withOpacity(.04),
             blurRadius: 13,
             offset: const Offset(0, 5),
           ),
@@ -295,6 +294,9 @@ class ActiveWalkerContainer extends StatelessWidget {
 
                     Text(
                       'Walker ID: ${activeWalk.walkerId}',
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: slate,
                         fontSize: 10,
@@ -305,6 +307,8 @@ class ActiveWalkerContainer extends StatelessWidget {
                   ],
                 ),
               ),
+
+              const SizedBox(width: 6),
 
               Container(
                 padding:
@@ -319,11 +323,7 @@ class ActiveWalkerContainer extends StatelessWidget {
                       BorderRadius.circular(20),
                 ),
                 child: Text(
-                  status == 'Started'
-                      ? 'WALKING'
-                      : status == 'Reached'
-                          ? 'REACHED'
-                          : 'ACCEPTED',
+                  _statusBadge(status),
                   style: const TextStyle(
                     color: callColor,
                     fontSize: 8,
@@ -343,7 +343,8 @@ class ActiveWalkerContainer extends StatelessWidget {
 
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding:
+                const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color:
                   const Color(0xFFF7F8F9),
@@ -358,11 +359,14 @@ class ActiveWalkerContainer extends StatelessWidget {
                 Container(
                   width: 42,
                   height: 42,
-                  decoration: BoxDecoration(
+                  decoration:
+                      BoxDecoration(
                     color:
                         primary.withOpacity(.09),
                     borderRadius:
-                        BorderRadius.circular(12),
+                        BorderRadius.circular(
+                      12,
+                    ),
                   ),
                   child: const Icon(
                     Icons.pets_rounded,
@@ -393,6 +397,9 @@ class ActiveWalkerContainer extends StatelessWidget {
 
                       Text(
                         dogName,
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: navy,
                           fontSize: 14,
@@ -405,6 +412,9 @@ class ActiveWalkerContainer extends StatelessWidget {
 
                       Text(
                         dogBreed,
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: slate,
                           fontSize: 10,
@@ -427,7 +437,8 @@ class ActiveWalkerContainer extends StatelessWidget {
 
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding:
+                const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color:
                   const Color(0xFFF7F8F9),
@@ -484,17 +495,16 @@ class ActiveWalkerContainer extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 10),
-
           // ==================================================
           // MAP
           // ==================================================
 
-          if (ownerLocation != null)
-            _buildOsmMap(ownerLocation),
-
-          if (ownerLocation != null)
+          if (ownerLocation != null) ...[
             const SizedBox(height: 10),
+            _buildOsmMap(ownerLocation),
+          ],
+
+          const SizedBox(height: 10),
 
           // ==================================================
           // ACTIONS
@@ -504,7 +514,8 @@ class ActiveWalkerContainer extends StatelessWidget {
             children: [
               Expanded(
                 child: _actionButton(
-                  icon: Icons.call_rounded,
+                  icon:
+                      Icons.call_rounded,
                   label: 'Call',
                   color: callColor,
                   onTap: () {
@@ -519,7 +530,8 @@ class ActiveWalkerContainer extends StatelessWidget {
 
               Expanded(
                 child: _actionButton(
-                  icon: Icons.sms_rounded,
+                  icon:
+                      Icons.sms_rounded,
                   label: 'SMS',
                   color: smsColor,
                   onTap: () {
@@ -557,7 +569,8 @@ class ActiveWalkerContainer extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 44,
-            child: OutlinedButton.icon(
+            child:
+                OutlinedButton.icon(
               onPressed: () {
                 _confirmCancel(
                   context,
@@ -604,7 +617,8 @@ class ActiveWalkerContainer extends StatelessWidget {
           const Center(
             child: Text(
               'Walker accepted your Insta Walk request.',
-              textAlign: TextAlign.center,
+              textAlign:
+                  TextAlign.center,
               style: TextStyle(
                 color: slate,
                 fontSize: 10,
@@ -616,6 +630,32 @@ class ActiveWalkerContainer extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // ==========================================================
+  // STATUS BADGE
+  // ==========================================================
+
+  String _statusBadge(
+    String status,
+  ) {
+    switch (status.trim().toLowerCase()) {
+      case 'started':
+      case 'walking':
+        return 'WALKING';
+
+      case 'reached':
+        return 'REACHED';
+
+      case 'completed':
+        return 'COMPLETED';
+
+      case 'cancelled':
+        return 'CANCELLED';
+
+      default:
+        return 'ACCEPTED';
+    }
   }
 
   // ==========================================================
@@ -642,7 +682,8 @@ class ActiveWalkerContainer extends StatelessWidget {
             initialZoom: 16,
             interactionOptions:
                 const InteractionOptions(
-              flags: InteractiveFlag.all,
+              flags:
+                  InteractiveFlag.all,
             ),
           ),
           children: [
@@ -679,7 +720,8 @@ class ActiveWalkerContainer extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.home_rounded,
-                      color: Colors.white,
+                      color:
+                          Colors.white,
                       size: 25,
                     ),
                   ),
@@ -692,14 +734,18 @@ class ActiveWalkerContainer extends StatelessWidget {
               top: 10,
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(
+                    const EdgeInsets
+                        .symmetric(
                   horizontal: 9,
                   vertical: 6,
                 ),
-                decoration: BoxDecoration(
+                decoration:
+                    BoxDecoration(
                   color: Colors.white,
                   borderRadius:
-                      BorderRadius.circular(9),
+                      BorderRadius.circular(
+                    9,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black
@@ -795,11 +841,14 @@ class ActiveWalkerContainer extends StatelessWidget {
             color:
                 color.withOpacity(.18),
           ),
-          padding: EdgeInsets.zero,
+          padding:
+              EdgeInsets.zero,
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(11),
+                BorderRadius.circular(
+              11,
+            ),
           ),
         ),
       ),
@@ -841,7 +890,8 @@ class ActiveWalkerContainer extends StatelessWidget {
                   false,
                 );
               },
-              child: const Text('No'),
+              child:
+                  const Text('No'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -857,8 +907,9 @@ class ActiveWalkerContainer extends StatelessWidget {
                 foregroundColor:
                     Colors.white,
               ),
-              child:
-                  const Text('Cancel Walk'),
+              child: const Text(
+                'Cancel Walk',
+              ),
             ),
           ],
         );
@@ -889,26 +940,18 @@ class ActiveWalkerContainer extends StatelessWidget {
     required ActiveWalk activeWalk,
   }) async {
     try {
-      final User? user =
-          FirebaseAuth.instance.currentUser;
+      final FirebaseAuth auth =
+          FirebaseAuth.instance;
 
-      if (user == null) {
+      final User? currentUser =
+          auth.currentUser;
+
+      if (currentUser == null) {
         return;
       }
 
-      final String uid = user.uid;
-
-      // ======================================================
-      // REQUEST ID
-      //
-      // ActiveWalk.requestId = original
-      // walk_requests document ID.
-      // ======================================================
-
-      final String requestId =
-          _readActiveWalkRequestId(
-        activeWalk,
-      );
+      final String uid =
+          currentUser.uid;
 
       // ======================================================
       // ACTIVE WALK
@@ -933,8 +976,13 @@ class ActiveWalkerContainer extends StatelessWidget {
       );
 
       // ======================================================
-      // ORIGINAL WALK REQUEST
+      // ORIGINAL REQUEST
       // ======================================================
+
+      final String requestId =
+          _readActiveWalkRequestId(
+        activeWalk,
+      );
 
       if (requestId.isNotEmpty) {
         await FirebaseFirestore.instance
@@ -974,15 +1022,18 @@ class ActiveWalkerContainer extends StatelessWidget {
         return;
       }
 
+      final String message =
+          e.code == 'permission-denied'
+              ? 'Permission denied by Firestore rules.'
+              : e.code == 'not-found'
+                  ? 'Walk record not found.'
+                  : 'Unable to cancel walk.';
+
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
-              e.code == 'permission-denied'
-                  ? 'Permission denied by Firestore rules.'
-                  : 'Unable to cancel walk.',
-            ),
+            content: Text(message),
           ),
         );
     } catch (_) {
@@ -1019,18 +1070,23 @@ class ActiveWalkerContainer extends StatelessWidget {
   Future<void> _callWalker(
     String phone,
   ) async {
-    if (phone.trim().isEmpty) {
+    final String cleanPhone =
+        phone.trim();
+
+    if (cleanPhone.isEmpty) {
       return;
     }
 
     final Uri uri = Uri(
       scheme: 'tel',
-      path: phone.trim(),
+      path: cleanPhone,
     );
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {}
   }
 
   // ==========================================================
@@ -1040,18 +1096,23 @@ class ActiveWalkerContainer extends StatelessWidget {
   Future<void> _smsWalker(
     String phone,
   ) async {
-    if (phone.trim().isEmpty) {
+    final String cleanPhone =
+        phone.trim();
+
+    if (cleanPhone.isEmpty) {
       return;
     }
 
     final Uri uri = Uri(
       scheme: 'sms',
-      path: phone.trim(),
+      path: cleanPhone,
     );
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {}
   }
 
   // ==========================================================
@@ -1075,19 +1136,28 @@ class ActiveWalkerContainer extends StatelessWidget {
       'geo:$lat,$lng?q=$lat,$lng',
     );
 
-    if (await canLaunchUrl(geoUri)) {
-      await launchUrl(geoUri);
-      return;
-    }
+    try {
+      if (await canLaunchUrl(geoUri)) {
+        await launchUrl(
+          geoUri,
+          mode:
+              LaunchMode.externalApplication,
+        );
+        return;
+      }
+    } catch (_) {}
 
     final Uri osmUri = Uri.parse(
       'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=18/$lat/$lng',
     );
 
-    await launchUrl(
-      osmUri,
-      mode: LaunchMode.externalApplication,
-    );
+    try {
+      await launchUrl(
+        osmUri,
+        mode:
+            LaunchMode.externalApplication,
+      );
+    } catch (_) {}
   }
 
   // ==========================================================
