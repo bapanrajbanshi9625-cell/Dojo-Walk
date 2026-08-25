@@ -1,21 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-
-// ============================================================
-// INSTA WALK FIRESTORE HELPER
-// ============================================================
-
 class InstaWalkFirestoreHelper {
-
   InstaWalkFirestoreHelper({
     FirebaseFirestore? firestore,
   }) : _firestore =
-          firestore ?? FirebaseFirestore.instance;
-
+            firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-
-
 
   // ==========================================================
   // COLLECTION
@@ -23,29 +14,6 @@ class InstaWalkFirestoreHelper {
 
   static const String walkRequestsCollection =
       'walk_requests';
-
-
-
-  // ==========================================================
-  // GET REQUEST DOCUMENT
-  // ==========================================================
-
-  Future<DocumentSnapshot<Map<String, dynamic>>>
-      getRequest(
-    String requestId,
-  ) async {
-
-    return await _firestore
-        .collection(
-          walkRequestsCollection,
-        )
-        .doc(
-          requestId,
-        )
-        .get();
-  }
-
-
 
   // ==========================================================
   // CREATE REQUEST
@@ -55,26 +23,37 @@ class InstaWalkFirestoreHelper {
       createRequest({
     required Map<String, dynamic> data,
   }) async {
+    final CollectionReference<
+        Map<String, dynamic>> collection =
+        _firestore.collection(
+      walkRequestsCollection,
+    );
 
-    final DocumentReference<Map<String, dynamic>>
-        ref =
-        _firestore
-            .collection(
-              walkRequestsCollection,
-            )
-            .doc();
-
-
-    await ref.set({
-      ...data,
-      'requestId': ref.id,
-    });
-
-
-    return ref;
+    return collection.add(data);
   }
 
+  // ==========================================================
+  // GET REQUEST
+  // ==========================================================
 
+  Future<DocumentSnapshot<Map<String, dynamic>>>
+      getRequest({
+    required String requestId,
+  }) async {
+    final String cleanRequestId =
+        requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw ArgumentError(
+        'requestId cannot be empty.',
+      );
+    }
+
+    return _firestore
+        .collection(walkRequestsCollection)
+        .doc(cleanRequestId)
+        .get();
+  }
 
   // ==========================================================
   // UPDATE REQUEST
@@ -84,68 +63,69 @@ class InstaWalkFirestoreHelper {
     required String requestId,
     required Map<String, dynamic> data,
   }) async {
+    final String cleanRequestId =
+        requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw ArgumentError(
+        'requestId cannot be empty.',
+      );
+    }
 
     await _firestore
-        .collection(
-          walkRequestsCollection,
-        )
-        .doc(
-          requestId,
-        )
+        .collection(walkRequestsCollection)
+        .doc(cleanRequestId)
         .update(data);
   }
 
-
-
   // ==========================================================
-  // REQUEST STREAM
+  // SET REQUEST
   // ==========================================================
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      watchRequest(
-    String requestId,
-  ) {
+  Future<void> setRequest({
+    required String requestId,
+    required Map<String, dynamic> data,
+    bool merge = true,
+  }) async {
+    final String cleanRequestId =
+        requestId.trim();
 
-    return _firestore
-        .collection(
-          walkRequestsCollection,
-        )
-        .doc(
-          requestId,
-        )
-        .snapshots();
-  }
-
-
-
-  // ==========================================================
-  // ADD REQUEST ID IF MISSING
-  // ==========================================================
-
-  Map<String, dynamic> withRequestId(
-    String documentId,
-    Map<String, dynamic> data,
-  ) {
-
-    final Map<String, dynamic> result =
-        Map<String, dynamic>.from(data);
-
-
-    final String existing =
-        result['requestId']
-                ?.toString()
-                .trim() ??
-            '';
-
-
-    if (existing.isEmpty &&
-        documentId.trim().isNotEmpty) {
-
-      result['requestId'] =
-          documentId.trim();
+    if (cleanRequestId.isEmpty) {
+      throw ArgumentError(
+        'requestId cannot be empty.',
+      );
     }
 
+    await _firestore
+        .collection(walkRequestsCollection)
+        .doc(cleanRequestId)
+        .set(
+          data,
+          SetOptions(
+            merge: merge,
+          ),
+        );
+  }
 
-    return result;
+  // ==========================================================
+  // DELETE REQUEST
+  // ==========================================================
+
+  Future<void> deleteRequest({
+    required String requestId,
+  }) async {
+    final String cleanRequestId =
+        requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw ArgumentError(
+        'requestId cannot be empty.',
+      );
+    }
+
+    await _firestore
+        .collection(walkRequestsCollection)
+        .doc(cleanRequestId)
+        .delete();
   }
 }
