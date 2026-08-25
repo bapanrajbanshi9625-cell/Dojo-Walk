@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'insta_walk_search_result.dart';
 import 'insta_walk_request_state.dart';
-import 'insta_walk_accepted_data.dart';
 import 'insta_walk_firestore_helper.dart';
 
 
