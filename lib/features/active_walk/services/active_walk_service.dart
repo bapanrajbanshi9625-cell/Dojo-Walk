@@ -676,61 +676,35 @@ class ActiveWalkService {
     // ========================================================
 
     final int finalSteps =
-        steps != 0
-            ? steps
-            : _readInt(
-                activeData['steps'],
-              );
+    steps != 0 ? steps : _readInt(activeData['steps']);
 
-    final int finalPee =
-        peeCount != 0
-            ? peeCount
-            : _readInt(
-                activeData['peeCount'],
-              );
+final int finalPee =
+    peeCount != 0 ? peeCount : _readInt(activeData['peeCount']);
 
-    final int finalPoop =
-        poopCount != 0
-            ? poopCount
-            : _readInt(
-                activeData['poopCount'],
-              );
+final int finalPoop =
+    poopCount != 0
+        ? poopCount
+        : _readInt(activeData['poopCount']);
 
-    final double finalDistance =
-        distanceKm != 0.0
-            ? distanceKm
-            : _readDouble(
-                  activeData['distanceKm'],
-                ) ??
-                0.0;
+final double finalDistance =
+    distanceKm != 0.0
+        ? distanceKm
+        : (_readDouble(activeData['distanceKm']) ?? 0.0);
 
-    final double finalDuration =
-        durationMinutes != 0.0
-            ? durationMinutes
-            : _readDouble(
-                  activeData[
-                    'durationMinutes',
-                  ],
-                ) ??
-                0.0;
+final double finalDuration =
+    durationMinutes != 0.0
+        ? durationMinutes
+        : (_readDouble(activeData['durationMinutes']) ?? 0.0);
 
-    final String finalTime =
-        timeFormatted.trim().isNotEmpty
-            ? timeFormatted.trim()
-            : _readString(
-                  activeData[
-                    'timeFormatted',
-                  ],
-                ) ??
-                '';
+final String finalTime =
+    timeFormatted.trim().isNotEmpty
+        ? timeFormatted.trim()
+        : (_readString(activeData['timeFormatted']) ?? '');
 
-    final String finalAddress =
-        address.trim().isNotEmpty
-            ? address.trim()
-            : _readString(
-                  activeData['address'],
-                ) ??
-                '';
+final String finalAddress =
+    address.trim().isNotEmpty
+        ? address.trim()
+        : (_readString(activeData['address']) ?? '');
 
     // ========================================================
     // HISTORY
