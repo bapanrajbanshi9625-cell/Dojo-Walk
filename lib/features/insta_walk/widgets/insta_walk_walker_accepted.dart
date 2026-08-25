@@ -5,19 +5,29 @@ part of 'insta_walk_container.dart';
 // ============================================================
 
 extension _WalkerAcceptedRole on _InstaWalkContainerState {
-  void _walkerAccepted(
+  Future<void> _walkerAccepted(
     InstaWalkAcceptedData accepted,
-  ) {
-    if (!mounted) {
+  ) async {
+    // ==========================================================
+    // VALIDATE REQUEST
+    // ==========================================================
+
+    final String requestId =
+        accepted.requestId.trim().isNotEmpty
+            ? accepted.requestId.trim()
+            : (_requestId ?? '').trim();
+
+    if (requestId.isEmpty) {
+      debugPrint(
+        'Insta Walk accepted but requestId is missing.',
+      );
+
       return;
     }
 
     // ==========================================================
-    // VALIDATE ACCEPTED DATA
+    // VALIDATE WALKER
     // ==========================================================
-
-    final String requestId =
-        accepted.requestId.trim();
 
     final String walkerId =
         accepted.walkerId.trim();
@@ -28,126 +38,102 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     final String walkerName =
         accepted.walkerName.trim();
 
-    // ==========================================================
-    // REQUEST ID
-    // ==========================================================
-
-    if (requestId.isNotEmpty) {
-      _requestId = requestId;
-    }
-
-    // ==========================================================
-    // STOP SEARCH UI
-    // ==========================================================
-
-    _stopRadar();
-
-    _updateState(() {
-      _searching = false;
-      _searchFinished = false;
-      _checkingAddress = false;
-      _recovering = false;
-      _stopping = false;
-    });
-
-    // ==========================================================
-    // SEARCH IS NO LONGER ACTIVE
-    // ==========================================================
-
-    _setActive(false);
-
-    // ==========================================================
-    // DEBUG
-    // ==========================================================
-
-    debugPrint(
-      '================================================',
-    );
-
-    debugPrint(
-      'INSTA WALK WALKER ACCEPTED',
-    );
-
-    debugPrint(
-      'requestId: $requestId',
-    );
-
-    debugPrint(
-      'ownerId: ${accepted.ownerId}',
-    );
-
-    debugPrint(
-      'ownerName: ${accepted.ownerName}',
-    );
-
-    debugPrint(
-      'address: ${accepted.address}',
-    );
-
-    debugPrint(
-      'walkerId: $walkerId',
-    );
-
-    debugPrint(
-      'walkerUid: $walkerUid',
-    );
-
-    debugPrint(
-      'walkerName: $walkerName',
-    );
-
-    debugPrint(
-      'walkerPhone: ${accepted.walkerPhone}',
-    );
-
-    debugPrint(
-      'acceptedAt: ${accepted.acceptedAt}',
-    );
-
-    debugPrint(
-      '================================================',
-    );
-
-    // ==========================================================
-    // INVALID WALKER DATA
-    // ==========================================================
-
     if (walkerId.isEmpty &&
         walkerUid.isEmpty) {
-      _message(
-        'Walker accepted the request, but walker information is missing.',
+      debugPrint(
+        'Insta Walk accepted but walker identity is missing.',
       );
 
       return;
     }
 
     // ==========================================================
-    // CALLBACK
-    //
-    // Parent screen can open active-walk / walker UI.
+    // STORE REQUEST ID
     // ==========================================================
+
+    _requestId = requestId;
+
+    // ==========================================================
+    // STOP RADAR
+    // ==========================================================
+
+    _stopRadar();
+
+    // ==========================================================
+    // RESTORE OWNER LOCATION
+    // ==========================================================
+
+    if (accepted.ownerLocation != null) {
+      final GeoPoint location =
+          accepted.ownerLocation!;
+
+      _ownerPosition = Position(
+        longitude: location.longitude,
+        latitude: location.latitude,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+    }
+
+    // ==========================================================
+    // UPDATE LOCAL STATE
+    // ==========================================================
+
+    if (!mounted) {
+      return;
+    }
+
+    _updateState(() {
+      _recovering = false;
+      _checkingAddress = false;
+
+      // Search is finished because walker accepted.
+      _searching = false;
+
+      // Do not show "search finished" state.
+      // Instead the accepted-walker UI takes over.
+      _searchFinished = false;
+
+      _stopping = false;
+    });
+
+    // ==========================================================
+    // SEARCH IS NO LONGER ACTIVE
+    //
+    // The request itself is now in:
+    //
+    // status = accepted
+    //
+    // ==========================================================
+
+    _setActive(true);
+
+    // ==========================================================
+    // CALLBACK
+    // ==========================================================
+
+    widget.onWalkerFound?.call();
 
     widget.onAccepted?.call(
       accepted,
     );
 
     // ==========================================================
-    // LEGACY CALLBACK
+    // DEBUG
     // ==========================================================
 
-    widget.onWalkerFound?.call();
-
-    // ==========================================================
-    // USER MESSAGE
-    // ==========================================================
-
-    final String displayName =
-        walkerName.isEmpty
-            ? 'Walker'
-            : walkerName;
-
-    _message(
-      '$displayName accepted your Insta Walk request.',
+    debugPrint(
+      'Insta Walk accepted: '
+      'requestId=$requestId, '
+      'walkerId=$walkerId, '
+      'walkerUid=$walkerUid, '
+      'walkerName=$walkerName',
     );
   }
 }
