@@ -324,11 +324,25 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // ==========================================================
     // REALTIME FIRESTORE LISTENER
     // ==========================================================
+try {
 
-    try {
-      await _service.listenForRequest(
-        requestId: requestId,
+  await_requestSubscription?.cancel();
 
+
+  _requestSubscription =
+      _service
+          .listenForRequest(
+            requestId,
+          )
+          .listen(
+    (
+      InstaWalkRequestState state,
+    ) {
+
+      if (!mounted) {
+        return;
+      }
+    
         // ======================================================
         // WALKER ACCEPTED
         // ======================================================
