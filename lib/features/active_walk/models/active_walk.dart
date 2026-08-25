@@ -4,52 +4,39 @@ class ActiveWalk {
   final String id;
   final String requestId;
   final String ownerId;
+  final String ownerAuthUid;
+
   final String walkerId;
   final String walkerName;
   final String walkerPhone;
+
   final String petName;
+  final String petBreed;
+
   final String status;
+
+  final GeoPoint? ownerLocation;
+  final GeoPoint? walkerLocation;
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   const ActiveWalk({
     required this.id,
-    this.requestId = '',
-    this.ownerId = '',
-    this.walkerId = '',
-    this.walkerName = '',
-    this.walkerPhone = '',
-    this.petName = '',
-    this.status = '',
-    this.createdAt,
-    this.updatedAt,
+    required this.requestId,
+    required this.ownerId,
+    required this.ownerAuthUid,
+    required this.walkerId,
+    required this.walkerName,
+    required this.walkerPhone,
+    required this.petName,
+    required this.petBreed,
+    required this.status,
+    required this.ownerLocation,
+    required this.walkerLocation,
+    required this.createdAt,
+    required this.updatedAt,
   });
-
-  ActiveWalk copyWith({
-    String? id,
-    String? requestId,
-    String? ownerId,
-    String? walkerId,
-    String? walkerName,
-    String? walkerPhone,
-    String? petName,
-    String? status,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return ActiveWalk(
-      id: id ?? this.id,
-      requestId: requestId ?? this.requestId,
-      ownerId: ownerId ?? this.ownerId,
-      walkerId: walkerId ?? this.walkerId,
-      walkerName: walkerName ?? this.walkerName,
-      walkerPhone: walkerPhone ?? this.walkerPhone,
-      petName: petName ?? this.petName,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
 
   factory ActiveWalk.fromMap(
     String documentId,
@@ -57,45 +44,60 @@ class ActiveWalk {
   ) {
     return ActiveWalk(
       id: documentId,
-      requestId: _readString(
+
+      requestId: _string(
         data,
         const [
           'requestId',
-          'walkRequestId',
           'requestID',
+          'walkRequestId',
         ],
       ),
-      ownerId: _readString(
+
+      ownerId: _string(
         data,
         const [
           'ownerId',
           'ownerID',
+          'businessId',
         ],
       ),
-      walkerId: _readString(
+
+      ownerAuthUid: _string(
+        data,
+        const [
+          'ownerAuthUid',
+          'ownerAuthUID',
+          'authUid',
+        ],
+      ),
+
+      walkerId: _string(
         data,
         const [
           'walkerId',
           'walkerID',
         ],
       ),
-      walkerName: _readString(
+
+      walkerName: _string(
         data,
         const [
           'walkerName',
-          'Walker Name',
+          'walker',
         ],
       ),
-      walkerPhone: _readString(
+
+      walkerPhone: _string(
         data,
         const [
           'walkerPhone',
-          'walkerMobile',
           'phone',
-          'mobile',
+          'walkerMobile',
         ],
       ),
-      petName: _readString(
+
+      petName: _string(
         data,
         const [
           'petName',
@@ -104,39 +106,82 @@ class ActiveWalk {
           'Dog Name',
         ],
       ),
-      status: _readString(
+
+      petBreed: _string(
+        data,
+        const [
+          'petBreed',
+          'dogBreed',
+          'breed',
+          'Pet Breed',
+          'Dog Breed',
+        ],
+      ),
+
+      status: _string(
         data,
         const [
           'status',
         ],
+        fallback: 'accepted',
       ),
-      createdAt: _readDateTime(
+
+      ownerLocation: _geoPoint(
+        data,
+        const [
+          'ownerLocation',
+          'destinationLocation',
+          'location',
+          'ownerGeoPoint',
+        ],
+      ),
+
+      walkerLocation: _geoPoint(
+        data,
+        const [
+          'walkerLocation',
+          'currentWalkerLocation',
+          'walkerGeoPoint',
+        ],
+      ),
+
+      createdAt: _dateTime(
         data['createdAt'],
       ),
-      updatedAt: _readDateTime(
+
+      updatedAt: _dateTime(
         data['updatedAt'],
       ),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'requestId': requestId,
       'ownerId': ownerId,
+      'ownerAuthUid': ownerAuthUid,
       'walkerId': walkerId,
       'walkerName': walkerName,
       'walkerPhone': walkerPhone,
       'petName': petName,
+      'petBreed': petBreed,
       'status': status,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      if (ownerLocation != null)
+        'ownerLocation': ownerLocation,
+      if (walkerLocation != null)
+        'walkerLocation': walkerLocation,
+      if (createdAt != null)
+        'createdAt': Timestamp.fromDate(createdAt!),
+      if (updatedAt != null)
+        'updatedAt': Timestamp.fromDate(updatedAt!),
     };
   }
 
-  static String _readString(
+  static String _string(
     Map<String, dynamic> data,
-    List<String> keys,
-  ) {
+    List<String> keys, {
+    String fallback = '',
+  }) {
     for (final String key in keys) {
       final dynamic value = data[key];
 
@@ -144,17 +189,51 @@ class ActiveWalk {
         continue;
       }
 
-      final String result = value.toString().trim();
+      final String result =
+          value.toString().trim();
 
       if (result.isNotEmpty) {
         return result;
       }
     }
 
-    return '';
+    return fallback;
   }
 
-  static DateTime? _readDateTime(
+  static GeoPoint? _geoPoint(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final String key in keys) {
+      final dynamic value = data[key];
+
+      if (value is GeoPoint) {
+        return value;
+      }
+
+      if (value is Map) {
+        final dynamic latitude =
+            value['latitude'] ?? value['lat'];
+
+        final dynamic longitude =
+            value['longitude'] ??
+                value['lng'] ??
+                value['lon'];
+
+        if (latitude is num &&
+            longitude is num) {
+          return GeoPoint(
+            latitude.toDouble(),
+            longitude.toDouble(),
+          );
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static DateTime? _dateTime(
     dynamic value,
   ) {
     if (value is Timestamp) {
@@ -163,10 +242,6 @@ class ActiveWalk {
 
     if (value is DateTime) {
       return value;
-    }
-
-    if (value is String) {
-      return DateTime.tryParse(value);
     }
 
     return null;
