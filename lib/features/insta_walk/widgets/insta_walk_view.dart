@@ -234,9 +234,15 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         if (_searching) _buildSearching(),
 
+        // ======================================================
+        // SEARCH FINISHED / RETRY
+        // ======================================================
+
         if (_searchFinished)
-          InstaWalkRetry(
-            onRetry: _retrySearch,
+          InstaWalkSearchButton(
+            loading: false,
+            text: 'Try Again',
+            onPressed: _retrySearch,
           ),
       ],
     );
