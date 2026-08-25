@@ -24,10 +24,11 @@ class ActiveWalkService {
   // ==========================================================
   // CREATE ACTIVE WALK
   //
-  // Walker accepts request.
+  // Called when walker accepts an Insta Walk request.
   //
-  // destinationLocation = OWNER'S PICKUP LOCATION
-  // status = On that way
+  // walkId = active_walk document ID
+  // requestId = original walk_requests document ID
+  // destinationLocation = owner's pickup location
   // ==========================================================
 
   Future<String> createActiveWalk({
@@ -40,12 +41,14 @@ class ActiveWalkService {
     required String dogBreed,
     required String address,
     required GeoPoint destinationLocation,
+    String requestId = '',
     String walkerUid = '',
     String walkerPhone = '',
     String dogPhoto = '',
     String walkerProfileImage = '',
   }) async {
-    final String cleanWalkId = walkId.trim();
+    final String cleanWalkId =
+        walkId.trim();
 
     if (cleanWalkId.isEmpty) {
       throw ArgumentError(
@@ -53,8 +56,23 @@ class ActiveWalkService {
       );
     }
 
-    final DocumentReference<Map<String, dynamic>>
-        reference =
+    final String cleanOwnerId =
+        ownerId.trim();
+
+    final String cleanOwnerName =
+        ownerName.trim();
+
+    final String cleanWalkerId =
+        walkerId.trim();
+
+    final String cleanWalkerName =
+        walkerName.trim();
+
+    final String cleanRequestId =
+        requestId.trim();
+
+    final DocumentReference<
+        Map<String, dynamic>> reference =
         _activeWalks.doc(cleanWalkId);
 
     await reference.set(
@@ -65,21 +83,35 @@ class ActiveWalkService {
 
         'walkId': cleanWalkId,
 
+        'requestId':
+            cleanRequestId,
+
         // ------------------------------------------------------
         // OWNER
         // ------------------------------------------------------
 
-        'ownerId': ownerId.trim(),
-        'ownerName': ownerName.trim(),
+        'ownerId':
+            cleanOwnerId,
+
+        'ownerName':
+            cleanOwnerName,
 
         // ------------------------------------------------------
         // WALKER
         // ------------------------------------------------------
 
-        'walkerId': walkerId.trim(),
-        'walkerUid': walkerUid.trim(),
-        'walkerName': walkerName.trim(),
-        'walkerPhone': walkerPhone.trim(),
+        'walkerId':
+            cleanWalkerId,
+
+        'walkerUid':
+            walkerUid.trim(),
+
+        'walkerName':
+            cleanWalkerName,
+
+        'walkerPhone':
+            walkerPhone.trim(),
+
         'walkerProfileImage':
             walkerProfileImage.trim(),
 
@@ -87,19 +119,22 @@ class ActiveWalkService {
         // DOG
         // ------------------------------------------------------
 
-        'dogName': dogName.trim(),
-        'dogBreed': dogBreed.trim(),
-        'dogPhoto': dogPhoto.trim(),
+        'dogName':
+            dogName.trim(),
+
+        'dogBreed':
+            dogBreed.trim(),
+
+        'dogPhoto':
+            dogPhoto.trim(),
 
         // ------------------------------------------------------
-        // OWNER PICKUP LOCATION
+        // OWNER PICKUP
         // ------------------------------------------------------
 
-        'address': address.trim(),
+        'address':
+            address.trim(),
 
-        // IMPORTANT:
-        // Owner द्वारा setup की गई pickup location.
-        // Walker इसी location पर जाएगा.
         'destinationLocation':
             destinationLocation,
 
@@ -107,30 +142,60 @@ class ActiveWalkService {
         // STATUS
         // ------------------------------------------------------
 
-        'status': 'On that way',
+        'status':
+            'On that way',
 
         // ------------------------------------------------------
-        // INITIAL WALK DATA
+        // WALK STATS
         // ------------------------------------------------------
 
         'steps': 0,
+
         'peeCount': 0,
+
         'poopCount': 0,
+
         'distanceKm': 0.0,
+
         'durationMinutes': 0.0,
+
         'timeFormatted': '',
 
         'routeDistanceKm': 0.0,
+
         'routeDurationMinutes': 0.0,
+
+        // ------------------------------------------------------
+        // ROUTE
+        // ------------------------------------------------------
 
         'routePolyline':
             <Map<String, dynamic>>[],
 
         // ------------------------------------------------------
-        // CREATED
+        // LOCATION
+        // ------------------------------------------------------
+
+        'walkerLocation':
+            null,
+
+        'currentLocation':
+            null,
+
+        'startLocation':
+            null,
+
+        'endLocation':
+            null,
+
+        // ------------------------------------------------------
+        // TIMESTAMP
         // ------------------------------------------------------
 
         'createdAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
             FieldValue.serverTimestamp(),
       },
       SetOptions(
@@ -142,7 +207,7 @@ class ActiveWalkService {
   }
 
   // ==========================================================
-  // WATCH ACTIVE WALK
+  // WATCH ONE ACTIVE WALK
   // ==========================================================
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>
@@ -154,6 +219,35 @@ class ActiveWalkService {
 
     return _activeWalks
         .doc(cleanWalkId)
+        .snapshots();
+  }
+
+  // ==========================================================
+  // WATCH OWNER ACTIVE WALKS
+  //
+  // Used by ActiveWalkerContainer.
+  //
+  // IMPORTANT:
+  // This method was missing in the previous service.
+  // ==========================================================
+
+  Stream<QuerySnapshot<Map<String, dynamic>>>
+      watchActiveWalks({
+    required String ownerId,
+  }) {
+    final String cleanOwnerId =
+        ownerId.trim();
+
+    if (cleanOwnerId.isEmpty) {
+      return const Stream<
+          QuerySnapshot<Map<String, dynamic>>>.empty();
+    }
+
+    return _activeWalks
+        .where(
+          'ownerId',
+          isEqualTo: cleanOwnerId,
+        )
         .snapshots();
   }
 
@@ -179,8 +273,13 @@ class ActiveWalkService {
         .doc(cleanWalkId)
         .update(
       <String, dynamic>{
-        'status': 'Reached',
+        'status':
+            'Reached',
+
         'reachedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
             FieldValue.serverTimestamp(),
       },
     );
@@ -189,7 +288,7 @@ class ActiveWalkService {
   // ==========================================================
   // START WALK
   //
-  // Only after walker reaches owner's pickup location.
+  // Walker starts actual dog walk after reaching pickup.
   // ==========================================================
 
   Future<void> startWalk({
@@ -209,7 +308,8 @@ class ActiveWalkService {
         .doc(cleanWalkId)
         .update(
       <String, dynamic>{
-        'status': 'Started',
+        'status':
+            'Started',
 
         'startedAt':
             FieldValue.serverTimestamp(),
@@ -234,21 +334,29 @@ class ActiveWalkService {
         ],
 
         'steps': 0,
+
         'peeCount': 0,
+
         'poopCount': 0,
+
         'distanceKm': 0.0,
+
         'durationMinutes': 0.0,
+
         'timeFormatted': '',
+
         'routeDistanceKm': 0.0,
+
         'routeDurationMinutes': 0.0,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       },
     );
   }
 
   // ==========================================================
   // UPDATE WALKER LIVE LOCATION
-  //
-  // Only while status == Started.
   // ==========================================================
 
   Future<void> updateWalkerLocation({
@@ -266,23 +374,20 @@ class ActiveWalkService {
         .doc(cleanWalkId)
         .update(
       <String, dynamic>{
-        'walkerLocation': location,
-        'currentLocation': location,
+        'walkerLocation':
+            location,
+
+        'currentLocation':
+            location,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       },
     );
   }
 
   // ==========================================================
   // ADD ROUTE POINT
-  //
-  // routePolyline:
-  //
-  // [
-  //   {
-  //     latitude: 28.123,
-  //     longitude: 77.123
-  //   }
-  // ]
   // ==========================================================
 
   Future<void> addRoutePoint({
@@ -312,7 +417,7 @@ class ActiveWalkService {
         snapshot.data() ??
             <String, dynamic>{};
 
-    // Only save route when actual walk has started.
+    // Only save route after walk has started.
     if (data['status'] != 'Started') {
       return;
     }
@@ -324,9 +429,9 @@ class ActiveWalkService {
               )
             : <dynamic>[];
 
-    // ----------------------------------------------------------
-    // Avoid duplicate consecutive points.
-    // ----------------------------------------------------------
+    // --------------------------------------------------------
+    // PREVENT DUPLICATE CONSECUTIVE POINTS
+    // --------------------------------------------------------
 
     if (existing.isNotEmpty) {
       final dynamic last =
@@ -363,6 +468,10 @@ class ActiveWalkService {
       }
     }
 
+    // --------------------------------------------------------
+    // ADD NEW POINT
+    // --------------------------------------------------------
+
     existing.add(
       <String, dynamic>{
         'latitude':
@@ -374,9 +483,17 @@ class ActiveWalkService {
 
     await reference.update(
       <String, dynamic>{
-        'walkerLocation': location,
-        'currentLocation': location,
-        'routePolyline': existing,
+        'walkerLocation':
+            location,
+
+        'currentLocation':
+            location,
+
+        'routePolyline':
+            existing,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       },
     );
   }
@@ -405,19 +522,24 @@ class ActiveWalkService {
         <String, dynamic>{};
 
     if (steps != null) {
-      data['steps'] = steps;
+      data['steps'] =
+          steps;
     }
 
     if (peeCount != null) {
-      data['peeCount'] = peeCount;
+      data['peeCount'] =
+          peeCount;
     }
 
     if (poopCount != null) {
-      data['poopCount'] = poopCount;
+      data['poopCount'] =
+          poopCount;
     }
 
     if (distanceKm != null) {
-      data['distanceKm'] = distanceKm;
+      data['distanceKm'] =
+          distanceKm;
+
       data['routeDistanceKm'] =
           distanceKm;
     }
@@ -439,6 +561,9 @@ class ActiveWalkService {
       return;
     }
 
+    data['updatedAt'] =
+        FieldValue.serverTimestamp();
+
     await _activeWalks
         .doc(cleanWalkId)
         .update(data);
@@ -450,7 +575,6 @@ class ActiveWalkService {
   // 1. Read active_walk
   // 2. Save walk_history
   // 3. Mark active_walk Completed
-  //
   // ==========================================================
 
   Future<void> endWalk({
@@ -528,13 +652,11 @@ class ActiveWalkService {
               activeData['currentLocation'],
             );
 
-    // IMPORTANT:
-    // Destination remains owner's pickup location.
     final GeoPoint? finalDestination =
         destinationLocation ??
             _readGeoPoint(
               activeData[
-                'destinationLocation',
+                'destinationLocation'
               ],
             );
 
@@ -611,7 +733,7 @@ class ActiveWalkService {
                 '';
 
     // ========================================================
-    // HISTORY REFERENCE
+    // HISTORY
     // ========================================================
 
     final DocumentReference<
@@ -632,23 +754,40 @@ class ActiveWalkService {
         // BASIC
         // ------------------------------------------------------
 
-        'walkId': cleanWalkId,
-        'status': 'Completed',
+        'walkId':
+            cleanWalkId,
+
+        'requestId':
+            _readString(
+                  activeData['requestId'],
+                ) ??
+                '',
+
+        'status':
+            'Completed',
 
         // ------------------------------------------------------
         // OWNER
         // ------------------------------------------------------
 
-        'ownerId': ownerId.trim(),
-        'ownerName': ownerName.trim(),
+        'ownerId':
+            ownerId.trim(),
+
+        'ownerName':
+            ownerName.trim(),
 
         // ------------------------------------------------------
         // WALKER
         // ------------------------------------------------------
 
-        'walkerId': walkerId.trim(),
-        'walkerUid': walkerUid.trim(),
-        'walkerName': walkerName.trim(),
+        'walkerId':
+            walkerId.trim(),
+
+        'walkerUid':
+            walkerUid.trim(),
+
+        'walkerName':
+            walkerName.trim(),
 
         'walkerProfileImage':
             walkerProfileImage.trim(),
@@ -657,15 +796,21 @@ class ActiveWalkService {
         // DOG
         // ------------------------------------------------------
 
-        'dogName': dogName.trim(),
-        'dogBreed': dogBreed.trim(),
-        'dogPhoto': dogPhoto.trim(),
+        'dogName':
+            dogName.trim(),
+
+        'dogBreed':
+            dogBreed.trim(),
+
+        'dogPhoto':
+            dogPhoto.trim(),
 
         // ------------------------------------------------------
         // OWNER PICKUP
         // ------------------------------------------------------
 
-        'address': finalAddress,
+        'address':
+            finalAddress,
 
         'destinationLocation':
             finalDestination,
@@ -687,9 +832,14 @@ class ActiveWalkService {
         // STATS
         // ------------------------------------------------------
 
-        'steps': finalSteps,
-        'peeCount': finalPee,
-        'poopCount': finalPoop,
+        'steps':
+            finalSteps,
+
+        'peeCount':
+            finalPee,
+
+        'poopCount':
+            finalPoop,
 
         'distanceKm':
             finalDistance,
@@ -714,12 +864,14 @@ class ActiveWalkService {
         // OTHER
         // ------------------------------------------------------
 
-        'badge': badge.trim(),
+        'badge':
+            badge.trim(),
 
         'walkerNote':
             walkerNote.trim(),
 
-        'rating': 0,
+        'rating':
+            0,
 
         // ------------------------------------------------------
         // TIME
@@ -752,7 +904,8 @@ class ActiveWalkService {
     batch.update(
       activeReference,
       <String, dynamic>{
-        'status': 'Completed',
+        'status':
+            'Completed',
 
         'endLocation':
             finalEndLocation,
@@ -769,7 +922,8 @@ class ActiveWalkService {
         'timeFormatted':
             finalTime,
 
-        'steps': finalSteps,
+        'steps':
+            finalSteps,
 
         'peeCount':
             finalPee,
@@ -785,10 +939,56 @@ class ActiveWalkService {
 
         'routePolyline':
             routePolyline,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       },
     );
 
     await batch.commit();
+  }
+
+  // ==========================================================
+  // CANCEL ACTIVE WALK
+  //
+  // Used when walk is cancelled from another part of app.
+  // ==========================================================
+
+  Future<void> cancelActiveWalk({
+    required String walkId,
+    String cancelledBy = 'owner',
+    String cancelledByUid = '',
+  }) async {
+    final String cleanWalkId =
+        walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      return;
+    }
+
+    await _activeWalks
+        .doc(cleanWalkId)
+        .set(
+      <String, dynamic>{
+        'status':
+            'cancelled',
+
+        'cancelledBy':
+            cancelledBy.trim(),
+
+        'cancelledByUid':
+            cancelledByUid.trim(),
+
+        'cancelledAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
   }
 
   // ==========================================================
@@ -811,6 +1011,29 @@ class ActiveWalkService {
   }
 
   // ==========================================================
+  // GET ACTIVE WALK ONCE
+  // ==========================================================
+
+  Future<
+      DocumentSnapshot<
+          Map<String, dynamic>>> getActiveWalk(
+    String walkId,
+  ) async {
+    final String cleanWalkId =
+        walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      throw ArgumentError(
+        'walkId cannot be empty.',
+      );
+    }
+
+    return _activeWalks
+        .doc(cleanWalkId)
+        .get();
+  }
+
+  // ==========================================================
   // HELPERS
   // ==========================================================
 
@@ -819,6 +1042,25 @@ class ActiveWalkService {
   ) {
     if (value is GeoPoint) {
       return value;
+    }
+
+    if (value is Map) {
+      final dynamic latitude =
+          value['latitude'] ??
+              value['lat'];
+
+      final dynamic longitude =
+          value['longitude'] ??
+              value['lng'] ??
+              value['lon'];
+
+      if (latitude is num &&
+          longitude is num) {
+        return GeoPoint(
+          latitude.toDouble(),
+          longitude.toDouble(),
+        );
+      }
     }
 
     return null;
