@@ -163,12 +163,7 @@ class QRService {
       );
     }
 
-    // ==========================================================
-    // FIREBASE AUTH UID
-    // ==========================================================
-
-    final String ownerUid =
-        user.uid.trim();
+    final String ownerUid = user.uid.trim();
 
     if (ownerUid.isEmpty) {
       throw Exception(
@@ -178,13 +173,6 @@ class QRService {
 
     // ==========================================================
     // OWNER DATA
-    //
-    // Actual Firestore structure:
-    //
-    // owners/{OWNER USER ID}
-    //
-    // Example:
-    // owners/OWN26GS0003
     // ==========================================================
 
     String ownerId = '';
@@ -194,16 +182,15 @@ class QRService {
     String dogBreed = '';
 
     try {
+      DocumentSnapshot<Map<String, dynamic>>? ownerDoc;
+
       // --------------------------------------------------------
-      // FIND OWNER DOCUMENT BY AUTH UID
-      //
-      // Actual User ID is stored in the ownerId field.
-      // We query authUid to find the owner document.
+      // 1. PRIMARY LOOKUP
+      // owners/{documentId} where authUid == Firebase UID
       // --------------------------------------------------------
 
       final QuerySnapshot<Map<String, dynamic>>
-          ownerQuery =
-          await _firestore
+          authUidQuery = await _firestore
               .collection('owners')
               .where(
                 'authUid',
@@ -212,15 +199,78 @@ class QRService {
               .limit(1)
               .get();
 
-      if (ownerQuery.docs.isEmpty) {
+      if (authUidQuery.docs.isNotEmpty) {
+        ownerDoc = authUidQuery.docs.first;
+      }
+
+      // --------------------------------------------------------
+      // 2. FALLBACK
+      // ownerUid field
+      // --------------------------------------------------------
+
+      if (ownerDoc == null) {
+        final QuerySnapshot<Map<String, dynamic>>
+            ownerUidQuery = await _firestore
+                .collection('owners')
+                .where(
+                  'ownerUid',
+                  isEqualTo: ownerUid,
+                )
+                .limit(1)
+                .get();
+
+        if (ownerUidQuery.docs.isNotEmpty) {
+          ownerDoc = ownerUidQuery.docs.first;
+        }
+      }
+
+      // --------------------------------------------------------
+      // 3. FALLBACK
+      // firebaseUid field
+      // --------------------------------------------------------
+
+      if (ownerDoc == null) {
+        final QuerySnapshot<Map<String, dynamic>>
+            firebaseUidQuery = await _firestore
+                .collection('owners')
+                .where(
+                  'firebaseUid',
+                  isEqualTo: ownerUid,
+                )
+                .limit(1)
+                .get();
+
+        if (firebaseUidQuery.docs.isNotEmpty) {
+          ownerDoc = firebaseUidQuery.docs.first;
+        }
+      }
+
+      // --------------------------------------------------------
+      // 4. FALLBACK
+      // Firebase UID as document ID
+      // --------------------------------------------------------
+
+      if (ownerDoc == null) {
+        final DocumentSnapshot<Map<String, dynamic>>
+            directDoc = await _firestore
+                .collection('owners')
+                .doc(ownerUid)
+                .get();
+
+        if (directDoc.exists) {
+          ownerDoc = directDoc;
+        }
+      }
+
+      // --------------------------------------------------------
+      // PROFILE NOT FOUND
+      // --------------------------------------------------------
+
+      if (ownerDoc == null || !ownerDoc.exists) {
         throw Exception(
           'Owner profile not found for this account.',
         );
       }
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          ownerDoc =
-          ownerQuery.docs.first;
 
       final Map<String, dynamic> data =
           ownerDoc.data() ??
@@ -228,12 +278,6 @@ class QRService {
 
       // --------------------------------------------------------
       // OWNER USER ID
-      //
-      // Primary source:
-      // ownerId field in Firestore.
-      //
-      // Fallback:
-      // Firestore document ID.
       // --------------------------------------------------------
 
       ownerId =
@@ -242,8 +286,7 @@ class QRService {
               .trim();
 
       if (ownerId.isEmpty) {
-        ownerId =
-            ownerDoc.id.trim();
+        ownerId = ownerDoc.id.trim();
       }
 
       // --------------------------------------------------------
@@ -281,17 +324,6 @@ class QRService {
 
       // --------------------------------------------------------
       // PET DATA
-      //
-      // Actual Firestore structure:
-      //
-      // pets: [
-      //   {
-      //     name: "...",
-      //     breed: "...",
-      //     age: "...",
-      //     behaviour: "..."
-      //   }
-      // ]
       // --------------------------------------------------------
 
       final dynamic petsValue =
@@ -324,10 +356,11 @@ class QRService {
       }
 
       // --------------------------------------------------------
-      // FALLBACK FOR OLD DOG FIELDS
+      // OLD DOG FIELD FALLBACK
       // --------------------------------------------------------
 
-      if (dogName.isEmpty || dogName == 'Dog') {
+      if (dogName.isEmpty ||
+          dogName == 'Dog') {
         dogName =
             (
               data['dogName'] ??
@@ -412,12 +445,6 @@ class QRService {
 
     // ==========================================================
     // FIRESTORE QR CONNECTION
-    //
-    // Document ID:
-    // Owner User ID
-    //
-    // Example:
-    // OWN26GS0003
     // ==========================================================
 
     await _connections
