@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/widgets/insta_walk_container.dart';
-import '../features/walks/containers/active_walker_container.dart';
+import '../features/active_/containers/active_walker_container.dart';
 import '../features/walks/widgets/walks_offer_slider.dart';
 
 import 'custom_app_bar.dart';
@@ -9,7 +9,8 @@ import 'custom_app_bar.dart';
 class WalksScreen extends StatelessWidget {
   const WalksScreen({super.key});
 
-  static const Color background = Color(0xFFEDEFF2);
+  static const Color background =
+      Color(0xFFEDEFF2);
 
   @override
   Widget build(BuildContext context) {
