@@ -11,12 +11,15 @@ enum InstaWalkRequestStatus {
 
 class InstaWalkRequestState {
 
+  final String requestId;
+
   final String status;
 
   final Map<String, dynamic>? data;
 
 
   const InstaWalkRequestState({
+    required this.requestId,
     required this.status,
     this.data,
   });
@@ -43,10 +46,14 @@ class InstaWalkRequestState {
 
 
 
-  static const InstaWalkRequestState notFound =
-      InstaWalkRequestState(
-        status: 'not_found',
-      );
+  static InstaWalkRequestState notFound({
+    String requestId = '',
+  }) {
+    return InstaWalkRequestState(
+      requestId: requestId,
+      status: 'not_found',
+    );
+  }
 
 
 
@@ -79,28 +86,66 @@ class InstaWalkRequestState {
 
 
 
+  // ==========================================================
+  // FROM MAP
+  // ==========================================================
+
+  factory InstaWalkRequestState.fromMap(
+    String requestId,
+    Map<String, dynamic> data,
+  ) {
+
+    return InstaWalkRequestState(
+      requestId: requestId,
+
+      status:
+          data['status']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+          'not_found',
+
+      data: data,
+    );
+
+  }
+
+
+
+  // ==========================================================
+  // FROM FIRESTORE DOCUMENT
+  // ==========================================================
+
   factory InstaWalkRequestState.fromDocument(
     DocumentSnapshot<Map<String,dynamic>> doc,
   ){
 
     if(!doc.exists){
 
-      return notFound;
+      return InstaWalkRequestState.notFound(
+        requestId: doc.id,
+      );
 
     }
 
 
     final Map<String,dynamic> map =
-        doc.data() ?? <String,dynamic>{};
+        doc.data() ??
+        <String,dynamic>{};
+
 
 
     return InstaWalkRequestState(
+      requestId: doc.id,
+
       status:
-          map['status']?.toString() ??
+          map['status']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
           'not_found',
 
-      data:
-          map,
+      data: map,
     );
 
   }
