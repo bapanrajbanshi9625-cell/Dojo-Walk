@@ -39,14 +39,10 @@ class QRData {
     return QRData(
       ownerId: (map['ownerId'] ?? '').toString().trim(),
       ownerUid: (map['ownerUid'] ?? '').toString().trim(),
-      ownerName:
-          (map['ownerName'] ?? 'Owner').toString().trim(),
-      walkId:
-          (map['walkId'] ?? '').toString().trim(),
-      dogName:
-          (map['dogName'] ?? 'Dog').toString().trim(),
-      dogBreed:
-          (map['dogBreed'] ?? '').toString().trim(),
+      ownerName: (map['ownerName'] ?? 'Owner').toString().trim(),
+      walkId: (map['walkId'] ?? '').toString().trim(),
+      dogName: (map['dogName'] ?? 'Dog').toString().trim(),
+      dogBreed: (map['dogBreed'] ?? '').toString().trim(),
       ownerPhone:
           (map['ownerPhone'] ?? '').toString().trim().isEmpty
               ? null
@@ -111,18 +107,12 @@ class QRScanState {
     return QRScanState(
       scanned: data['scanned'] == true,
       connected: data['connected'] == true,
-      ownerId:
-          (data['ownerId'] ?? '').toString().trim(),
-      ownerUid:
-          (data['ownerUid'] ?? '').toString().trim(),
-      walkerId:
-          (data['walkerId'] ?? '').toString().trim(),
-      walkerUid:
-          (data['walkerUid'] ?? '').toString().trim(),
-      walkerName:
-          (data['walkerName'] ?? '').toString().trim(),
-      walkId:
-          (data['walkId'] ?? '').toString().trim(),
+      ownerId: (data['ownerId'] ?? '').toString().trim(),
+      ownerUid: (data['ownerUid'] ?? '').toString().trim(),
+      walkerId: (data['walkerId'] ?? '').toString().trim(),
+      walkerUid: (data['walkerUid'] ?? '').toString().trim(),
+      walkerName: (data['walkerName'] ?? '').toString().trim(),
+      walkId: (data['walkId'] ?? '').toString().trim(),
     );
   }
 
@@ -191,7 +181,7 @@ class QRService {
     //
     // Actual Firestore structure:
     //
-    // owners/{OWNER BUSINESS ID}
+    // owners/{OWNER USER ID}
     //
     // Example:
     // owners/OWN26GS0003
@@ -207,9 +197,8 @@ class QRService {
       // --------------------------------------------------------
       // FIND OWNER DOCUMENT BY AUTH UID
       //
-      // Actual document ID is Business ID.
-      // Therefore we query authUid instead of using
-      // .doc(ownerUid).
+      // Actual User ID is stored in the ownerId field.
+      // We query authUid to find the owner document.
       // --------------------------------------------------------
 
       final QuerySnapshot<Map<String, dynamic>>
@@ -238,22 +227,23 @@ class QRService {
               <String, dynamic>{};
 
       // --------------------------------------------------------
-      // OWNER BUSINESS ID
+      // OWNER USER ID
       //
-      // Document ID is the Business ID.
-      // Example:
-      // OWN26GS0003
+      // Primary source:
+      // ownerId field in Firestore.
+      //
+      // Fallback:
+      // Firestore document ID.
       // --------------------------------------------------------
 
       ownerId =
-          ownerDoc.id.trim();
+          (data['ownerId'] ?? '')
+              .toString()
+              .trim();
 
-      // Fallback to field if document ID is somehow empty.
       if (ownerId.isEmpty) {
         ownerId =
-            (data['ownerId'] ?? '')
-                .toString()
-                .trim();
+            ownerDoc.id.trim();
       }
 
       // --------------------------------------------------------
@@ -371,12 +361,12 @@ class QRService {
     }
 
     // ==========================================================
-    // VALIDATE OWNER BUSINESS ID
+    // VALIDATE OWNER USER ID
     // ==========================================================
 
     if (ownerId.isEmpty) {
       throw Exception(
-        'Owner Business ID not found.',
+        'Owner User ID not found.',
       );
     }
 
@@ -424,6 +414,9 @@ class QRService {
     // FIRESTORE QR CONNECTION
     //
     // Document ID:
+    // Owner User ID
+    //
+    // Example:
     // OWN26GS0003
     // ==========================================================
 
@@ -544,13 +537,13 @@ class QRService {
   }) async {
     if (ownerId.trim().isEmpty) {
       throw Exception(
-        'Owner Business ID is required.',
+        'Owner User ID is required.',
       );
     }
 
     if (walkerId.trim().isEmpty) {
       throw Exception(
-        'Walker Business ID is required.',
+        'Walker User ID is required.',
       );
     }
 
@@ -604,13 +597,13 @@ class QRService {
   }) async {
     if (ownerId.trim().isEmpty) {
       throw Exception(
-        'Owner Business ID is required.',
+        'Owner User ID is required.',
       );
     }
 
     if (walkerId.trim().isEmpty) {
       throw Exception(
-        'Walker Business ID is required.',
+        'Walker User ID is required.',
       );
     }
 
@@ -741,7 +734,7 @@ class QRService {
     }
 
     // ==========================================================
-    // OWNER BUSINESS ID
+    // OWNER USER ID
     // ==========================================================
 
     final String ownerId =
@@ -751,7 +744,7 @@ class QRService {
 
     if (ownerId.isEmpty) {
       throw const FormatException(
-        'Owner Business ID missing from QR.',
+        'Owner User ID missing from QR.',
       );
     }
 
