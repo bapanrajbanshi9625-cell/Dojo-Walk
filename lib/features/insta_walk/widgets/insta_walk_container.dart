@@ -9,7 +9,6 @@ import '../services/insta_walk_request_state.dart';
 import '../services/insta_walk_accepted_data.dart';
 
 import 'insta_walk_map_radar.dart';
-import 'insta_walk_retry.dart';
 import 'insta_walk_search_button.dart';
 import 'insta_walk_searching.dart';
 
