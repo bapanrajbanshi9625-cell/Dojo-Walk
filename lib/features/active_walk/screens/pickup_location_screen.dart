@@ -869,6 +869,7 @@ class _PickupLocationScreenState
           LaunchMode.externalApplication,
     );
   }
+  }
 
   // ==========================================================
   // CALL OWNER
