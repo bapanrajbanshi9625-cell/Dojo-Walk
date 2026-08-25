@@ -16,8 +16,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // CREATE INSTA WALK REQUEST
       // ========================================================
 
-      final InstaWalkSearchResult result =
-          await _service.startSearch(
+      final result = await _service.startSearch(
         ownerId: ownerId,
         ownerName: ownerName,
         address: address,
@@ -59,7 +58,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // REQUEST CREATED SUCCESSFULLY
+      // REQUEST CREATED
       // ========================================================
 
       final String requestId =
@@ -82,10 +81,6 @@ extension _StartSearchRole on _InstaWalkContainerState {
         _stopping = false;
       });
 
-      // ========================================================
-      // REPORT ACTIVE
-      // ========================================================
-
       _setActive(true);
 
       // ========================================================
@@ -95,48 +90,72 @@ extension _StartSearchRole on _InstaWalkContainerState {
       _startRadar();
 
       // ========================================================
-      // LISTEN FOR WALKER RESPONSE
+      // REALTIME FIRESTORE LISTENER
       // ========================================================
 
       try {
-        await _service.listenForRequest(
-          requestId: requestId,
+        _service
+            .listenForRequest(requestId)
+            .listen(
+          (
+            InstaWalkRequestState state,
+          ) {
+            if (!mounted) {
+              return;
+            }
 
-          // ----------------------------------------------------
-          // WALKER ACCEPTED
-          // ----------------------------------------------------
+            // ==================================================
+            // WALKER ACCEPTED
+            // ==================================================
 
-          onAccepted: _walkerAccepted,
+            if (state.isAccepted) {
+              final Map<String, dynamic> data =
+                  state.data ?? <String, dynamic>{};
 
-          // ----------------------------------------------------
-          // OLD / MANUAL EXPIRED STATE
-          //
-          // New Insta Walk requests do not expire automatically.
-          // This callback is kept for compatibility with older
-          // Firestore documents or manually expired requests.
-          // ----------------------------------------------------
+              final InstaWalkAcceptedData accepted =
+                  InstaWalkAcceptedData.fromMap(
+                data,
+              );
 
-          onExpired: () {
-            _finishSearch(
-              message: 'Walk request expired.',
-            );
+              _walkerAccepted(accepted);
+              return;
+            }
+
+            // ==================================================
+            // CANCELLED
+            // ==================================================
+
+            if (state.isCancelled) {
+              _finishSearch(
+                message:
+                    'Walk request was cancelled.',
+              );
+              return;
+            }
+
+            // ==================================================
+            // EXPIRED
+            //
+            // Only responds to an actual expired Firestore state.
+            // ==================================================
+
+            if (state.isExpired) {
+              _finishSearch(
+                message:
+                    'Walk request expired.',
+              );
+              return;
+            }
+
+            // ==================================================
+            // SEARCHING
+            //
+            // Keep searching.
+            // ==================================================
           },
-
-          // ----------------------------------------------------
-          // CANCELLED
-          // ----------------------------------------------------
-
-          onCancelled: () {
-            _finishSearch(
-              message: 'Walk request was cancelled.',
-            );
-          },
-
-          // ----------------------------------------------------
-          // LISTENER ERROR
-          // ----------------------------------------------------
-
-          onError: (Object error) {
+          onError: (
+            Object error,
+          ) {
             debugPrint(
               'Insta Walk listener error: $error',
             );
@@ -147,9 +166,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
           'Insta Walk listener setup error: $e',
         );
 
-        // The Firestore request has already been created.
-        // Do not immediately cancel it because of a listener
-        // setup/transient error.
+        // Request is already in Firestore.
+        // Do not cancel it because listener setup failed.
       }
 
       // ========================================================
@@ -158,12 +176,11 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // NO TIMER
       // NO AUTOMATIC EXPIRY
       //
-      // Search remains active until:
+      // Search ends only when:
       //
       // 1. Walker accepts
       // 2. Owner stops search
-      // 3. Request is cancelled
-      //
+      // 3. Firestore says cancelled/expired
       // ========================================================
     } catch (e) {
       debugPrint(
@@ -186,10 +203,6 @@ extension _StartSearchRole on _InstaWalkContainerState {
       });
 
       _setActive(false);
-
-      // ========================================================
-      // SHOW REAL ERROR
-      // ========================================================
 
       _message(
         'Unable to start Insta Walk: $e',
