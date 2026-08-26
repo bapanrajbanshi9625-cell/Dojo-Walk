@@ -4,12 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../features/profile/profile_features.dart';
+import '../features/profile_setup/services/profile_setup_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({
+    super.key,
+  });
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() =>
+      _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
@@ -17,9 +21,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // COLORS
   // ============================================================
 
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-  static const Color background = Color(0xFFEDEFF2);
+  static const Color orange =
+      Color(0xFFF4511E);
+
+  static const Color navy =
+      Color(0xFF263746);
+
+  static const Color background =
+      Color(0xFFEDEFF2);
 
   // ============================================================
   // OWNER DATA
@@ -30,11 +39,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String mobileNumber = '';
   String ownerName = 'Owner';
+
   String ownerAge = '-';
   String ownerGender = '-';
   String memberSince = '-';
+  String address = '-';
+
+  String profilePhotoUrl = '';
 
   bool isActive = true;
+  bool profileCompleted = false;
   bool isLoading = true;
 
   // ============================================================
@@ -50,6 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+
     _loadOwnerProfile();
   }
 
@@ -58,8 +73,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _loadOwnerProfile() async {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
+
     try {
-      final User? user = FirebaseAuth.instance.currentUser;
+      // ========================================================
+      // FIREBASE USER
+      // ========================================================
+
+      final User? user =
+          FirebaseAuth.instance.currentUser;
 
       if (user == null) {
         if (!mounted) return;
@@ -71,51 +97,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final String uid = user.uid;
-
       // ========================================================
-      // OWNER PROFILE LOOKUP
-      //
-      // Firestore structure:
-      //
-      // ownerProfiles
-      //    └── OWN26GM0001
-      //          ├── authUid
-      //          ├── ownerId
-      //          ├── fullName
-      //          ├── phone
-      //          ├── address
-      //          ├── pets
-      //          ├── profileCompleted
-      //          ├── role
-      //          └── isActive
-      //
-      // Firebase Auth UID is stored in:
-      // authUid
-      //
-      // Therefore we DO NOT use:
-      // phoneAccounts/{UID}
-      //
-      // And we DO NOT assume:
-      // ownerProfiles/{UID}
-      //
-      // We find the owner document using authUid.
+      // AUTH UID
       // ========================================================
 
-      final QuerySnapshot<Map<String, dynamic>> profileQuery =
-          await FirebaseFirestore.instance
-              .collection('ownerProfiles')
-              .where('authUid', isEqualTo: uid)
-              .limit(1)
-              .get();
+      final String uid =
+          user.uid.trim();
+
+      if (uid.isEmpty) {
+        if (!mounted) return;
+
+        setState(() {
+          isLoading = false;
+        });
+
+        return;
+      }
 
       // ========================================================
-      // PROFILE NOT FOUND
+      // GET OWNER ID
       // ========================================================
 
-      if (profileQuery.docs.isEmpty) {
+      String? currentOwnerId =
+          await ProfileSetupService
+              .getCurrentOwnerId();
+
+      // ========================================================
+      // FALLBACK:
+      // FIND OWNER USING authUid
+      // ========================================================
+
+      if (currentOwnerId == null ||
+          currentOwnerId.trim().isEmpty) {
+        final QuerySnapshot<
+                Map<String, dynamic>>
+            query =
+            await FirebaseFirestore
+                .instance
+                .collection('owners')
+                .where(
+                  'authUid',
+                  isEqualTo: uid,
+                )
+                .limit(1)
+                .get();
+
+        if (query.docs.isNotEmpty) {
+          currentOwnerId =
+              query.docs.first.id;
+        }
+      }
+
+      // ========================================================
+      // OWNER ID NOT FOUND
+      // ========================================================
+
+      if (currentOwnerId == null ||
+          currentOwnerId.trim().isEmpty) {
         debugPrint(
-          'Owner profile not found for authUid: $uid',
+          'Owner profile not found for UID: $uid',
         );
 
         if (!mounted) return;
@@ -129,22 +169,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
+      currentOwnerId =
+          currentOwnerId.trim();
+
       // ========================================================
       // GET OWNER DOCUMENT
+      //
+      // owners/OWN26GM0001
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
-          profileSnapshot = profileQuery.docs.first;
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot =
+          await FirebaseFirestore
+              .instance
+              .collection('owners')
+              .doc(currentOwnerId)
+              .get();
+
+      // ========================================================
+      // DOCUMENT NOT FOUND
+      // ========================================================
+
+      if (!snapshot.exists) {
+        debugPrint(
+          'Owner document does not exist: $currentOwnerId',
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          ownerUid = uid;
+          ownerId = currentOwnerId!;
+          isLoading = false;
+        });
+
+        return;
+      }
+
+      // ========================================================
+      // DOCUMENT DATA
+      // ========================================================
 
       final Map<String, dynamic>? data =
-          profileSnapshot.data();
+          snapshot.data();
 
       if (data == null) {
         if (!mounted) return;
 
         setState(() {
           ownerUid = uid;
-          ownerId = profileSnapshot.id;
+          ownerId = currentOwnerId!;
           isLoading = false;
         });
 
@@ -153,21 +228,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // ========================================================
       // OWNER ID
-      //
-      // Document ID:
-      // OWN26GM0001
-      //
-      // Field ownerId:
-      // OWN26GM0001
-      //
-      // Prefer the actual document ID.
       // ========================================================
 
       final String documentOwnerId =
-          profileSnapshot.id.trim();
+          snapshot.id.trim();
 
       final String fieldOwnerId =
-          data['ownerId']?.toString().trim() ?? '';
+          data['ownerId']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String cleanOwnerId =
           documentOwnerId.isNotEmpty
@@ -179,16 +249,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final String fullName =
-          data['fullName']?.toString().trim() ?? '';
+          data['fullName']
+                  ?.toString()
+                  .trim() ??
+              '';
 
-      final String fallbackOwnerName =
-          data['ownerName']?.toString().trim() ?? '';
+      final String savedOwnerName =
+          data['ownerName']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String name =
           fullName.isNotEmpty
               ? fullName
-              : fallbackOwnerName.isNotEmpty
-                  ? fallbackOwnerName
+              : savedOwnerName.isNotEmpty
+                  ? savedOwnerName
                   : 'Owner';
 
       // ========================================================
@@ -196,7 +272,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final String firestorePhone =
-          data['phone']?.toString().trim() ?? '';
+          data['phone']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String phone =
           firestorePhone.isNotEmpty
@@ -204,49 +283,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : user.phoneNumber ?? '';
 
       // ========================================================
-      // OPTIONAL AGE
+      // AGE
       // ========================================================
 
-      final String firestoreAge =
-          data['age']?.toString().trim() ?? '';
+      final String savedAge =
+          data['age']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String age =
-          firestoreAge.isNotEmpty
-              ? firestoreAge
+          savedAge.isNotEmpty
+              ? savedAge
               : '-';
 
       // ========================================================
-      // OPTIONAL GENDER
+      // GENDER
       // ========================================================
 
-      final String firestoreGender =
-          data['gender']?.toString().trim() ?? '';
+      final String savedGender =
+          data['gender']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String gender =
-          firestoreGender.isNotEmpty
-              ? firestoreGender
+          savedGender.isNotEmpty
+              ? savedGender
               : '-';
 
       // ========================================================
-      // ACTIVE STATUS
+      // ADDRESS
       // ========================================================
 
-      final bool active =
-          data['isActive'] is bool
-              ? data['isActive'] as bool
-              : true;
+      final String savedAddress =
+          data['address']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String cleanAddress =
+          savedAddress.isNotEmpty
+              ? savedAddress
+              : '-';
+
+      // ========================================================
+      // ACTIVE
+      //
+      // Firestore standard:
+      //
+      // isActive: true
+      // ========================================================
+
+      bool active = true;
+
+      final dynamic activeValue =
+          data['isActive'];
+
+      if (activeValue is bool) {
+        active = activeValue;
+      }
 
       // ========================================================
       // PROFILE COMPLETED
-      //
-      // Read it safely.
-      // This does not change verification/login.
       // ========================================================
 
-      final bool profileCompleted =
-          data['profileCompleted'] is bool
-              ? data['profileCompleted'] as bool
-              : false;
+      bool completed = false;
+
+      final dynamic completedValue =
+          data['profileCompleted'];
+
+      if (completedValue is bool) {
+        completed = completedValue;
+      }
+
+      // ========================================================
+      // PROFILE PHOTO
+      // ========================================================
+
+      final dynamic photoValue =
+          data['profilePhotoUrl'] ??
+              data['profilePhoto'];
+
+      final String photo =
+          photoValue
+                  ?.toString()
+                  .trim() ??
+              '';
 
       // ========================================================
       // MEMBER SINCE
@@ -266,16 +389,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             '${date.day}, '
             '${date.year}';
       } else {
-        final dynamic savedMemberSince =
+        final dynamic memberSinceValue =
             data['memberSince'];
 
-        if (savedMemberSince != null &&
-            savedMemberSince
-                .toString()
-                .trim()
-                .isNotEmpty) {
-          joinedDate =
-              savedMemberSince.toString().trim();
+        if (memberSinceValue != null) {
+          final String value =
+              memberSinceValue
+                  .toString()
+                  .trim();
+
+          if (value.isNotEmpty) {
+            joinedDate = value;
+          }
         }
       }
 
@@ -284,12 +409,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final List<Map<String, dynamic>>
-          loadedPets = _readPets(
+          loadedPets =
+          _readPets(
         data['pets'],
       );
 
       // ========================================================
-      // DEBUG INFORMATION
+      // DEBUG
       // ========================================================
 
       debugPrint(
@@ -297,7 +423,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       debugPrint(
-        'OWNER PROFILE LOADED',
+        'OWNER PROFILE',
+      );
+
+      debugPrint(
+        'Collection: owners',
+      );
+
+      debugPrint(
+        'Document: $cleanOwnerId',
       );
 
       debugPrint(
@@ -305,15 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       debugPrint(
-        'Owner Document ID: $cleanOwnerId',
-      );
-
-      debugPrint(
-        'Owner ID field: $fieldOwnerId',
-      );
-
-      debugPrint(
-        'Owner Name: $name',
+        'Name: $name',
       );
 
       debugPrint(
@@ -321,7 +447,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       debugPrint(
-        'Profile Completed: $profileCompleted',
+        'Profile Completed: $completed',
       );
 
       debugPrint(
@@ -341,24 +467,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         ownerUid = uid;
 
-        // Example:
-        // OWN26GM0001
         ownerId = cleanOwnerId;
 
         mobileNumber =
-            _formatIndianNumber(phone);
+            _formatIndianNumber(
+          phone,
+        );
 
         ownerName = name;
+
         ownerAge = age;
+
         ownerGender = gender;
+
+        address = cleanAddress;
+
         memberSince = joinedDate;
 
         isActive = active;
+
+        profileCompleted = completed;
+
+        profilePhotoUrl = photo;
 
         pets = loadedPets;
 
         isLoading = false;
       });
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Firestore Profile Error: ${e.code}',
+      );
+
+      debugPrint(
+        e.message ?? '',
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text(
+            e.message ??
+                'Could not load profile.',
+          ),
+        ),
+      );
     } catch (e, stackTrace) {
       debugPrint(
         'Owner Profile Error: $e',
@@ -377,7 +537,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // READ PETS SAFELY
+  // READ PETS
+  //
+  // Expected Firestore:
+  //
+  // pets: [
+  //   {
+  //     name: "Bruno",
+  //     age: "2 Years",
+  //     breed: "Labrador",
+  //     behaviour: "Friendly"
+  //   }
+  // ]
+  //
   // ============================================================
 
   List<Map<String, dynamic>> _readPets(
@@ -387,12 +559,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return [];
     }
 
-    final List<Map<String, dynamic>> result = [];
+    final List<Map<String, dynamic>>
+        result = [];
 
     for (final dynamic item in value) {
       if (item is Map) {
         result.add(
-          Map<String, dynamic>.from(item),
+          Map<String, dynamic>.from(
+            item,
+          ),
         );
       }
     }
@@ -401,7 +576,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // FORMAT MOBILE NUMBER
+  // PET VALUE
+  // ============================================================
+
+  String _petValue(
+    Map<String, dynamic> pet,
+    List<String> keys,
+  ) {
+    for (final String key in keys) {
+      final dynamic value =
+          pet[key];
+
+      if (value != null) {
+        final String text =
+            value.toString().trim();
+
+        if (text.isNotEmpty) {
+          return text;
+        }
+      }
+    }
+
+    return '-';
+  }
+
+  // ============================================================
+  // FORMAT PHONE
   // ============================================================
 
   String _formatIndianNumber(
@@ -430,10 +630,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // MONTH NAME
+  // MONTH
   // ============================================================
 
-  String _monthName(int month) {
+  String _monthName(
+    int month,
+  ) {
     const List<String> months = [
       '',
       'Jan',
@@ -450,7 +652,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Dec',
     ];
 
+    if (month < 1 ||
+        month > 12) {
+      return '';
+    }
+
     return months[month];
+  }
+
+  // ============================================================
+  // COPY OWNER ID
+  // ============================================================
+
+  Future<void> _copyOwnerId() async {
+    if (ownerId.isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(
+      ClipboardData(
+        text: ownerId,
+      ),
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Owner ID copied.',
+        ),
+      ),
+    );
   }
 
   // ============================================================
@@ -476,21 +710,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
           top: Radius.circular(24),
         ),
       ),
       builder: (_) {
         return ChangeMobileFlow(
-          currentNumber: mobileNumber,
-          onChanged: (
-            String newNumber,
-          ) {
+          currentNumber:
+              mobileNumber,
+          onChanged:
+              (String newNumber) {
             if (!mounted) return;
 
             setState(() {
-              mobileNumber = newNumber;
+              mobileNumber =
+                  newNumber;
             });
           },
         );
@@ -499,71 +736,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // COPY OWNER ID
-  // ============================================================
-
-  Future<void> _copyOwnerId() async {
-    if (ownerId.isEmpty) return;
-
-    await Clipboard.setData(
-      ClipboardData(
-        text: ownerId,
-      ),
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        backgroundColor: Color(0xFF303030),
-        content: Text(
-          'Owner ID copied.',
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
   // BUILD
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor:
+          background,
 
       // ========================================================
       // APP BAR
       // ========================================================
 
       appBar: AppBar(
-        backgroundColor: orange,
-        foregroundColor: Colors.white,
+        backgroundColor:
+            orange,
+        foregroundColor:
+            Colors.white,
         elevation: 0,
         toolbarHeight: 52,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
+        leading:
+            IconButton(
+          icon:
+              const Icon(
+            Icons
+                .arrow_back_ios_new_rounded,
             size: 18,
           ),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pop(
+              context,
+            );
           },
         ),
         titleSpacing: 0,
-        title: const Row(
+        title:
+            const Row(
           children: [
             Icon(
               Icons.person_rounded,
               size: 21,
             ),
-            SizedBox(width: 7),
+            SizedBox(
+              width: 7,
+            ),
             Text(
               'Profile',
-              style: TextStyle(
+              style:
+                  TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontWeight:
+                    FontWeight.w800,
               ),
             ),
           ],
@@ -592,22 +818,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   physics:
                       const AlwaysScrollableScrollPhysics(),
                   padding:
-                      const EdgeInsets.fromLTRB(
+                      const EdgeInsets
+                          .fromLTRB(
                     15,
                     12,
                     15,
                     30,
                   ),
-                  child: Column(
+                  child:
+                      Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       // ==================================================
                       // PROFILE CARD
                       // ==================================================
 
                       ProfileCard(
-                        ownerName: ownerName,
+                        ownerName:
+                            ownerName,
                       ),
 
                       const SizedBox(
@@ -625,10 +855,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: 4,
                             decoration:
                                 BoxDecoration(
-                              color: orange,
+                              color:
+                                  orange,
                               borderRadius:
                                   BorderRadius
-                                      .circular(5),
+                                      .circular(
+                                5,
+                              ),
                             ),
                           ),
                           const SizedBox(
@@ -638,10 +871,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             'Owner Information',
                             style:
                                 TextStyle(
-                              color: navy,
-                              fontSize: 16,
+                              color:
+                                  navy,
+                              fontSize:
+                                  16,
                               fontWeight:
-                                  FontWeight.w900,
+                                  FontWeight
+                                      .w900,
                             ),
                           ),
                         ],
@@ -652,22 +888,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // ==================================================
-                      // OWNER INFORMATION CARD
+                      // OWNER INFORMATION
                       // ==================================================
 
                       _OwnerInfoCard(
-                        ownerId: ownerId,
+                        ownerId:
+                            ownerId,
                         mobileNumber:
                             mobileNumber,
-                        ownerName: ownerName,
+                        ownerName:
+                            ownerName,
                         ownerAge:
                             ownerAge,
                         ownerGender:
                             ownerGender,
+                        address:
+                            address,
                         memberSince:
                             memberSince,
                         isActive:
                             isActive,
+                        profileCompleted:
+                            profileCompleted,
                         onChangeMobile:
                             _openChangeMobile,
                         onCopyOwnerId:
@@ -679,7 +921,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // ==================================================
-                      // PET DETAILS TITLE
+                      // PET TITLE
                       // ==================================================
 
                       Row(
@@ -689,10 +931,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: 4,
                             decoration:
                                 BoxDecoration(
-                              color: orange,
+                              color:
+                                  orange,
                               borderRadius:
                                   BorderRadius
-                                      .circular(5),
+                                      .circular(
+                                5,
+                              ),
                             ),
                           ),
                           const SizedBox(
@@ -702,10 +947,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             'Pet Details',
                             style:
                                 TextStyle(
-                              color: navy,
-                              fontSize: 16,
+                              color:
+                                  navy,
+                              fontSize:
+                                  16,
                               fontWeight:
-                                  FontWeight.w900,
+                                  FontWeight
+                                      .w900,
                             ),
                           ),
                           const Spacer(),
@@ -715,10 +963,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               '${pets.length == 1 ? 'Pet' : 'Pets'}',
                               style:
                                   const TextStyle(
-                                color: orange,
-                                fontSize: 12,
+                                color:
+                                    orange,
+                                fontSize:
+                                    12,
                                 fontWeight:
-                                    FontWeight.w700,
+                                    FontWeight
+                                        .w700,
                               ),
                             ),
                         ],
@@ -729,7 +980,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // ==================================================
-                      // PET DETAILS
+                      // PETS
                       // ==================================================
 
                       if (pets.isEmpty)
@@ -742,7 +993,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               padding:
                                   const EdgeInsets
                                       .only(
-                                bottom: 12,
+                                bottom:
+                                    12,
                               ),
                               child:
                                   _PetDetailsCard(
@@ -774,8 +1026,11 @@ class _OwnerInfoCard
   final String ownerName;
   final String ownerAge;
   final String ownerGender;
+  final String address;
   final String memberSince;
+
   final bool isActive;
+  final bool profileCompleted;
 
   final VoidCallback onChangeMobile;
   final VoidCallback onCopyOwnerId;
@@ -786,8 +1041,10 @@ class _OwnerInfoCard
     required this.ownerName,
     required this.ownerAge,
     required this.ownerGender,
+    required this.address,
     required this.memberSince,
     required this.isActive,
+    required this.profileCompleted,
     required this.onChangeMobile,
     required this.onCopyOwnerId,
   });
@@ -797,34 +1054,48 @@ class _OwnerInfoCard
     BuildContext context,
   ) {
     return Container(
-      width: double.infinity,
+      width:
+          double.infinity,
       padding:
-          const EdgeInsets.all(16),
+          const EdgeInsets.all(
+        16,
+      ),
       decoration:
           BoxDecoration(
-        color: Colors.white,
+        color:
+            Colors.white,
         borderRadius:
-            BorderRadius.circular(16),
+            BorderRadius.circular(
+          16,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
+            color:
+                Colors.black.withValues(
               alpha: 0.05,
             ),
-            blurRadius: 10,
+            blurRadius:
+                10,
             offset:
-                const Offset(0, 3),
+                const Offset(
+              0,
+              3,
+            ),
           ),
         ],
       ),
-      child: Column(
+      child:
+          Column(
         children: [
           _InfoRow(
             icon:
                 Icons.badge_outlined,
-            label: 'Owner ID',
-            value: ownerId.isEmpty
-                ? '-'
-                : ownerId,
+            label:
+                'Owner ID',
+            value:
+                ownerId.isEmpty
+                    ? '-'
+                    : ownerId,
             trailing:
                 ownerId.isEmpty
                     ? null
@@ -833,29 +1104,33 @@ class _OwnerInfoCard
                             const Icon(
                           Icons
                               .copy_rounded,
-                          size: 18,
+                          size:
+                              18,
                           color:
-                              Color(
-                            0xFFF4511E,
-                          ),
+                              orange,
                         ),
                         onPressed:
                             onCopyOwnerId,
                       ),
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.person_outline_rounded,
-            label: 'Owner Name',
+            label:
+                'Owner Name',
             value:
                 ownerName,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.phone_outlined,
@@ -869,41 +1144,58 @@ class _OwnerInfoCard
                 IconButton(
               icon:
                   const Icon(
-                Icons
-                    .edit_outlined,
+                Icons.edit_outlined,
                 size: 19,
-                color:
-                    Color(
-                  0xFFF4511E,
-                ),
+                color: orange,
               ),
               onPressed:
                   onChangeMobile,
             ),
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.cake_outlined,
-            label: 'Age',
+            label:
+                'Age',
             value:
                 ownerAge,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.wc_outlined,
-            label: 'Gender',
+            label:
+                'Gender',
             value:
                 ownerGender,
           ),
+
           const Divider(
             height: 20,
           ),
+
+          _InfoRow(
+            icon:
+                Icons.location_on_outlined,
+            label:
+                'Address',
+            value:
+                address,
+          ),
+
+          const Divider(
+            height: 20,
+          ),
+
           _InfoRow(
             icon:
                 Icons.calendar_month_outlined,
@@ -912,20 +1204,47 @@ class _OwnerInfoCard
             value:
                 memberSince,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
-            icon: isActive
-                ? Icons
-                    .check_circle_outline
-                : Icons
-                    .block_outlined,
+            icon:
+                profileCompleted
+                    ? Icons
+                        .verified_outlined
+                    : Icons
+                        .warning_amber_rounded,
+            label:
+                'Profile',
+            value:
+                profileCompleted
+                    ? 'Completed'
+                    : 'Incomplete',
+            valueColor:
+                profileCompleted
+                    ? Colors.green
+                    : Colors.orange,
+          ),
+
+          const Divider(
+            height: 20,
+          ),
+
+          _InfoRow(
+            icon:
+                isActive
+                    ? Icons
+                        .check_circle_outline
+                    : Icons
+                        .block_outlined,
             label:
                 'Account Status',
-            value: isActive
-                ? 'Active'
-                : 'Inactive',
+            value:
+                isActive
+                    ? 'Active'
+                    : 'Inactive',
             valueColor:
                 isActive
                     ? Colors.green
@@ -964,8 +1283,10 @@ class _InfoRow
     return Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width:
+              36,
+          height:
+              36,
           decoration:
               BoxDecoration(
             color:
@@ -977,20 +1298,25 @@ class _InfoRow
               10,
             ),
           ),
-          child: Icon(
+          child:
+              Icon(
             icon,
             color:
                 const Color(
               0xFFF4511E,
             ),
-            size: 19,
+            size:
+                19,
           ),
         ),
+
         const SizedBox(
           width: 12,
         ),
+
         Expanded(
-          child: Column(
+          child:
+              Column(
             crossAxisAlignment:
                 CrossAxisAlignment
                     .start,
@@ -999,11 +1325,13 @@ class _InfoRow
                 label,
                 style:
                     const TextStyle(
-                  fontSize: 11,
+                  fontSize:
+                      11,
                   color:
                       Colors.grey,
                   fontWeight:
-                      FontWeight.w600,
+                      FontWeight
+                          .w600,
                 ),
               ),
               const SizedBox(
@@ -1011,21 +1339,28 @@ class _InfoRow
               ),
               Text(
                 value,
+                maxLines: 3,
+                overflow:
+                    TextOverflow
+                        .ellipsis,
                 style:
                     TextStyle(
-                  fontSize: 14,
+                  fontSize:
+                      14,
                   color:
                       valueColor ??
                           const Color(
                         0xFF263746,
                       ),
                   fontWeight:
-                      FontWeight.w700,
+                      FontWeight
+                          .w700,
                 ),
               ),
             ],
           ),
         ),
+
         if (trailing != null)
           trailing!,
       ],
@@ -1055,14 +1390,13 @@ class _PetDetailsCard
       final dynamic value =
           pet[key];
 
-      if (value != null &&
-          value
-              .toString()
-              .trim()
-              .isNotEmpty) {
-        return value
-            .toString()
-            .trim();
+      if (value != null) {
+        final String text =
+            value.toString().trim();
+
+        if (text.isNotEmpty) {
+          return text;
+        }
       }
     }
 
@@ -1100,33 +1434,46 @@ class _PetDetailsCard
     ]);
 
     return Container(
-      width: double.infinity,
+      width:
+          double.infinity,
       padding:
-          const EdgeInsets.all(16),
+          const EdgeInsets.all(
+        16,
+      ),
       decoration:
           BoxDecoration(
-        color: Colors.white,
+        color:
+            Colors.white,
         borderRadius:
-            BorderRadius.circular(16),
+            BorderRadius.circular(
+          16,
+        ),
         boxShadow: [
           BoxShadow(
             color:
                 Colors.black.withValues(
               alpha: 0.05,
             ),
-            blurRadius: 10,
+            blurRadius:
+                10,
             offset:
-                const Offset(0, 3),
+                const Offset(
+              0,
+              3,
+            ),
           ),
         ],
       ),
-      child: Column(
+      child:
+          Column(
         children: [
           Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width:
+                    46,
+                height:
+                    46,
                 decoration:
                     BoxDecoration(
                   color:
@@ -1134,8 +1481,7 @@ class _PetDetailsCard
                     0xFFFFF1E8,
                   ),
                   borderRadius:
-                      BorderRadius
-                          .circular(
+                      BorderRadius.circular(
                     14,
                   ),
                 ),
@@ -1146,14 +1492,18 @@ class _PetDetailsCard
                       Color(
                     0xFFF4511E,
                   ),
-                  size: 25,
+                  size:
+                      25,
                 ),
               ),
+
               const SizedBox(
                 width: 12,
               ),
+
               Expanded(
-                child: Column(
+                child:
+                    Column(
                   crossAxisAlignment:
                       CrossAxisAlignment
                           .start,
@@ -1162,7 +1512,8 @@ class _PetDetailsCard
                       'Pet ${index + 1}',
                       style:
                           const TextStyle(
-                        fontSize: 11,
+                        fontSize:
+                            11,
                         color:
                             Colors.grey,
                         fontWeight:
@@ -1179,7 +1530,8 @@ class _PetDetailsCard
                           : petName,
                       style:
                           const TextStyle(
-                        fontSize: 17,
+                        fontSize:
+                            17,
                         color:
                             Color(
                           0xFF263746,
@@ -1194,33 +1546,45 @@ class _PetDetailsCard
               ),
             ],
           ),
+
           const SizedBox(
             height: 15,
           ),
+
           const Divider(
             height: 1,
           ),
+
           const SizedBox(
             height: 13,
           ),
+
           _PetRow(
             icon:
                 Icons.cake_outlined,
-            label: 'Age',
-            value: age,
+            label:
+                'Age',
+            value:
+                age,
           ),
+
           const SizedBox(
             height: 12,
           ),
+
           _PetRow(
             icon:
                 Icons.pets_outlined,
-            label: 'Breed',
-            value: breed,
+            label:
+                'Breed',
+            value:
+                breed,
           ),
+
           const SizedBox(
             height: 12,
           ),
+
           _PetRow(
             icon:
                 Icons.favorite_border_rounded,
@@ -1257,9 +1621,6 @@ class _PetRow
   ) {
     return Row(
       children: [
-        const SizedBox(
-          width: 0,
-        ),
         Icon(
           icon,
           size: 18,
@@ -1268,35 +1629,44 @@ class _PetRow
             0xFFF4511E,
           ),
         ),
+
         const SizedBox(
           width: 10,
         ),
+
         SizedBox(
           width: 75,
-          child: Text(
+          child:
+              Text(
             label,
             style:
                 const TextStyle(
-              fontSize: 12,
+              fontSize:
+                  12,
               color:
                   Colors.grey,
               fontWeight:
-                  FontWeight.w600,
+                  FontWeight
+                      .w600,
             ),
           ),
         ),
+
         Expanded(
-          child: Text(
+          child:
+              Text(
             value,
             style:
                 const TextStyle(
-              fontSize: 13,
+              fontSize:
+                  13,
               color:
                   Color(
                 0xFF263746,
               ),
               fontWeight:
-                  FontWeight.w700,
+                  FontWeight
+                      .w700,
             ),
           ),
         ),
@@ -1318,16 +1688,23 @@ class _EmptyPetCard
     BuildContext context,
   ) {
     return Container(
-      width: double.infinity,
+      width:
+          double.infinity,
       padding:
-          const EdgeInsets.all(20),
+          const EdgeInsets.all(
+        20,
+      ),
       decoration:
           BoxDecoration(
-        color: Colors.white,
+        color:
+            Colors.white,
         borderRadius:
-            BorderRadius.circular(16),
+            BorderRadius.circular(
+          16,
+        ),
       ),
-      child: const Column(
+      child:
+          const Column(
         children: [
           Icon(
             Icons.pets_outlined,
