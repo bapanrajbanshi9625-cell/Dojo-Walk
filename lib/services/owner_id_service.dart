@@ -1,9 +1,13 @@
+// File location:
+// lib/services/owner_id_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class OwnerIdService {
   OwnerIdService._();
 
-  static final OwnerIdService instance = OwnerIdService._();
+  static final OwnerIdService instance =
+      OwnerIdService._();
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
@@ -15,13 +19,14 @@ class OwnerIdService {
   static const String _phoneAccountsCollection =
       'phoneAccounts';
 
-  static const String _ownerProfilesCollection =
-      'ownerProfiles';
+  static const String _ownersCollection =
+      'owners';
 
   static const String _countersCollection =
       'counters';
 
-  static const String _ownerCounterDocument = 'owner';
+  static const String _ownerCounterDocument =
+      'owner';
 
   // ============================================================
   // GET OR CREATE OWNER ID
@@ -32,18 +37,30 @@ class OwnerIdService {
     required String phoneNumber,
   }) async {
     final String cleanUid = uid.trim();
+    final String cleanPhone = phoneNumber.trim();
 
     if (cleanUid.isEmpty) {
-      throw Exception('Firebase UID is empty.');
+      throw Exception(
+        'Firebase UID is empty.',
+      );
+    }
+
+    if (cleanPhone.isEmpty) {
+      throw Exception(
+        'Phone number is empty.',
+      );
     }
 
     // ==========================================================
-    // PHONE ACCOUNT REFERENCE
+    // PHONE ACCOUNT
     // ==========================================================
 
     final DocumentReference<Map<String, dynamic>>
-        phoneAccountRef = _firestore
-            .collection(_phoneAccountsCollection)
+        phoneAccountRef =
+        _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
             .doc(cleanUid);
 
     // ==========================================================
@@ -51,7 +68,8 @@ class OwnerIdService {
     // ==========================================================
 
     final DocumentSnapshot<Map<String, dynamic>>
-        phoneAccount = await phoneAccountRef.get();
+        phoneAccount =
+        await phoneAccountRef.get();
 
     if (phoneAccount.exists) {
       final Map<String, dynamic>? data =
@@ -71,33 +89,42 @@ class OwnerIdService {
     }
 
     // ==========================================================
-    // CREATE OWNER ID
+    // CREATE NEW OWNER ID
     // ==========================================================
 
-    return await _firestore.runTransaction<String>(
+    return await _firestore
+        .runTransaction<String>(
       (transaction) async {
         // ------------------------------------------------------
-        // COUNTER REFERENCE
+        // COUNTER
         // ------------------------------------------------------
 
         final DocumentReference<Map<String, dynamic>>
-            counterRef = _firestore
-                .collection(_countersCollection)
-                .doc(_ownerCounterDocument);
+            counterRef =
+            _firestore
+                .collection(
+                  _countersCollection,
+                )
+                .doc(
+                  _ownerCounterDocument,
+                );
 
         // ------------------------------------------------------
-        // READ COUNTER
+        // OWNER COUNTER READ
         // ------------------------------------------------------
 
         final DocumentSnapshot<Map<String, dynamic>>
             counterSnapshot =
-            await transaction.get(counterRef);
+            await transaction.get(
+          counterRef,
+        );
 
         int lastSerial = 0;
 
         if (counterSnapshot.exists) {
           final dynamic value =
-              counterSnapshot.data()?['lastSerial'];
+              counterSnapshot
+                  .data()?['lastSerial'];
 
           if (value is int) {
             lastSerial = value;
@@ -110,7 +137,8 @@ class OwnerIdService {
         // NEXT SERIAL
         // ------------------------------------------------------
 
-        final int nextSerial = lastSerial + 1;
+        final int nextSerial =
+            lastSerial + 1;
 
         if (nextSerial > 9999) {
           throw Exception(
@@ -122,52 +150,59 @@ class OwnerIdService {
         // DATE
         // ------------------------------------------------------
 
-        final DateTime now = DateTime.now();
+        final DateTime now =
+            DateTime.now();
 
-        // Example: 2026 -> 26
         final String year =
             (now.year % 100)
                 .toString()
-                .padLeft(2, '0');
+                .padLeft(
+                  2,
+                  '0',
+                );
 
         // ------------------------------------------------------
         // MONTH CODE
         // ------------------------------------------------------
 
-        const List<String> monthCodes = [
-          'J', // January
-          'F', // February
-          'M', // March
-          'A', // April
-          'Y', // May
-          'U', // June
-          'L', // July
-          'G', // August
-          'S', // September
-          'O', // October
-          'N', // November
-          'D', // December
+        const List<String>
+            monthCodes = [
+          'J',
+          'F',
+          'M',
+          'A',
+          'Y',
+          'U',
+          'L',
+          'G',
+          'S',
+          'O',
+          'N',
+          'D',
         ];
 
         final String monthCode =
-            monthCodes[now.month - 1];
+            monthCodes[
+                now.month - 1];
 
         // ------------------------------------------------------
         // DAY CODE
         // ------------------------------------------------------
 
-        const List<String> dayCodes = [
-          'M', // Monday
-          'T', // Tuesday
-          'W', // Wednesday
-          'H', // Thursday
-          'F', // Friday
-          'A', // Saturday
-          'S', // Sunday
+        const List<String>
+            dayCodes = [
+          'M',
+          'T',
+          'W',
+          'H',
+          'F',
+          'A',
+          'S',
         ];
 
         final String dayCode =
-            dayCodes[now.weekday - 1];
+            dayCodes[
+                now.weekday - 1];
 
         // ------------------------------------------------------
         // SERIAL
@@ -176,81 +211,138 @@ class OwnerIdService {
         final String serial =
             nextSerial
                 .toString()
-                .padLeft(4, '0');
+                .padLeft(
+                  4,
+                  '0',
+                );
 
         // ======================================================
         // FINAL OWNER ID
         // ======================================================
         //
-        // OWN + YY + MONTH + DAY + SERIAL
-        //
         // Example:
         //
         // OWN26GM0001
         //
-        // Total = 11 characters
         // ======================================================
 
         final String ownerId =
-            'OWN$year$monthCode$dayCode$serial';
+            'OWN'
+            '$year'
+            '$monthCode'
+            '$dayCode'
+            '$serial';
 
         // ------------------------------------------------------
-        // OWNER PROFILE REFERENCE
+        // OWNER DOCUMENT
         // ------------------------------------------------------
 
-        final DocumentReference<Map<String, dynamic>>
-            ownerProfileRef = _firestore
-                .collection(_ownerProfilesCollection)
+        final DocumentReference<
+                Map<String, dynamic>>
+            ownerRef =
+            _firestore
+                .collection(
+                  _ownersCollection,
+                )
                 .doc(ownerId);
 
-        // ------------------------------------------------------
+        // ======================================================
         // UPDATE COUNTER
-        // ------------------------------------------------------
+        // ======================================================
 
         transaction.set(
           counterRef,
-          {
-            'lastSerial': nextSerial,
+          <String, dynamic>{
+            'lastSerial':
+                nextSerial,
             'updatedAt':
-                FieldValue.serverTimestamp(),
+                FieldValue
+                    .serverTimestamp(),
           },
-          SetOptions(merge: true),
+          SetOptions(
+            merge: true,
+          ),
         );
 
-        // ------------------------------------------------------
-        // CREATE OWNER PROFILE
-        // ------------------------------------------------------
+        // ======================================================
+        // CREATE OWNER DOCUMENT
+        // ======================================================
 
         transaction.set(
-          ownerProfileRef,
-          {
-            'ownerId': ownerId,
-            'authUid': cleanUid,
-            'phone': phoneNumber.trim(),
-            'role': 'owner',
+          ownerRef,
+          <String, dynamic>{
+            'ownerId':
+                ownerId,
+
+            'authUid':
+                cleanUid,
+
+            'phone':
+                cleanPhone,
+
+            'ownerName':
+                '',
+
+            'fullName':
+                '',
+
+            'address':
+                '',
+
+            'pets':
+                <Map<String, dynamic>>[],
+
+            'role':
+                'owner',
+
+            'isActive':
+                true,
+
+            'profileCompleted':
+                false,
+
             'createdAt':
-                FieldValue.serverTimestamp(),
+                FieldValue
+                    .serverTimestamp(),
+
             'updatedAt':
-                FieldValue.serverTimestamp(),
+                FieldValue
+                    .serverTimestamp(),
           },
-          SetOptions(merge: true),
+          SetOptions(
+            merge: true,
+          ),
         );
 
-        // ------------------------------------------------------
-        // CREATE PHONE ACCOUNT
-        // ------------------------------------------------------
+        // ======================================================
+        // PHONE ACCOUNT
+        // ======================================================
 
         transaction.set(
           phoneAccountRef,
-          {
-            'authUid': cleanUid,
-            'phone': phoneNumber.trim(),
-            'role': 'owner',
-            'ownerId': ownerId,
+          <String, dynamic>{
+            'authUid':
+                cleanUid,
+
+            'phone':
+                cleanPhone,
+
+            'role':
+                'owner',
+
+            'ownerId':
+                ownerId,
+
+            'profileCompleted':
+                false,
+
             'updatedAt':
-                FieldValue.serverTimestamp(),
+                FieldValue
+                    .serverTimestamp(),
           },
-          SetOptions(merge: true),
+          SetOptions(
+            merge: true,
+          ),
         );
 
         return ownerId;
@@ -265,31 +357,84 @@ class OwnerIdService {
   Future<String?> getExistingOwnerId({
     required String uid,
   }) async {
-    final String cleanUid = uid.trim();
+    final String cleanUid =
+        uid.trim();
 
     if (cleanUid.isEmpty) {
       return null;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        snapshot = await _firestore
-            .collection(_phoneAccountsCollection)
+    // ----------------------------------------------------------
+    // FIRST: PHONE ACCOUNT
+    // ----------------------------------------------------------
+
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        phoneSnapshot =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
             .doc(cleanUid)
             .get();
 
-    if (!snapshot.exists) {
+    if (phoneSnapshot.exists) {
+      final Map<String, dynamic>? data =
+          phoneSnapshot.data();
+
+      final dynamic ownerId =
+          data?['ownerId'];
+
+      if (ownerId is String &&
+          ownerId.trim().isNotEmpty) {
+        return ownerId.trim();
+      }
+    }
+
+    // ----------------------------------------------------------
+    // FALLBACK: OWNERS QUERY
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        ownerQuery =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'authUid',
+              isEqualTo: cleanUid,
+            )
+            .limit(1)
+            .get();
+
+    if (ownerQuery.docs.isEmpty) {
       return null;
     }
 
-    final Map<String, dynamic>? data =
-        snapshot.data();
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        ownerDocument =
+        ownerQuery.docs.first;
+
+    final Map<String, dynamic>?
+        ownerData =
+        ownerDocument.data();
 
     final dynamic ownerId =
-        data?['ownerId'];
+        ownerData?['ownerId'];
 
     if (ownerId is String &&
         ownerId.trim().isNotEmpty) {
       return ownerId.trim();
+    }
+
+    // Document ID fallback
+    if (ownerDocument.id
+        .trim()
+        .isNotEmpty) {
+      return ownerDocument.id.trim();
     }
 
     return null;
