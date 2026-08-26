@@ -107,6 +107,14 @@ class _PickupLocationScreenState
             snapshot,
       ) {
         if (!snapshot.exists) {
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {
+            _loading = false;
+          });
+
           return;
         }
 
@@ -133,7 +141,7 @@ class _PickupLocationScreenState
         }
 
         // ------------------------------------------------------
-        // WALK STARTED
+        // WALK ALREADY STARTED
         // ------------------------------------------------------
 
         if (_status.toLowerCase() == 'started') {
@@ -152,6 +160,15 @@ class _PickupLocationScreenState
         setState(() {
           _loading = false;
         });
+
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to load pickup information.',
+            ),
+          ),
+        );
       },
     );
   }
@@ -187,11 +204,19 @@ class _PickupLocationScreenState
         ) ??
         'Pickup location unavailable';
 
+    // ----------------------------------------------------------
+    // OWNER PHONE
+    // ----------------------------------------------------------
+
     _walkerPhone =
         _readString(
           data['walkerPhone'],
         ) ??
         '';
+
+    // ----------------------------------------------------------
+    // STATUS
+    // ----------------------------------------------------------
 
     _status =
         _readString(
@@ -325,7 +350,9 @@ class _PickupLocationScreenState
             ),
             decoration: BoxDecoration(
               color:
-                  primary.withOpacity(.10),
+                  primary.withValues(
+                alpha: .10,
+              ),
               borderRadius:
                   BorderRadius.circular(20),
             ),
@@ -454,8 +481,7 @@ class _PickupLocationScreenState
             ),
             boxShadow: const [
               BoxShadow(
-                color:
-                    Colors.black26,
+                color: Colors.black26,
                 blurRadius: 8,
               ),
             ],
@@ -496,8 +522,7 @@ class _PickupLocationScreenState
             ),
             boxShadow: const [
               BoxShadow(
-                color:
-                    Colors.black26,
+                color: Colors.black26,
                 blurRadius: 8,
               ),
             ],
@@ -554,10 +579,6 @@ class _PickupLocationScreenState
 
           Row(
             children: [
-              // ------------------------------------------------
-              // CALL
-              // ------------------------------------------------
-
               Expanded(
                 child: _actionButton(
                   icon:
@@ -571,10 +592,6 @@ class _PickupLocationScreenState
 
               const SizedBox(width: 8),
 
-              // ------------------------------------------------
-              // CHAT
-              // ------------------------------------------------
-
               Expanded(
                 child: _actionButton(
                   icon:
@@ -587,10 +604,6 @@ class _PickupLocationScreenState
               ),
 
               const SizedBox(width: 8),
-
-              // ------------------------------------------------
-              // MAP
-              // ------------------------------------------------
 
               Expanded(
                 child: _actionButton(
@@ -607,10 +620,6 @@ class _PickupLocationScreenState
 
           const SizedBox(height: 11),
 
-          // ----------------------------------------------------
-          // REACHED BUTTON
-          // ----------------------------------------------------
-
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -619,6 +628,7 @@ class _PickupLocationScreenState
                   _reaching
                       ? null
                       : _markReached,
+
               icon: _reaching
                   ? const SizedBox(
                       width: 18,
@@ -633,6 +643,7 @@ class _PickupLocationScreenState
                   : const Icon(
                       Icons.check_circle_rounded,
                     ),
+
               label: Text(
                 _reaching
                     ? 'Updating...'
@@ -643,6 +654,7 @@ class _PickupLocationScreenState
                       FontWeight.w900,
                 ),
               ),
+
               style:
                   ElevatedButton.styleFrom(
                 backgroundColor:
@@ -650,7 +662,9 @@ class _PickupLocationScreenState
                 foregroundColor:
                     Colors.white,
                 disabledBackgroundColor:
-                    green.withOpacity(.5),
+                    green.withValues(
+                  alpha: .50,
+                ),
                 elevation: 0,
                 shape:
                     RoundedRectangleBorder(
@@ -707,7 +721,9 @@ class _PickupLocationScreenState
             decoration:
                 BoxDecoration(
               color:
-                  primary.withOpacity(.10),
+                  primary.withValues(
+                alpha: .10,
+              ),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -774,11 +790,13 @@ class _PickupLocationScreenState
       height: 42,
       child: OutlinedButton.icon(
         onPressed: onTap,
+
         icon: Icon(
           icon,
           size: 16,
           color: color,
         ),
+
         label: Text(
           label,
           style: TextStyle(
@@ -788,13 +806,18 @@ class _PickupLocationScreenState
                 FontWeight.w800,
           ),
         ),
+
         style:
             OutlinedButton.styleFrom(
           backgroundColor:
-              color.withOpacity(.05),
+              color.withValues(
+            alpha: .05,
+          ),
           side: BorderSide(
             color:
-                color.withOpacity(.18),
+                color.withValues(
+              alpha: .18,
+            ),
           ),
           padding:
               EdgeInsets.zero,
@@ -827,7 +850,7 @@ class _PickupLocationScreenState
     }
 
     // ----------------------------------------------------------
-    // BOTH LOCATIONS
+    // BOTH LOCATIONS AVAILABLE
     // ----------------------------------------------------------
 
     if (pickup != null &&
@@ -880,48 +903,13 @@ class _PickupLocationScreenState
     }
 
     // ----------------------------------------------------------
-    // ONLY ONE LOCATION
+    // ONLY ONE LOCATION AVAILABLE
     // ----------------------------------------------------------
 
     _mapController.move(
       pickup ?? walker!,
       17,
     );
-  }
-
-  // ==========================================================
-  // NAVIGATE TO PICKUP
-  // ==========================================================
-
-  Future<void> _navigateToPickup() async {
-    final LatLng? pickup =
-        _pickupLocation;
-
-    if (pickup == null) {
-      return;
-    }
-
-    final Uri uri = Uri.parse(
-      'https://www.openstreetmap.org/?mlat='
-      '${pickup.latitude}'
-      '&mlon='
-      '${pickup.longitude}'
-      '#map=17/'
-      '${pickup.latitude}/'
-      '${pickup.longitude}',
-    );
-
-    try {
-      await launchUrl(
-        uri,
-        mode:
-            LaunchMode.externalApplication,
-      );
-    } catch (e) {
-      debugPrint(
-        'Navigation error: $e',
-      );
-    }
   }
 
   // ==========================================================
@@ -945,7 +933,7 @@ class _PickupLocationScreenState
           .showSnackBar(
         const SnackBar(
           content: Text(
-            'Phone number is not available.',
+            'Owner phone number is not available.',
           ),
         ),
       );
@@ -954,10 +942,10 @@ class _PickupLocationScreenState
     }
 
     // ----------------------------------------------------------
-    // OPEN PHONE DIALER
+    // OPEN ANDROID PHONE DIALER
     // ----------------------------------------------------------
 
-    final Uri phoneUri = Uri(
+    final Uri uri = Uri(
       scheme: 'tel',
       path: phone,
     );
@@ -965,16 +953,13 @@ class _PickupLocationScreenState
     try {
       final bool launched =
           await launchUrl(
-        phoneUri,
+        uri,
         mode:
             LaunchMode.externalApplication,
       );
 
-      if (!launched) {
-        if (!mounted) {
-          return;
-        }
-
+      if (!launched &&
+          mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(
           const SnackBar(
@@ -986,7 +971,7 @@ class _PickupLocationScreenState
       }
     } catch (e) {
       debugPrint(
-        'Call error: $e',
+        'Call owner error: $e',
       );
 
       if (!mounted) {
@@ -1036,9 +1021,11 @@ class _PickupLocationScreenState
           title: const Text(
             'Reached pickup?',
           ),
+
           content: const Text(
             'Confirm that you have reached the owner pickup location.',
           ),
+
           actions: [
             TextButton(
               onPressed: () {
@@ -1132,6 +1119,7 @@ class _PickupLocationScreenState
   // ==========================================================
 
   void _openLiveWalk() {
+    // ----------------------------------------------------------
     // Connect your existing LiveWalkScreen here.
     //
     // Example:
@@ -1146,10 +1134,11 @@ class _PickupLocationScreenState
     //     ),
     //   ),
     // );
+    // ----------------------------------------------------------
   }
 
   // ==========================================================
-  // HELPERS
+  // STRING HELPER
   // ==========================================================
 
   String? _readString(
@@ -1162,13 +1151,15 @@ class _PickupLocationScreenState
     final String result =
         value.toString().trim();
 
-    return result.isEmpty
-        ? null
-        : result;
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result;
   }
 
   // ==========================================================
-  // READ GEOPOINT
+  // LAT LNG HELPER
   // ==========================================================
 
   LatLng? _readLatLng(
