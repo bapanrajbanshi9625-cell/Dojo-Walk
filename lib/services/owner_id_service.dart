@@ -1,6 +1,3 @@
-// File location:
-// lib/services/owner_id_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class OwnerIdService {
@@ -40,15 +37,11 @@ class OwnerIdService {
     final String cleanPhone = phoneNumber.trim();
 
     if (cleanUid.isEmpty) {
-      throw Exception(
-        'Firebase UID is empty.',
-      );
+      throw Exception('Firebase UID is empty.');
     }
 
     if (cleanPhone.isEmpty) {
-      throw Exception(
-        'Phone number is empty.',
-      );
+      throw Exception('Phone number is empty.');
     }
 
     // ==========================================================
@@ -58,14 +51,8 @@ class OwnerIdService {
     final DocumentReference<Map<String, dynamic>>
         phoneAccountRef =
         _firestore
-            .collection(
-              _phoneAccountsCollection,
-            )
+            .collection(_phoneAccountsCollection)
             .doc(cleanUid);
-
-    // ==========================================================
-    // CHECK EXISTING OWNER ID
-    // ==========================================================
 
     final DocumentSnapshot<Map<String, dynamic>>
         phoneAccount =
@@ -78,11 +65,7 @@ class OwnerIdService {
       final dynamic existingOwnerId =
           data?['ownerId'];
 
-      final dynamic existingRole =
-          data?['role'];
-
-      if (existingRole == 'owner' &&
-          existingOwnerId is String &&
+      if (existingOwnerId is String &&
           existingOwnerId.trim().isNotEmpty) {
         return existingOwnerId.trim();
       }
@@ -92,8 +75,7 @@ class OwnerIdService {
     // CREATE NEW OWNER ID
     // ==========================================================
 
-    return await _firestore
-        .runTransaction<String>(
+    return await _firestore.runTransaction<String>(
       (transaction) async {
         // ------------------------------------------------------
         // COUNTER
@@ -102,29 +84,18 @@ class OwnerIdService {
         final DocumentReference<Map<String, dynamic>>
             counterRef =
             _firestore
-                .collection(
-                  _countersCollection,
-                )
-                .doc(
-                  _ownerCounterDocument,
-                );
-
-        // ------------------------------------------------------
-        // OWNER COUNTER READ
-        // ------------------------------------------------------
+                .collection(_countersCollection)
+                .doc(_ownerCounterDocument);
 
         final DocumentSnapshot<Map<String, dynamic>>
             counterSnapshot =
-            await transaction.get(
-          counterRef,
-        );
+            await transaction.get(counterRef);
 
         int lastSerial = 0;
 
         if (counterSnapshot.exists) {
           final dynamic value =
-              counterSnapshot
-                  .data()?['lastSerial'];
+              counterSnapshot.data()?['lastSerial'];
 
           if (value is int) {
             lastSerial = value;
@@ -132,10 +103,6 @@ class OwnerIdService {
             lastSerial = value.toInt();
           }
         }
-
-        // ------------------------------------------------------
-        // NEXT SERIAL
-        // ------------------------------------------------------
 
         final int nextSerial =
             lastSerial + 1;
@@ -156,17 +123,22 @@ class OwnerIdService {
         final String year =
             (now.year % 100)
                 .toString()
-                .padLeft(
-                  2,
-                  '0',
-                );
+                .padLeft(2, '0');
 
-        // ------------------------------------------------------
-        // MONTH CODE
-        // ------------------------------------------------------
+        // January = J
+        // February = F
+        // March = M
+        // April = A
+        // May = Y
+        // June = U
+        // July = L
+        // August = G
+        // September = S
+        // October = O
+        // November = N
+        // December = D
 
-        const List<String>
-            monthCodes = [
+        const List<String> monthCodes = [
           'J',
           'F',
           'M',
@@ -182,15 +154,17 @@ class OwnerIdService {
         ];
 
         final String monthCode =
-            monthCodes[
-                now.month - 1];
+            monthCodes[now.month - 1];
 
-        // ------------------------------------------------------
-        // DAY CODE
-        // ------------------------------------------------------
+        // Monday = M
+        // Tuesday = T
+        // Wednesday = W
+        // Thursday = H
+        // Friday = F
+        // Saturday = A
+        // Sunday = S
 
-        const List<String>
-            dayCodes = [
+        const List<String> dayCodes = [
           'M',
           'T',
           'W',
@@ -201,63 +175,39 @@ class OwnerIdService {
         ];
 
         final String dayCode =
-            dayCodes[
-                now.weekday - 1];
-
-        // ------------------------------------------------------
-        // SERIAL
-        // ------------------------------------------------------
+            dayCodes[now.weekday - 1];
 
         final String serial =
             nextSerial
                 .toString()
-                .padLeft(
-                  4,
-                  '0',
-                );
+                .padLeft(4, '0');
 
-        // ======================================================
-        // FINAL OWNER ID
-        // ======================================================
-        //
         // Example:
-        //
         // OWN26GM0001
-        //
-        // ======================================================
 
         final String ownerId =
-            'OWN'
-            '$year'
-            '$monthCode'
-            '$dayCode'
-            '$serial';
+            'OWN$year$monthCode$dayCode$serial';
 
-        // ------------------------------------------------------
+        // ======================================================
         // OWNER DOCUMENT
-        // ------------------------------------------------------
+        // ======================================================
 
-        final DocumentReference<
-                Map<String, dynamic>>
+        final DocumentReference<Map<String, dynamic>>
             ownerRef =
             _firestore
-                .collection(
-                  _ownersCollection,
-                )
+                .collection(_ownersCollection)
                 .doc(ownerId);
 
         // ======================================================
-        // UPDATE COUNTER
+        // COUNTER UPDATE
         // ======================================================
 
         transaction.set(
           counterRef,
           <String, dynamic>{
-            'lastSerial':
-                nextSerial,
+            'lastSerial': nextSerial,
             'updatedAt':
-                FieldValue
-                    .serverTimestamp(),
+                FieldValue.serverTimestamp(),
           },
           SetOptions(
             merge: true,
@@ -265,49 +215,23 @@ class OwnerIdService {
         );
 
         // ======================================================
-        // CREATE OWNER DOCUMENT
+        // OWNER DOCUMENT
         // ======================================================
 
         transaction.set(
           ownerRef,
           <String, dynamic>{
-            'ownerId':
-                ownerId,
-
-            'authUid':
-                cleanUid,
-
-            'phone':
-                cleanPhone,
-
-            'ownerName':
-                '',
-
-            'fullName':
-                '',
-
-            'address':
-                '',
-
-            'pets':
-                <Map<String, dynamic>>[],
-
-            'role':
-                'owner',
-
-            'isActive':
-                true,
-
-            'profileCompleted':
-                false,
-
+            'ownerId': ownerId,
+            'authUid': cleanUid,
+            'phone': cleanPhone,
+            'role': 'owner',
+            'isActive': true,
+            'profileCompleted': false,
+            'pets': <Map<String, dynamic>>[],
             'createdAt':
-                FieldValue
-                    .serverTimestamp(),
-
+                FieldValue.serverTimestamp(),
             'updatedAt':
-                FieldValue
-                    .serverTimestamp(),
+                FieldValue.serverTimestamp(),
           },
           SetOptions(
             merge: true,
@@ -321,24 +245,13 @@ class OwnerIdService {
         transaction.set(
           phoneAccountRef,
           <String, dynamic>{
-            'authUid':
-                cleanUid,
-
-            'phone':
-                cleanPhone,
-
-            'role':
-                'owner',
-
-            'ownerId':
-                ownerId,
-
-            'profileCompleted':
-                false,
-
+            'authUid': cleanUid,
+            'phone': cleanPhone,
+            'role': 'owner',
+            'ownerId': ownerId,
+            'profileCompleted': false,
             'updatedAt':
-                FieldValue
-                    .serverTimestamp(),
+                FieldValue.serverTimestamp(),
           },
           SetOptions(
             merge: true,
@@ -368,8 +281,7 @@ class OwnerIdService {
     // FIRST: PHONE ACCOUNT
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         phoneSnapshot =
         await _firestore
             .collection(
@@ -379,11 +291,8 @@ class OwnerIdService {
             .get();
 
     if (phoneSnapshot.exists) {
-      final Map<String, dynamic>? data =
-          phoneSnapshot.data();
-
       final dynamic ownerId =
-          data?['ownerId'];
+          phoneSnapshot.data()?['ownerId'];
 
       if (ownerId is String &&
           ownerId.trim().isNotEmpty) {
@@ -392,16 +301,13 @@ class OwnerIdService {
     }
 
     // ----------------------------------------------------------
-    // FALLBACK: OWNERS QUERY
+    // FALLBACK: SEARCH OWNERS
     // ----------------------------------------------------------
 
-    final QuerySnapshot<
-            Map<String, dynamic>>
+    final QuerySnapshot<Map<String, dynamic>>
         ownerQuery =
         await _firestore
-            .collection(
-              _ownersCollection,
-            )
+            .collection(_ownersCollection)
             .where(
               'authUid',
               isEqualTo: cleanUid,
@@ -409,32 +315,20 @@ class OwnerIdService {
             .limit(1)
             .get();
 
-    if (ownerQuery.docs.isEmpty) {
-      return null;
-    }
+    if (ownerQuery.docs.isNotEmpty) {
+      final DocumentSnapshot<Map<String, dynamic>>
+          ownerDoc =
+          ownerQuery.docs.first;
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        ownerDocument =
-        ownerQuery.docs.first;
+      final dynamic ownerId =
+          ownerDoc.data()?['ownerId'];
 
-    final Map<String, dynamic>?
-        ownerData =
-        ownerDocument.data();
+      if (ownerId is String &&
+          ownerId.trim().isNotEmpty) {
+        return ownerId.trim();
+      }
 
-    final dynamic ownerId =
-        ownerData?['ownerId'];
-
-    if (ownerId is String &&
-        ownerId.trim().isNotEmpty) {
-      return ownerId.trim();
-    }
-
-    // Document ID fallback
-    if (ownerDocument.id
-        .trim()
-        .isNotEmpty) {
-      return ownerDocument.id.trim();
+      return ownerDoc.id;
     }
 
     return null;
