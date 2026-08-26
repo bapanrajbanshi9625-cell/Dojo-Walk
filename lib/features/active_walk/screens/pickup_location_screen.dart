@@ -125,7 +125,7 @@ class _PickupLocationScreenState
         });
 
         // ------------------------------------------------------
-        // If already reached, keep the screen in reached state.
+        // ALREADY REACHED
         // ------------------------------------------------------
 
         if (_status.toLowerCase() == 'reached') {
@@ -133,7 +133,7 @@ class _PickupLocationScreenState
         }
 
         // ------------------------------------------------------
-        // If walk has already started, this screen is finished.
+        // WALK STARTED
         // ------------------------------------------------------
 
         if (_status.toLowerCase() == 'started') {
@@ -199,12 +199,18 @@ class _PickupLocationScreenState
         ) ??
         'On that way';
 
-    // IMPORTANT:
-    // This is OWNER'S setup pickup location.
+    // ----------------------------------------------------------
+    // OWNER PICKUP LOCATION
+    // ----------------------------------------------------------
+
     _pickupLocation =
         _readLatLng(
           data['destinationLocation'],
         );
+
+    // ----------------------------------------------------------
+    // WALKER CURRENT LOCATION
+    // ----------------------------------------------------------
 
     _walkerLocation =
         _readLatLng(
@@ -237,9 +243,11 @@ class _PickupLocationScreenState
             : Column(
                 children: [
                   _buildTopBar(),
+
                   Expanded(
                     child: _buildMap(),
                   ),
+
                   _buildBottomPanel(),
                 ],
               ),
@@ -290,7 +298,9 @@ class _PickupLocationScreenState
                     letterSpacing: .7,
                   ),
                 ),
+
                 const SizedBox(height: 3),
+
                 Text(
                   '$_dogName • $_dogBreed',
                   maxLines: 1,
@@ -456,6 +466,7 @@ class _PickupLocationScreenState
             size: 23,
           ),
         ),
+
         const Icon(
           Icons.arrow_drop_down,
           color: red,
@@ -497,6 +508,7 @@ class _PickupLocationScreenState
             size: 22,
           ),
         ),
+
         const Icon(
           Icons.arrow_drop_down,
           color: primary,
@@ -542,6 +554,10 @@ class _PickupLocationScreenState
 
           Row(
             children: [
+              // ------------------------------------------------
+              // CALL
+              // ------------------------------------------------
+
               Expanded(
                 child: _actionButton(
                   icon:
@@ -552,7 +568,13 @@ class _PickupLocationScreenState
                       _callOwner,
                 ),
               ),
+
               const SizedBox(width: 8),
+
+              // ------------------------------------------------
+              // CHAT
+              // ------------------------------------------------
+
               Expanded(
                 child: _actionButton(
                   icon:
@@ -563,11 +585,17 @@ class _PickupLocationScreenState
                       _openChat,
                 ),
               ),
+
               const SizedBox(width: 8),
+
+              // ------------------------------------------------
+              // MAP
+              // ------------------------------------------------
+
               Expanded(
                 child: _actionButton(
-                  icon: Icons
-                      .location_on_rounded,
+                  icon:
+                      Icons.location_on_rounded,
                   label: 'Map',
                   color: primary,
                   onTap:
@@ -578,6 +606,10 @@ class _PickupLocationScreenState
           ),
 
           const SizedBox(height: 11),
+
+          // ----------------------------------------------------
+          // REACHED BUTTON
+          // ----------------------------------------------------
 
           SizedBox(
             width: double.infinity,
@@ -704,7 +736,9 @@ class _PickupLocationScreenState
                         FontWeight.w900,
                   ),
                 ),
+
                 const SizedBox(height: 3),
+
                 Text(
                   _address,
                   maxLines: 2,
@@ -792,6 +826,10 @@ class _PickupLocationScreenState
       return;
     }
 
+    // ----------------------------------------------------------
+    // BOTH LOCATIONS
+    // ----------------------------------------------------------
+
     if (pickup != null &&
         walker != null) {
       final double minLat =
@@ -820,8 +858,14 @@ class _PickupLocationScreenState
 
       final LatLngBounds bounds =
           LatLngBounds(
-        LatLng(minLat, minLng),
-        LatLng(maxLat, maxLng),
+        LatLng(
+          minLat,
+          minLng,
+        ),
+        LatLng(
+          maxLat,
+          maxLng,
+        ),
       );
 
       _mapController.fitCamera(
@@ -834,6 +878,10 @@ class _PickupLocationScreenState
 
       return;
     }
+
+    // ----------------------------------------------------------
+    // ONLY ONE LOCATION
+    // ----------------------------------------------------------
 
     _mapController.move(
       pickup ?? walker!,
@@ -863,12 +911,17 @@ class _PickupLocationScreenState
       '${pickup.longitude}',
     );
 
-    await launchUrl(
-      uri,
-      mode:
-          LaunchMode.externalApplication,
-    );
-  }
+    try {
+      await launchUrl(
+        uri,
+        mode:
+            LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      debugPrint(
+        'Navigation error: $e',
+      );
+    }
   }
 
   // ==========================================================
@@ -876,24 +929,79 @@ class _PickupLocationScreenState
   // ==========================================================
 
   Future<void> _callOwner() async {
-    if (_walkerPhone.trim().isEmpty) {
+    final String phone =
+        _walkerPhone.trim();
+
+    // ----------------------------------------------------------
+    // PHONE NOT AVAILABLE
+    // ----------------------------------------------------------
+
+    if (phone.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+
       ScaffoldMessenger.of(context)
           .showSnackBar(
         const SnackBar(
           content: Text(
-            'Owner phone number is not available.',
+            'Phone number is not available.',
           ),
         ),
       );
+
       return;
     }
 
-    final Uri uri = Uri(
+    // ----------------------------------------------------------
+    // OPEN PHONE DIALER
+    // ----------------------------------------------------------
+
+    final Uri phoneUri = Uri(
       scheme: 'tel',
-      path: _walkerPhone.trim(),
+      path: phone,
     );
 
-    await launchUrl(uri);
+    try {
+      final bool launched =
+          await launchUrl(
+        phoneUri,
+        mode:
+            LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to open phone dialer.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        'Call error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to open phone dialer.',
+          ),
+        ),
+      );
+    }
   }
 
   // ==========================================================
@@ -943,6 +1051,7 @@ class _PickupLocationScreenState
                 'Not Yet',
               ),
             ),
+
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(
@@ -973,7 +1082,8 @@ class _PickupLocationScreenState
 
     try {
       await _service.markReached(
-        walkId: widget.activeWalkId,
+        walkId:
+            widget.activeWalkId,
       );
 
       if (!mounted) {
@@ -1030,7 +1140,8 @@ class _PickupLocationScreenState
     //   context,
     //   MaterialPageRoute(
     //     builder: (_) => LiveWalkScreen(
-    //       activeWalkId: widget.activeWalkId,
+    //       activeWalkId:
+    //           widget.activeWalkId,
     //       isWalker: true,
     //     ),
     //   ),
@@ -1055,6 +1166,10 @@ class _PickupLocationScreenState
         ? null
         : result;
   }
+
+  // ==========================================================
+  // READ GEOPOINT
+  // ==========================================================
 
   LatLng? _readLatLng(
     dynamic value,
