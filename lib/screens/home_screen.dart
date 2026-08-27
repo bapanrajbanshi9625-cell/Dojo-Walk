@@ -1,8 +1,10 @@
-// File location: lib/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 
 import 'custom_app_bar.dart';
+
+import '../core/theme/colors/dojo_brand_colors.dart';
+import '../core/theme/colors/dojo_card_colors.dart';
+import '../core/theme/colors/dojo_light_colors.dart';
 
 import '../features/home/services/home_data_service.dart'
     as home_data;
@@ -20,12 +22,6 @@ import '../widgets/generate_qr_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
-  static const orange = Color(0xFFF4511E);
-  static const navy = Color(0xFF263746);
-  static const slate = Color(0xFF475569);
-  static const background = Color(0xFFEDEFF2);
-  static const card = Color(0xFFF7F8FA);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -52,36 +48,48 @@ class _HomeScreenState extends State<HomeScreen> {
     String title,
     String content,
   ) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: const Color(0xFFF7F8FA),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+          backgroundColor:
+              DojoCardColors.lightBackground,
+
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(20),
           ),
+
           title: Text(
             title,
             style: const TextStyle(
-              color: HomeScreen.navy,
-              fontWeight: FontWeight.w900,
+              color: DojoBrandColors.navy,
+              fontWeight:
+                  FontWeight.w900,
             ),
           ),
+
           content: Text(
             content,
             style: const TextStyle(
-              color: HomeScreen.slate,
+              color: DojoBrandColors.slate,
               height: 1.5,
             ),
           ),
+
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () =>
+                  Navigator.pop(ctx),
+
               child: const Text(
                 'CLOSE',
                 style: TextStyle(
-                  color: HomeScreen.orange,
-                  fontWeight: FontWeight.bold,
+                  color:
+                      DojoBrandColors.orange,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
@@ -96,32 +104,46 @@ class _HomeScreenState extends State<HomeScreen> {
   // =====================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      backgroundColor: HomeScreen.background,
+      // ===================================================
+      // BACKGROUND
+      // ===================================================
+
+      backgroundColor:
+          DojoLightColors.background,
 
       // ===================================================
       // APP BAR
       // ===================================================
 
-      appBar: const CustomAppBar(),
+      appBar:
+          const CustomAppBar(),
 
       // ===================================================
       // BODY
       // ===================================================
 
-      body: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+      body:
+          SingleChildScrollView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
 
-        padding: const EdgeInsets.fromLTRB(
+        padding:
+            const EdgeInsets.fromLTRB(
           15,
           15,
           15,
           24,
         ),
 
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child:
+            Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
             // =============================================
             // WELCOME
@@ -148,7 +170,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             const HomeSectionTitle(
-              title: 'This week processing',
+              title:
+                  'This week processing',
             ),
 
             const SizedBox(
@@ -177,7 +200,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             const HomeSectionTitle(
-              title: 'Past Walk',
+              title:
+                  'Past Walk',
             ),
 
             const SizedBox(
@@ -188,70 +212,115 @@ class _HomeScreenState extends State<HomeScreen> {
             // PAST WALK STREAM
             // =============================================
 
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _homeDataService.pastWalksStream(
+            StreamBuilder<
+                List<Map<String, dynamic>>>(
+              stream:
+                  _homeDataService
+                      .pastWalksStream(
                 limit: 20,
               ),
 
-              builder: (context, snapshot) {
-                // =========================================
+              builder:
+                  (context, snapshot) {
+                // =======================================
                 // ERROR
-                // =========================================
+                // =======================================
 
                 if (snapshot.hasError) {
                   return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: HomeScreen.card,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color(0xFFD4D9DF),
-                      ),
+                    width:
+                        double.infinity,
+
+                    padding:
+                        const EdgeInsets.all(
+                      18,
                     ),
-                    child: const Text(
+
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          DojoCardColors
+                              .lightBackground,
+
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        14,
+                      ),
+
+                      border:
+                          const BorderSide(
+                            color:
+                                DojoCardColors
+                                    .lightBorder,
+                          ).toBorderSide(),
+                    ),
+
+                    child:
+                        const Text(
                       'Unable to load past walks.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: HomeScreen.slate,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      textAlign:
+                          TextAlign.center,
+
+                      style:
+                          TextStyle(
+                        color:
+                            DojoBrandColors
+                                .slate,
+
+                        fontSize:
+                            12,
+
+                        fontWeight:
+                            FontWeight.w600,
                       ),
                     ),
                   );
                 }
 
-                // =========================================
+                // =======================================
                 // LOADING
-                // =========================================
+                // =======================================
 
-                if (snapshot.connectionState ==
+                if (snapshot
+                        .connectionState ==
                     ConnectionState.waiting) {
                   return const SizedBox(
                     height: 70,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: HomeScreen.orange,
+
+                    child:
+                        Center(
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth:
+                            2,
+
+                        color:
+                            DojoBrandColors
+                                .orange,
                       ),
                     ),
                   );
                 }
 
-                // =========================================
+                // =======================================
                 // DATA
-                // =========================================
+                // =======================================
 
-                final List<Map<String, dynamic>> walks =
+                final List<
+                        Map<String, dynamic>>
+                    walks =
                     snapshot.data ??
                         <Map<String, dynamic>>[];
 
-                // =========================================
+                // =======================================
                 // PAST WALK UI
-                // =========================================
+                // =======================================
 
                 return HomePastWalk(
-                  walks: walks,
+                  walks:
+                      walks,
+
                   onDetails: (
                     title,
                     content,
@@ -268,6 +337,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// =====================================================
+// BORDER SIDE HELPER
+// =====================================================
+//
+// Keeps the color package usage clean without introducing
+// another hard-coded color.
+// =====================================================
+
+extension on BorderSide {
+  BorderSide toBorderSide() {
+    return BorderSide(
+      color: color,
+      width: width,
+      style: style,
     );
   }
 }
