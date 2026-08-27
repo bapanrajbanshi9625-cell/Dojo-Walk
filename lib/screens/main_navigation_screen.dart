@@ -304,61 +304,60 @@ class _MainNavigationScreenState
               // BOTTOM NAVIGATION
               // ==================================================
 
-              Container(
-  decoration: BoxDecoration(
-    color: Colors.white,
-    border: Border(
-      top: BorderSide(
-        color: AppColors.border,
-        width: 0.6,
+                            Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.border,
+                      width: 0.6,
+                    ),
+                  ),
+                ),
+                child: BottomNavigationBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  currentIndex: _currentIndex,
+                  selectedItemColor: AppColors.primary,
+                  unselectedItemColor: Colors.black54,
+
+                  selectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                  ),
+
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                  ),
+
+                  type: BottomNavigationBarType.fixed,
+                  onTap: _onNavigationTap,
+
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(
+                        Icons.home_rounded,
+                      ),
+                      label: 'Home',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(
+                        Icons.directions_walk_rounded,
+                      ),
+                      label: 'Walks',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(
+                        Icons.menu_rounded,
+                      ),
+                      label: 'Menu',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
-    ),
-  ),
-
-  child: BottomNavigationBar(
-    backgroundColor: Colors.white,
-
-    elevation: 0,
-
-    currentIndex: _currentIndex,
-
-    selectedItemColor: AppColors.primary,
-
-    unselectedItemColor: Colors.black54,
-
-    selectedLabelStyle: const TextStyle(
-      fontWeight: FontWeight.w700,
-    ),
-
-    unselectedLabelStyle: const TextStyle(
-      fontWeight: FontWeight.w500,
-    ),
-
-    type: BottomNavigationBarType.fixed,
-
-    onTap: _onNavigationTap,
-
-    items: const [
-      BottomNavigationBarItem(
-        icon: Icon(
-          Icons.home_rounded,
-        ),
-        label: 'Home',
-      ),
-
-      BottomNavigationBarItem(
-        icon: Icon(
-          Icons.directions_walk_rounded,
-        ),
-        label: 'Walks',
-      ),
-
-      BottomNavigationBarItem(
-        icon: Icon(
-          Icons.menu_rounded,
-        ),
-        label: 'Menu',
-      ),
-    ],
-  ),
-),
+    );
+  }
+}
