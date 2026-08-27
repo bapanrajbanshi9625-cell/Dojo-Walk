@@ -116,7 +116,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final DocumentSnapshot<Map<String, dynamic>>
           ownerSnapshot =
           await FirebaseFirestore.instance
-              .collection('ownerProfiles')
+              .collection('owners')
               .doc(ownerId)
               .get();
 
