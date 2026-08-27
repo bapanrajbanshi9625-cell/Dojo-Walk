@@ -71,6 +71,13 @@ class DojoTheme {
 
         fillColor: DojoInputColors.lightBackground,
 
+        // Actual input text
+        textStyle: const TextStyle(
+          color: DojoBrandColors.navy,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+
         hintStyle: const TextStyle(
           color: DojoInputColors.lightHint,
           fontSize: 15,
@@ -113,23 +120,7 @@ class DojoTheme {
           vertical: 15,
         ),
       ),
-
-      // ========================================================
-      // BOTTOM NAVIGATION
-      // ========================================================
-
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: DojoBottomColors.lightBackground,
-        indicatorColor: DojoBottomColors.lightIndicator,
-        elevation: 8,
-        labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(
-            color: DojoBottomColors.lightSelected,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-
+      
       // ========================================================
       // TABS
       // ========================================================
@@ -236,6 +227,13 @@ class DojoTheme {
         filled: true,
 
         fillColor: DojoInputColors.lightBackground,
+
+        // Actual input text
+        textStyle: const TextStyle(
+          color: DojoBrandColors.navy,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
 
         hintStyle: const TextStyle(
           color: DojoInputColors.lightHint,
