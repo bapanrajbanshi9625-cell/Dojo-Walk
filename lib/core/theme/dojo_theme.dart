@@ -275,11 +275,9 @@ class DojoTheme {
     InputDecorationTheme(
   filled: true,
 
-  // Light input background
   fillColor:
       DojoInputColors.lightBackground,
 
-  // Light input hint
   hintStyle: const TextStyle(
     color:
         DojoInputColors.lightHint,
