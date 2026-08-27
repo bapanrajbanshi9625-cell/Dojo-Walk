@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/colors/dojo_brand_colors.dart';
+
 class AddPetButton extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -8,9 +10,6 @@ class AddPetButton extends StatelessWidget {
     required this.onPressed,
   });
 
-  static const Color orange =
-      Color(0xFFF4511E);
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -18,17 +17,17 @@ class AddPetButton extends StatelessWidget {
       height: 52,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        style:
-            OutlinedButton.styleFrom(
-          foregroundColor: orange,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: DojoBrandColors.orange,
           side: const BorderSide(
-            color: orange,
+            color: DojoBrandColors.orange,
             width: 1.4,
           ),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(15),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
         ),
         icon: const Icon(
@@ -39,7 +38,7 @@ class AddPetButton extends StatelessWidget {
           'Add Pet',
           style: TextStyle(
             fontSize: 15.5,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
