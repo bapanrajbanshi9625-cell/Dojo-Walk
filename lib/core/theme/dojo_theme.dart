@@ -280,113 +280,66 @@ class DojoTheme {
       // INPUTS
       // ========================================================
 
-      inputDecorationTheme:
-          InputDecorationTheme(
-        filled: true,
+      inputDecorationTheme: InputDecorationTheme(
+  filled: true,
 
-        fillColor:
-            DojoInputColors.darkBackground,
+  // Light input box even in Dark Mode
+  fillColor: DojoInputColors.lightBackground,
 
-        hintStyle: const TextStyle(
-          color:
-              DojoInputColors.darkHint,
-        ),
+  // Typed text
+  textStyle: const TextStyle(
+    color: DojoInputColors.lightText,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  ),
 
-        prefixIconColor:
-            DojoInputColors.darkIcon,
+  // Hint
+  hintStyle: const TextStyle(
+    color: DojoInputColors.lightHint,
+    fontSize: 15,
+  ),
 
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+  // Icons
+  prefixIconColor: DojoInputColors.lightIcon,
 
-          borderSide: const BorderSide(
-            color:
-                DojoInputColors.darkBorder,
-          ),
-        ),
+  // Normal border
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(15),
+    borderSide: const BorderSide(
+      color: DojoInputColors.lightBorder,
+    ),
+  ),
 
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+  // Focus border
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(15),
+    borderSide: const BorderSide(
+      color: DojoBrandColors.orange,
+      width: 1.5,
+    ),
+  ),
 
-          borderSide: const BorderSide(
-            color:
-                DojoBrandColors.orange,
-            width: 1.5,
-          ),
-        ),
-      ),
+  // Error border
+  errorBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(15),
+    borderSide: const BorderSide(
+      color: DojoCardColors.error,
+    ),
+  ),
 
-      // ========================================================
-      // BOTTOM NAVIGATION
-      // ========================================================
+  focusedErrorBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(15),
+    borderSide: const BorderSide(
+      color: DojoCardColors.error,
+      width: 1.5,
+    ),
+  ),
 
-      navigationBarTheme:
-          const NavigationBarThemeData(
-        backgroundColor:
-            DojoBottomColors.darkBackground,
-
-        indicatorColor:
-            DojoBottomColors.darkIndicator,
-
-        elevation: 8,
-
-        labelTextStyle:
-            WidgetStatePropertyAll(
-          TextStyle(
-            color:
-                DojoBottomColors.darkSelected,
-
-            fontWeight:
-                FontWeight.w600,
-          ),
-        ),
-      ),
-
-      // ========================================================
-      // TABS
-      // ========================================================
-
-      tabBarTheme:
-          const TabBarThemeData(
-        labelColor:
-            DojoTabColors.darkSelected,
-
-        unselectedLabelColor:
-            DojoTabColors.darkUnselected,
-
-        indicatorColor:
-            DojoTabColors.darkIndicator,
-      ),
-
-      // ========================================================
-      // BUTTONS
-      // ========================================================
-
-      elevatedButtonTheme:
-          ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor:
-              DojoButtonColors.primary,
-
-          foregroundColor:
-              DojoButtonColors.primaryText,
-
-          minimumSize:
-              const Size(
-            double.infinity,
-            52,
-          ),
-
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(15),
-          ),
-        ),
-      ),
+  contentPadding: const EdgeInsets.symmetric(
+    horizontal: 16,
+    vertical: 15,
+  ),
+),
 
       // ========================================================
       // FAB
