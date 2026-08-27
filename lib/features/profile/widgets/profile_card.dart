@@ -1,3 +1,5 @@
+// File: lib/features/profile/widgets/profile_card.dart
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_colors.dart';
