@@ -283,15 +283,8 @@ class DojoTheme {
       inputDecorationTheme: InputDecorationTheme(
   filled: true,
 
-  // Light input box even in Dark Mode
+  // Always keep input box light
   fillColor: DojoInputColors.lightBackground,
-
-  // Typed text
-  textStyle: const TextStyle(
-    color: DojoInputColors.lightText,
-    fontSize: 16,
-    fontWeight: FontWeight.w500,
-  ),
 
   // Hint
   hintStyle: const TextStyle(
@@ -334,13 +327,7 @@ class DojoTheme {
       width: 1.5,
     ),
   ),
-
-  contentPadding: const EdgeInsets.symmetric(
-    horizontal: 16,
-    vertical: 15,
-  ),
-),
-
+        
       // ========================================================
       // FAB
       // ========================================================
