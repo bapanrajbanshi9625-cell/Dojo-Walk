@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 class ProfileSelectionField extends StatelessWidget {
   final String label;
   final String hint;
@@ -16,18 +18,23 @@ class ProfileSelectionField extends StatelessWidget {
     required this.onTap,
   });
 
-  static const Color orange =
-      Color(0xFFF4511E);
-
   @override
   Widget build(BuildContext context) {
+    final bool hasValue =
+        value != null && value!.trim().isNotEmpty;
+
     return Column(
       crossAxisAlignment:
           CrossAxisAlignment.start,
       children: [
+        // ====================================================
+        // LABEL
+        // ====================================================
+
         Text(
           label,
           style: const TextStyle(
+            color: AppColors.navy,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -35,59 +42,82 @@ class ProfileSelectionField extends StatelessWidget {
 
         const SizedBox(height: 8),
 
+        // ====================================================
+        // SELECTION FIELD
+        // ====================================================
+
         InkWell(
           onTap: onTap,
           borderRadius:
-              BorderRadius.circular(14),
+              BorderRadius.circular(15),
           child: Container(
             width: double.infinity,
             padding:
                 const EdgeInsets.symmetric(
-              horizontal: 14,
+              horizontal: 16,
               vertical: 15,
             ),
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFFF7F7F7),
+              color: AppColors.lightGrey,
               borderRadius:
-                  BorderRadius.circular(14),
+                  BorderRadius.circular(15),
               border: Border.all(
-                color: value == null
-                    ? Colors.transparent
-                    : orange.withOpacity(0.25),
+                color: hasValue
+                    ? AppColors.primary.withValues(
+                        alpha: 0.25,
+                      )
+                    : AppColors.border,
               ),
             ),
             child: Row(
               children: [
+                // ==================================================
+                // LEADING ICON
+                // ==================================================
+
                 Icon(
                   icon,
-                  color: orange,
+                  color: AppColors.primary,
                 ),
 
                 const SizedBox(width: 12),
 
+                // ==================================================
+                // VALUE / HINT
+                // ==================================================
+
                 Expanded(
                   child: Text(
-                    value ?? hint,
+                    hasValue
+                        ? value!.trim()
+                        : hint,
+                    maxLines: 1,
+                    overflow:
+                        TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: value == null
-                          ? const Color(
-                              0xFF707070)
-                          : Colors.black,
+                      // IMPORTANT:
+                      // Selected value is explicitly dark
+                      // so it remains visible immediately.
+                      color: hasValue
+                          ? AppColors.navy
+                          : AppColors.grey,
                       fontSize: 15.5,
-                      fontWeight:
-                          value == null
-                              ? FontWeight.w400
-                              : FontWeight.w600,
+                      fontWeight: hasValue
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
 
+                const SizedBox(width: 8),
+
+                // ==================================================
+                // ARROW
+                // ==================================================
+
                 const Icon(
-                  Icons
-                      .keyboard_arrow_down_rounded,
-                  color:
-                      Color(0xFF707070),
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.grey,
                 ),
               ],
             ),
