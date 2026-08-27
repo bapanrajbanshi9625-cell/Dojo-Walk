@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_colors.dart';
+
 class AddressCard extends StatelessWidget {
   final String flatHouseNo;
   final String streetRoad;
@@ -16,9 +18,6 @@ class AddressCard extends StatelessWidget {
     required this.onConnectLocation,
   });
 
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-
   @override
   Widget build(BuildContext context) {
     final bool hasAddress =
@@ -30,11 +29,11 @@ class AddressCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: DojoColors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: DojoColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -47,7 +46,7 @@ class AddressCard extends StatelessWidget {
             const Text(
               'No address added yet.',
               style: TextStyle(
-                color: Colors.grey,
+                color: DojoColors.grey,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -92,7 +91,7 @@ class AddressCard extends StatelessWidget {
               vertical: 10,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF1E8),
+              color: DojoColors.lightOrange,
               borderRadius: BorderRadius.circular(11),
             ),
             child: const Row(
@@ -100,7 +99,7 @@ class AddressCard extends StatelessWidget {
               children: [
                 Icon(
                   Icons.info_outline_rounded,
-                  color: orange,
+                  color: DojoColors.orange,
                   size: 18,
                 ),
                 SizedBox(width: 8),
@@ -108,7 +107,7 @@ class AddressCard extends StatelessWidget {
                   child: Text(
                     'Location dena mandatory hai.',
                     style: TextStyle(
-                      color: navy,
+                      color: DojoColors.navy,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -131,11 +130,11 @@ class AddressCard extends StatelessWidget {
               onPressed:
                   isConnecting ? null : onConnectLocation,
               style: OutlinedButton.styleFrom(
-                foregroundColor: orange,
+                foregroundColor: DojoColors.orange,
                 disabledForegroundColor:
-                    orange.withValues(alpha: 0.55),
+                    DojoColors.orange.withValues(alpha: 0.55),
                 side: const BorderSide(
-                  color: orange,
+                  color: DojoColors.orange,
                   width: 1.2,
                 ),
                 shape: RoundedRectangleBorder(
@@ -148,7 +147,7 @@ class AddressCard extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: orange,
+                        color: DojoColors.orange,
                       ),
                     )
                   : const Icon(
@@ -187,18 +186,17 @@ class _AddressRow extends StatelessWidget {
     required this.value,
   });
 
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(width: 1),
+
         Icon(
           icon,
           size: 19,
-          color: orange,
+          color: DojoColors.orange,
         ),
 
         const SizedBox(width: 10),
@@ -211,7 +209,7 @@ class _AddressRow extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   fontSize: 10.5,
-                  color: Colors.grey,
+                  color: DojoColors.grey,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -222,7 +220,7 @@ class _AddressRow extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   fontSize: 13.5,
-                  color: navy,
+                  color: DojoColors.navy,
                   fontWeight: FontWeight.w700,
                 ),
               ),
