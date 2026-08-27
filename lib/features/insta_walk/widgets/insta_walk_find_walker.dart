@@ -21,8 +21,6 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       return;
     }
 
-    final String ownerId = user.uid;
-
     if (!mounted) {
       return;
     }
@@ -35,6 +33,12 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     try {
       // ========================================================
       // FIND OWNER PROFILE
+      //
+      // Firestore:
+      // owners/{documentId}
+      //
+      // Matched using:
+      // authUid == FirebaseAuth.currentUser.uid
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
@@ -44,7 +48,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return;
       }
 
-      if (ownerDoc == null) {
+      if (ownerDoc == null || !ownerDoc.exists) {
         _updateState(() {
           _checkingAddress = false;
         });
@@ -59,6 +63,48 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       final Map<String, dynamic> data =
           ownerDoc.data() ?? <String, dynamic>{};
 
+      // ========================================================
+      // PROFILE COMPLETION
+      // ========================================================
+
+      final bool profileCompleted =
+          data['profileCompleted'] == true;
+
+      if (!profileCompleted) {
+        _updateState(() {
+          _checkingAddress = false;
+        });
+
+        _message(
+          'Owner profile is not completed. Please complete your profile first.',
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // OWNER ID
+      //
+      // IMPORTANT:
+      // Use Firestore ownerId, NOT Firebase Auth UID.
+      //
+      // Example:
+      // ownerId = OWN26GH0004
+      // ========================================================
+
+      String ownerId =
+          _readFirstString(
+        data,
+        const [
+          'ownerId',
+          'Owner ID',
+        ],
+      );
+
+      if (ownerId.isEmpty) {
+        // Safe fallback only if ownerId is not present.
+        ownerId = user.uid;
+      }
 
       // ========================================================
       // PET NAME
@@ -74,10 +120,47 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
+      // ========================================================
+      // PETS ARRAY FALLBACK
+      //
+      // Your current Firestore structure has:
+      //
+      // pets:
+      //   [
+      //     {
+      //       name: "Brono"
+      //     }
+      //   ]
+      // ========================================================
+
+      if (_petName.isEmpty) {
+        final dynamic pets =
+            data['pets'];
+
+        if (pets is List &&
+            pets.isNotEmpty) {
+          final dynamic firstPet =
+              pets.first;
+
+          if (firstPet is Map) {
+            final dynamic petName =
+                firstPet['name'];
+
+            if (petName != null) {
+              final String value =
+                  petName.toString().trim();
+
+              if (value.isNotEmpty) {
+                _petName = value;
+              }
+            }
+          }
+        }
+      }
+
       if (_petName.isEmpty) {
         _petName = 'Your Pet';
       }
-
 
       // ========================================================
       // ADDRESS
@@ -105,7 +188,6 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return;
       }
 
-
       // ========================================================
       // OWNER NAME
       // ========================================================
@@ -124,7 +206,6 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       if (ownerName.isEmpty) {
         ownerName = 'Dog Owner';
       }
-
 
       // ========================================================
       // LOCATION
@@ -145,9 +226,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return;
       }
 
-
       _ownerPosition = position;
-
 
       // ========================================================
       // START SEARCH
@@ -159,10 +238,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         address: address,
         position: position,
       );
-
-
     } on FirebaseException catch (e) {
-
       debugPrint(
         'Insta Walk Firebase error: '
         '${e.code} - ${e.message}',
@@ -181,10 +257,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
             ? 'Firestore permission denied. Please check Firebase rules.'
             : 'Unable to start Insta Walk.',
       );
-
-
     } catch (e) {
-
       debugPrint(
         'Insta Walk start error: $e',
       );
@@ -203,21 +276,16 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     }
   }
 
-
-
   // ============================================================
   // LOCATION
   // ============================================================
 
   Future<Position?> _getLocation() async {
-
     try {
-
       final bool enabled =
           await Geolocator.isLocationServiceEnabled();
 
       if (!enabled) {
-
         _message(
           'Please turn on location service.',
         );
@@ -225,24 +293,19 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return null;
       }
 
-
       LocationPermission permission =
           await Geolocator.checkPermission();
 
-
       if (permission ==
           LocationPermission.denied) {
-
         permission =
             await Geolocator.requestPermission();
       }
-
 
       if (permission ==
               LocationPermission.denied ||
           permission ==
               LocationPermission.deniedForever) {
-
         _message(
           'Location permission is required.',
         );
@@ -250,12 +313,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return null;
       }
 
-
       return await Geolocator.getCurrentPosition();
-
-
     } catch (e) {
-
       debugPrint(
         'Location error: $e',
       );
