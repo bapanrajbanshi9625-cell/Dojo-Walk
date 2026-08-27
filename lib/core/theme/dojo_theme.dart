@@ -45,7 +45,8 @@ class DojoTheme {
         foregroundColor:
             DojoAppBarColors.lightText,
         elevation: 0,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor:
+            Colors.transparent,
         centerTitle: false,
       ),
 
@@ -79,13 +80,6 @@ class DojoTheme {
         fillColor:
             DojoInputColors.lightBackground,
 
-        // FIX:
-        // Typed text is now explicitly visible.
-        textStyle: const TextStyle(
-          color:
-              DojoInputColors.lightText,
-        ),
-
         hintStyle: const TextStyle(
           color:
               DojoInputColors.lightHint,
@@ -98,6 +92,7 @@ class DojoTheme {
             OutlineInputBorder(
           borderRadius:
               BorderRadius.circular(15),
+
           borderSide: const BorderSide(
             color:
                 DojoInputColors.lightBorder,
@@ -108,6 +103,7 @@ class DojoTheme {
             OutlineInputBorder(
           borderRadius:
               BorderRadius.circular(15),
+
           borderSide: const BorderSide(
             color:
                 DojoBrandColors.orange,
@@ -215,13 +211,26 @@ class DojoTheme {
           DojoDarkColors.background,
 
       colorScheme: const ColorScheme.dark(
-        primary: DojoBrandColors.orange,
-        secondary: DojoBrandColors.mint,
-        surface: DojoDarkColors.surface,
-        onPrimary: Colors.white,
-        onSecondary: DojoBrandColors.slate,
-        onSurface: DojoDarkColors.text,
-        error: DojoCardColors.error,
+        primary:
+            DojoBrandColors.orange,
+
+        secondary:
+            DojoBrandColors.mint,
+
+        surface:
+            DojoDarkColors.surface,
+
+        onPrimary:
+            Colors.white,
+
+        onSecondary:
+            DojoBrandColors.slate,
+
+        onSurface:
+            DojoDarkColors.text,
+
+        error:
+            DojoCardColors.error,
       ),
 
       // ========================================================
@@ -272,43 +281,43 @@ class DojoTheme {
       // ========================================================
 
       inputDecorationTheme:
-    InputDecorationTheme(
-  filled: true,
+          InputDecorationTheme(
+        filled: true,
 
-  fillColor:
-      DojoInputColors.lightBackground,
+        fillColor:
+            DojoInputColors.darkBackground,
 
-  hintStyle: const TextStyle(
-    color:
-        DojoInputColors.lightHint,
-  ),
+        hintStyle: const TextStyle(
+          color:
+              DojoInputColors.darkHint,
+        ),
 
-  prefixIconColor:
-      DojoInputColors.lightIcon,
+        prefixIconColor:
+            DojoInputColors.darkIcon,
 
-  enabledBorder:
-      OutlineInputBorder(
-    borderRadius:
-        BorderRadius.circular(15),
+        enabledBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(15),
 
-    borderSide: const BorderSide(
-      color:
-          DojoInputColors.lightBorder,
-    ),
-  ),
+          borderSide: const BorderSide(
+            color:
+                DojoInputColors.darkBorder,
+          ),
+        ),
 
-  focusedBorder:
-      OutlineInputBorder(
-    borderRadius:
-        BorderRadius.circular(15),
+        focusedBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(15),
 
-    borderSide: const BorderSide(
-      color:
-          DojoBrandColors.orange,
-      width: 1.5,
-    ),
-  ),
-),
+          borderSide: const BorderSide(
+            color:
+                DojoBrandColors.orange,
+            width: 1.5,
+          ),
+        ),
+      ),
 
       // ========================================================
       // BOTTOM NAVIGATION
