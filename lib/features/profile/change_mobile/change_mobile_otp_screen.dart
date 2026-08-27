@@ -30,6 +30,10 @@ class ChangeMobileOtpScreen extends StatefulWidget {
 
 class _ChangeMobileOtpScreenState
     extends State<ChangeMobileOtpScreen> {
+  // ============================================================
+  // COLORS
+  // ============================================================
+
   static const Color orange =
       Color(0xFFF4511E);
 
@@ -42,6 +46,10 @@ class _ChangeMobileOtpScreenState
   static const Color lightOrange =
       Color(0xFFFFF1E8);
 
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
+
   final TextEditingController _otpController =
       TextEditingController();
 
@@ -51,22 +59,44 @@ class _ChangeMobileOtpScreenState
   final ChangeMobileService _service =
       ChangeMobileService.instance;
 
+  // ============================================================
+  // STATE
+  // ============================================================
+
   late String _verificationId;
+
   int? _resendToken;
 
   bool _isVerifying = false;
   bool _isResending = false;
+
+  // ============================================================
+  // INIT
+  // ============================================================
 
   @override
   void initState() {
     super.initState();
 
     _verificationId =
-        widget.verificationId;
+        widget.verificationId.trim();
 
     _resendToken =
         widget.resendToken;
+
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _otpFocusNode.requestFocus();
+    });
   }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
@@ -80,19 +110,50 @@ class _ChangeMobileOtpScreenState
   // ============================================================
 
   Future<void> _verifyOtp() async {
-    if (_isVerifying) {
+    if (_isVerifying ||
+        _isResending) {
       return;
     }
 
     final String otp =
         _otpController.text.trim();
 
+    // ----------------------------------------------------------
+    // OTP VALIDATION
+    // ----------------------------------------------------------
+
+    if (otp.isEmpty) {
+      _showMessage(
+        'Please enter the OTP.',
+      );
+
+      _otpFocusNode.requestFocus();
+      return;
+    }
+
     if (otp.length != 6) {
       _showMessage(
         'Please enter the 6-digit OTP.',
       );
+
+      _otpFocusNode.requestFocus();
       return;
     }
+
+    if (!RegExp(
+      r'^[0-9]{6}$',
+    ).hasMatch(otp)) {
+      _showMessage(
+        'OTP must contain only 6 digits.',
+      );
+
+      _otpFocusNode.requestFocus();
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // VERIFICATION ID VALIDATION
+    // ----------------------------------------------------------
 
     if (_verificationId.isEmpty) {
       _showMessage(
@@ -101,34 +162,83 @@ class _ChangeMobileOtpScreenState
       return;
     }
 
+    // ----------------------------------------------------------
+    // OWNER ID VALIDATION
+    // ----------------------------------------------------------
+
+    if (widget.ownerId.trim().isEmpty) {
+      _showMessage(
+        'Owner ID was not found. Please try again.',
+      );
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // AUTH USER VALIDATION
+    // ----------------------------------------------------------
+
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showMessage(
+        'Your login session has expired. Please login again.',
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
     setState(() {
       _isVerifying = true;
     });
 
     try {
+      // ========================================================
+      // CREATE PHONE CREDENTIAL
+      // ========================================================
+
       final PhoneAuthCredential credential =
           _service.createCredential(
         verificationId:
             _verificationId,
-        smsCode: otp,
+        smsCode:
+            otp,
       );
+
+      // ========================================================
+      // COMPLETE MOBILE CHANGE
+      //
+      // 1. Firebase Auth phone
+      // 2. owners/{owner document}
+      //    mainPhone
+      //    phone
+      // ========================================================
 
       await _service.completeMobileChange(
         ownerId:
-            widget.ownerId,
+            widget.ownerId.trim(),
         credential:
             credential,
         newPhoneNumber:
-            widget.newPhoneNumber,
+            widget.newPhoneNumber.trim(),
       );
 
       if (!mounted) {
         return;
       }
 
+      // ========================================================
+      // CALLBACK
+      // ========================================================
+
       widget.onChanged?.call(
-        widget.newPhoneNumber,
+        widget.newPhoneNumber.trim(),
       );
+
+      // ========================================================
+      // SUCCESS
+      // ========================================================
 
       _showMessage(
         'Mobile number updated successfully.',
@@ -148,61 +258,16 @@ class _ChangeMobileOtpScreenState
         context,
         true,
       );
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) {
-        return;
-      }
+    }
 
-      String message =
-          'Could not verify OTP.';
+    // ==========================================================
+    // FIREBASE AUTH ERROR
+    // ==========================================================
 
-      switch (e.code) {
-        case 'invalid-verification-code':
-          message =
-              'Invalid OTP. Please check and try again.';
-          break;
-
-        case 'session-expired':
-          message =
-              'OTP expired. Please request a new OTP.';
-          break;
-
-        case 'credential-already-in-use':
-          message =
-              'This mobile number is already linked to another account.';
-          break;
-
-        case 'provider-already-linked':
-          message =
-              'This mobile number is already linked.';
-          break;
-
-        case 'requires-recent-login':
-          message =
-              'Please login again before changing your mobile number.';
-          break;
-
-        default:
-          if (e.message != null &&
-              e.message!.trim().isNotEmpty) {
-            message =
-                e.message!.trim();
-          }
-      }
-
-      _showMessage(message);
-    } on FirebaseException catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        e.message ??
-            'Could not update mobile number.',
-      );
-    } catch (e) {
+    on FirebaseAuthException catch (e) {
       debugPrint(
-        'Verify Mobile OTP Error: $e',
+        'Change Mobile FirebaseAuth Error: '
+        '${e.code} - ${e.message}',
       );
 
       if (!mounted) {
@@ -210,14 +275,119 @@ class _ChangeMobileOtpScreenState
       }
 
       _showMessage(
-        'Could not update mobile number.',
+        _authErrorMessage(e),
       );
-    } finally {
+    }
+
+    // ==========================================================
+    // FIREBASE GENERAL ERROR
+    // ==========================================================
+
+    on FirebaseException catch (e) {
+      debugPrint(
+        'Change Mobile Firebase Error: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        e.message?.trim().isNotEmpty == true
+            ? e.message!.trim()
+            : 'Could not update mobile number.',
+      );
+    }
+
+    // ==========================================================
+    // OTHER ERROR
+    // ==========================================================
+
+    catch (e) {
+      debugPrint(
+        'Change Mobile OTP Error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Could not update mobile number. Please try again.',
+      );
+    }
+
+    // ==========================================================
+    // STOP LOADING
+    // ==========================================================
+
+    finally {
       if (mounted) {
         setState(() {
           _isVerifying = false;
         });
       }
+    }
+  }
+
+  // ============================================================
+  // AUTH ERROR MESSAGE
+  // ============================================================
+
+  String _authErrorMessage(
+    FirebaseAuthException e,
+  ) {
+    switch (e.code) {
+      case 'invalid-verification-code':
+        return 'Invalid OTP. Please check and try again.';
+
+      case 'session-expired':
+        return 'OTP expired. Please request a new OTP.';
+
+      case 'invalid-verification-id':
+        return 'OTP session is invalid. Please request a new OTP.';
+
+      case 'credential-already-in-use':
+        return 'This mobile number is already linked to another account.';
+
+      case 'phone-number-already-exists':
+        return 'This mobile number is already registered with another account.';
+
+      case 'provider-already-linked':
+        return 'This mobile number is already linked.';
+
+      case 'requires-recent-login':
+        return 'Please login again before changing your mobile number.';
+
+      case 'user-disabled':
+        return 'This account has been disabled.';
+
+      case 'user-not-found':
+        return 'Your account could not be found. Please login again.';
+
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+
+      case 'quota-exceeded':
+        return 'OTP limit reached. Please try again later.';
+
+      case 'operation-not-allowed':
+        return 'Phone authentication is not enabled in Firebase.';
+
+      case 'invalid-phone-number':
+        return 'The mobile number is invalid.';
+
+      default:
+        if (e.message != null &&
+            e.message!.trim().isNotEmpty) {
+          return e.message!.trim();
+        }
+
+        return 'Could not verify OTP. Please try again.';
     }
   }
 
@@ -231,6 +401,16 @@ class _ChangeMobileOtpScreenState
       return;
     }
 
+    final String phone =
+        widget.newPhoneNumber.trim();
+
+    if (phone.isEmpty) {
+      _showMessage(
+        'Mobile number is missing.',
+      );
+      return;
+    }
+
     setState(() {
       _isResending = true;
     });
@@ -238,13 +418,21 @@ class _ChangeMobileOtpScreenState
     try {
       await _service.sendOtp(
         phoneNumber:
-            widget.newPhoneNumber,
+            phone,
+
+        // ------------------------------------------------------
+        // RESEND TOKEN
+        // ------------------------------------------------------
 
         onResendToken: (
           int? token,
         ) {
           _resendToken = token;
         },
+
+        // ------------------------------------------------------
+        // CODE SENT
+        // ------------------------------------------------------
 
         onCodeSent: (
           String verificationId,
@@ -253,17 +441,33 @@ class _ChangeMobileOtpScreenState
             return;
           }
 
+          final String newId =
+              verificationId.trim();
+
+          if (newId.isEmpty) {
+            _showMessage(
+              'Could not start the new OTP session.',
+            );
+            return;
+          }
+
           setState(() {
             _verificationId =
-                verificationId;
+                newId;
           });
 
           _otpController.clear();
+
+          _otpFocusNode.requestFocus();
 
           _showMessage(
             'New OTP sent successfully.',
           );
         },
+
+        // ------------------------------------------------------
+        // VERIFICATION FAILED
+        // ------------------------------------------------------
 
         onVerificationFailed: (
           FirebaseAuthException error,
@@ -273,35 +477,71 @@ class _ChangeMobileOtpScreenState
           }
 
           _showMessage(
-            error.message ??
-                'Could not send OTP.',
+            _authErrorMessage(error),
           );
         },
+
+        // ------------------------------------------------------
+        // AUTO VERIFICATION
+        // ------------------------------------------------------
 
         onVerificationCompleted: (
           PhoneAuthCredential credential,
         ) {
-          // Do not automatically update.
+          // ----------------------------------------------------
+          // IMPORTANT
+          //
+          // Do NOT automatically update the phone number.
+          // User must explicitly enter OTP and press:
+          //
+          // "Verify & Update"
+          // ----------------------------------------------------
         },
       );
-    } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        _showMessage(
-          e.message ??
-              'Could not resend OTP.',
-        );
+    }
+
+    // ==========================================================
+    // FIREBASE AUTH ERROR
+    // ==========================================================
+
+    on FirebaseAuthException catch (e) {
+      debugPrint(
+        'Resend Mobile OTP FirebaseAuth Error: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
       }
-    } catch (e) {
+
+      _showMessage(
+        _authErrorMessage(e),
+      );
+    }
+
+    // ==========================================================
+    // OTHER ERROR
+    // ==========================================================
+
+    catch (e) {
       debugPrint(
         'Resend OTP Error: $e',
       );
 
-      if (mounted) {
-        _showMessage(
-          'Could not resend OTP.',
-        );
+      if (!mounted) {
+        return;
       }
-    } finally {
+
+      _showMessage(
+        'Could not resend OTP. Please try again.',
+      );
+    }
+
+    // ==========================================================
+    // STOP RESEND LOADING
+    // ==========================================================
+
+    finally {
       if (mounted) {
         setState(() {
           _isResending = false;
@@ -325,9 +565,15 @@ class _ChangeMobileOtpScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(
+            message,
+          ),
           behavior:
               SnackBarBehavior.floating,
+          duration:
+              const Duration(
+            seconds: 3,
+          ),
         ),
       );
   }
@@ -343,6 +589,11 @@ class _ChangeMobileOtpScreenState
     return Scaffold(
       backgroundColor:
           background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+
       appBar: AppBar(
         backgroundColor:
             orange,
@@ -358,6 +609,11 @@ class _ChangeMobileOtpScreenState
           ),
         ),
       ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding:
@@ -369,6 +625,10 @@ class _ChangeMobileOtpScreenState
               const SizedBox(
                 height: 24,
               ),
+
+              // ==================================================
+              // ICON
+              // ==================================================
 
               Container(
                 width: 72,
@@ -396,14 +656,21 @@ class _ChangeMobileOtpScreenState
                 height: 20,
               ),
 
+              // ==================================================
+              // TITLE
+              // ==================================================
+
               const Text(
                 'Enter OTP',
+                textAlign:
+                    TextAlign.center,
                 style:
                     TextStyle(
                   fontSize: 25,
                   fontWeight:
                       FontWeight.w900,
-                  color: navy,
+                  color:
+                      navy,
                 ),
               ),
 
@@ -411,8 +678,13 @@ class _ChangeMobileOtpScreenState
                 height: 8,
               ),
 
+              // ==================================================
+              // PHONE
+              // ==================================================
+
               Text(
-                'We sent a 6-digit OTP to\n${widget.newPhoneNumber}',
+                'We sent a 6-digit OTP to\n'
+                '${widget.newPhoneNumber}',
                 textAlign:
                     TextAlign.center,
                 style:
@@ -430,6 +702,10 @@ class _ChangeMobileOtpScreenState
                 height: 28,
               ),
 
+              // ==================================================
+              // OTP FIELD
+              // ==================================================
+
               TextField(
                 controller:
                     _otpController,
@@ -443,30 +719,49 @@ class _ChangeMobileOtpScreenState
                     TextAlign.center,
                 maxLength: 6,
                 autofocus: true,
+
                 inputFormatters: [
                   FilteringTextInputFormatter
                       .digitsOnly,
                 ],
+
+                onChanged: (
+                  String value,
+                ) {
+                  if (value.length == 6 &&
+                      !_isVerifying &&
+                      !_isResending) {
+                    // Keep automatic verification
+                    // disabled. User explicitly presses
+                    // Verify & Update.
+                  }
+                },
+
                 onSubmitted: (_) {
                   _verifyOtp();
                 },
+
                 style:
                     const TextStyle(
                   fontSize: 25,
                   fontWeight:
                       FontWeight.w800,
                   letterSpacing: 8,
-                  color: navy,
+                  color:
+                      navy,
                 ),
+
                 decoration:
                     InputDecoration(
                   counterText: '',
-                  hintText: '••••••',
+                  hintText:
+                      '••••••',
                   hintStyle:
                       TextStyle(
                     color:
                         Colors.grey.shade400,
-                    letterSpacing: 8,
+                    letterSpacing:
+                        8,
                   ),
                   filled: true,
                   fillColor:
@@ -478,6 +773,15 @@ class _ChangeMobileOtpScreenState
                     vertical: 18,
                   ),
                   border:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      16,
+                    ),
+                    borderSide:
+                        BorderSide.none,
+                  ),
+                  enabledBorder:
                       OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(
@@ -506,6 +810,10 @@ class _ChangeMobileOtpScreenState
                 height: 22,
               ),
 
+              // ==================================================
+              // VERIFY BUTTON
+              // ==================================================
+
               SizedBox(
                 width:
                     double.infinity,
@@ -513,9 +821,11 @@ class _ChangeMobileOtpScreenState
                 child:
                     ElevatedButton(
                   onPressed:
-                      _isVerifying
+                      (_isVerifying ||
+                              _isResending)
                           ? null
                           : _verifyOtp,
+
                   style:
                       ElevatedButton
                           .styleFrom(
@@ -527,6 +837,8 @@ class _ChangeMobileOtpScreenState
                         orange.withOpacity(
                       0.55,
                     ),
+                    disabledForegroundColor:
+                        Colors.white,
                     elevation: 0,
                     shape:
                         RoundedRectangleBorder(
@@ -536,6 +848,7 @@ class _ChangeMobileOtpScreenState
                       ),
                     ),
                   ),
+
                   child:
                       _isVerifying
                           ? const SizedBox(
@@ -566,6 +879,10 @@ class _ChangeMobileOtpScreenState
                 height: 18,
               ),
 
+              // ==================================================
+              // RESEND
+              // ==================================================
+
               Row(
                 mainAxisAlignment:
                     MainAxisAlignment
@@ -581,15 +898,18 @@ class _ChangeMobileOtpScreenState
                           FontWeight.w600,
                     ),
                   ),
+
                   const SizedBox(
                     width: 5,
                   ),
+
                   TextButton(
                     onPressed:
                         (_isResending ||
                                 _isVerifying)
                             ? null
                             : _resendOtp,
+
                     child:
                         _isResending
                             ? const SizedBox(
@@ -615,6 +935,30 @@ class _ChangeMobileOtpScreenState
                               ),
                   ),
                 ],
+              ),
+
+              const SizedBox(
+                height: 8,
+              ),
+
+              // ==================================================
+              // SECURITY NOTE
+              // ==================================================
+
+              const Text(
+                'Your mobile number will be updated only '
+                'after successful OTP verification.',
+                textAlign:
+                    TextAlign.center,
+                style:
+                    TextStyle(
+                  fontSize: 11,
+                  height: 1.4,
+                  color:
+                      Colors.grey,
+                  fontWeight:
+                      FontWeight.w500,
+                ),
               ),
             ],
           ),
