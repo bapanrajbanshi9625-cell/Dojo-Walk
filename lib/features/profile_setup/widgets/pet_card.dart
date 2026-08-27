@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../models/pet_data.dart';
 import 'profile_text_field.dart';
 import 'profile_selection_field.dart';
@@ -24,30 +25,24 @@ class PetCard extends StatelessWidget {
     required this.onBehaviourTap,
   });
 
-  static const Color orange =
-      Color(0xFFF4511E);
-
-  static const Color lightOrange =
-      Color(0xFFFFF1E8);
-
   @override
   Widget build(BuildContext context) {
-    final petNumber = index + 1;
+    final int petNumber = index + 1;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color: AppColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(0.045),
+            color: AppColors.black.withValues(
+              alpha: 0.045,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -55,19 +50,22 @@ class PetCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // ====================================================
+          // PET HEADER
+          // ====================================================
+
           Row(
             children: [
               Container(
                 width: 43,
                 height: 43,
-                decoration:
-                    const BoxDecoration(
-                  color: lightOrange,
+                decoration: const BoxDecoration(
+                  color: AppColors.orangeLight,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: orange,
+                  color: AppColors.primary,
                   size: 23,
                 ),
               ),
@@ -78,20 +76,23 @@ class PetCard extends StatelessWidget {
                 child: Text(
                   'Pet $petNumber',
                   style: const TextStyle(
+                    color: AppColors.navy,
                     fontSize: 18,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
 
+              // ==================================================
+              // REMOVE
+              // ==================================================
+
               if (totalPets > 1)
                 TextButton.icon(
                   onPressed: onRemove,
-                  style:
-                      TextButton.styleFrom(
+                  style: TextButton.styleFrom(
                     foregroundColor:
-                        Colors.red.shade600,
+                        AppColors.error,
                   ),
                   icon: const Icon(
                     Icons.delete_outline_rounded,
@@ -100,8 +101,7 @@ class PetCard extends StatelessWidget {
                   label: const Text(
                     'Remove',
                     style: TextStyle(
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -110,15 +110,22 @@ class PetCard extends StatelessWidget {
 
           const SizedBox(height: 17),
 
+          // ====================================================
+          // PET NAME
+          // ====================================================
+
           ProfileTextField(
-            controller:
-                pet.nameController,
+            controller: pet.nameController,
             label: 'Pet Name',
             hint: 'Enter pet name',
             icon: Icons.pets_rounded,
           ),
 
           const SizedBox(height: 17),
+
+          // ====================================================
+          // PET AGE
+          // ====================================================
 
           ProfileSelectionField(
             label: 'Pet Age',
@@ -130,6 +137,10 @@ class PetCard extends StatelessWidget {
 
           const SizedBox(height: 17),
 
+          // ====================================================
+          // BREED
+          // ====================================================
+
           ProfileSelectionField(
             label: 'Breed',
             hint: 'Choose breed',
@@ -140,11 +151,14 @@ class PetCard extends StatelessWidget {
 
           const SizedBox(height: 17),
 
+          // ====================================================
+          // BEHAVIOUR
+          // ====================================================
+
           ProfileSelectionField(
             label: 'Behaviour',
             hint: 'Choose behaviour',
-            icon:
-                Icons.favorite_border_rounded,
+            icon: Icons.favorite_border_rounded,
             value: pet.behaviour,
             onTap: onBehaviourTap,
           ),
