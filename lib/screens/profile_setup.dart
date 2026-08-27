@@ -18,6 +18,14 @@ import '../features/profile_setup/widgets/save_profile_button.dart';
 import '../features/profile_setup/pickers/compact_picker_sheet.dart';
 import '../features/profile_setup/pickers/breed_picker.dart';
 
+// ============================================================
+// DOJO THEME COLORS
+// ============================================================
+
+import '../core/theme/colors/dojo_brand_colors.dart';
+import '../core/theme/colors/dojo_input_colors.dart';
+import '../core/theme/colors/dojo_light_colors.dart';
+
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({
     super.key,
@@ -30,19 +38,6 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState
     extends State<ProfileSetupScreen> {
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color orange =
-      Color(0xFFF4511E);
-
-  static const Color lightOrange =
-      Color(0xFFFFF1E8);
-
-  static const Color textGrey =
-      Color(0xFF707070);
-
   // ============================================================
   // CONTROLLERS
   // ============================================================
@@ -187,7 +182,6 @@ class _ProfileSetupScreenState
   // ============================================================
 
   Future<void> _saveProfile() async {
-    // Prevent double tap
     if (_isSaving) {
       return;
     }
@@ -261,7 +255,7 @@ class _ProfileSetupScreenState
           .showSnackBar(
         SnackBar(
           backgroundColor:
-              Colors.green,
+              DojoBrandColors.mint,
           duration:
               const Duration(
             seconds: 1,
@@ -270,6 +264,9 @@ class _ProfileSetupScreenState
             'Profile saved successfully with '
             '${pets.length} '
             '${pets.length == 1 ? 'pet' : 'pets'}.',
+            style: const TextStyle(
+              color: Colors.white,
+            ),
           ),
         ),
       );
@@ -348,11 +345,14 @@ class _ProfileSetupScreenState
         .showSnackBar(
       SnackBar(
         backgroundColor:
-            Colors.red.shade700,
+            DojoBrandColors.orangeDark,
         behavior:
             SnackBarBehavior.floating,
         content: Text(
           message,
+          style: const TextStyle(
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -372,7 +372,7 @@ class _ProfileSetupScreenState
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          Colors.white,
+          DojoInputColors.lightBackground,
       isScrollControlled: true,
       shape:
           const RoundedRectangleBorder(
@@ -431,7 +431,7 @@ class _ProfileSetupScreenState
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          Colors.white,
+          DojoInputColors.lightBackground,
       isScrollControlled: true,
       shape:
           const RoundedRectangleBorder(
@@ -499,8 +499,12 @@ class _ProfileSetupScreenState
     BuildContext context,
   ) {
     return Scaffold(
+      // ========================================================
+      // BACKGROUND FROM DOJO COLOR PACKAGE
+      // ========================================================
+
       backgroundColor:
-          const Color(0xFFF8F8F8),
+          DojoLightColors.background,
 
       // ========================================================
       // APP BAR
@@ -508,7 +512,7 @@ class _ProfileSetupScreenState
 
       appBar: AppBar(
         backgroundColor:
-            orange,
+            DojoBrandColors.orange,
         foregroundColor:
             Colors.white,
         elevation: 0,
@@ -573,13 +577,15 @@ class _ProfileSetupScreenState
               // OWNER INFORMATION
               // ==================================================
 
-              const Text(
+              Text(
                 'Owner Information',
                 style:
                     TextStyle(
                   fontSize: 22,
                   fontWeight:
                       FontWeight.bold,
+                  color:
+                      DojoLightColors.text,
                 ),
               ),
 
@@ -607,12 +613,12 @@ class _ProfileSetupScreenState
               ),
 
               // ==================================================
-              // PET INFORMATION TITLE
+              // PET INFORMATION
               // ==================================================
 
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child:
                         Text(
                       'Pet Information',
@@ -621,9 +627,12 @@ class _ProfileSetupScreenState
                         fontSize: 22,
                         fontWeight:
                             FontWeight.bold,
+                        color:
+                            DojoLightColors.text,
                       ),
                     ),
                   ),
+
                   Container(
                     padding:
                         const EdgeInsets
@@ -634,7 +643,8 @@ class _ProfileSetupScreenState
                     decoration:
                         BoxDecoration(
                       color:
-                          lightOrange,
+                          DojoBrandColors
+                              .orangeLight,
                       borderRadius:
                           BorderRadius
                               .circular(
@@ -647,7 +657,8 @@ class _ProfileSetupScreenState
                       style:
                           const TextStyle(
                         color:
-                            orange,
+                            DojoBrandColors
+                                .orange,
                         fontSize:
                             12,
                         fontWeight:
@@ -727,13 +738,15 @@ class _ProfileSetupScreenState
               // ADDRESS
               // ==================================================
 
-              const Text(
+              Text(
                 'Address',
                 style:
                     TextStyle(
                   fontSize: 22,
                   fontWeight:
                       FontWeight.bold,
+                  color:
+                      DojoLightColors.text,
                 ),
               ),
 
@@ -741,12 +754,13 @@ class _ProfileSetupScreenState
                 height: 5,
               ),
 
-              const Text(
+              Text(
                 'Optional',
                 style:
                     TextStyle(
                   color:
-                      textGrey,
+                      DojoInputColors
+                          .lightHint,
                   fontSize:
                       13,
                 ),
@@ -796,7 +810,8 @@ class _ProfileSetupScreenState
                   style:
                       TextStyle(
                     color:
-                        Colors.grey.shade500,
+                        DojoInputColors
+                            .lightHint,
                     fontSize:
                         11,
                   ),
