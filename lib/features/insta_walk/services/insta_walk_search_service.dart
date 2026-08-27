@@ -33,7 +33,7 @@ class InstaWalkSearchService {
   // COLLECTIONS
   // ==========================================================
 
-  static const String walkRequestsCollection = 'walk_requests';
+  static const String walkRequestsCollection = 'walk_request';
 
   // IMPORTANT:
   // Owner profiles are now stored in:
