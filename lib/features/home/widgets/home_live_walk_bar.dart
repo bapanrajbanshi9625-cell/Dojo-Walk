@@ -8,47 +8,40 @@ class HomeLiveWalkBar extends StatelessWidget {
 
   final VoidCallback onTap;
 
-  static const Color navy = Color(0xFF263746);
-
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          height: 58,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
+          height: 56,
+          margin: EdgeInsets.zero,
+          padding: EdgeInsets.zero,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                Color(0xFF34495E),
+                Color(0xFFF4511E),
                 Color(0xFF263746),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
-              ),
-            ],
           ),
           child: Row(
             children: [
-              const SizedBox(width: 15),
+              const SizedBox(width: 14),
 
-              // LIVE INDICATOR
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withValues(
+                    alpha: 0.14,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.pets,
@@ -57,43 +50,49 @@ class HomeLiveWalkBar extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(width: 11),
+              const SizedBox(width: 10),
 
               const Expanded(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Live Walk',
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight: FontWeight.w900,
+                        fontWeight:
+                            FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    SizedBox(height: 1),
                     Text(
-                      'Tap to See',
+                      'Tap to view active walk',
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontWeight:
+                            FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // LIVE DOT
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
+                decoration:
+                    const BoxDecoration(
                   color: Colors.greenAccent,
                   shape: BoxShape.circle,
                 ),
@@ -104,10 +103,10 @@ class HomeLiveWalkBar extends StatelessWidget {
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 color: Colors.white,
-                size: 16,
+                size: 15,
               ),
 
-              const SizedBox(width: 15),
+              const SizedBox(width: 14),
             ],
           ),
         ),
