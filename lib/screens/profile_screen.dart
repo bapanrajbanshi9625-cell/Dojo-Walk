@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../features/profile/profile_features.dart';
 import '../services/owner_id_service.dart';
@@ -16,50 +17,32 @@ class ProfileScreen extends StatefulWidget {
       _ProfileScreenState();
 }
 
-class _ProfileScreenState
-    extends State<ProfileScreen> {
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color orange =
-      Color(0xFFF4511E);
-
-  static const Color navy =
-      Color(0xFF263746);
-
-  static const Color background =
-      Color(0xFFEDEFF2);
-
-  static const Color lightOrange =
-      Color(0xFFFFF1E8);
-
-  // ============================================================
-  // OWNER
-  // ============================================================
+class _ProfileScreenState extends State<ProfileScreen> {
+  static const Color orange = Color(0xFFF4511E);
+  static const Color navy = Color(0xFF263746);
+  static const Color background = Color(0xFFEDEFF2);
+  static const Color lightOrange = Color(0xFFFFF1E8);
 
   String ownerId = '';
   String ownerUid = '';
 
   String mobileNumber = '';
   String ownerName = 'Owner';
-  String ownerAge = '-';
+  String ownerDob = '-';
   String ownerGender = '-';
   String memberSince = '-';
+
+  String flatHouseNo = '';
+  String streetRoad = '';
+  String landmark = '';
 
   bool isActive = true;
   bool isLoading = true;
   bool isSavingPet = false;
-
-  // ============================================================
-  // PETS
-  // ============================================================
+  bool isSavingAddress = false;
+  bool isConnectingLocation = false;
 
   List<Map<String, dynamic>> pets = [];
-
-  // ============================================================
-  // INIT
-  // ============================================================
 
   @override
   void initState() {
@@ -68,7 +51,7 @@ class _ProfileScreenState
   }
 
   // ============================================================
-  // LOAD OWNER PROFILE
+  // LOAD PROFILE
   // ============================================================
 
   Future<void> _loadOwnerProfile() async {
@@ -86,12 +69,10 @@ class _ProfileScreenState
         return;
       }
 
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
       final String? existingOwnerId =
-          await OwnerIdService.instance
-              .getExistingOwnerId(
+          await OwnerIdService.instance.getExistingOwnerId(
         uid: uid,
       );
 
@@ -110,13 +91,7 @@ class _ProfileScreenState
       final String cleanOwnerId =
           existingOwnerId.trim();
 
-      // ========================================================
-      // IMPORTANT:
-      // owners/{ownerId}
-      // ========================================================
-
-      final DocumentSnapshot<
-              Map<String, dynamic>>
+      final DocumentSnapshot<Map<String, dynamic>>
           snapshot =
           await FirebaseFirestore.instance
               .collection('owners')
@@ -155,16 +130,10 @@ class _ProfileScreenState
       // ========================================================
 
       final String fullName =
-          data['fullName']
-                  ?.toString()
-                  .trim() ??
-              '';
+          data['fullName']?.toString().trim() ?? '';
 
       final String savedOwnerName =
-          data['ownerName']
-                  ?.toString()
-                  .trim() ??
-              '';
+          data['ownerName']?.toString().trim() ?? '';
 
       final String name =
           fullName.isNotEmpty
@@ -178,10 +147,7 @@ class _ProfileScreenState
       // ========================================================
 
       final String firestorePhone =
-          data['phone']
-                  ?.toString()
-                  .trim() ??
-              '';
+          data['phone']?.toString().trim() ?? '';
 
       final String phone =
           firestorePhone.isNotEmpty
@@ -189,24 +155,20 @@ class _ProfileScreenState
               : user.phoneNumber ?? '';
 
       // ========================================================
-      // AGE
+      // DATE OF BIRTH
       // ========================================================
 
-      final String savedAge =
-          data['age']
-                  ?.toString()
-                  .trim() ??
-              '';
+      final String dob =
+          _formatDateOfBirth(
+        data['dateOfBirth'],
+      );
 
       // ========================================================
       // GENDER
       // ========================================================
 
       final String savedGender =
-          data['gender']
-                  ?.toString()
-                  .trim() ??
-              '';
+          data['gender']?.toString().trim() ?? '';
 
       // ========================================================
       // ACTIVE
@@ -237,16 +199,57 @@ class _ProfileScreenState
       }
 
       // ========================================================
+      // ADDRESS
+      // ========================================================
+
+      String savedFlat = '';
+      String savedStreet = '';
+      String savedLandmark = '';
+
+      final dynamic addressDetails =
+          data['addressDetails'];
+
+      if (addressDetails is Map) {
+        savedFlat =
+            addressDetails['flatHouseNo']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        savedStreet =
+            addressDetails['streetRoad']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        savedLandmark =
+            addressDetails['landmark']
+                    ?.toString()
+                    .trim() ??
+                '';
+      }
+
+      // Backward compatibility.
+      //
+      // If addressDetails was not saved but old address
+      // exists, display the old address as street/address.
+      if (savedFlat.isEmpty &&
+          savedStreet.isEmpty &&
+          savedLandmark.isEmpty) {
+        final String oldAddress =
+            data['address']?.toString().trim() ?? '';
+
+        if (oldAddress.isNotEmpty) {
+          savedStreet = oldAddress;
+        }
+      }
+
+      // ========================================================
       // PETS
       // ========================================================
 
-      final List<Map<String, dynamic>>
-          loadedPets =
+      final List<Map<String, dynamic>> loadedPets =
           _readPets(data['pets']);
-
-      // ========================================================
-      // UPDATE UI
-      // ========================================================
 
       if (!mounted) return;
 
@@ -259,10 +262,8 @@ class _ProfileScreenState
 
         ownerName = name;
 
-        ownerAge =
-            savedAge.isEmpty
-                ? '-'
-                : savedAge;
+        ownerDob =
+            dob.isEmpty ? '-' : dob;
 
         ownerGender =
             savedGender.isEmpty
@@ -275,11 +276,19 @@ class _ProfileScreenState
         isActive =
             active;
 
+        flatHouseNo =
+            savedFlat;
+
+        streetRoad =
+            savedStreet;
+
+        landmark =
+            savedLandmark;
+
         pets =
             loadedPets;
 
-        isLoading =
-            false;
+        isLoading = false;
       });
     } catch (e, stackTrace) {
       debugPrint(
@@ -299,6 +308,38 @@ class _ProfileScreenState
   }
 
   // ============================================================
+  // DOB FORMAT
+  // ============================================================
+
+  String _formatDateOfBirth(dynamic value) {
+    DateTime? date;
+
+    if (value is Timestamp) {
+      date = value.toDate();
+    } else if (value is DateTime) {
+      date = value;
+    } else if (value is String) {
+      final String text = value.trim();
+
+      if (text.isNotEmpty) {
+        date = DateTime.tryParse(text);
+
+        if (date == null) {
+          return text;
+        }
+      }
+    }
+
+    if (date == null) {
+      return '';
+    }
+
+    return '${date.day.toString().padLeft(2, '0')} '
+        '${_monthName(date.month)} '
+        '${date.year}';
+  }
+
+  // ============================================================
   // READ PETS
   // ============================================================
 
@@ -309,8 +350,7 @@ class _ProfileScreenState
       return [];
     }
 
-    final List<Map<String, dynamic>>
-        result = [];
+    final List<Map<String, dynamic>> result = [];
 
     for (final dynamic item in value) {
       if (item is Map) {
@@ -324,12 +364,10 @@ class _ProfileScreenState
   }
 
   // ============================================================
-  // FORMAT PHONE
+  // PHONE FORMAT
   // ============================================================
 
-  String _formatIndianNumber(
-    String number,
-  ) {
+  String _formatIndianNumber(String number) {
     final String clean =
         number.replaceAll(
       RegExp(r'[^0-9]'),
@@ -373,6 +411,10 @@ class _ProfileScreenState
       'Dec',
     ];
 
+    if (month < 1 || month > 12) {
+      return '';
+    }
+
     return months[month];
   }
 
@@ -391,12 +433,8 @@ class _ProfileScreenState
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content:
-            Text('Owner ID copied.'),
-      ),
+    _showMessage(
+      'Owner ID copied.',
     );
   }
 
@@ -423,8 +461,7 @@ class _ProfileScreenState
       ),
       builder: (_) {
         return ChangeMobileFlow(
-          currentNumber:
-              mobileNumber,
+          currentNumber: mobileNumber,
           onChanged: (
             String newNumber,
           ) {
@@ -441,6 +478,755 @@ class _ProfileScreenState
   }
 
   // ============================================================
+  // ADDRESS EDITOR
+  // ============================================================
+
+  Future<void> _openAddressEditor() async {
+    final TextEditingController flatController =
+        TextEditingController(
+      text: flatHouseNo,
+    );
+
+    final TextEditingController streetController =
+        TextEditingController(
+      text: streetRoad,
+    );
+
+    final TextEditingController landmarkController =
+        TextEditingController(
+      text: landmark,
+    );
+
+    bool connecting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (
+            context,
+            setSheetState,
+          ) {
+            Future<void> connectLocation() async {
+              if (connecting) return;
+
+              setSheetState(() {
+                connecting = true;
+              });
+
+              try {
+                final Position? position =
+                    await _getCurrentLocation();
+
+                if (position == null) {
+                  if (sheetContext.mounted) {
+                    _showMessage(
+                      'Unable to get current location.',
+                    );
+                  }
+
+                  return;
+                }
+
+                /*
+                 * Current GPS coordinates are handled by
+                 * the profile location fields.
+                 *
+                 * We do NOT invent an address from
+                 * coordinates here.
+                 *
+                 * The address fields remain user-editable.
+                 */
+                if (sheetContext.mounted) {
+                  _showMessage(
+                    'Current location connected.',
+                  );
+                }
+              } finally {
+                if (sheetContext.mounted) {
+                  setSheetState(() {
+                    connecting = false;
+                  });
+                }
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 18,
+                  right: 18,
+                  top: 18,
+                  bottom:
+                      MediaQuery.of(context)
+                              .viewInsets
+                              .bottom +
+                          20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  lightOrange,
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                13,
+                              ),
+                            ),
+                            child:
+                                const Icon(
+                              Icons
+                                  .location_on_outlined,
+                              color:
+                                  orange,
+                            ),
+                          ),
+                          const SizedBox(
+                            width: 12,
+                          ),
+                          const Expanded(
+                            child: Text(
+                              'Edit Address',
+                              style:
+                                  TextStyle(
+                                fontSize: 21,
+                                fontWeight:
+                                    FontWeight.w800,
+                                color:
+                                    navy,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(
+                                sheetContext,
+                              );
+                            },
+                            icon:
+                                const Icon(
+                              Icons
+                                  .close_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 18,
+                      ),
+
+                      const Text(
+                        'Flat / House No. *',
+                        style:
+                            TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.w700,
+                          color:
+                              navy,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 7,
+                      ),
+
+                      _AddressEditorField(
+                        controller:
+                            flatController,
+                        hint:
+                            'e.g. Flat 204 / House No. 12',
+                        icon:
+                            Icons.home_outlined,
+                      ),
+
+                      const SizedBox(
+                        height: 14,
+                      ),
+
+                      const Text(
+                        'Street / Road *',
+                        style:
+                            TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.w700,
+                          color:
+                              navy,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 7,
+                      ),
+
+                      _AddressEditorField(
+                        controller:
+                            streetController,
+                        hint:
+                            'Enter street or road',
+                        icon:
+                            Icons
+                                .signpost_outlined,
+                      ),
+
+                      const SizedBox(
+                        height: 14,
+                      ),
+
+                      const Text(
+                        'Landmark',
+                        style:
+                            TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.w700,
+                          color:
+                              navy,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 7,
+                      ),
+
+                      _AddressEditorField(
+                        controller:
+                            landmarkController,
+                        hint:
+                            'Nearby landmark (optional)',
+                        icon:
+                            Icons
+                                .place_outlined,
+                      ),
+
+                      const SizedBox(
+                        height: 14,
+                      ),
+
+                      // ==================================================
+                      // CONNECT CURRENT LOCATION
+                      // ==================================================
+
+                      SizedBox(
+                        width:
+                            double.infinity,
+                        height: 46,
+                        child:
+                            OutlinedButton.icon(
+                          onPressed:
+                              connecting
+                                  ? null
+                                  : connectLocation,
+                          style:
+                              OutlinedButton
+                                  .styleFrom(
+                            foregroundColor:
+                                orange,
+                            side:
+                                const BorderSide(
+                              color:
+                                  orange,
+                              width:
+                                  1.2,
+                            ),
+                            shape:
+                                RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                13,
+                              ),
+                            ),
+                          ),
+                          icon:
+                              connecting
+                                  ? const SizedBox(
+                                      width:
+                                          18,
+                                      height:
+                                          18,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth:
+                                            2,
+                                        color:
+                                            orange,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons
+                                          .my_location_rounded,
+                                      size:
+                                          20,
+                                    ),
+                          label:
+                              Text(
+                            connecting
+                                ? 'Connecting...'
+                                : 'Connect Current Location',
+                            style:
+                                const TextStyle(
+                              fontSize:
+                                  14,
+                              fontWeight:
+                                  FontWeight
+                                      .w700,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 18,
+                      ),
+
+                      // ==================================================
+                      // SAVE ADDRESS
+                      // ==================================================
+
+                      SizedBox(
+                        width:
+                            double.infinity,
+                        height: 50,
+                        child:
+                            ElevatedButton(
+                          onPressed:
+                              isSavingAddress
+                                  ? null
+                                  : () async {
+                                      final String
+                                          flat =
+                                          flatController
+                                              .text
+                                              .trim();
+
+                                      final String
+                                          street =
+                                          streetController
+                                              .text
+                                              .trim();
+
+                                      final String
+                                          landmarkValue =
+                                          landmarkController
+                                              .text
+                                              .trim();
+
+                                      if (flat
+                                          .isEmpty) {
+                                        _showMessage(
+                                          'Please enter Flat / House No.',
+                                        );
+                                        return;
+                                      }
+
+                                      if (street
+                                          .isEmpty) {
+                                        _showMessage(
+                                          'Please enter Street / Road.',
+                                        );
+                                        return;
+                                      }
+
+                                      final bool
+                                          saved =
+                                          await _saveAddress(
+                                        flatHouseNo:
+                                            flat,
+                                        streetRoad:
+                                            street,
+                                        landmark:
+                                            landmarkValue,
+                                      );
+
+                                      if (saved &&
+                                          sheetContext
+                                              .mounted) {
+                                        Navigator.pop(
+                                          sheetContext,
+                                        );
+                                      }
+                                    },
+                          style:
+                              ElevatedButton
+                                  .styleFrom(
+                            backgroundColor:
+                                orange,
+                            foregroundColor:
+                                Colors.white,
+                            disabledBackgroundColor:
+                                orange
+                                    .withOpacity(
+                              0.55,
+                            ),
+                            elevation:
+                                0,
+                            shape:
+                                RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                14,
+                              ),
+                            ),
+                          ),
+                          child:
+                              isSavingAddress
+                                  ? const SizedBox(
+                                      width:
+                                          22,
+                                      height:
+                                          22,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth:
+                                            2.3,
+                                        color:
+                                            Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Save Address',
+                                      style:
+                                          TextStyle(
+                                        fontSize:
+                                            15,
+                                        fontWeight:
+                                            FontWeight
+                                                .w800,
+                                      ),
+                                    ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    flatController.dispose();
+    streetController.dispose();
+    landmarkController.dispose();
+  }
+
+  // ============================================================
+  // GET CURRENT LOCATION
+  // ============================================================
+
+  Future<Position?> _getCurrentLocation() async {
+    try {
+      final bool serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _showMessage(
+          'Please turn on Location Services.',
+        );
+        return null;
+      }
+
+      LocationPermission permission =
+          await Geolocator.checkPermission();
+
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
+      }
+
+      if (permission ==
+              LocationPermission.denied ||
+          permission ==
+              LocationPermission.deniedForever) {
+        _showMessage(
+          'Location permission is required.',
+        );
+        return null;
+      }
+
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy:
+            LocationAccuracy.high,
+      );
+    } catch (e) {
+      debugPrint(
+        'Location Error: $e',
+      );
+
+      return null;
+    }
+  }
+
+  // ============================================================
+  // SAVE ADDRESS
+  // ============================================================
+
+  Future<bool> _saveAddress({
+    required String flatHouseNo,
+    required String streetRoad,
+    required String landmark,
+  }) async {
+    if (ownerId.trim().isEmpty) {
+      _showMessage(
+        'Owner ID was not found.',
+      );
+      return false;
+    }
+
+    if (flatHouseNo.trim().isEmpty) {
+      _showMessage(
+        'Flat / House No. is required.',
+      );
+      return false;
+    }
+
+    if (streetRoad.trim().isEmpty) {
+      _showMessage(
+        'Street / Road is required.',
+      );
+      return false;
+    }
+
+    setState(() {
+      isSavingAddress = true;
+    });
+
+    try {
+      /*
+       * Address is saved separately from profileCompleted.
+       *
+       * profileCompleted is NOT changed here.
+       */
+
+      await FirebaseFirestore.instance
+          .collection('owners')
+          .doc(ownerId)
+          .set(
+        <String, dynamic>{
+          'addressDetails':
+              <String, dynamic>{
+            'flatHouseNo':
+                flatHouseNo.trim(),
+            'streetRoad':
+                streetRoad.trim(),
+            'landmark':
+                landmark.trim(),
+          },
+
+          /*
+           * Compatibility/readable combined address.
+           */
+          'address':
+              _buildAddress(
+            flatHouseNo,
+            streetRoad,
+            landmark,
+          ),
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(
+          merge: true,
+        ),
+      );
+
+      if (!mounted) return false;
+
+      setState(() {
+        this.flatHouseNo =
+            flatHouseNo.trim();
+
+        this.streetRoad =
+            streetRoad.trim();
+
+        this.landmark =
+            landmark.trim();
+      });
+
+      _showMessage(
+        'Address saved successfully.',
+      );
+
+      return true;
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        _showMessage(
+          e.message ??
+              'Could not save address.',
+        );
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint(
+        'Save Address Error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Could not save address.',
+        );
+      }
+
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSavingAddress = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // BUILD ADDRESS
+  // ============================================================
+
+  String _buildAddress(
+    String flat,
+    String street,
+    String landmark,
+  ) {
+    final List<String> parts = [];
+
+    if (flat.trim().isNotEmpty) {
+      parts.add(
+        flat.trim(),
+      );
+    }
+
+    if (street.trim().isNotEmpty) {
+      parts.add(
+        street.trim(),
+      );
+    }
+
+    if (landmark.trim().isNotEmpty) {
+      parts.add(
+        landmark.trim(),
+      );
+    }
+
+    return parts.join(', ');
+  }
+
+  // ============================================================
+  // UPDATE CURRENT LOCATION
+  // ============================================================
+
+  Future<void> _updateCurrentLocation() async {
+    if (ownerId.trim().isEmpty) {
+      _showMessage(
+        'Owner ID was not found.',
+      );
+      return;
+    }
+
+    if (isConnectingLocation) return;
+
+    setState(() {
+      isConnectingLocation = true;
+    });
+
+    try {
+      final Position? position =
+          await _getCurrentLocation();
+
+      if (position == null) {
+        return;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('owners')
+          .doc(ownerId)
+          .set(
+        <String, dynamic>{
+          'latitude':
+              position.latitude,
+
+          'longitude':
+              position.longitude,
+
+          'location':
+              <String, dynamic>{
+            'latitude':
+                position.latitude,
+            'longitude':
+                position.longitude,
+          },
+
+          'locationAccuracy':
+              position.accuracy,
+
+          'locationUpdatedAt':
+              FieldValue.serverTimestamp(),
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(
+          merge: true,
+        ),
+      );
+
+      if (!mounted) return;
+
+      _showMessage(
+        'Current location connected.',
+      );
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        _showMessage(
+          e.message ??
+              'Could not update location.',
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        'Update Location Error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Could not update location.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isConnectingLocation = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
   // PET VALUE
   // ============================================================
 
@@ -449,17 +1235,11 @@ class _ProfileScreenState
     List<String> keys,
   ) {
     for (final String key in keys) {
-      final dynamic value =
-          pet[key];
+      final dynamic value = pet[key];
 
       if (value != null &&
-          value
-              .toString()
-              .trim()
-              .isNotEmpty) {
-        return value
-            .toString()
-            .trim();
+          value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
       }
     }
 
@@ -485,9 +1265,7 @@ class _ProfileScreenState
   // EDIT PET
   // ============================================================
 
-  Future<void> _editPet(
-    int index,
-  ) async {
+  Future<void> _editPet(int index) async {
     if (index < 0 ||
         index >= pets.length) {
       return;
@@ -503,9 +1281,7 @@ class _ProfileScreenState
   // DELETE PET
   // ============================================================
 
-  Future<void> _deletePet(
-    int index,
-  ) async {
+  Future<void> _deletePet(int index) async {
     if (pets.length <= 1) {
       _showMessage(
         'At least one pet is required.',
@@ -603,8 +1379,7 @@ class _ProfileScreenState
     int? index,
     Map<String, dynamic>? existingPet,
   }) async {
-    final TextEditingController
-        nameController =
+    final TextEditingController nameController =
         TextEditingController(
       text: existingPet == null
           ? ''
@@ -702,30 +1477,26 @@ class _ProfileScreenState
       ),
       builder: (sheetContext) {
         return StatefulBuilder(
-          builder:
-              (
+          builder: (
             context,
             setSheetState,
           ) {
             return SafeArea(
               child: Padding(
-                padding:
-                    EdgeInsets.only(
+                padding: EdgeInsets.only(
                   left: 18,
                   right: 18,
                   top: 18,
                   bottom:
-                      MediaQuery.of(
-                        context,
-                      ).viewInsets.bottom +
+                      MediaQuery.of(context)
+                              .viewInsets
+                              .bottom +
                           20,
                 ),
-                child:
-                    SingleChildScrollView(
+                child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
+                        CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
@@ -761,11 +1532,9 @@ class _ProfileScreenState
                                   : 'Edit Pet',
                               style:
                                   const TextStyle(
-                                fontSize:
-                                    21,
+                                fontSize: 21,
                                 fontWeight:
-                                    FontWeight
-                                        .w800,
+                                    FontWeight.w800,
                                 color:
                                     navy,
                               ),
@@ -790,7 +1559,6 @@ class _ProfileScreenState
                         height: 20,
                       ),
 
-                      // NAME
                       _EditorField(
                         controller:
                             nameController,
@@ -807,7 +1575,6 @@ class _ProfileScreenState
                         height: 14,
                       ),
 
-                      // AGE
                       _EditorPicker(
                         label:
                             'Age',
@@ -845,7 +1612,6 @@ class _ProfileScreenState
                         height: 14,
                       ),
 
-                      // BREED
                       _EditorPicker(
                         label:
                             'Breed',
@@ -883,7 +1649,6 @@ class _ProfileScreenState
                         height: 14,
                       ),
 
-                      // BEHAVIOUR
                       _EditorPicker(
                         label:
                             'Behaviour',
@@ -933,9 +1698,9 @@ class _ProfileScreenState
                             backgroundColor:
                                 orange,
                             foregroundColor:
-                                Colors
-                                    .white,
-                            elevation: 0,
+                                Colors.white,
+                            elevation:
+                                0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
@@ -1111,7 +1876,7 @@ class _ProfileScreenState
     required List<String> items,
     required String? selected,
   }) async {
-    return await showModalBottomSheet<String>(
+    return showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
       shape:
@@ -1258,9 +2023,7 @@ class _ProfileScreenState
         ),
       );
 
-      if (!mounted) {
-        return false;
-      }
+      if (!mounted) return false;
 
       setState(() {
         pets =
@@ -1308,9 +2071,7 @@ class _ProfileScreenState
   // MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -1332,9 +2093,7 @@ class _ProfileScreenState
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
           background,
@@ -1428,11 +2187,7 @@ class _ProfileScreenState
                             height: 14,
                           ),
 
-                          // ==================================================
-                          // OWNER INFORMATION
-                          // ==================================================
-
-                          _SectionTitle(
+                          const _SectionTitle(
                             title:
                                 'Owner Information',
                           ),
@@ -1448,8 +2203,8 @@ class _ProfileScreenState
                                 mobileNumber,
                             ownerName:
                                 ownerName,
-                            ownerAge:
-                                ownerAge,
+                            ownerDob:
+                                ownerDob,
                             ownerGender:
                                 ownerGender,
                             memberSince:
@@ -1460,6 +2215,71 @@ class _ProfileScreenState
                                 _openChangeMobile,
                             onCopyOwnerId:
                                 _copyOwnerId,
+                          ),
+
+                          const SizedBox(
+                            height: 20,
+                          ),
+
+                          // ==================================================
+                          // ADDRESS
+                          // ==================================================
+
+                          Row(
+                            children: [
+                              const Expanded(
+                                child:
+                                    _SectionTitle(
+                                  title:
+                                      'Address',
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed:
+                                    _openAddressEditor,
+                                style:
+                                    TextButton.styleFrom(
+                                  foregroundColor:
+                                      orange,
+                                  padding:
+                                      EdgeInsets.zero,
+                                ),
+                                icon:
+                                    const Icon(
+                                  Icons
+                                      .edit_outlined,
+                                  size:
+                                      17,
+                                ),
+                                label:
+                                    const Text(
+                                  'Edit',
+                                  style:
+                                      TextStyle(
+                                    fontWeight:
+                                        FontWeight
+                                            .w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(
+                            height: 8,
+                          ),
+
+                          _AddressCard(
+                            flatHouseNo:
+                                flatHouseNo,
+                            streetRoad:
+                                streetRoad,
+                            landmark:
+                                landmark,
+                            isConnecting:
+                                isConnectingLocation,
+                            onConnectLocation:
+                                _updateCurrentLocation,
                           ),
 
                           const SizedBox(
@@ -1501,8 +2321,7 @@ class _ProfileScreenState
                             height: 8,
                           ),
 
-                          if (pets
-                              .isEmpty)
+                          if (pets.isEmpty)
                             _AddPetLargeButton(
                               onPressed:
                                   _addPet,
@@ -1627,7 +2446,7 @@ class _OwnerInfoCard
   final String ownerId;
   final String mobileNumber;
   final String ownerName;
-  final String ownerAge;
+  final String ownerDob;
   final String ownerGender;
   final String memberSince;
   final bool isActive;
@@ -1639,7 +2458,7 @@ class _OwnerInfoCard
     required this.ownerId,
     required this.mobileNumber,
     required this.ownerName,
-    required this.ownerAge,
+    required this.ownerDob,
     required this.ownerGender,
     required this.memberSince,
     required this.isActive,
@@ -1712,9 +2531,11 @@ class _OwnerInfoCard
                             onCopyOwnerId,
                       ),
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.person_outline_rounded,
@@ -1723,9 +2544,11 @@ class _OwnerInfoCard
             value:
                 ownerName,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.phone_outlined,
@@ -1750,20 +2573,24 @@ class _OwnerInfoCard
                   onChangeMobile,
             ),
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.cake_outlined,
             label:
-                'Age',
+                'Date of Birth',
             value:
-                ownerAge,
+                ownerDob,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.wc_outlined,
@@ -1772,9 +2599,11 @@ class _OwnerInfoCard
             value:
                 ownerGender,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 Icons.calendar_month_outlined,
@@ -1783,9 +2612,11 @@ class _OwnerInfoCard
             value:
                 memberSince,
           ),
+
           const Divider(
             height: 20,
           ),
+
           _InfoRow(
             icon:
                 isActive
@@ -1908,6 +2739,287 @@ class _InfoRow
         if (trailing !=
             null)
           trailing!,
+      ],
+    );
+  }
+}
+
+// ==================================================================
+// ADDRESS CARD
+// ==================================================================
+
+class _AddressCard
+    extends StatelessWidget {
+  final String flatHouseNo;
+  final String streetRoad;
+  final String landmark;
+  final bool isConnecting;
+  final VoidCallback onConnectLocation;
+
+  const _AddressCard({
+    required this.flatHouseNo,
+    required this.streetRoad,
+    required this.landmark,
+    required this.isConnecting,
+    required this.onConnectLocation,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final bool hasAddress =
+        flatHouseNo.isNotEmpty ||
+        streetRoad.isNotEmpty ||
+        landmark.isNotEmpty;
+
+    return Container(
+      width:
+          double.infinity,
+      padding:
+          const EdgeInsets.all(
+        16,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.white,
+        borderRadius:
+            BorderRadius.circular(
+          16,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Colors.black.withValues(
+              alpha: 0.05,
+            ),
+            blurRadius:
+                10,
+            offset:
+                const Offset(
+              0,
+              3,
+            ),
+          ),
+        ],
+      ),
+      child:
+          Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          if (!hasAddress)
+            const Text(
+              'No address added yet.',
+              style:
+                  TextStyle(
+                color:
+                    Colors.grey,
+                fontSize:
+                    13,
+                fontWeight:
+                    FontWeight.w600,
+              ),
+            )
+          else ...[
+            if (flatHouseNo.isNotEmpty)
+              _AddressRow(
+                icon:
+                    Icons.home_outlined,
+                label:
+                    'Flat / House No.',
+                value:
+                    flatHouseNo,
+              ),
+
+            if (streetRoad.isNotEmpty) ...[
+              const SizedBox(
+                height: 12,
+              ),
+              _AddressRow(
+                icon:
+                    Icons.signpost_outlined,
+                label:
+                    'Street / Road',
+                value:
+                    streetRoad,
+              ),
+            ],
+
+            if (landmark.isNotEmpty) ...[
+              const SizedBox(
+                height: 12,
+              ),
+              _AddressRow(
+                icon:
+                    Icons.place_outlined,
+                label:
+                    'Landmark',
+                value:
+                    landmark,
+              ),
+            ],
+          ],
+
+          const SizedBox(
+            height: 15,
+          ),
+
+          SizedBox(
+            width:
+                double.infinity,
+            height: 44,
+            child:
+                OutlinedButton.icon(
+              onPressed:
+                  isConnecting
+                      ? null
+                      : onConnectLocation,
+              style:
+                  OutlinedButton
+                      .styleFrom(
+                foregroundColor:
+                    const Color(
+                  0xFFF4511E,
+                ),
+                side:
+                    const BorderSide(
+                  color:
+                      Color(
+                    0xFFF4511E,
+                  ),
+                  width:
+                      1.2,
+                ),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(
+                    12,
+                  ),
+                ),
+              ),
+              icon:
+                  isConnecting
+                      ? const SizedBox(
+                          width:
+                              18,
+                          height:
+                              18,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth:
+                                2,
+                            color:
+                                Color(
+                              0xFFF4511E,
+                            ),
+                          ),
+                        )
+                      : const Icon(
+                          Icons
+                              .my_location_rounded,
+                          size:
+                              19,
+                        ),
+              label:
+                  Text(
+                isConnecting
+                    ? 'Connecting...'
+                    : 'Connect Current Location',
+                style:
+                    const TextStyle(
+                  fontSize:
+                      13.5,
+                  fontWeight:
+                      FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==================================================================
+// ADDRESS ROW
+// ==================================================================
+
+class _AddressRow
+    extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _AddressRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 19,
+          color:
+              const Color(
+            0xFFF4511E,
+          ),
+        ),
+        const SizedBox(
+          width: 10,
+        ),
+        Expanded(
+          child:
+              Column(
+            crossAxisAlignment:
+                CrossAxisAlignment
+                    .start,
+            children: [
+              Text(
+                label,
+                style:
+                    const TextStyle(
+                  fontSize:
+                      10.5,
+                  color:
+                      Colors.grey,
+                  fontWeight:
+                      FontWeight
+                          .w600,
+                ),
+              ),
+              const SizedBox(
+                height: 2,
+              ),
+              Text(
+                value,
+                style:
+                    const TextStyle(
+                  fontSize:
+                      13.5,
+                  color:
+                      Color(
+                    0xFF263746,
+                  ),
+                  fontWeight:
+                      FontWeight
+                          .w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -2306,6 +3418,79 @@ class _AddPetLargeButton
             fontWeight:
                 FontWeight
                     .w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================================================================
+// ADDRESS EDITOR FIELD
+// ==================================================================
+
+class _AddressEditorField
+    extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+
+  const _AddressEditorField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return TextField(
+      controller:
+          controller,
+      textCapitalization:
+          TextCapitalization.sentences,
+      decoration:
+          InputDecoration(
+        hintText:
+            hint,
+        prefixIcon:
+            Icon(
+          icon,
+          color:
+              const Color(
+            0xFFF4511E,
+          ),
+        ),
+        filled:
+            true,
+        fillColor:
+            const Color(
+          0xFFF7F7F7,
+        ),
+        border:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+          borderSide:
+              BorderSide.none,
+        ),
+        focusedBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+          borderSide:
+              const BorderSide(
+            color:
+                Color(
+              0xFFF4511E,
+            ),
+            width:
+                1.3,
           ),
         ),
       ),
