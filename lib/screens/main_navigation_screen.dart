@@ -1,4 +1,5 @@
-// File location: lib/screens/main_navigation_screen.dart
+// File location:
+// lib/screens/main_navigation_screen.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,9 @@ import 'menu_screen.dart';
 import 'walks_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  const MainNavigationScreen({
+    super.key,
+  });
 
   @override
   State<MainNavigationScreen> createState() =>
@@ -22,24 +25,17 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState
     extends State<MainNavigationScreen> {
-
   // ==========================================================
   // CURRENT SCREEN
   // ==========================================================
 
   int _currentIndex = 0;
 
-
   // ==========================================================
   // SCREENS
-  //
-  // IMPORTANT:
-  // Do not recreate screens on every navigation.
-  // Keeps Insta Walk state stable.
   // ==========================================================
 
   late final List<Widget> _screens;
-
 
   // ==========================================================
   // LIVE WALK SERVICE
@@ -48,7 +44,6 @@ class _MainNavigationScreenState
   final HomeLiveWalkService _liveWalkService =
       HomeLiveWalkService.instance;
 
-
   // ==========================================================
   // AUTO OPEN CONTROL
   // ==========================================================
@@ -56,7 +51,6 @@ class _MainNavigationScreenState
   String? _autoOpenedWalkId;
 
   bool _isOpeningLiveWalk = false;
-
 
   // ==========================================================
   // INIT
@@ -73,13 +67,11 @@ class _MainNavigationScreenState
     ];
   }
 
-
   // ==========================================================
   // NAVIGATION
   // ==========================================================
 
   void _onNavigationTap(int index) {
-
     if (_currentIndex == index) {
       return;
     }
@@ -89,27 +81,21 @@ class _MainNavigationScreenState
     });
   }
 
-
-
   // ==========================================================
   // STRING READER
   // ==========================================================
 
   String _readString(
-    Map<String,dynamic> data,
+    Map<String, dynamic> data,
     List<String> keys,
-  ){
+  ) {
+    for (final String key in keys) {
+      final dynamic value = data[key];
 
-    for(final String key in keys){
+      if (value != null) {
+        final String result = value.toString().trim();
 
-      final dynamic value=data[key];
-
-      if(value!=null){
-
-        final String result=
-            value.toString().trim();
-
-        if(result.isNotEmpty){
+        if (result.isNotEmpty) {
           return result;
         }
       }
@@ -118,16 +104,13 @@ class _MainNavigationScreenState
     return '';
   }
 
-
-
   // ==========================================================
   // GET WALK ID
   // ==========================================================
 
   String _getWalkId(
-    Map<String,dynamic> data,
-  ){
-
+    Map<String, dynamic> data,
+  ) {
     return _readString(
       data,
       const [
@@ -139,303 +122,259 @@ class _MainNavigationScreenState
     );
   }
 
-
-
   // ==========================================================
   // OPEN LIVE WALK
   // ==========================================================
 
   Future<void> _openLiveWalk(
-    Map<String,dynamic> data,{
-    bool automatic=false,
+    Map<String, dynamic> data, {
+    bool automatic = false,
   }) async {
-
-
-    if(!mounted || _isOpeningLiveWalk){
+    if (!mounted || _isOpeningLiveWalk) {
       return;
     }
 
+    final String walkId = _getWalkId(data);
 
-    final String walkId=
-        _getWalkId(data);
-
-
-    if(walkId.isEmpty){
+    if (walkId.isEmpty) {
       return;
     }
 
-
-    if(automatic){
-      _autoOpenedWalkId=walkId;
+    if (automatic) {
+      _autoOpenedWalkId = walkId;
     }
 
+    _isOpeningLiveWalk = true;
 
-    _isOpeningLiveWalk=true;
-
-
-    try{
-
+    try {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder:(_)=>
-              LiveWalkScreen(
-                walkId: walkId,
+          builder: (_) => LiveWalkScreen(
+            walkId: walkId,
 
-                walkerUid:
-                    _readString(
-                      data,
-                      const [
-                        'walkerUid',
-                        'walkerUID',
-                        'walkerId',
-                      ],
-                    ),
+            walkerUid: _readString(
+              data,
+              const [
+                'walkerUid',
+                'walkerUID',
+                'walkerId',
+              ],
+            ),
 
-                walkerName:
-                    _readString(
-                      data,
-                      const [
-                        'walkerName',
-                        'name',
-                      ],
-                    ).isEmpty
-                    ? 'Walker'
-                    :
-                    _readString(
-                      data,
-                      const [
-                        'walkerName',
-                        'name',
-                      ],
-                    ),
+            walkerName: _readString(
+              data,
+              const [
+                'walkerName',
+                'name',
+              ],
+            ).isEmpty
+                ? 'Walker'
+                : _readString(
+                    data,
+                    const [
+                      'walkerName',
+                      'name',
+                    ],
+                  ),
 
-                walkerPhone:
-                    _readString(
-                      data,
-                      const [
-                        'walkerPhone',
-                        'phone',
-                        'phoneNumber',
-                      ],
-                    ).isEmpty
-                    ? null
-                    :
-                    _readString(
-                      data,
-                      const [
-                        'walkerPhone',
-                        'phone',
-                        'phoneNumber',
-                      ],
-                    ),
-              ),
+            walkerPhone: _readString(
+              data,
+              const [
+                'walkerPhone',
+                'phone',
+                'phoneNumber',
+              ],
+            ).isEmpty
+                ? null
+                : _readString(
+                    data,
+                    const [
+                      'walkerPhone',
+                      'phone',
+                      'phoneNumber',
+                    ],
+                  ),
+          ),
         ),
       );
-
-    }finally{
-
-      _isOpeningLiveWalk=false;
-
+    } finally {
+      _isOpeningLiveWalk = false;
     }
-
   }
-
-
 
   // ==========================================================
   // ACTIVE WALK HANDLER
   // ==========================================================
 
   void _handleActiveWalk(
-    Map<String,dynamic>? data,
-  ){
-
-    if(data==null){
-
-      _autoOpenedWalkId=null;
-
+    Map<String, dynamic>? data,
+  ) {
+    if (data == null) {
+      _autoOpenedWalkId = null;
       return;
     }
 
+    final String walkId = _getWalkId(data);
 
-    final String walkId=
-        _getWalkId(data);
-
-
-    if(walkId.isEmpty ||
-       _autoOpenedWalkId==walkId){
-
+    if (walkId.isEmpty ||
+        _autoOpenedWalkId == walkId) {
       return;
     }
 
-
-
-    WidgetsBinding.instance
-        .addPostFrameCallback((_){
-
-      if(!mounted ||
-         _isOpeningLiveWalk){
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isOpeningLiveWalk) {
         return;
       }
 
-
       _openLiveWalk(
         data,
-        automatic:true,
+        automatic: true,
       );
-
     });
-
   }
-
-
-
 
   // ==========================================================
   // BUILD
   // ==========================================================
 
   @override
-  Widget build(BuildContext context){
-
+  Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
 
-      backgroundColor:
-          Colors.white,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
 
-
-      body:
-          IndexedStack(
-            index:_currentIndex,
-            children:_screens,
-          ),
-
-
+      // ========================================================
+      // LIVE BAR + BOTTOM NAVIGATION
+      //
+      // NO GAP BETWEEN THEM
+      // ========================================================
 
       bottomNavigationBar:
-
           StreamBuilder<
-              QuerySnapshot<Map<String,dynamic>>
-          >(
+              QuerySnapshot<Map<String, dynamic>>>(
+        stream: _liveWalkService.liveWalkStream(),
 
-            stream:
-                _liveWalkService.liveWalkStream(),
+        builder: (
+          BuildContext context,
+          AsyncSnapshot<
+                  QuerySnapshot<Map<String, dynamic>>>
+              snapshot,
+        ) {
+          Map<String, dynamic>? liveWalkData;
 
+          if (snapshot.hasData &&
+              !snapshot.hasError) {
+            liveWalkData =
+                _liveWalkService.getLiveWalkData(
+              snapshot.data!,
+            );
+          }
 
-            builder:(context,snapshot){
+          final bool isActive =
+              liveWalkData != null;
 
+          if (isActive) {
+            _handleActiveWalk(
+              liveWalkData,
+            );
+          }
 
-              Map<String,dynamic>? liveWalkData;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ==================================================
+              // LIVE WALK BAR
+              // ==================================================
 
-
-              if(snapshot.hasData &&
-                 !snapshot.hasError){
-
-                liveWalkData=
-                    _liveWalkService
-                    .getLiveWalkData(
-                      snapshot.data!,
+              if (isActive)
+                HomeLiveWalkBar(
+                  onTap: () {
+                    _openLiveWalk(
+                      liveWalkData!,
                     );
-              }
+                  },
+                ),
 
+              // ==================================================
+              // BOTTOM NAVIGATION
+              // ==================================================
 
-              final bool isActive=
-                  liveWalkData!=null;
-
-
-
-              if(isActive){
-
-                _handleActiveWalk(
-                  liveWalkData,
-                );
-
-              }
-
-
-
-              return Column(
-
-                mainAxisSize:
-                    MainAxisSize.min,
-
-
-                children:[
-
-
-                  if(isActive)
-
-                    HomeLiveWalkBar(
-
-                      onTap:(){
-
-                        _openLiveWalk(
-                          liveWalkData!,
-                        );
-
-                      },
-
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.border,
+                      width: 0.6,
                     ),
+                  ),
+                ),
 
+                child: BottomNavigationBar(
+                  backgroundColor:
+                      AppColors.cardBackground,
 
+                  elevation: 0,
 
-                  BottomNavigationBar(
+                  currentIndex:
+                      _currentIndex,
 
-                    currentIndex:
-                        _currentIndex,
+                  selectedItemColor:
+                      AppColors.primary,
 
+                  unselectedItemColor:
+                      AppColors.textSecondary,
 
-                    selectedItemColor:
-                        AppColors.primary,
-
-
-                    unselectedItemColor:
-                        Colors.grey,
-
-
-                    type:
-                        BottomNavigationBarType.fixed,
-
-
-                    onTap:
-                        _onNavigationTap,
-
-
-                    items:const [
-
-                      BottomNavigationBarItem(
-                        icon:Icon(Icons.home),
-                        label:'Home',
-                      ),
-
-
-                      BottomNavigationBarItem(
-                        icon:Icon(
-                          Icons.directions_walk_rounded,
-                        ),
-                        label:'Walks',
-                      ),
-
-
-                      BottomNavigationBarItem(
-                        icon:Icon(Icons.menu),
-                        label:'Menu',
-                      ),
-
-                    ],
-
+                  selectedLabelStyle:
+                      const TextStyle(
+                    fontWeight: FontWeight.w700,
                   ),
 
-                ],
+                  unselectedLabelStyle:
+                      const TextStyle(
+                    fontWeight: FontWeight.w500,
+                  ),
 
-              );
+                  type:
+                      BottomNavigationBarType.fixed,
 
-            },
+                  onTap:
+                      _onNavigationTap,
 
-          ),
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(
+                        Icons.home_rounded,
+                      ),
+                      label: 'Home',
+                    ),
 
+                    BottomNavigationBarItem(
+                      icon: Icon(
+                        Icons
+                            .directions_walk_rounded,
+                      ),
+                      label: 'Walks',
+                    ),
+
+                    BottomNavigationBarItem(
+                      icon: Icon(
+                        Icons.menu_rounded,
+                      ),
+                      label: 'Menu',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
