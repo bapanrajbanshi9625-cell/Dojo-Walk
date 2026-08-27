@@ -305,76 +305,60 @@ class _MainNavigationScreenState
               // ==================================================
 
               Container(
-                decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
-                  border: Border(
-                    top: BorderSide(
-                      color: AppColors.border,
-                      width: 0.6,
-                    ),
-                  ),
-                ),
-
-                child: BottomNavigationBar(
-                  backgroundColor:
-                      AppColors.cardBackground,
-
-                  elevation: 0,
-
-                  currentIndex:
-                      _currentIndex,
-
-                  selectedItemColor:
-                      AppColors.primary,
-
-                  unselectedItemColor:
-                      AppColors.textSecondary,
-
-                  selectedLabelStyle:
-                      const TextStyle(
-                    fontWeight: FontWeight.w700,
-                  ),
-
-                  unselectedLabelStyle:
-                      const TextStyle(
-                    fontWeight: FontWeight.w500,
-                  ),
-
-                  type:
-                      BottomNavigationBarType.fixed,
-
-                  onTap:
-                      _onNavigationTap,
-
-                  items: const [
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.home_rounded,
-                      ),
-                      label: 'Home',
-                    ),
-
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons
-                            .directions_walk_rounded,
-                      ),
-                      label: 'Walks',
-                    ),
-
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.menu_rounded,
-                      ),
-                      label: 'Menu',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
+  decoration: BoxDecoration(
+    color: Colors.white,
+    border: Border(
+      top: BorderSide(
+        color: AppColors.border,
+        width: 0.6,
       ),
-    );
-  }
-}
+    ),
+  ),
+
+  child: BottomNavigationBar(
+    backgroundColor: Colors.white,
+
+    elevation: 0,
+
+    currentIndex: _currentIndex,
+
+    selectedItemColor: AppColors.primary,
+
+    unselectedItemColor: Colors.black54,
+
+    selectedLabelStyle: const TextStyle(
+      fontWeight: FontWeight.w700,
+    ),
+
+    unselectedLabelStyle: const TextStyle(
+      fontWeight: FontWeight.w500,
+    ),
+
+    type: BottomNavigationBarType.fixed,
+
+    onTap: _onNavigationTap,
+
+    items: const [
+      BottomNavigationBarItem(
+        icon: Icon(
+          Icons.home_rounded,
+        ),
+        label: 'Home',
+      ),
+
+      BottomNavigationBarItem(
+        icon: Icon(
+          Icons.directions_walk_rounded,
+        ),
+        label: 'Walks',
+      ),
+
+      BottomNavigationBarItem(
+        icon: Icon(
+          Icons.menu_rounded,
+        ),
+        label: 'Menu',
+      ),
+    ],
+  ),
+),
