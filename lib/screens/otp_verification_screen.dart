@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/constants/app_colors.dart';
 import '../services/owner_id_service.dart';
 import 'main_navigation_screen.dart';
 import 'profile_setup.dart';
