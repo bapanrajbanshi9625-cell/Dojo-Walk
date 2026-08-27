@@ -13,7 +13,7 @@ class InstaWalkFirestoreHelper {
   // ==========================================================
 
   static const String walkRequestsCollection =
-      'walk_requests';
+      'walk_request';
 
   // ==========================================================
   // CREATE REQUEST
