@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_colors.dart';
+
 class OwnerInfoCard extends StatelessWidget {
   final String ownerId;
   final String mobileNumber;
@@ -25,21 +27,17 @@ class OwnerInfoCard extends StatelessWidget {
     required this.onCopyOwnerId,
   });
 
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-  static const Color lightOrange = Color(0xFFFFF1E8);
-
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: DojoColors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: DojoColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -58,7 +56,7 @@ class OwnerInfoCard extends StatelessWidget {
                     icon: const Icon(
                       Icons.copy_rounded,
                       size: 18,
-                      color: orange,
+                      color: DojoColors.orange,
                     ),
                     onPressed: onCopyOwnerId,
                   ),
@@ -83,17 +81,13 @@ class OwnerInfoCard extends StatelessWidget {
               icon: const Icon(
                 Icons.edit_outlined,
                 size: 19,
-                color: orange,
+                color: DojoColors.orange,
               ),
               onPressed: onChangeMobile,
             ),
           ),
 
           const Divider(height: 20),
-
-          // ========================================================
-          // DOB — DISPLAY ONLY
-          // ========================================================
 
           OwnerInfoRow(
             icon: Icons.cake_outlined,
@@ -125,7 +119,8 @@ class OwnerInfoCard extends StatelessWidget {
                 : Icons.block_outlined,
             label: 'Account Status',
             value: isActive ? 'Active' : 'Inactive',
-            valueColor: isActive ? Colors.green : Colors.red,
+            valueColor:
+                isActive ? DojoColors.green : DojoColors.red,
           ),
         ],
       ),
@@ -153,10 +148,6 @@ class OwnerInfoRow extends StatelessWidget {
     this.valueColor,
   });
 
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-  static const Color lightOrange = Color(0xFFFFF1E8);
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -166,12 +157,12 @@ class OwnerInfoRow extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: lightOrange,
+            color: DojoColors.lightOrange,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: orange,
+            color: DojoColors.orange,
             size: 19,
           ),
         ),
@@ -188,7 +179,7 @@ class OwnerInfoRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: Colors.grey,
+                  color: DojoColors.grey,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -201,7 +192,7 @@ class OwnerInfoRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
-                  color: valueColor ?? navy,
+                  color: valueColor ?? DojoColors.navy,
                   fontWeight: FontWeight.w700,
                 ),
               ),
