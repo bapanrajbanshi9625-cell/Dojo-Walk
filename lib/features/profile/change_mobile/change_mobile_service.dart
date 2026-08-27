@@ -78,9 +78,166 @@ class ChangeMobileService {
     required String verificationId,
     required String smsCode,
   }) {
+    final String cleanOtp =
+        smsCode.trim();
+
+    if (verificationId.trim().isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-verification-id',
+        message:
+            'OTP verification session is invalid.',
+      );
+    }
+
+    if (cleanOtp.length != 6) {
+      throw FirebaseAuthException(
+        code: 'invalid-verification-code',
+        message:
+            'Please enter the 6-digit OTP.',
+      );
+    }
+
     return PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: smsCode.trim(),
+      verificationId:
+          verificationId.trim(),
+      smsCode: cleanOtp,
+    );
+  }
+
+  // ============================================================
+  // GET CURRENT FIREBASE USER
+  // ============================================================
+
+  User _requireCurrentUser() {
+    final User? user =
+        _auth.currentUser;
+
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message:
+            'User session was not found. Please login again.',
+      );
+    }
+
+    return user;
+  }
+
+  // ============================================================
+  // FIND OWNER DOCUMENT BY AUTH UID
+  //
+  // Actual Firestore structure:
+  //
+  // owners/{documentId}
+  //   authUid: "Firebase UID"
+  //   ownerId: "OWN26GH0004"
+  //   mainPhone: "+91..."
+  //
+  // ============================================================
+
+  Future<DocumentReference<
+      Map<String, dynamic>>> findOwnerDocument() async {
+    final User user =
+        _requireCurrentUser();
+
+    final String uid =
+        user.uid.trim();
+
+    if (uid.isEmpty) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'invalid-auth-uid',
+        message:
+            'Firebase Auth UID was not found.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // FIRST: owners/{uid}
+    // ----------------------------------------------------------
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> directDoc =
+        await _firestore
+            .collection('owners')
+            .doc(uid)
+            .get();
+
+    if (directDoc.exists) {
+      return directDoc.reference;
+    }
+
+    // ----------------------------------------------------------
+    // SECOND: authUid field
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+        Map<String, dynamic>> query =
+        await _firestore
+            .collection('owners')
+            .where(
+              'authUid',
+              isEqualTo: uid,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      return query.docs.first.reference;
+    }
+
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'owner-not-found',
+      message:
+          'Owner profile was not found.',
+    );
+  }
+
+  // ============================================================
+  // GET OWNER ID
+  // ============================================================
+
+  Future<String> getOwnerId() async {
+    final DocumentReference<
+        Map<String, dynamic>> ownerRef =
+        await findOwnerDocument();
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> snapshot =
+        await ownerRef.get();
+
+    final Map<String, dynamic>? data =
+        snapshot.data();
+
+    if (data == null) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'owner-profile-empty',
+        message:
+            'Owner profile data was not found.',
+      );
+    }
+
+    final dynamic ownerId =
+        data['ownerId'];
+
+    if (ownerId is String &&
+        ownerId.trim().isNotEmpty) {
+      return ownerId.trim();
+    }
+
+    // Fallback:
+    // If the document ID itself is the owner ID.
+    if (ownerRef.id.trim().isNotEmpty) {
+      return ownerRef.id.trim();
+    }
+
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'owner-id-not-found',
+      message:
+          'Owner ID was not found.',
     );
   }
 
@@ -91,33 +248,36 @@ class ChangeMobileService {
   Future<User> updateFirebasePhone({
     required PhoneAuthCredential credential,
   }) async {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      throw FirebaseAuthException(
-        code: 'user-not-found',
-        message:
-            'User session was not found.',
-      );
-    }
+    final User user =
+        _requireCurrentUser();
 
     await user.updatePhoneNumber(
       credential,
     );
 
-    return user;
+    await user.reload();
+
+    final User? refreshedUser =
+        _auth.currentUser;
+
+    if (refreshedUser == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message:
+            'User session was lost after phone verification.',
+      );
+    }
+
+    return refreshedUser;
   }
 
   // ============================================================
-  // UPDATE OWNER FIRESTORE DOCUMENT
+  // UPDATE OWNER FIRESTORE PHONE
   //
-  // Firestore structure:
+  // IMPORTANT:
+  // Actual field = mainPhone
   //
-  // owners/{documentId}
-  // authUid
-  // ownerId
-  // mainPhone
+  // We also keep authUid synchronized.
   //
   // ============================================================
 
@@ -150,11 +310,11 @@ class ChangeMobileService {
     }
 
     // ----------------------------------------------------------
-    // FIRST: find owner by ownerId field
+    // Find exact owner document using ownerId field
     // ----------------------------------------------------------
 
-    final QuerySnapshot<
-        Map<String, dynamic>> ownerQuery =
+    QuerySnapshot<
+        Map<String, dynamic>> query =
         await _firestore
             .collection('owners')
             .where(
@@ -164,55 +324,60 @@ class ChangeMobileService {
             .limit(1)
             .get();
 
-    if (ownerQuery.docs.isNotEmpty) {
-      await ownerQuery.docs.first.reference
-          .set(
-        <String, dynamic>{
-          'mainPhone': cleanPhone,
-          'phone': cleanPhone,
-          'updatedAt':
-              FieldValue.serverTimestamp(),
-        },
-        SetOptions(
-          merge: true,
-        ),
-      );
+    DocumentReference<
+        Map<String, dynamic>> ownerRef;
 
-      return;
+    if (query.docs.isNotEmpty) {
+      ownerRef =
+          query.docs.first.reference;
+    } else {
+      // --------------------------------------------------------
+      // Fallback: document ID = ownerId
+      // --------------------------------------------------------
+
+      final DocumentReference<
+          Map<String, dynamic>> directRef =
+          _firestore
+              .collection('owners')
+              .doc(cleanOwnerId);
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> directDoc =
+          await directRef.get();
+
+      if (!directDoc.exists) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'owner-not-found',
+          message:
+              'Owner profile was not found.',
+        );
+      }
+
+      ownerRef = directRef;
     }
 
     // ----------------------------------------------------------
-    // SECOND: document ID may itself be ownerId
+    // Current Firebase UID
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<
-        Map<String, dynamic>> directDoc =
-        await _firestore
-            .collection('owners')
-            .doc(cleanOwnerId)
-            .get();
+    final User user =
+        _requireCurrentUser();
 
-    if (directDoc.exists) {
-      await directDoc.reference.set(
-        <String, dynamic>{
-          'mainPhone': cleanPhone,
-          'phone': cleanPhone,
-          'updatedAt':
-              FieldValue.serverTimestamp(),
-        },
-        SetOptions(
-          merge: true,
-        ),
-      );
+    // ----------------------------------------------------------
+    // Update ONLY the correct phone field
+    // ----------------------------------------------------------
 
-      return;
-    }
-
-    throw FirebaseException(
-      plugin: 'cloud_firestore',
-      code: 'owner-not-found',
-      message:
-          'Owner profile was not found.',
+    await ownerRef.set(
+      <String, dynamic>{
+        'mainPhone': cleanPhone,
+        'authUid': user.uid,
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
     );
   }
 
@@ -225,8 +390,21 @@ class ChangeMobileService {
     required PhoneAuthCredential credential,
     required String newPhoneNumber,
   }) async {
+    final String cleanPhone =
+        newPhoneNumber.trim();
+
+    if (cleanPhone.isEmpty) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'invalid-phone-number',
+        message:
+            'Mobile number is invalid.',
+      );
+    }
+
     // ----------------------------------------------------------
-    // STEP 1: Firebase Auth
+    // STEP 1
+    // Verify OTP and update Firebase Auth
     // ----------------------------------------------------------
 
     await updateFirebasePhone(
@@ -234,12 +412,13 @@ class ChangeMobileService {
     );
 
     // ----------------------------------------------------------
-    // STEP 2: Firestore owner profile
+    // STEP 2
+    // Update Firestore owner profile
     // ----------------------------------------------------------
 
     await updateOwnerPhone(
       ownerId: ownerId,
-      phoneNumber: newPhoneNumber,
+      phoneNumber: cleanPhone,
     );
   }
 }
