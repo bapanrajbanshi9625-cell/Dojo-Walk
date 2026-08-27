@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/constants/app_colors.dart';
 import '../services/owner_id_service.dart';
 import 'main_navigation_screen.dart';
 import 'profile_setup.dart';
@@ -27,8 +28,7 @@ class _OtpVerificationScreenState
   final TextEditingController _otpController =
       TextEditingController();
 
-  final FocusNode _otpFocusNode =
-      FocusNode();
+  final FocusNode _otpFocusNode = FocusNode();
 
   bool _isVerifying = false;
 
@@ -37,8 +37,7 @@ class _OtpVerificationScreenState
   // ============================================================
 
   Future<void> _verifyOtp() async {
-    final String otp =
-        _otpController.text.trim();
+    final String otp = _otpController.text.trim();
 
     if (otp.length != 6) {
       _showMessage(
@@ -86,13 +85,11 @@ class _OtpVerificationScreenState
       // ========================================================
 
       final UserCredential userCredential =
-          await FirebaseAuth.instance
-              .signInWithCredential(
+          await FirebaseAuth.instance.signInWithCredential(
         credential,
       );
 
-      final User? user =
-          userCredential.user;
+      final User? user = userCredential.user;
 
       if (user == null) {
         throw FirebaseAuthException(
@@ -106,14 +103,12 @@ class _OtpVerificationScreenState
       // 3. FIREBASE UID
       // ========================================================
 
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
       if (uid.isEmpty) {
         throw FirebaseAuthException(
           code: 'invalid-user',
-          message:
-              'Firebase UID was not found.',
+          message: 'Firebase UID was not found.',
         );
       }
 
@@ -130,8 +125,7 @@ class _OtpVerificationScreenState
 
         if (phoneNumber.isNotEmpty &&
             !phoneNumber.startsWith('+')) {
-          phoneNumber =
-              '+91$phoneNumber';
+          phoneNumber = '+91$phoneNumber';
         }
       }
 
@@ -148,8 +142,7 @@ class _OtpVerificationScreenState
       // ========================================================
 
       final String ownerId =
-          await OwnerIdService.instance
-              .getOrCreateOwnerId(
+          await OwnerIdService.instance.getOrCreateOwnerId(
         uid: uid,
         phoneNumber: phoneNumber,
       );
@@ -161,8 +154,7 @@ class _OtpVerificationScreenState
         throw FirebaseException(
           plugin: 'cloud_firestore',
           code: 'owner-id-missing',
-          message:
-              'Owner ID could not be created.',
+          message: 'Owner ID could not be created.',
         );
       }
 
@@ -173,15 +165,8 @@ class _OtpVerificationScreenState
       // ========================================================
       // 6. LOAD OWNER PROFILE
       // ========================================================
-      //
-      // ProfileSetupService saves:
-      //
-      // owners/{ownerId}
-      //
-      // ========================================================
 
-      final DocumentSnapshot<
-              Map<String, dynamic>>
+      final DocumentSnapshot<Map<String, dynamic>>
           profileSnapshot =
           await FirebaseFirestore.instance
               .collection('owners')
@@ -203,16 +188,13 @@ class _OtpVerificationScreenState
           data?['isActive'] != false;
 
       if (!isActive) {
-        await FirebaseAuth.instance
-            .signOut();
+        await FirebaseAuth.instance.signOut();
 
         if (!mounted) {
           return;
         }
 
-        _showInactiveDialog(
-          cleanOwnerId,
-        );
+        _showInactiveDialog(cleanOwnerId);
 
         return;
       }
@@ -412,48 +394,33 @@ class _OtpVerificationScreenState
   // INACTIVE OWNER DIALOG
   // ============================================================
 
-  void _showInactiveDialog(
-    String ownerId,
-  ) {
-    final ThemeData theme =
-        Theme.of(context);
-
-    final Color primary =
-        theme.colorScheme.primary;
-
-    final Color textColor =
-        theme.colorScheme.onSurface;
+  void _showInactiveDialog(String ownerId) {
+    const Color primary = AppColors.primary;
+    const Color textColor = Color(0xFF263746);
 
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor:
-              theme.cardColor,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: Row(
+          title: const Row(
             children: [
               Icon(
                 Icons.block_rounded,
-                color:
-                    theme.colorScheme.error,
+                color: Colors.red,
                 size: 25,
               ),
-              const SizedBox(
-                width: 10,
-              ),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Account Inactive',
                   style: TextStyle(
                     color: textColor,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -462,25 +429,21 @@ class _OtpVerificationScreenState
           content: Text(
             'Your Owner ID $ownerId is currently inactive.\n\n'
             'Please contact support to activate your account.',
-            style: TextStyle(
-              color:
-                  textColor.withOpacity(0.75),
+            style: const TextStyle(
+              color: Color(0xFF64748B),
               height: 1.5,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
+                Navigator.pop(dialogContext);
               },
-              child: Text(
+              child: const Text(
                 'OK',
                 style: TextStyle(
                   color: primary,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -494,45 +457,27 @@ class _OtpVerificationScreenState
   // MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
 
-    final ThemeData theme =
-        Theme.of(context);
-
-    final Color backgroundColor =
-        theme.colorScheme.onSurface;
-
-    final Color foregroundColor =
-        theme.colorScheme.surface;
-
     ScaffoldMessenger.of(context)
         .hideCurrentSnackBar();
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        behavior:
-            SnackBarBehavior.floating,
-        margin:
-            const EdgeInsets.all(16),
-        backgroundColor:
-            backgroundColor,
-        shape:
-            RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.circular(12),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        backgroundColor: const Color(0xFF263746),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
         content: Text(
           message,
-          style: TextStyle(
-            color: foregroundColor,
-            fontWeight:
-                FontWeight.w600,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -547,8 +492,7 @@ class _OtpVerificationScreenState
     final String raw =
         widget.phoneNumber.trim();
 
-    final String clean =
-        raw.replaceAll(
+    final String clean = raw.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
@@ -561,18 +505,14 @@ class _OtpVerificationScreenState
 
     if (clean.length > 10) {
       final String last10 =
-          clean.substring(
-        clean.length - 10,
-      );
+          clean.substring(clean.length - 10);
 
       return '+91 '
           '${last10.substring(0, 5)} '
           '${last10.substring(5)}';
     }
 
-    return raw.isEmpty
-        ? 'Mobile number'
-        : raw;
+    return raw.isEmpty ? 'Mobile number' : raw;
   }
 
   // ============================================================
@@ -591,48 +531,28 @@ class _OtpVerificationScreenState
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final ThemeData theme =
-        Theme.of(context);
-
-    final Color primary =
-        theme.colorScheme.primary;
-
-    final Color background =
-        theme.scaffoldBackgroundColor;
-
-    final Color textColor =
-        theme.colorScheme.onSurface;
-
-    final Color secondaryText =
-        theme.colorScheme.onSurface
-            .withOpacity(0.65);
-
-    final Color cardColor =
-        theme.cardColor;
-
-    final Color borderColor =
-        theme.dividerColor;
+  Widget build(BuildContext context) {
+    const Color primary = AppColors.primary;
+    const Color background = Color(0xFFF7F9FC);
+    const Color textColor = Color(0xFF263746);
+    const Color secondaryText = Color(0xFF64748B);
+    const Color cardColor = Colors.white;
+    const Color borderColor = Color(0xFFDDE2E8);
+    const Color inputBackground = Color(0xFFFAFBFC);
 
     return Scaffold(
-      backgroundColor:
-          background,
+      backgroundColor: background,
 
       // ========================================================
       // APP BAR
       // ========================================================
 
       appBar: AppBar(
-        backgroundColor:
-            background,
+        backgroundColor: background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        foregroundColor:
-            textColor,
-        automaticallyImplyLeading:
-            true,
+        foregroundColor: textColor,
+        automaticallyImplyLeading: true,
         toolbarHeight: 55,
       ),
 
@@ -643,15 +563,12 @@ class _OtpVerificationScreenState
       body: SafeArea(
         child: GestureDetector(
           onTap: () {
-            FocusScope.of(context)
-                .unfocus();
+            FocusScope.of(context).unfocus();
           },
           child: SingleChildScrollView(
             keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior
-                    .onDrag,
-            padding:
-                const EdgeInsets.fromLTRB(
+                ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
               22,
               10,
               22,
@@ -661,159 +578,120 @@ class _OtpVerificationScreenState
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  height: 12,
-                ),
+                const SizedBox(height: 12),
 
-                // ==================================================
+                // ==============================================
                 // TOP ICON
-                // ==================================================
+                // ==============================================
 
                 Center(
                   child: Container(
                     height: 78,
                     width: 78,
-                    decoration:
-                        BoxDecoration(
+                    decoration: BoxDecoration(
                       color: primary,
                       borderRadius:
-                          BorderRadius.circular(
-                        24,
-                      ),
+                          BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: primary
-                              .withOpacity(
-                            0.22,
-                          ),
+                          color:
+                              primary.withOpacity(0.22),
                           blurRadius: 18,
                           offset:
-                              const Offset(
-                            0,
-                            8,
-                          ),
+                              const Offset(0, 8),
                         ),
                       ],
                     ),
-                    child: Icon(
-                      Icons
-                          .verified_user_rounded,
-                      color: theme
-                          .colorScheme
-                          .onPrimary,
+                    child: const Icon(
+                      Icons.verified_user_rounded,
+                      color: Colors.white,
                       size: 38,
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 26,
-                ),
+                const SizedBox(height: 26),
 
-                // ==================================================
+                // ==============================================
                 // TITLE
-                // ==================================================
+                // ==============================================
 
-                Center(
+                const Center(
                   child: Text(
                     'Verify your number',
-                    textAlign:
-                        TextAlign.center,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: textColor,
                       fontSize: 27,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 9,
-                ),
+                const SizedBox(height: 9),
 
-                // ==================================================
+                // ==============================================
                 // SUBTITLE
-                // ==================================================
+                // ==============================================
 
-                Center(
+                const Center(
                   child: Text(
                     'Enter the 6-digit OTP sent to',
-                    textAlign:
-                        TextAlign.center,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      color:
-                          secondaryText,
+                      color: secondaryText,
                       fontSize: 14,
-                      fontWeight:
-                          FontWeight.w500,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 5,
-                ),
+                const SizedBox(height: 5),
 
-                // ==================================================
+                // ==============================================
                 // PHONE
-                // ==================================================
+                // ==============================================
 
                 Center(
                   child: Text(
                     _displayPhoneNumber(),
-                    textAlign:
-                        TextAlign.center,
-                    style: TextStyle(
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
                       color: textColor,
                       fontSize: 15,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 30,
-                ),
+                const SizedBox(height: 30),
 
-                // ==================================================
+                // ==============================================
                 // OTP CARD
-                // ==================================================
+                // ==============================================
 
                 Container(
-                  width:
-                      double.infinity,
-                  padding:
-                      const EdgeInsets.fromLTRB(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(
                     18,
                     20,
                     18,
                     20,
                   ),
-                  decoration:
-                      BoxDecoration(
+                  decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius:
-                        BorderRadius.circular(
-                      20,
-                    ),
-                    border:
-                        Border.all(
+                        BorderRadius.circular(20),
+                    border: Border.all(
                       color: borderColor,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black
-                            .withOpacity(
-                          0.045,
-                        ),
+                        color:
+                            Colors.black.withOpacity(0.045),
                         blurRadius: 18,
                         offset:
-                            const Offset(
-                          0,
-                          6,
-                        ),
+                            const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -821,50 +699,41 @@ class _OtpVerificationScreenState
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'One-Time Password',
                         style: TextStyle(
                           color: textColor,
                           fontSize: 15,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 12,
-                      ),
+                      const SizedBox(height: 12),
 
-                      // ==================================================
+                      // ==========================================
                       // OTP FIELD
-                      // ==================================================
+                      // ==========================================
 
                       TextField(
-                        controller:
-                            _otpController,
-                        focusNode:
-                            _otpFocusNode,
+                        controller: _otpController,
+                        focusNode: _otpFocusNode,
                         autofocus: true,
-                        enabled:
-                            !_isVerifying,
+                        enabled: !_isVerifying,
                         keyboardType:
                             TextInputType.number,
                         textInputAction:
                             TextInputAction.done,
                         maxLength: 6,
-                        textAlign:
-                            TextAlign.center,
+                        textAlign: TextAlign.center,
                         inputFormatters: [
                           FilteringTextInputFormatter
                               .digitsOnly,
                         ],
                         onChanged: (value) {
-                          if (value.length ==
-                                  6 &&
+                          if (value.length == 6 &&
                               !_isVerifying) {
-                            FocusScope.of(
-                              context,
-                            ).unfocus();
+                            FocusScope.of(context)
+                                .unfocus();
                           }
                         },
                         onSubmitted: (_) {
@@ -872,74 +741,46 @@ class _OtpVerificationScreenState
                             _verifyOtp();
                           }
                         },
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: textColor,
                           fontSize: 25,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 10,
                         ),
-                        decoration:
-                            InputDecoration(
-                          hintText:
-                              '------',
-                          hintStyle:
-                              TextStyle(
-                            color:
-                                secondaryText
-                                    .withOpacity(
-                              0.35,
-                            ),
+                        decoration: InputDecoration(
+                          hintText: '------',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF9AA6B5),
                             fontSize: 24,
                             letterSpacing: 9,
                           ),
                           counterText: '',
                           filled: true,
-                          fillColor:
-                              theme
-                                  .inputDecorationTheme
-                                  .fillColor ??
-                              cardColor,
+                          fillColor: inputBackground,
                           contentPadding:
-                              const EdgeInsets
-                                  .symmetric(
+                              const EdgeInsets.symmetric(
                             vertical: 17,
                           ),
-                          border:
-                              OutlineInputBorder(
+                          border: OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              14,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color:
-                                  borderColor,
+                                BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: borderColor,
                             ),
                           ),
                           enabledBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              14,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color:
-                                  borderColor,
+                                BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: borderColor,
                             ),
                           ),
                           focusedBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              14,
-                            ),
-                            borderSide:
-                                BorderSide(
+                                BorderRadius.circular(14),
+                            borderSide: const BorderSide(
                               color: primary,
                               width: 2,
                             ),
@@ -947,15 +788,10 @@ class _OtpVerificationScreenState
                           disabledBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              14,
-                            ),
-                            borderSide:
-                                BorderSide(
+                                BorderRadius.circular(14),
+                            borderSide: BorderSide(
                               color:
-                                  borderColor
-                                      .withOpacity(
+                                  borderColor.withOpacity(
                                 0.65,
                               ),
                             ),
@@ -963,138 +799,95 @@ class _OtpVerificationScreenState
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
-                      // ==================================================
+                      // ==========================================
                       // VERIFY BUTTON
-                      // ==================================================
+                      // ==========================================
 
                       SizedBox(
-                        width:
-                            double.infinity,
+                        width: double.infinity,
                         height: 54,
-                        child:
-                            ElevatedButton(
-                          onPressed:
-                              _isVerifying
-                                  ? null
-                                  : _verifyOtp,
-                          style:
-                              ElevatedButton
-                                  .styleFrom(
-                            backgroundColor:
-                                primary,
+                        child: ElevatedButton(
+                          onPressed: _isVerifying
+                              ? null
+                              : _verifyOtp,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primary,
                             foregroundColor:
-                                theme
-                                    .colorScheme
-                                    .onPrimary,
+                                Colors.white,
                             disabledBackgroundColor:
-                                primary
-                                    .withOpacity(
-                              0.55,
-                            ),
+                                primary.withOpacity(0.55),
                             disabledForegroundColor:
-                                theme
-                                    .colorScheme
-                                    .onPrimary
-                                    .withOpacity(
-                              0.9,
-                            ),
+                                Colors.white.withOpacity(0.9),
                             elevation: 0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                14,
-                              ),
+                                  BorderRadius.circular(14),
                             ),
                           ),
-                          child:
-                              _isVerifying
-                                  ? SizedBox(
-                                      height: 23,
-                                      width: 23,
-                                      child:
-                                          CircularProgressIndicator(
-                                        strokeWidth:
-                                            2.5,
-                                        color:
-                                            theme
-                                                .colorScheme
-                                                .onPrimary,
-                                      ),
-                                    )
-                                  : Text(
-                                      'Verify & Continue',
-                                      style:
-                                          TextStyle(
-                                        color: theme
-                                            .colorScheme
-                                            .onPrimary,
-                                        fontSize:
-                                            16,
-                                        fontWeight:
-                                            FontWeight.w800,
-                                      ),
-                                    ),
+                          child: _isVerifying
+                              ? const SizedBox(
+                                  height: 23,
+                                  width: 23,
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Verify & Continue',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight:
+                                        FontWeight.w800,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(
-                  height: 20,
-                ),
+                const SizedBox(height: 20),
 
-                // ==================================================
+                // ==============================================
                 // SECURITY INFO
-                // ==================================================
+                // ==============================================
 
-                Center(
+                const Center(
                   child: Row(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons
-                            .lock_outline_rounded,
+                        Icons.lock_outline_rounded,
                         size: 15,
-                        color:
-                            secondaryText,
+                        color: secondaryText,
                       ),
-                      const SizedBox(
-                        width: 6,
-                      ),
+                      SizedBox(width: 6),
                       Text(
                         'Secure phone verification',
                         style: TextStyle(
-                          color:
-                              secondaryText,
+                          color: secondaryText,
                           fontSize: 12,
-                          fontWeight:
-                              FontWeight.w500,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(
-                  height: 8,
-                ),
+                const SizedBox(height: 8),
 
-                Center(
+                const Center(
                   child: Text(
                     'Your Firebase UID is kept in the backend.',
-                    textAlign:
-                        TextAlign.center,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      color:
-                          secondaryText,
+                      color: secondaryText,
                       fontSize: 11,
                     ),
                   ),
