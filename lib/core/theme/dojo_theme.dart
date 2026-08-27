@@ -272,51 +272,45 @@ class DojoTheme {
       // ========================================================
 
       inputDecorationTheme:
-          InputDecorationTheme(
-        filled: true,
+    InputDecorationTheme(
+  filled: true,
 
-        fillColor:
-            DojoInputColors.darkBackground,
+  // Light input background
+  fillColor:
+      DojoInputColors.lightBackground,
 
-        // FIX:
-        // Typed text is now explicitly visible.
-        textStyle: const TextStyle(
-          color:
-              DojoInputColors.darkText,
-        ),
+  // Light input hint
+  hintStyle: const TextStyle(
+    color:
+        DojoInputColors.lightHint,
+  ),
 
-        hintStyle: const TextStyle(
-          color:
-              DojoInputColors.darkHint,
-        ),
+  prefixIconColor:
+      DojoInputColors.lightIcon,
 
-        prefixIconColor:
-            DojoInputColors.darkIcon,
+  enabledBorder:
+      OutlineInputBorder(
+    borderRadius:
+        BorderRadius.circular(15),
 
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+    borderSide: const BorderSide(
+      color:
+          DojoInputColors.lightBorder,
+    ),
+  ),
 
-          borderSide: const BorderSide(
-            color:
-                DojoInputColors.darkBorder,
-          ),
-        ),
+  focusedBorder:
+      OutlineInputBorder(
+    borderRadius:
+        BorderRadius.circular(15),
 
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
-
-          borderSide: const BorderSide(
-            color:
-                DojoBrandColors.orange,
-
-            width: 1.5,
-          ),
-        ),
-      ),
+    borderSide: const BorderSide(
+      color:
+          DojoBrandColors.orange,
+      width: 1.5,
+    ),
+  ),
+),
 
       // ========================================================
       // BOTTOM NAVIGATION
