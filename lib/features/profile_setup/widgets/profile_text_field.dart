@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 class ProfileTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -14,9 +16,6 @@ class ProfileTextField extends StatelessWidget {
     required this.icon,
   });
 
-  static const Color orange =
-      Color(0xFFF4511E);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -28,6 +27,7 @@ class ProfileTextField extends StatelessWidget {
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
+            color: AppColors.navy,
           ),
         ),
 
@@ -35,32 +35,65 @@ class ProfileTextField extends StatelessWidget {
 
         TextField(
           controller: controller,
+
           textCapitalization:
               TextCapitalization.words,
+
+          // ====================================================
+          // IMPORTANT:
+          // Typed text must always remain visible.
+          // ====================================================
+
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+
+          cursorColor: AppColors.primary,
+
           decoration: InputDecoration(
             prefixIcon: Icon(
               icon,
-              color: orange,
+              color: AppColors.primary,
             ),
+
             hintText: hint,
-            filled: true,
-            fillColor:
-                const Color(0xFFF7F7F7),
-            border: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(14),
-              borderSide:
-                  BorderSide.none,
+
+            hintStyle: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 15,
             ),
+
+            filled: true,
+
+            fillColor: AppColors.lightGrey,
+
+            enabledBorder:
+                OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(15),
+              borderSide:
+                  const BorderSide(
+                color: AppColors.border,
+              ),
+            ),
+
             focusedBorder:
                 OutlineInputBorder(
               borderRadius:
-                  BorderRadius.circular(14),
+                  BorderRadius.circular(15),
               borderSide:
                   const BorderSide(
-                color: orange,
+                color: AppColors.primary,
                 width: 1.5,
               ),
+            ),
+
+            contentPadding:
+                const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 15,
             ),
           ),
         ),
