@@ -1,3 +1,6 @@
+// File location:
+// lib/screens/splash_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,10 +10,13 @@ import 'main_navigation_screen.dart';
 import 'profile_setup.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({
+    super.key,
+  });
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() =>
+      _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
@@ -21,30 +27,35 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkLoginAndProfile();
   }
 
+  // ==========================================================
+  // CHECK LOGIN + OWNER PROFILE
+  // ==========================================================
+
   Future<void> _checkLoginAndProfile() async {
     try {
-      // =========================================================
-      // 1. CHECK FIREBASE AUTH LOGIN
-      // =========================================================
+      // ========================================================
+      // 1. FIREBASE AUTH
+      // ========================================================
 
       final User? user =
           FirebaseAuth.instance.currentUser;
 
-      // =========================================================
-      // NOT LOGGED IN
-      // =========================================================
-
       if (user == null) {
-        _goTo(const LoginScreen());
+        _goTo(
+          const LoginScreen(),
+        );
         return;
       }
 
-      final String uid = user.uid.trim();
+      final String uid =
+          user.uid.trim();
 
       if (uid.isEmpty) {
         await FirebaseAuth.instance.signOut();
 
-        _goTo(const LoginScreen());
+        _goTo(
+          const LoginScreen(),
+        );
         return;
       }
 
@@ -52,9 +63,12 @@ class _SplashScreenState extends State<SplashScreen> {
         'Splash: Firebase user logged in: $uid',
       );
 
-      // =========================================================
-      // 2. GET PHONE ACCOUNT
-      // =========================================================
+      // ========================================================
+      // 2. PHONE ACCOUNT
+      //
+      // Collection:
+      // phoneAccounts/{uid}
+      // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
           accountSnapshot =
@@ -62,10 +76,6 @@ class _SplashScreenState extends State<SplashScreen> {
               .collection('phoneAccounts')
               .doc(uid)
               .get();
-
-      // =========================================================
-      // PHONE ACCOUNT NOT FOUND
-      // =========================================================
 
       if (!accountSnapshot.exists) {
         debugPrint(
@@ -75,16 +85,15 @@ class _SplashScreenState extends State<SplashScreen> {
         _goTo(
           const ProfileSetupScreen(),
         );
-
         return;
       }
 
       final Map<String, dynamic>? accountData =
           accountSnapshot.data();
 
-      // =========================================================
-      // 3. GET OWNER ID
-      // =========================================================
+      // ========================================================
+      // 3. OWNER ID
+      // ========================================================
 
       final dynamic ownerIdValue =
           accountData?['ownerId'];
@@ -98,7 +107,6 @@ class _SplashScreenState extends State<SplashScreen> {
         _goTo(
           const ProfileSetupScreen(),
         );
-
         return;
       }
 
@@ -109,9 +117,12 @@ class _SplashScreenState extends State<SplashScreen> {
         'Splash: Owner ID = $ownerId',
       );
 
-      // =========================================================
-      // 4. GET OWNER PROFILE
-      // =========================================================
+      // ========================================================
+      // 4. OWNER PROFILE
+      //
+      // Collection:
+      // owners/{ownerId}
+      // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
           ownerSnapshot =
@@ -119,10 +130,6 @@ class _SplashScreenState extends State<SplashScreen> {
               .collection('owners')
               .doc(ownerId)
               .get();
-
-      // =========================================================
-      // OWNER PROFILE NOT FOUND
-      // =========================================================
 
       if (!ownerSnapshot.exists) {
         debugPrint(
@@ -132,69 +139,72 @@ class _SplashScreenState extends State<SplashScreen> {
         _goTo(
           const ProfileSetupScreen(),
         );
-
         return;
       }
 
       final Map<String, dynamic>? ownerData =
           ownerSnapshot.data();
 
-      // =========================================================
-      // 5. CHECK ACTIVE STATUS
-      // =========================================================
+      // ========================================================
+      // 5. CHECK OWNER ACTIVE
+      // ========================================================
 
       final bool isActive =
           ownerData?['isActive'] != false;
 
       if (!isActive) {
+        debugPrint(
+          'Splash: owner account is inactive.',
+        );
+
         await FirebaseAuth.instance.signOut();
 
         _goTo(
           const LoginScreen(),
         );
-
         return;
       }
 
-      // =========================================================
+      // ========================================================
       // 6. CHECK PROFILE COMPLETED
-      // =========================================================
+      // ========================================================
 
       final bool profileCompleted =
           ownerData?['profileCompleted'] == true;
 
       debugPrint(
-        'Splash: profileCompleted = $profileCompleted',
+        'Splash: profileCompleted = '
+        '$profileCompleted',
       );
 
-      // =========================================================
-      // PROFILE COMPLETE → HOME
-      // =========================================================
+      // ========================================================
+      // 7. PROFILE COMPLETE → MAIN NAVIGATION
+      // ========================================================
 
       if (profileCompleted) {
         _goTo(
           const MainNavigationScreen(),
         );
-
         return;
       }
 
-      // =========================================================
-      // PROFILE NOT COMPLETE → PROFILE SETUP
-      // =========================================================
+      // ========================================================
+      // 8. PROFILE INCOMPLETE → PROFILE SETUP
+      // ========================================================
 
       _goTo(
         const ProfileSetupScreen(),
       );
     }
 
-    // ============================================================
+    // ==========================================================
     // FIREBASE ERROR
-    // ============================================================
+    // ==========================================================
 
     on FirebaseException catch (e) {
       debugPrint(
-        'Splash Firebase error: ${e.code}',
+        'Splash Firebase error: '
+        '${e.code}',
       );
 
       if (!mounted) return;
@@ -205,9 +215,9 @@ class _SplashScreenState extends State<SplashScreen> {
       );
     }
 
-    // ============================================================
+    // ==========================================================
     // UNKNOWN ERROR
-    // ============================================================
+    // ==========================================================
 
     catch (e) {
       debugPrint(
@@ -217,70 +227,111 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
 
       _showFirebaseError(
-        'Unable to load your account. Please try again.',
+        'Unable to load your account. '
+        'Please try again.',
       );
     }
   }
 
-  void _showFirebaseError(String message) {
+  // ==========================================================
+  // SHOW ERROR
+  // ==========================================================
+
+  void _showFirebaseError(
+    String message,
+  ) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
         .showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior: SnackBarBehavior.floating,
+        behavior:
+            SnackBarBehavior.floating,
       ),
     );
   }
 
-  void _goTo(Widget screen) {
+  // ==========================================================
+  // NAVIGATION
+  // ==========================================================
+
+  void _goTo(
+    Widget screen,
+  ) {
     if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context)
+        .pushReplacement(
       MaterialPageRoute(
         builder: (_) => screen,
       ),
     );
   }
 
+  // ==========================================================
+  // BUILD
+  // ==========================================================
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
+      // Explicit background prevents
+      // black Flutter background.
+      backgroundColor:
+          const Color(0xFFF4511E),
+
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // ====================================================
+          // SPLASH IMAGE
+          // ====================================================
+
           Image.asset(
             'assets/dojo_splash.png',
             fit: BoxFit.cover,
           ),
+
+          // ====================================================
+          // LOADING TEXT + INDICATOR
+          // ====================================================
 
           Positioned(
             left: 0,
             right: 0,
             bottom: 65,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 const Text(
                   'Getting things ready...',
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
-                    fontWeight: FontWeight.w500,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
 
-                const SizedBox(height: 18),
+                const SizedBox(
+                  height: 18,
+                ),
 
                 const SizedBox(
                   width: 30,
                   height: 30,
-                  child: CircularProgressIndicator(
+                  child:
+                      CircularProgressIndicator(
                     strokeWidth: 3,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(
+                        AlwaysStoppedAnimation<
+                            Color>(
                       Colors.white,
                     ),
                   ),
