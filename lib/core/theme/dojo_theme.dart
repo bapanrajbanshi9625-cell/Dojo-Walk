@@ -54,13 +54,16 @@ class DojoTheme {
       // ========================================================
 
       cardTheme: CardThemeData(
-        color: DojoCardColors.lightBackground,
+        color:
+            DojoCardColors.lightBackground,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius:
+              BorderRadius.circular(20),
           side: const BorderSide(
-            color: DojoCardColors.lightBorder,
+            color:
+                DojoCardColors.lightBorder,
           ),
         ),
       ),
@@ -69,32 +72,45 @@ class DojoTheme {
       // INPUTS
       // ========================================================
 
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme:
+          InputDecorationTheme(
         filled: true,
 
         fillColor:
             DojoInputColors.lightBackground,
 
+        // FIX:
+        // Typed text is now explicitly visible.
+        textStyle: const TextStyle(
+          color:
+              DojoInputColors.lightText,
+        ),
+
         hintStyle: const TextStyle(
-          color: DojoInputColors.lightHint,
+          color:
+              DojoInputColors.lightHint,
         ),
 
         prefixIconColor:
             DojoInputColors.lightIcon,
 
-        enabledBorder: OutlineInputBorder(
+        enabledBorder:
+            OutlineInputBorder(
           borderRadius:
               BorderRadius.circular(15),
           borderSide: const BorderSide(
-            color: DojoInputColors.lightBorder,
+            color:
+                DojoInputColors.lightBorder,
           ),
         ),
 
-        focusedBorder: OutlineInputBorder(
+        focusedBorder:
+            OutlineInputBorder(
           borderRadius:
               BorderRadius.circular(15),
           borderSide: const BorderSide(
-            color: DojoBrandColors.orange,
+            color:
+                DojoBrandColors.orange,
             width: 1.5,
           ),
         ),
@@ -119,7 +135,8 @@ class DojoTheme {
           TextStyle(
             color:
                 DojoBottomColors.lightSelected,
-            fontWeight: FontWeight.w600,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ),
@@ -260,6 +277,13 @@ class DojoTheme {
 
         fillColor:
             DojoInputColors.darkBackground,
+
+        // FIX:
+        // Typed text is now explicitly visible.
+        textStyle: const TextStyle(
+          color:
+              DojoInputColors.darkText,
+        ),
 
         hintStyle: const TextStyle(
           color:
