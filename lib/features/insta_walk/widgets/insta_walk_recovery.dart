@@ -47,6 +47,13 @@ extension _RecoveryRole on _InstaWalkContainerState {
     try {
       // ========================================================
       // FIND OWNER PROFILE
+      //
+      // Service now reads:
+      //
+      // owners
+      //
+      // using:
+      // authUid == FirebaseAuth.currentUser.uid
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
@@ -56,7 +63,11 @@ extension _RecoveryRole on _InstaWalkContainerState {
         return;
       }
 
-      if (ownerDoc == null) {
+      // ========================================================
+      // PROFILE NOT FOUND
+      // ========================================================
+
+      if (ownerDoc == null || !ownerDoc.exists) {
         _resetSearchState();
         return;
       }
@@ -66,8 +77,24 @@ extension _RecoveryRole on _InstaWalkContainerState {
       // ========================================================
 
       final Map<String, dynamic> ownerData =
-          ownerDoc.data() ??
-              <String, dynamic>{};
+          ownerDoc.data() ?? <String, dynamic>{};
+
+      // ========================================================
+      // PROFILE COMPLETION
+      //
+      // Firestore:
+      //
+      // owners/{documentId}
+      // profileCompleted = true
+      // ========================================================
+
+      final bool profileCompleted =
+          ownerData['profileCompleted'] == true;
+
+      if (!profileCompleted) {
+        _resetSearchState();
+        return;
+      }
 
       // ========================================================
       // PET NAME
@@ -83,27 +110,71 @@ extension _RecoveryRole on _InstaWalkContainerState {
         ],
       );
 
+      // ========================================================
+      // PETS ARRAY FALLBACK
+      //
+      // Current structure:
+      //
+      // pets:
+      //   [
+      //     {
+      //       name: "Brono"
+      //     }
+      //   ]
+      // ========================================================
+
+      if (_petName.isEmpty) {
+        final dynamic pets =
+            ownerData['pets'];
+
+        if (pets is List &&
+            pets.isNotEmpty) {
+          final dynamic firstPet =
+              pets.first;
+
+          if (firstPet is Map) {
+            final dynamic petName =
+                firstPet['name'];
+
+            if (petName != null) {
+              final String value =
+                  petName.toString().trim();
+
+              if (value.isNotEmpty) {
+                _petName = value;
+              }
+            }
+          }
+        }
+      }
+
       if (_petName.isEmpty) {
         _petName = 'Your Pet';
       }
 
       // ========================================================
       // OWNER ID
+      //
+      // Current Firestore structure:
+      //
+      // ownerId = OWN26GH0004
       // ========================================================
 
       String ownerId =
           _readFirstString(
         ownerData,
         const [
-          'businessId',
-          'Business ID',
           'ownerId',
           'Owner ID',
         ],
       );
 
-      // Fallback:
-      // ownerProfiles document ID
+      // ========================================================
+      // FALLBACK
+      //
+      // If ownerId is missing, use the document ID.
+      // ========================================================
+
       if (ownerId.isEmpty) {
         ownerId =
             ownerDoc.id.trim();
@@ -278,9 +349,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
             final InstaWalkAcceptedData accepted =
                 InstaWalkAcceptedData.fromMap(
               data,
-
-              // IMPORTANT:
-              // Firestore document ID is the real request ID.
               requestId: requestId,
             );
 
@@ -437,8 +505,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     // ==========================================================
     // REQUEST IS STILL ACTIVE
-    //
-    // Accepted request is not the same as cancelled/expired.
     // ==========================================================
 
     _setActive(true);
