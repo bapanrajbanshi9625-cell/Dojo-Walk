@@ -127,49 +127,49 @@ class HomePastWalkService {
   // ============================================================
 
   Future<Map<String, dynamic>?> getWalkById(
-    String walkId,
-  ) async {
-    final String? ownerId =
-        await _ownerService.getOwnerId();
+  String walkId,
+) async {
+  final String? ownerId =
+      await _ownerService.getOwnerId();
 
-    if (ownerId == null || ownerId.isEmpty) {
-      return null;
-    }
-
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _firestore
-              .collection(collection)
-              .where(
-                'ownerId',
-                isEqualTo: ownerId,
-              )
-              .where(
-                'Walkid',
-                isEqualTo: walkId,
-              )
-              .limit(1)
-              .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        final QueryDocumentSnapshot<
-            Map<String, dynamic>> doc =
-            snapshot.docs.first;
-
-        final Map<String, dynamic> data =
-            Map<String, dynamic>.from(
-          doc.data(),
-        );
-
-        data['documentId'] = doc.id;
-
-        return data;
-      }
-    } catch (_) {}
-
+  if (ownerId == null || ownerId.isEmpty) {
     return null;
   }
 
+  try {
+    final QuerySnapshot<Map<String, dynamic>> snapshot =
+        await _firestore
+            .collection(collection)
+            .where(
+              'ownerId',
+              isEqualTo: ownerId,
+            )
+            .where(
+              'walkId',
+              isEqualTo: walkId,
+            )
+            .limit(1)
+            .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final QueryDocumentSnapshot<
+          Map<String, dynamic>> doc =
+          snapshot.docs.first;
+
+      final Map<String, dynamic> data =
+          Map<String, dynamic>.from(
+        doc.data(),
+      );
+
+      data['documentId'] = doc.id;
+
+      return data;
+    }
+  } catch (_) {}
+
+  return null;
+  }
+  
   // ============================================================
   // DATE SORT
   // ============================================================
