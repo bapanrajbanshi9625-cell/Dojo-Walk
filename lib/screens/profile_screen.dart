@@ -13,8 +13,7 @@ class ProfileScreen extends StatefulWidget {
   });
 
   @override
-  State<ProfileScreen> createState() =>
-      _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
@@ -36,6 +35,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String streetRoad = '';
   String landmark = '';
 
+  double? currentLatitude;
+  double? currentLongitude;
+  double? locationAccuracy;
+
   bool isActive = true;
   bool isLoading = true;
   bool isSavingPet = false;
@@ -43,6 +46,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isConnectingLocation = false;
 
   List<Map<String, dynamic>> pets = [];
+
+  bool get _hasConnectedLocation {
+    return currentLatitude != null &&
+        currentLongitude != null;
+  }
 
   @override
   void initState() {
@@ -130,10 +138,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final String fullName =
-          data['fullName']?.toString().trim() ?? '';
+          data['fullName']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String savedOwnerName =
-          data['ownerName']?.toString().trim() ?? '';
+          data['ownerName']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String name =
           fullName.isNotEmpty
@@ -147,7 +161,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final String firestorePhone =
-          data['phone']?.toString().trim() ?? '';
+          data['phone']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String phone =
           firestorePhone.isNotEmpty
@@ -168,7 +185,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final String savedGender =
-          data['gender']?.toString().trim() ?? '';
+          data['gender']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       // ========================================================
       // ACTIVE
@@ -230,14 +250,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // Backward compatibility.
-      //
-      // If addressDetails was not saved but old address
-      // exists, display the old address as street/address.
       if (savedFlat.isEmpty &&
           savedStreet.isEmpty &&
           savedLandmark.isEmpty) {
         final String oldAddress =
-            data['address']?.toString().trim() ?? '';
+            data['address']
+                    ?.toString()
+                    .trim() ??
+                '';
 
         if (oldAddress.isNotEmpty) {
           savedStreet = oldAddress;
@@ -245,10 +265,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // ========================================================
+      // LOCATION
+      // ========================================================
+
+      double? savedLatitude;
+      double? savedLongitude;
+      double? savedAccuracy;
+
+      final dynamic latitude =
+          data['latitude'];
+
+      final dynamic longitude =
+          data['longitude'];
+
+      final dynamic accuracy =
+          data['locationAccuracy'];
+
+      if (latitude is num &&
+          longitude is num) {
+        savedLatitude =
+            latitude.toDouble();
+
+        savedLongitude =
+            longitude.toDouble();
+      }
+
+      if (accuracy is num) {
+        savedAccuracy =
+            accuracy.toDouble();
+      }
+
+      // Backward compatibility:
+      // location.latitude / location.longitude
+      if (savedLatitude == null ||
+          savedLongitude == null) {
+        final dynamic location =
+            data['location'];
+
+        if (location is Map) {
+          final dynamic nestedLatitude =
+              location['latitude'];
+
+          final dynamic nestedLongitude =
+              location['longitude'];
+
+          if (nestedLatitude is num &&
+              nestedLongitude is num) {
+            savedLatitude =
+                nestedLatitude.toDouble();
+
+            savedLongitude =
+                nestedLongitude.toDouble();
+          }
+        }
+      }
+
+      // ========================================================
       // PETS
       // ========================================================
 
-      final List<Map<String, dynamic>> loadedPets =
+      final List<Map<String, dynamic>>
+          loadedPets =
           _readPets(data['pets']);
 
       if (!mounted) return;
@@ -270,23 +347,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ? '-'
                 : savedGender;
 
-        memberSince =
-            joinedDate;
+        memberSince = joinedDate;
 
-        isActive =
-            active;
+        isActive = active;
 
-        flatHouseNo =
-            savedFlat;
+        flatHouseNo = savedFlat;
+        streetRoad = savedStreet;
+        landmark = savedLandmark;
 
-        streetRoad =
-            savedStreet;
+        currentLatitude =
+            savedLatitude;
 
-        landmark =
-            savedLandmark;
+        currentLongitude =
+            savedLongitude;
 
-        pets =
-            loadedPets;
+        locationAccuracy =
+            savedAccuracy;
+
+        pets = loadedPets;
 
         isLoading = false;
       });
@@ -311,7 +389,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // DOB FORMAT
   // ============================================================
 
-  String _formatDateOfBirth(dynamic value) {
+  String _formatDateOfBirth(
+    dynamic value,
+  ) {
     DateTime? date;
 
     if (value is Timestamp) {
@@ -319,7 +399,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else if (value is DateTime) {
       date = value;
     } else if (value is String) {
-      final String text = value.trim();
+      final String text =
+          value.trim();
 
       if (text.isNotEmpty) {
         date = DateTime.tryParse(text);
@@ -350,7 +431,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return [];
     }
 
-    final List<Map<String, dynamic>> result = [];
+    final List<Map<String, dynamic>> result =
+        [];
 
     for (final dynamic item in value) {
       if (item is Map) {
@@ -367,7 +449,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // PHONE FORMAT
   // ============================================================
 
-  String _formatIndianNumber(String number) {
+  String _formatIndianNumber(
+    String number,
+  ) {
     final String clean =
         number.replaceAll(
       RegExp(r'[^0-9]'),
@@ -411,7 +495,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Dec',
     ];
 
-    if (month < 1 || month > 12) {
+    if (month < 1 ||
+        month > 12) {
       return '';
     }
 
@@ -482,17 +567,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _openAddressEditor() async {
-    final TextEditingController flatController =
+    final TextEditingController
+        flatController =
         TextEditingController(
       text: flatHouseNo,
     );
 
-    final TextEditingController streetController =
+    final TextEditingController
+        streetController =
         TextEditingController(
       text: streetRoad,
     );
 
-    final TextEditingController landmarkController =
+    final TextEditingController
+        landmarkController =
         TextEditingController(
       text: landmark,
     );
@@ -516,7 +604,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             context,
             setSheetState,
           ) {
-            Future<void> connectLocation() async {
+            Future<void>
+                connectLocation() async {
               if (connecting) return;
 
               setSheetState(() {
@@ -524,28 +613,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               });
 
               try {
-                final Position? position =
+                final Position?
+                    position =
                     await _getCurrentLocation();
 
                 if (position == null) {
-                  if (sheetContext.mounted) {
-                    _showMessage(
-                      'Unable to get current location.',
-                    );
-                  }
-
                   return;
                 }
 
-                /*
-                 * Current GPS coordinates are handled by
-                 * the profile location fields.
-                 *
-                 * We do NOT invent an address from
-                 * coordinates here.
-                 *
-                 * The address fields remain user-editable.
-                 */
+                if (!mounted) return;
+
+                setState(() {
+                  currentLatitude =
+                      position.latitude;
+
+                  currentLongitude =
+                      position.longitude;
+
+                  locationAccuracy =
+                      position.accuracy;
+                });
+
                 if (sheetContext.mounted) {
                   _showMessage(
                     'Current location connected.',
@@ -562,20 +650,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             return SafeArea(
               child: Padding(
-                padding: EdgeInsets.only(
+                padding:
+                    EdgeInsets.only(
                   left: 18,
                   right: 18,
                   top: 18,
                   bottom:
-                      MediaQuery.of(context)
-                              .viewInsets
-                              .bottom +
+                      MediaQuery.of(
+                            context,
+                          ).viewInsets.bottom +
                           20,
                 ),
-                child: SingleChildScrollView(
+                child:
+                    SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       Row(
                         children: [
@@ -608,16 +699,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               'Edit Address',
                               style:
                                   TextStyle(
-                                fontSize: 21,
+                                fontSize:
+                                    21,
                                 fontWeight:
-                                    FontWeight.w800,
+                                    FontWeight
+                                        .w800,
                                 color:
                                     navy,
                               ),
                             ),
                           ),
                           IconButton(
-                            onPressed: () {
+                            onPressed:
+                                () {
                               Navigator.pop(
                                 sheetContext,
                               );
@@ -641,9 +735,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             TextStyle(
                           fontSize: 12,
                           fontWeight:
-                              FontWeight.w700,
-                          color:
-                              navy,
+                              FontWeight
+                                  .w700,
+                          color: navy,
                         ),
                       ),
 
@@ -657,7 +751,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         hint:
                             'e.g. Flat 204 / House No. 12',
                         icon:
-                            Icons.home_outlined,
+                            Icons
+                                .home_outlined,
                       ),
 
                       const SizedBox(
@@ -670,9 +765,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             TextStyle(
                           fontSize: 12,
                           fontWeight:
-                              FontWeight.w700,
-                          color:
-                              navy,
+                              FontWeight
+                                  .w700,
+                          color: navy,
                         ),
                       ),
 
@@ -700,9 +795,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             TextStyle(
                           fontSize: 12,
                           fontWeight:
-                              FontWeight.w700,
-                          color:
-                              navy,
+                              FontWeight
+                                  .w700,
+                          color: navy,
                         ),
                       ),
 
@@ -725,15 +820,132 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // ==================================================
-                      // CONNECT CURRENT LOCATION
+                      // CURRENT LOCATION
                       // ==================================================
+
+                      Container(
+                        width:
+                            double.infinity,
+                        padding:
+                            const EdgeInsets
+                                .all(
+                          13,
+                        ),
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              _hasConnectedLocation
+                                  ? Colors
+                                      .green
+                                      .withValues(
+                                      alpha:
+                                          0.08,
+                                    )
+                                  : Colors
+                                      .red
+                                      .withValues(
+                                      alpha:
+                                          0.06,
+                                    ),
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            13,
+                          ),
+                          border:
+                              Border.all(
+                            color:
+                                _hasConnectedLocation
+                                    ? Colors
+                                        .green
+                                    : Colors
+                                        .red
+                                        .withValues(
+                                        alpha:
+                                            0.35,
+                                      ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _hasConnectedLocation
+                                  ? Icons
+                                      .check_circle_rounded
+                                  : Icons
+                                      .location_off_rounded,
+                              color:
+                                  _hasConnectedLocation
+                                      ? Colors
+                                          .green
+                                      : Colors
+                                          .red,
+                              size: 21,
+                            ),
+                            const SizedBox(
+                              width: 10,
+                            ),
+                            Expanded(
+                              child:
+                                  Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+                                children: [
+                                  const Text(
+                                    'Current Location *',
+                                    style:
+                                        TextStyle(
+                                      fontSize:
+                                          12,
+                                      fontWeight:
+                                          FontWeight
+                                              .w800,
+                                      color:
+                                          navy,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height:
+                                        3,
+                                  ),
+                                  Text(
+                                    _hasConnectedLocation
+                                        ? 'Location connected'
+                                        : 'Location is required',
+                                    style:
+                                        TextStyle(
+                                      fontSize:
+                                          11.5,
+                                      color:
+                                          _hasConnectedLocation
+                                              ? Colors
+                                                  .green
+                                              : Colors
+                                                  .red,
+                                      fontWeight:
+                                          FontWeight
+                                              .w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 10,
+                      ),
 
                       SizedBox(
                         width:
                             double.infinity,
                         height: 46,
                         child:
-                            OutlinedButton.icon(
+                            OutlinedButton
+                                .icon(
                           onPressed:
                               connecting
                                   ? null
@@ -784,7 +996,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Text(
                             connecting
                                 ? 'Connecting...'
-                                : 'Connect Current Location',
+                                : _hasConnectedLocation
+                                    ? 'Update Current Location'
+                                    : 'Connect Current Location',
                             style:
                                 const TextStyle(
                               fontSize:
@@ -849,6 +1063,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         return;
                                       }
 
+                                      if (!_hasConnectedLocation) {
+                                        _showMessage(
+                                          'Please connect your current location before saving address.',
+                                        );
+                                        return;
+                                      }
+
                                       final bool
                                           saved =
                                           await _saveAddress(
@@ -876,9 +1097,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             foregroundColor:
                                 Colors.white,
                             disabledBackgroundColor:
-                                orange
-                                    .withOpacity(
-                              0.55,
+                                orange.withValues(
+                              alpha:
+                                  0.55,
                             ),
                             elevation:
                                 0,
@@ -941,7 +1162,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<Position?> _getCurrentLocation() async {
     try {
       final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+          await Geolocator
+              .isLocationServiceEnabled();
 
       if (!serviceEnabled) {
         _showMessage(
@@ -962,14 +1184,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (permission ==
               LocationPermission.denied ||
           permission ==
-              LocationPermission.deniedForever) {
+              LocationPermission
+                  .deniedForever) {
         _showMessage(
           'Location permission is required.',
         );
         return null;
       }
 
-      return await Geolocator.getCurrentPosition(
+      return await Geolocator
+          .getCurrentPosition(
         desiredAccuracy:
             LocationAccuracy.high,
       );
@@ -1012,17 +1236,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return false;
     }
 
+    if (!_hasConnectedLocation) {
+      _showMessage(
+        'Current location is required.',
+      );
+      return false;
+    }
+
     setState(() {
       isSavingAddress = true;
     });
 
     try {
-      /*
-       * Address is saved separately from profileCompleted.
-       *
-       * profileCompleted is NOT changed here.
-       */
-
       await FirebaseFirestore.instance
           .collection('owners')
           .doc(ownerId)
@@ -1038,15 +1263,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 landmark.trim(),
           },
 
-          /*
-           * Compatibility/readable combined address.
-           */
-          'address':
-              _buildAddress(
+          'address': _buildAddress(
             flatHouseNo,
             streetRoad,
             landmark,
           ),
+
+          'latitude':
+              currentLatitude,
+
+          'longitude':
+              currentLongitude,
+
+          'location':
+              <String, dynamic>{
+            'latitude':
+                currentLatitude,
+            'longitude':
+                currentLongitude,
+          },
+
+          if (locationAccuracy != null)
+            'locationAccuracy':
+                locationAccuracy,
+
+          'locationUpdatedAt':
+              FieldValue.serverTimestamp(),
 
           'updatedAt':
               FieldValue.serverTimestamp(),
@@ -1197,6 +1439,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
+      setState(() {
+        currentLatitude =
+            position.latitude;
+
+        currentLongitude =
+            position.longitude;
+
+        locationAccuracy =
+            position.accuracy;
+      });
+
       _showMessage(
         'Current location connected.',
       );
@@ -1220,7 +1473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          isConnectingLocation = false;
+          isConnectingLocation =
+              false;
         });
       }
     }
@@ -1235,11 +1489,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     List<String> keys,
   ) {
     for (final String key in keys) {
-      final dynamic value = pet[key];
+      final dynamic value =
+          pet[key];
 
       if (value != null &&
-          value.toString().trim().isNotEmpty) {
-        return value.toString().trim();
+          value
+              .toString()
+              .trim()
+              .isNotEmpty) {
+        return value
+            .toString()
+            .trim();
       }
     }
 
@@ -1265,7 +1525,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // EDIT PET
   // ============================================================
 
-  Future<void> _editPet(int index) async {
+  Future<void> _editPet(
+    int index,
+  ) async {
     if (index < 0 ||
         index >= pets.length) {
       return;
@@ -1281,7 +1543,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // DELETE PET
   // ============================================================
 
-  Future<void> _deletePet(int index) async {
+  Future<void> _deletePet(
+    int index,
+  ) async {
     if (pets.length <= 1) {
       _showMessage(
         'At least one pet is required.',
@@ -1343,7 +1607,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'Delete',
                 style:
                     TextStyle(
-                  color: Colors.red,
+                  color:
+                      Colors.red,
                 ),
               ),
             ),
@@ -1379,7 +1644,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     int? index,
     Map<String, dynamic>? existingPet,
   }) async {
-    final TextEditingController nameController =
+    final TextEditingController
+        nameController =
         TextEditingController(
       text: existingPet == null
           ? ''
@@ -1483,20 +1749,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ) {
             return SafeArea(
               child: Padding(
-                padding: EdgeInsets.only(
+                padding:
+                    EdgeInsets.only(
                   left: 18,
                   right: 18,
                   top: 18,
                   bottom:
-                      MediaQuery.of(context)
-                              .viewInsets
-                              .bottom +
+                      MediaQuery.of(
+                            context,
+                          ).viewInsets.bottom +
                           20,
                 ),
-                child: SingleChildScrollView(
+                child:
+                    SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       Row(
                         children: [
@@ -1532,16 +1801,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   : 'Edit Pet',
                               style:
                                   const TextStyle(
-                                fontSize: 21,
+                                fontSize:
+                                    21,
                                 fontWeight:
-                                    FontWeight.w800,
+                                    FontWeight
+                                        .w800,
                                 color:
                                     navy,
                               ),
                             ),
                           ),
                           IconButton(
-                            onPressed: () {
+                            onPressed:
+                                () {
                               Navigator.pop(
                                 sheetContext,
                               );
@@ -1576,8 +1848,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       _EditorPicker(
-                        label:
-                            'Age',
+                        label: 'Age',
                         value:
                             selectedAge,
                         icon:
@@ -1729,7 +2000,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       }
 
                                       if (selectedAge ==
-                                          null ||
+                                              null ||
                                           selectedAge!
                                               .isEmpty) {
                                         _showMessage(
@@ -1739,7 +2010,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       }
 
                                       if (selectedBreed ==
-                                          null ||
+                                              null ||
                                           selectedBreed!
                                               .isEmpty) {
                                         _showMessage(
@@ -1749,7 +2020,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       }
 
                                       if (selectedBehaviour ==
-                                          null ||
+                                              null ||
                                           selectedBehaviour!
                                               .isEmpty) {
                                         _showMessage(
@@ -1911,7 +2182,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 12,
                 ),
                 Flexible(
-                  child: ListView.builder(
+                  child:
+                      ListView.builder(
                     shrinkWrap: true,
                     itemCount:
                         items.length,
@@ -1920,7 +2192,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       final String item =
                           items[index];
 
-                      final bool isSelected =
+                      final bool
+                          isSelected =
                           item ==
                               selected;
 
@@ -1943,8 +2216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color:
                               isSelected
                                   ? orange
-                                  : Colors
-                                      .grey,
+                                  : Colors.grey,
                         ),
                         title:
                             Text(
@@ -1979,7 +2251,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<bool> _savePets(
-    List<Map<String, dynamic>> updatedPets, {
+    List<Map<String, dynamic>>
+        updatedPets, {
     required String successMessage,
   }) async {
     if (ownerId.trim().isEmpty) {
@@ -2013,8 +2286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .doc(ownerId)
           .set(
         <String, dynamic>{
-          'pets':
-              updatedPets,
+          'pets': updatedPets,
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -2071,7 +2343,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // MESSAGE
   // ============================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -2093,11 +2367,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           background,
-
       appBar: AppBar(
         backgroundColor:
             orange,
@@ -2136,13 +2411,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   TextStyle(
                 fontSize: 18,
                 fontWeight:
-                    FontWeight.w800,
+                    FontWeight
+                        .w800,
               ),
             ),
           ],
         ),
       ),
-
       body: SafeArea(
         child:
             isLoading
@@ -2238,7 +2513,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onPressed:
                                     _openAddressEditor,
                                 style:
-                                    TextButton.styleFrom(
+                                    TextButton
+                                        .styleFrom(
                                   foregroundColor:
                                       orange,
                                   padding:
@@ -2276,6 +2552,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 streetRoad,
                             landmark:
                                 landmark,
+                            hasLocation:
+                                _hasConnectedLocation,
                             isConnecting:
                                 isConnectingLocation,
                             onConnectLocation:
@@ -2367,8 +2645,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               padding:
                                   const EdgeInsets
                                       .only(
-                                top:
-                                    2,
+                                top: 2,
                               ),
                               child:
                                   _AddPetLargeButton(
@@ -2451,8 +2728,11 @@ class _OwnerInfoCard
   final String memberSince;
   final bool isActive;
 
-  final VoidCallback onChangeMobile;
-  final VoidCallback onCopyOwnerId;
+  final VoidCallback
+      onChangeMobile;
+
+  final VoidCallback
+      onCopyOwnerId;
 
   const _OwnerInfoCard({
     required this.ownerId,
@@ -2562,7 +2842,8 @@ class _OwnerInfoCard
                 IconButton(
               icon:
                   const Icon(
-                Icons.edit_outlined,
+                Icons
+                    .edit_outlined,
                 size: 19,
                 color:
                     Color(
@@ -2618,18 +2899,16 @@ class _OwnerInfoCard
           ),
 
           _InfoRow(
-            icon:
-                isActive
-                    ? Icons
-                        .check_circle_outline
-                    : Icons
-                        .block_outlined,
+            icon: isActive
+                ? Icons
+                    .check_circle_outline
+                : Icons
+                    .block_outlined,
             label:
                 'Account Status',
-            value:
-                isActive
-                    ? 'Active'
-                    : 'Inactive',
+            value: isActive
+                ? 'Active'
+                : 'Inactive',
             valueColor:
                 isActive
                     ? Colors.green
@@ -2753,13 +3032,16 @@ class _AddressCard
   final String flatHouseNo;
   final String streetRoad;
   final String landmark;
+  final bool hasLocation;
   final bool isConnecting;
-  final VoidCallback onConnectLocation;
+  final VoidCallback
+      onConnectLocation;
 
   const _AddressCard({
     required this.flatHouseNo,
     required this.streetRoad,
     required this.landmark,
+    required this.hasLocation,
     required this.isConnecting,
     required this.onConnectLocation,
   });
@@ -2770,8 +3052,8 @@ class _AddressCard
   ) {
     final bool hasAddress =
         flatHouseNo.isNotEmpty ||
-        streetRoad.isNotEmpty ||
-        landmark.isNotEmpty;
+            streetRoad.isNotEmpty ||
+            landmark.isNotEmpty;
 
     return Container(
       width:
@@ -2807,7 +3089,8 @@ class _AddressCard
       child:
           Column(
         crossAxisAlignment:
-            CrossAxisAlignment.start,
+            CrossAxisAlignment
+                .start,
         children: [
           if (!hasAddress)
             const Text(
@@ -2819,7 +3102,8 @@ class _AddressCard
                 fontSize:
                     13,
                 fontWeight:
-                    FontWeight.w600,
+                    FontWeight
+                        .w600,
               ),
             )
           else ...[
@@ -2833,34 +3117,109 @@ class _AddressCard
                     flatHouseNo,
               ),
 
-            if (streetRoad.isNotEmpty) ...[
-              const SizedBox(
-                height: 12,
-              ),
-              _AddressRow(
-                icon:
-                    Icons.signpost_outlined,
-                label:
-                    'Street / Road',
-                value:
-                    streetRoad,
-              ),
-            ],
+            if (streetRoad.isNotEmpty)
+              ...[
+                const SizedBox(
+                  height: 12,
+                ),
+                _AddressRow(
+                  icon:
+                      Icons.signpost_outlined,
+                  label:
+                      'Street / Road',
+                  value:
+                      streetRoad,
+                ),
+              ],
 
-            if (landmark.isNotEmpty) ...[
-              const SizedBox(
-                height: 12,
+            if (landmark.isNotEmpty)
+              ...[
+                const SizedBox(
+                  height: 12,
+                ),
+                _AddressRow(
+                  icon:
+                      Icons.place_outlined,
+                  label:
+                      'Landmark',
+                  value:
+                      landmark,
+                ),
+              ],
+          ],
+
+          const SizedBox(
+            height: 14,
+          ),
+
+          // ========================================================
+          // LOCATION STATUS
+          // ========================================================
+
+          Row(
+            children: [
+              Icon(
+                hasLocation
+                    ? Icons
+                        .check_circle_rounded
+                    : Icons
+                        .location_off_rounded,
+                size: 20,
+                color:
+                    hasLocation
+                        ? Colors.green
+                        : Colors.red,
               ),
-              _AddressRow(
-                icon:
-                    Icons.place_outlined,
-                label:
-                    'Landmark',
-                value:
-                    landmark,
+              const SizedBox(
+                width: 10,
+              ),
+              Expanded(
+                child:
+                    Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    const Text(
+                      'Current Location',
+                      style:
+                          TextStyle(
+                        fontSize:
+                            10.5,
+                        color:
+                            Colors.grey,
+                        fontWeight:
+                            FontWeight
+                                .w600,
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 2,
+                    ),
+                    Text(
+                      hasLocation
+                          ? 'Location connected'
+                          : 'Location required',
+                      style:
+                          TextStyle(
+                        fontSize:
+                            13.5,
+                        color:
+                            hasLocation
+                                ? Colors
+                                    .green
+                                : Colors
+                                    .red,
+                        fontWeight:
+                            FontWeight
+                                .w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
 
           const SizedBox(
             height: 15,
@@ -2889,8 +3248,7 @@ class _AddressCard
                       Color(
                     0xFFF4511E,
                   ),
-                  width:
-                      1.2,
+                  width: 1.2,
                 ),
                 shape:
                     RoundedRectangleBorder(
@@ -2927,13 +3285,16 @@ class _AddressCard
                   Text(
                 isConnecting
                     ? 'Connecting...'
-                    : 'Connect Current Location',
+                    : hasLocation
+                        ? 'Update Current Location'
+                        : 'Connect Current Location',
                 style:
                     const TextStyle(
                   fontSize:
                       13.5,
                   fontWeight:
-                      FontWeight.w700,
+                      FontWeight
+                          .w700,
                 ),
               ),
             ),
@@ -2966,7 +3327,8 @@ class _AddressRow
   ) {
     return Row(
       crossAxisAlignment:
-          CrossAxisAlignment.start,
+          CrossAxisAlignment
+              .start,
       children: [
         Icon(
           icon,
@@ -3046,8 +3408,7 @@ class _PetDetailsCard
   String _value(
     List<String> keys,
   ) {
-    for (final String key
-        in keys) {
+    for (final String key in keys) {
       final dynamic value =
           pet[key];
 
@@ -3449,7 +3810,8 @@ class _AddressEditorField
       controller:
           controller,
       textCapitalization:
-          TextCapitalization.sentences,
+          TextCapitalization
+              .sentences,
       decoration:
           InputDecoration(
         hintText:
@@ -3489,8 +3851,7 @@ class _AddressEditorField
                 Color(
               0xFFF4511E,
             ),
-            width:
-                1.3,
+            width: 1.3,
           ),
         ),
       ),
@@ -3524,7 +3885,8 @@ class _EditorField
       controller:
           controller,
       textCapitalization:
-          TextCapitalization.words,
+          TextCapitalization
+              .words,
       decoration:
           InputDecoration(
         labelText:
