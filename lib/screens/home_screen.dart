@@ -249,11 +249,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
 
                       border:
-                          const BorderSide(
-                            color:
-                                DojoCardColors
-                                    .lightBorder,
-                          ).toBorderSide(),
+                          Border.all(
+                        color:
+                            DojoCardColors
+                                .lightBorder,
+                      ),
                     ),
 
                     child:
@@ -337,24 +337,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// =====================================================
-// BORDER SIDE HELPER
-// =====================================================
-//
-// Keeps the color package usage clean without introducing
-// another hard-coded color.
-// =====================================================
-
-extension on BorderSide {
-  BorderSide toBorderSide() {
-    return BorderSide(
-      color: color,
-      width: width,
-      style: style,
     );
   }
 }
