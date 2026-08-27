@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/theme/dojotheme.dart';
 import '../services/owner_id_service.dart';
 import 'main_navigation_screen.dart';
 import 'profile_setup.dart';
@@ -24,34 +25,13 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState
     extends State<OtpVerificationScreen> {
-  // ============================================================
-  // CONTROLLER
-  // ============================================================
-
   final TextEditingController _otpController =
       TextEditingController();
 
   final FocusNode _otpFocusNode =
       FocusNode();
 
-  // ============================================================
-  // STATE
-  // ============================================================
-
   bool _isVerifying = false;
-
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color orange =
-      Color(0xFFF4511E);
-
-  static const Color dark =
-      Color(0xFF263746);
-
-  static const Color background =
-      Color(0xFFF8F9FA);
 
   // ============================================================
   // VERIFY OTP
@@ -61,20 +41,29 @@ class _OtpVerificationScreenState
     final String otp =
         _otpController.text.trim();
 
-    // ----------------------------------------------------------
-    // VALIDATION
-    // ----------------------------------------------------------
-
     if (otp.length != 6) {
       _showMessage(
         'Please enter the complete 6-digit OTP.',
       );
 
-      _otpFocusNode.requestFocus();
+      if (mounted) {
+        _otpFocusNode.requestFocus();
+      }
+
       return;
     }
 
     if (_isVerifying) {
+      return;
+    }
+
+    final String verificationId =
+        widget.verificationId.trim();
+
+    if (verificationId.isEmpty) {
+      _showMessage(
+        'Verification session is invalid. Please request a new OTP.',
+      );
       return;
     }
 
@@ -89,13 +78,12 @@ class _OtpVerificationScreenState
 
       final PhoneAuthCredential credential =
           PhoneAuthProvider.credential(
-        verificationId:
-            widget.verificationId,
+        verificationId: verificationId,
         smsCode: otp,
       );
 
       // ========================================================
-      // 2. FIREBASE AUTH LOGIN
+      // 2. FIREBASE PHONE LOGIN
       // ========================================================
 
       final UserCredential userCredential =
@@ -108,26 +96,30 @@ class _OtpVerificationScreenState
           userCredential.user;
 
       if (user == null) {
-        throw Exception(
-          'Firebase user was not found.',
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message:
+              'Firebase user was not found after OTP verification.',
         );
       }
 
       // ========================================================
-      // BACKEND UID
+      // 3. FIREBASE UID
       // ========================================================
 
       final String uid =
           user.uid.trim();
 
       if (uid.isEmpty) {
-        throw Exception(
-          'Firebase UID was not found.',
+        throw FirebaseAuthException(
+          code: 'invalid-user',
+          message:
+              'Firebase UID was not found.',
         );
       }
 
       // ========================================================
-      // VERIFIED PHONE
+      // 4. VERIFIED PHONE NUMBER
       // ========================================================
 
       String phoneNumber =
@@ -137,22 +129,23 @@ class _OtpVerificationScreenState
         phoneNumber =
             widget.phoneNumber.trim();
 
-        if (!phoneNumber.startsWith('+')) {
+        if (phoneNumber.isNotEmpty &&
+            !phoneNumber.startsWith('+')) {
           phoneNumber =
               '+91$phoneNumber';
         }
       }
 
+      if (phoneNumber.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'phone-not-found',
+          message:
+              'Verified mobile number was not found.',
+        );
+      }
+
       // ========================================================
-      // 3. GET / CREATE OWNER ID
-      // ========================================================
-      //
-      // Example:
-      //
-      // OWN26GM0001
-      //
-      // UID remains backend-only.
-      //
+      // 5. GET / CREATE OWNER ID
       // ========================================================
 
       final String ownerId =
@@ -162,40 +155,49 @@ class _OtpVerificationScreenState
         phoneNumber: phoneNumber,
       );
 
+      final String cleanOwnerId =
+          ownerId.trim();
+
+      if (cleanOwnerId.isEmpty) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'owner-id-missing',
+          message:
+              'Owner ID could not be created.',
+        );
+      }
+
       debugPrint(
-        'Owner ID: $ownerId',
+        'Owner ID: $cleanOwnerId',
       );
 
       // ========================================================
-      // 4. LOAD OWNER PROFILE
+      // 6. LOAD OWNER PROFILE
+      // ========================================================
+      //
+      // ProfileSetupService saves:
+      //
+      // owners/{ownerId}
+      //
       // ========================================================
 
       final DocumentSnapshot<
-          Map<String, dynamic>> profileSnapshot =
+              Map<String, dynamic>>
+          profileSnapshot =
           await FirebaseFirestore.instance
-              .collection('ownerProfiles')
-              .doc(ownerId)
+              .collection('owners')
+              .doc(cleanOwnerId)
               .get();
 
       // ========================================================
-      // 5. PROFILE DATA
+      // 7. PROFILE DATA
       // ========================================================
 
       final Map<String, dynamic>? data =
           profileSnapshot.data();
 
       // ========================================================
-      // 6. ACTIVE STATUS
-      // ========================================================
-      //
-      // New profile:
-      // OwnerIdService creates isActive = true
-      //
-      // Admin can later set:
-      //
-      // true  = active
-      // false = inactive
-      //
+      // 8. ACTIVE STATUS
       // ========================================================
 
       final bool isActive =
@@ -205,26 +207,30 @@ class _OtpVerificationScreenState
         await FirebaseAuth.instance
             .signOut();
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         _showInactiveDialog(
-          ownerId,
+          cleanOwnerId,
         );
 
         return;
       }
 
       // ========================================================
-      // 7. PROFILE COMPLETED
+      // 9. PROFILE COMPLETED
       // ========================================================
 
       final bool profileCompleted =
           data?['profileCompleted'] == true;
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       // ========================================================
-      // 8. PROFILE NOT COMPLETED
+      // 10. PROFILE NOT COMPLETED
       // ========================================================
 
       if (!profileCompleted) {
@@ -241,7 +247,7 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 9. PROFILE COMPLETED → HOME
+      // 11. PROFILE COMPLETED → MAIN APP
       // ========================================================
 
       Navigator.pushAndRemoveUntil(
@@ -296,31 +302,80 @@ class _OtpVerificationScreenState
               'Network error. Please check your internet connection.';
           break;
 
+        case 'user-not-found':
+          message =
+              'Unable to complete phone verification. Please try again.';
+          break;
+
+        case 'invalid-user':
+          message =
+              'Unable to identify your account. Please try again.';
+          break;
+
+        case 'phone-not-found':
+          message =
+              'Verified mobile number was not found.';
+          break;
+
         default:
           message =
-              'OTP verification failed. Please try again.';
+              e.message?.trim().isNotEmpty == true
+                  ? e.message!.trim()
+                  : 'OTP verification failed. Please try again.';
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       _showMessage(message);
     }
 
     // ==========================================================
-    // FIRESTORE ERROR
+    // FIRESTORE / FIREBASE ERROR
     // ==========================================================
 
     on FirebaseException catch (e) {
       debugPrint(
-        'Owner Firestore Error: ${e.code}',
+        'Owner Firebase Error: ${e.code}',
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
-      _showMessage(
-        e.message ??
-            'Unable to load your Owner profile. Please try again.',
-      );
+      String message;
+
+      switch (e.code) {
+        case 'permission-denied':
+          message =
+              'Unable to access your Owner profile. Please check your account permissions.';
+          break;
+
+        case 'unavailable':
+          message =
+              'Firebase is temporarily unavailable. Please check your internet connection and try again.';
+          break;
+
+        case 'deadline-exceeded':
+          message =
+              'The request took too long. Please check your internet connection and try again.';
+          break;
+
+        case 'owner-id-missing':
+          message =
+              e.message ??
+                  'Owner ID could not be found.';
+          break;
+
+        default:
+          message =
+              e.message?.trim().isNotEmpty == true
+                  ? e.message!.trim()
+                  : 'Unable to load your Owner profile. Please try again.';
+      }
+
+      _showMessage(message);
     }
 
     // ==========================================================
@@ -332,7 +387,9 @@ class _OtpVerificationScreenState
         'Owner OTP Error: $e',
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       _showMessage(
         'Something went wrong. Please try again.',
@@ -359,27 +416,43 @@ class _OtpVerificationScreenState
   void _showInactiveDialog(
     String ownerId,
   ) {
+    final ThemeData theme =
+        Theme.of(context);
+
+    final Color primary =
+        theme.colorScheme.primary;
+
+    final Color textColor =
+        theme.colorScheme.onSurface;
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
+          backgroundColor:
+              theme.cardColor,
           shape:
               RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(20),
           ),
-          title: const Row(
+          title: Row(
             children: [
               Icon(
                 Icons.block_rounded,
-                color: Colors.red,
+                color:
+                    theme.colorScheme.error,
+                size: 25,
               ),
-              SizedBox(width: 10),
+              const SizedBox(
+                width: 10,
+              ),
               Expanded(
                 child: Text(
                   'Account Inactive',
                   style: TextStyle(
+                    color: textColor,
                     fontWeight:
                         FontWeight.w800,
                   ),
@@ -390,21 +463,25 @@ class _OtpVerificationScreenState
           content: Text(
             'Your Owner ID $ownerId is currently inactive.\n\n'
             'Please contact support to activate your account.',
-            style: const TextStyle(
+            style: TextStyle(
+              color:
+                  textColor.withOpacity(0.75),
               height: 1.5,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(
+                  dialogContext,
+                );
               },
-              child: const Text(
+              child: Text(
                 'OK',
                 style: TextStyle(
-                  color: orange,
+                  color: primary,
                   fontWeight:
-                      FontWeight.w700,
+                      FontWeight.w800,
                 ),
               ),
             ),
@@ -421,7 +498,18 @@ class _OtpVerificationScreenState
   void _showMessage(
     String message,
   ) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
+
+    final ThemeData theme =
+        Theme.of(context);
+
+    final Color backgroundColor =
+        theme.colorScheme.onSurface;
+
+    final Color foregroundColor =
+        theme.colorScheme.surface;
 
     ScaffoldMessenger.of(context)
         .hideCurrentSnackBar();
@@ -433,14 +521,59 @@ class _OtpVerificationScreenState
             SnackBarBehavior.floating,
         margin:
             const EdgeInsets.all(16),
+        backgroundColor:
+            backgroundColor,
         shape:
             RoundedRectangleBorder(
           borderRadius:
               BorderRadius.circular(12),
         ),
-        content: Text(message),
+        content: Text(
+          message,
+          style: TextStyle(
+            color: foregroundColor,
+            fontWeight:
+                FontWeight.w600,
+          ),
+        ),
       ),
     );
+  }
+
+  // ============================================================
+  // DISPLAY PHONE
+  // ============================================================
+
+  String _displayPhoneNumber() {
+    final String raw =
+        widget.phoneNumber.trim();
+
+    final String clean =
+        raw.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+
+    if (clean.length == 10) {
+      return '+91 '
+          '${clean.substring(0, 5)} '
+          '${clean.substring(5)}';
+    }
+
+    if (clean.length > 10) {
+      final String last10 =
+          clean.substring(
+        clean.length - 10,
+      );
+
+      return '+91 '
+          '${last10.substring(0, 5)} '
+          '${last10.substring(5)}';
+    }
+
+    return raw.isEmpty
+        ? 'Mobile number'
+        : raw;
   }
 
   // ============================================================
@@ -462,6 +595,28 @@ class _OtpVerificationScreenState
   Widget build(
     BuildContext context,
   ) {
+    final ThemeData theme =
+        Theme.of(context);
+
+    final Color primary =
+        theme.colorScheme.primary;
+
+    final Color background =
+        theme.scaffoldBackgroundColor;
+
+    final Color textColor =
+        theme.colorScheme.onSurface;
+
+    final Color secondaryText =
+        theme.colorScheme.onSurface
+            .withOpacity(0.65);
+
+    final Color cardColor =
+        theme.cardColor;
+
+    final Color borderColor =
+        theme.dividerColor;
+
     return Scaffold(
       backgroundColor:
           background,
@@ -474,7 +629,9 @@ class _OtpVerificationScreenState
         backgroundColor:
             background,
         elevation: 0,
-        foregroundColor: dark,
+        scrolledUnderElevation: 0,
+        foregroundColor:
+            textColor,
         automaticallyImplyLeading:
             true,
         toolbarHeight: 55,
@@ -519,14 +676,14 @@ class _OtpVerificationScreenState
                     width: 78,
                     decoration:
                         BoxDecoration(
-                      color: orange,
+                      color: primary,
                       borderRadius:
                           BorderRadius.circular(
                         24,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: orange
+                          color: primary
                               .withOpacity(
                             0.22,
                           ),
@@ -539,9 +696,12 @@ class _OtpVerificationScreenState
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.verified_user_rounded,
-                      color: Colors.white,
+                    child: Icon(
+                      Icons
+                          .verified_user_rounded,
+                      color: theme
+                          .colorScheme
+                          .onPrimary,
                       size: 38,
                     ),
                   ),
@@ -555,13 +715,13 @@ class _OtpVerificationScreenState
                 // TITLE
                 // ==================================================
 
-                const Center(
+                Center(
                   child: Text(
                     'Verify your number',
                     textAlign:
                         TextAlign.center,
                     style: TextStyle(
-                      color: dark,
+                      color: textColor,
                       fontSize: 27,
                       fontWeight:
                           FontWeight.w800,
@@ -583,9 +743,11 @@ class _OtpVerificationScreenState
                     textAlign:
                         TextAlign.center,
                     style: TextStyle(
-                      color: Colors.grey
-                          .shade600,
+                      color:
+                          secondaryText,
                       fontSize: 14,
+                      fontWeight:
+                          FontWeight.w500,
                     ),
                   ),
                 ),
@@ -603,12 +765,11 @@ class _OtpVerificationScreenState
                     _displayPhoneNumber(),
                     textAlign:
                         TextAlign.center,
-                    style:
-                        const TextStyle(
-                      color: dark,
+                    style: TextStyle(
+                      color: textColor,
                       fontSize: 15,
                       fontWeight:
-                          FontWeight.w700,
+                          FontWeight.w800,
                     ),
                   ),
                 ),
@@ -633,16 +794,20 @@ class _OtpVerificationScreenState
                   ),
                   decoration:
                       BoxDecoration(
-                    color: Colors.white,
+                    color: cardColor,
                     borderRadius:
                         BorderRadius.circular(
                       20,
+                    ),
+                    border:
+                        Border.all(
+                      color: borderColor,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black
                             .withOpacity(
-                          0.05,
+                          0.045,
                         ),
                         blurRadius: 18,
                         offset:
@@ -657,13 +822,13 @@ class _OtpVerificationScreenState
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'One-Time Password',
                         style: TextStyle(
-                          color: dark,
+                          color: textColor,
                           fontSize: 15,
                           fontWeight:
-                              FontWeight.w700,
+                              FontWeight.w800,
                         ),
                       ),
 
@@ -694,14 +859,22 @@ class _OtpVerificationScreenState
                           FilteringTextInputFormatter
                               .digitsOnly,
                         ],
+                        onChanged: (value) {
+                          if (value.length ==
+                                  6 &&
+                              !_isVerifying) {
+                            FocusScope.of(
+                              context,
+                            ).unfocus();
+                          }
+                        },
                         onSubmitted: (_) {
                           if (!_isVerifying) {
                             _verifyOtp();
                           }
                         },
-                        style:
-                            const TextStyle(
-                          color: dark,
+                        style: TextStyle(
+                          color: textColor,
                           fontSize: 25,
                           fontWeight:
                               FontWeight.w800,
@@ -713,17 +886,21 @@ class _OtpVerificationScreenState
                               '------',
                           hintStyle:
                               TextStyle(
-                            color: Colors.grey
-                                .shade300,
+                            color:
+                                secondaryText
+                                    .withOpacity(
+                              0.35,
+                            ),
                             fontSize: 24,
                             letterSpacing: 9,
                           ),
                           counterText: '',
                           filled: true,
                           fillColor:
-                              const Color(
-                            0xFFF8F8F8,
-                          ),
+                              theme
+                                  .inputDecorationTheme
+                                  .fillColor ??
+                              cardColor,
                           contentPadding:
                               const EdgeInsets
                                   .symmetric(
@@ -738,8 +915,8 @@ class _OtpVerificationScreenState
                             ),
                             borderSide:
                                 BorderSide(
-                              color: Colors.grey
-                                  .shade200,
+                              color:
+                                  borderColor,
                             ),
                           ),
                           enabledBorder:
@@ -751,8 +928,8 @@ class _OtpVerificationScreenState
                             ),
                             borderSide:
                                 BorderSide(
-                              color: Colors.grey
-                                  .shade200,
+                              color:
+                                  borderColor,
                             ),
                           ),
                           focusedBorder:
@@ -763,9 +940,25 @@ class _OtpVerificationScreenState
                               14,
                             ),
                             borderSide:
-                                const BorderSide(
-                              color: orange,
+                                BorderSide(
+                              color: primary,
                               width: 2,
+                            ),
+                          ),
+                          disabledBorder:
+                              OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            borderSide:
+                                BorderSide(
+                              color:
+                                  borderColor
+                                      .withOpacity(
+                                0.65,
+                              ),
                             ),
                           ),
                         ),
@@ -793,10 +986,22 @@ class _OtpVerificationScreenState
                               ElevatedButton
                                   .styleFrom(
                             backgroundColor:
-                                orange,
+                                primary,
+                            foregroundColor:
+                                theme
+                                    .colorScheme
+                                    .onPrimary,
                             disabledBackgroundColor:
-                                orange.withOpacity(
+                                primary
+                                    .withOpacity(
                               0.55,
+                            ),
+                            disabledForegroundColor:
+                                theme
+                                    .colorScheme
+                                    .onPrimary
+                                    .withOpacity(
+                              0.9,
                             ),
                             elevation: 0,
                             shape:
@@ -810,7 +1015,7 @@ class _OtpVerificationScreenState
                           ),
                           child:
                               _isVerifying
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 23,
                                       width: 23,
                                       child:
@@ -818,15 +1023,18 @@ class _OtpVerificationScreenState
                                         strokeWidth:
                                             2.5,
                                         color:
-                                            Colors.white,
+                                            theme
+                                                .colorScheme
+                                                .onPrimary,
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'Verify & Continue',
                                       style:
                                           TextStyle(
-                                        color:
-                                            Colors.white,
+                                        color: theme
+                                            .colorScheme
+                                            .onPrimary,
                                         fontSize:
                                             16,
                                         fontWeight:
@@ -856,8 +1064,8 @@ class _OtpVerificationScreenState
                         Icons
                             .lock_outline_rounded,
                         size: 15,
-                        color: Colors.grey
-                            .shade600,
+                        color:
+                            secondaryText,
                       ),
                       const SizedBox(
                         width: 6,
@@ -865,9 +1073,11 @@ class _OtpVerificationScreenState
                       Text(
                         'Secure phone verification',
                         style: TextStyle(
-                          color: Colors.grey
-                              .shade600,
+                          color:
+                              secondaryText,
                           fontSize: 12,
+                          fontWeight:
+                              FontWeight.w500,
                         ),
                       ),
                     ],
@@ -884,8 +1094,8 @@ class _OtpVerificationScreenState
                     textAlign:
                         TextAlign.center,
                     style: TextStyle(
-                      color: Colors.grey
-                          .shade500,
+                      color:
+                          secondaryText,
                       fontSize: 11,
                     ),
                   ),
@@ -896,41 +1106,5 @@ class _OtpVerificationScreenState
         ),
       ),
     );
-  }
-
-  // ============================================================
-  // DISPLAY PHONE
-  // ============================================================
-
-  String _displayPhoneNumber() {
-    final String raw =
-        widget.phoneNumber.trim();
-
-    final String clean =
-        raw.replaceAll(
-      RegExp(r'[^0-9]'),
-      '',
-    );
-
-    if (clean.length == 10) {
-      return '+91 '
-          '${clean.substring(0, 5)} '
-          '${clean.substring(5)}';
-    }
-
-    if (clean.length >= 10) {
-      final String last10 =
-          clean.substring(
-        clean.length - 10,
-      );
-
-      return '+91 '
-          '${last10.substring(0, 5)} '
-          '${last10.substring(5)}';
-    }
-
-    return raw.isEmpty
-        ? 'Mobile number'
-        : raw;
   }
 }
