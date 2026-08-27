@@ -28,6 +28,10 @@ class ChangeMobileFlow extends StatefulWidget {
 
 class _ChangeMobileFlowState
     extends State<ChangeMobileFlow> {
+  // ============================================================
+  // COLORS
+  // ============================================================
+
   static const Color orange =
       Color(0xFFF4511E);
 
@@ -40,6 +44,10 @@ class _ChangeMobileFlowState
   static const Color lightOrange =
       Color(0xFFFFF1E8);
 
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
+
   final TextEditingController _phoneController =
       TextEditingController();
 
@@ -51,6 +59,10 @@ class _ChangeMobileFlowState
 
   bool _isSendingOtp = false;
 
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
   @override
   void dispose() {
     _phoneController.dispose();
@@ -59,12 +71,11 @@ class _ChangeMobileFlowState
   }
 
   // ============================================================
-  // CLEAN PHONE
+  // CLEAN PHONE NUMBER
   // ============================================================
 
   String _cleanPhone(String value) {
-    String clean =
-        value.replaceAll(
+    String clean = value.replaceAll(
       RegExp(r'[^0-9+]'),
       '',
     );
@@ -73,10 +84,7 @@ class _ChangeMobileFlowState
       return clean;
     }
 
-    clean = clean.replaceAll(
-      '+',
-      '',
-    );
+    clean = clean.replaceAll('+', '');
 
     if (clean.length == 10) {
       return '+91$clean';
@@ -91,14 +99,13 @@ class _ChangeMobileFlowState
   }
 
   // ============================================================
-  // VALIDATE
+  // VALIDATE INDIAN MOBILE
   // ============================================================
 
   bool _isValidIndianMobile(
     String value,
   ) {
-    final String clean =
-        value.replaceAll(
+    final String clean = value.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
@@ -107,8 +114,7 @@ class _ChangeMobileFlowState
 
     if (clean.length == 12 &&
         clean.startsWith('91')) {
-      tenDigit =
-          clean.substring(2);
+      tenDigit = clean.substring(2);
     }
 
     if (tenDigit.length != 10) {
@@ -127,8 +133,7 @@ class _ChangeMobileFlowState
   String _displayPhone(
     String value,
   ) {
-    final String clean =
-        value.replaceAll(
+    final String clean = value.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
@@ -136,8 +141,7 @@ class _ChangeMobileFlowState
     String tenDigit = clean;
 
     if (clean.length >= 10) {
-      tenDigit =
-          clean.substring(
+      tenDigit = clean.substring(
         clean.length - 10,
       );
     }
@@ -163,13 +167,22 @@ class _ChangeMobileFlowState
     final String enteredNumber =
         _phoneController.text.trim();
 
+    // ----------------------------------------------------------
+    // EMPTY
+    // ----------------------------------------------------------
+
     if (enteredNumber.isEmpty) {
       _showMessage(
         'Please enter your new mobile number.',
       );
+
       _phoneFocusNode.requestFocus();
       return;
     }
+
+    // ----------------------------------------------------------
+    // VALIDATE
+    // ----------------------------------------------------------
 
     if (!_isValidIndianMobile(
       enteredNumber,
@@ -177,19 +190,24 @@ class _ChangeMobileFlowState
       _showMessage(
         'Please enter a valid 10-digit Indian mobile number.',
       );
+
       _phoneFocusNode.requestFocus();
       return;
     }
 
+    // ----------------------------------------------------------
+    // CLEAN PHONE
+    // ----------------------------------------------------------
+
     final String newPhone =
-        _cleanPhone(
-      enteredNumber,
-    );
+        _cleanPhone(enteredNumber);
 
     final String currentPhone =
-        _cleanPhone(
-      widget.currentNumber,
-    );
+        _cleanPhone(widget.currentNumber);
+
+    // ----------------------------------------------------------
+    // SAME NUMBER
+    // ----------------------------------------------------------
 
     if (newPhone == currentPhone) {
       _showMessage(
@@ -197,6 +215,10 @@ class _ChangeMobileFlowState
       );
       return;
     }
+
+    // ----------------------------------------------------------
+    // CURRENT USER
+    // ----------------------------------------------------------
 
     final User? user =
         FirebaseAuth.instance.currentUser;
@@ -208,11 +230,19 @@ class _ChangeMobileFlowState
       return;
     }
 
+    // ----------------------------------------------------------
+    // START LOADING
+    // ----------------------------------------------------------
+
     setState(() {
       _isSendingOtp = true;
     });
 
     try {
+      // ========================================================
+      // REQUEST OTP
+      // ========================================================
+
       final Completer<
           String> verificationCompleter =
           Completer<String>();
@@ -222,11 +252,19 @@ class _ChangeMobileFlowState
       await _service.sendOtp(
         phoneNumber: newPhone,
 
+        // ------------------------------------------------------
+        // RESEND TOKEN
+        // ------------------------------------------------------
+
         onResendToken: (
           int? token,
         ) {
           resendToken = token;
         },
+
+        // ------------------------------------------------------
+        // CODE SENT
+        // ------------------------------------------------------
 
         onCodeSent: (
           String verificationId,
@@ -239,6 +277,10 @@ class _ChangeMobileFlowState
           }
         },
 
+        // ------------------------------------------------------
+        // VERIFICATION FAILED
+        // ------------------------------------------------------
+
         onVerificationFailed: (
           FirebaseAuthException error,
         ) {
@@ -250,14 +292,23 @@ class _ChangeMobileFlowState
           }
         },
 
+        // ------------------------------------------------------
+        // AUTO VERIFICATION
+        // ------------------------------------------------------
+
         onVerificationCompleted: (
           PhoneAuthCredential credential,
         ) {
           // Intentionally ignored.
           //
-          // User must explicitly enter OTP.
+          // The mobile number must only be
+          // changed after explicit OTP verification.
         },
       );
+
+      // ========================================================
+      // WAIT FOR CODE SENT
+      // ========================================================
 
       final String verificationId =
           await verificationCompleter.future
@@ -271,9 +322,9 @@ class _ChangeMobileFlowState
         return;
       }
 
-      if (verificationId.isEmpty) {
+      if (verificationId.trim().isEmpty) {
         _showMessage(
-          'Could not start OTP verification.',
+          'Could not start OTP verification. Please try again.',
         );
         return;
       }
@@ -291,7 +342,7 @@ class _ChangeMobileFlowState
 
       if (ownerId.isEmpty) {
         _showMessage(
-          'Owner ID was not found.',
+          'Owner profile was not found.',
         );
         return;
       }
@@ -320,6 +371,10 @@ class _ChangeMobileFlowState
         ),
       );
 
+      // ========================================================
+      // SUCCESS
+      // ========================================================
+
       if (changed == true &&
           mounted) {
         Navigator.pop(
@@ -327,7 +382,13 @@ class _ChangeMobileFlowState
           true,
         );
       }
-    } on FirebaseAuthException catch (e) {
+    }
+
+    // ==========================================================
+    // FIREBASE AUTH ERROR
+    // ==========================================================
+
+    on FirebaseAuthException catch (e) {
       if (!mounted) {
         return;
       }
@@ -370,7 +431,13 @@ class _ChangeMobileFlowState
       }
 
       _showMessage(message);
-    } on TimeoutException {
+    }
+
+    // ==========================================================
+    // TIMEOUT
+    // ==========================================================
+
+    on TimeoutException {
       if (!mounted) {
         return;
       }
@@ -378,7 +445,13 @@ class _ChangeMobileFlowState
       _showMessage(
         'OTP request timed out. Please try again.',
       );
-    } catch (e) {
+    }
+
+    // ==========================================================
+    // OTHER ERROR
+    // ==========================================================
+
+    catch (e) {
       debugPrint(
         'Send Mobile OTP Error: $e',
       );
@@ -390,7 +463,13 @@ class _ChangeMobileFlowState
       _showMessage(
         'Could not send OTP. Please try again.',
       );
-    } finally {
+    }
+
+    // ==========================================================
+    // STOP LOADING
+    // ==========================================================
+
+    finally {
       if (mounted) {
         setState(() {
           _isSendingOtp = false;
@@ -411,6 +490,91 @@ class _ChangeMobileFlowState
       return '';
     }
 
+    final String uid =
+        user.uid.trim();
+
+    if (uid.isEmpty) {
+      return '';
+    }
+
+    try {
+      return await _findOwnerIdFromFirestore(
+        uid,
+      );
+    } catch (e) {
+      debugPrint(
+        'Get Owner ID Error: $e',
+      );
+
+      return '';
+    }
+  }
+
+  // ============================================================
+  // FIND OWNER ID
+  //
+  // ACTUAL FIRESTORE:
+  //
+  // owners/{document}
+  //
+  // authUid:  Firebase UID
+  // ownerId:  OWN26GH0004
+  // mainPhone: +91...
+  //
+  // ============================================================
+
+  Future<String>
+      _findOwnerIdFromFirestore(
+    String uid,
+  ) async {
+    final String cleanUid =
+        uid.trim();
+
+    if (cleanUid.isEmpty) {
+      return '';
+    }
+
+    // ----------------------------------------------------------
+    // FIRST:
+    // Check owners/{uid}
+    // ----------------------------------------------------------
+
+    try {
+      final DocumentSnapshot<
+          Map<String, dynamic>> directDoc =
+          await FirebaseFirestore.instance
+              .collection('owners')
+              .doc(cleanUid)
+              .get();
+
+      if (directDoc.exists) {
+        final Map<String, dynamic>? data =
+            directDoc.data();
+
+        if (data != null) {
+          final dynamic ownerId =
+              data['ownerId'];
+
+          if (ownerId is String &&
+              ownerId.trim().isNotEmpty) {
+            return ownerId.trim();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint(
+        'Direct owner document lookup failed: $e',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // SECOND:
+    // Search authUid field
+    //
+    // IMPORTANT:
+    // Firestore field is authUid, NOT uid.
+    // ----------------------------------------------------------
+
     try {
       final QuerySnapshot<
           Map<String, dynamic>> snapshot =
@@ -418,7 +582,7 @@ class _ChangeMobileFlowState
               .collection('owners')
               .where(
                 'authUid',
-                isEqualTo: user.uid,
+                isEqualTo: cleanUid,
               )
               .limit(1)
               .get();
@@ -427,48 +591,20 @@ class _ChangeMobileFlowState
         final Map<String, dynamic> data =
             snapshot.docs.first.data();
 
-        final String ownerId =
-            (data['ownerId'] ?? '')
-                .toString()
-                .trim();
+        final dynamic ownerId =
+            data['ownerId'];
 
-        if (ownerId.isNotEmpty) {
-          return ownerId;
+        if (ownerId is String &&
+            ownerId.trim().isNotEmpty) {
+          return ownerId.trim();
         }
 
+        // Fallback if ownerId field is missing.
         return snapshot.docs.first.id;
-      }
-
-      // --------------------------------------------------------
-      // FALLBACK: owners/{uid}
-      // --------------------------------------------------------
-
-      final DocumentSnapshot<
-          Map<String, dynamic>> directDoc =
-          await FirebaseFirestore.instance
-              .collection('owners')
-              .doc(user.uid)
-              .get();
-
-      if (directDoc.exists) {
-        final Map<String, dynamic> data =
-            directDoc.data() ??
-                <String, dynamic>{};
-
-        final String ownerId =
-            (data['ownerId'] ?? '')
-                .toString()
-                .trim();
-
-        if (ownerId.isNotEmpty) {
-          return ownerId;
-        }
-
-        return directDoc.id;
       }
     } catch (e) {
       debugPrint(
-        'Get Owner ID Error: $e',
+        'authUid owner lookup failed: $e',
       );
     }
 
@@ -490,7 +626,8 @@ class _ChangeMobileFlowState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           behavior:
               SnackBarBehavior.floating,
         ),
@@ -522,6 +659,10 @@ class _ChangeMobileFlowState
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
+              // ==================================================
+              // HEADER
+              // ==================================================
+
               Row(
                 children: [
                   Container(
@@ -544,9 +685,11 @@ class _ChangeMobileFlowState
                           orange,
                     ),
                   ),
+
                   const SizedBox(
                     width: 12,
                   ),
+
                   const Expanded(
                     child: Text(
                       'Change Mobile Number',
@@ -559,6 +702,7 @@ class _ChangeMobileFlowState
                       ),
                     ),
                   ),
+
                   IconButton(
                     onPressed: () {
                       Navigator.pop(
@@ -577,6 +721,10 @@ class _ChangeMobileFlowState
               const SizedBox(
                 height: 20,
               ),
+
+              // ==================================================
+              // CURRENT NUMBER
+              // ==================================================
 
               const Text(
                 'Current Mobile Number',
@@ -621,9 +769,11 @@ class _ChangeMobileFlowState
                       color:
                           Colors.grey,
                     ),
+
                     const SizedBox(
                       width: 12,
                     ),
+
                     Expanded(
                       child: Text(
                         _displayPhone(
@@ -640,6 +790,7 @@ class _ChangeMobileFlowState
                         ),
                       ),
                     ),
+
                     const Icon(
                       Icons
                           .lock_outline_rounded,
@@ -654,6 +805,10 @@ class _ChangeMobileFlowState
               const SizedBox(
                 height: 18,
               ),
+
+              // ==================================================
+              // NEW NUMBER
+              // ==================================================
 
               const Text(
                 'New Mobile Number',
@@ -750,6 +905,10 @@ class _ChangeMobileFlowState
               const SizedBox(
                 height: 22,
               ),
+
+              // ==================================================
+              // SEND OTP BUTTON
+              // ==================================================
 
               SizedBox(
                 width:
