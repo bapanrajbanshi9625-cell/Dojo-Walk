@@ -26,13 +26,13 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState
     extends State<MainNavigationScreen> {
   // ==========================================================
-  // CURRENT SCREEN
+  // CURRENT TAB
   // ==========================================================
 
   int _currentIndex = 0;
 
   // ==========================================================
-  // SCREENS
+  // MAIN SCREENS
   // ==========================================================
 
   late final List<Widget> _screens;
@@ -53,11 +53,11 @@ class _MainNavigationScreenState
   }
 
   // ==========================================================
-  // NAVIGATION
+  // BOTTOM NAVIGATION
   // ==========================================================
 
   void _onNavigationTap(int index) {
-    if (_currentIndex == index) {
+    if (!mounted || _currentIndex == index) {
       return;
     }
 
@@ -85,22 +85,15 @@ class _MainNavigationScreenState
       ),
 
       // ========================================================
-      // ACTIVE / LIVE WALK STRIP + NAVIGATION
+      // BOTTOM AREA
       //
-      // IMPORTANT:
-      // No gap between strip and bottom navigation.
+      // ActiveLiveWalkStrip:
+      // - Active होते ही दिखाई देगी
+      // - Accepted / On The Way / Reached / Walking /
+      //   In Progress के दौरान बनी रहेगी
+      // - Completed / Ended / Cancelled पर hide होगी
       //
-      // Strip remains visible from:
-      //
-      // active
-      // accepted
-      // on_the_way
-      // reached
-      // walking
-      // in_progress
-      //
-      // It disappears only when the walk is completed/ended/
-      // cancelled.
+      // Strip और navigation के बीच ZERO GAP.
       // ========================================================
 
       bottomNavigationBar: Column(
@@ -110,74 +103,79 @@ class _MainNavigationScreenState
           // ACTIVE / LIVE WALK STRIP
           // ======================================================
 
-          ActiveLiveWalkStrip(
-            isWalker: widget.isWalker,
+          SizedBox(
+            width: double.infinity,
+            child: ActiveLiveWalkStrip(
+              isWalker: widget.isWalker,
+            ),
           ),
 
           // ======================================================
           // BOTTOM NAVIGATION
           // ======================================================
 
-          Container(
+          SizedBox(
             width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(
-                  color: AppColors.border,
-                  width: 0.6,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.border,
+                    width: 0.6,
+                  ),
                 ),
               ),
-            ),
-            child: BottomNavigationBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
+              child: BottomNavigationBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
 
-              currentIndex: _currentIndex,
+                currentIndex: _currentIndex,
 
-              selectedItemColor:
-                  AppColors.primary,
+                selectedItemColor:
+                    AppColors.primary,
 
-              unselectedItemColor:
-                  Colors.black54,
+                unselectedItemColor:
+                    Colors.black54,
 
-              selectedLabelStyle:
-                  const TextStyle(
-                fontWeight: FontWeight.w700,
+                selectedLabelStyle:
+                    const TextStyle(
+                  fontWeight: FontWeight.w700,
+                ),
+
+                unselectedLabelStyle:
+                    const TextStyle(
+                  fontWeight: FontWeight.w500,
+                ),
+
+                type:
+                    BottomNavigationBarType.fixed,
+
+                onTap: _onNavigationTap,
+
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(
+                      Icons.home_rounded,
+                    ),
+                    label: 'Home',
+                  ),
+
+                  BottomNavigationBarItem(
+                    icon: Icon(
+                      Icons.directions_walk_rounded,
+                    ),
+                    label: 'Walks',
+                  ),
+
+                  BottomNavigationBarItem(
+                    icon: Icon(
+                      Icons.menu_rounded,
+                    ),
+                    label: 'Menu',
+                  ),
+                ],
               ),
-
-              unselectedLabelStyle:
-                  const TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
-
-              type:
-                  BottomNavigationBarType.fixed,
-
-              onTap: _onNavigationTap,
-
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.home_rounded,
-                  ),
-                  label: 'Home',
-                ),
-
-                BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.directions_walk_rounded,
-                  ),
-                  label: 'Walks',
-                ),
-
-                BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.menu_rounded,
-                  ),
-                  label: 'Menu',
-                ),
-              ],
             ),
           ),
         ],
