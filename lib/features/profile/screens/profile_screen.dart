@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/profile_card.dart';
+import '../services/profile_location_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
