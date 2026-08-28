@@ -10,8 +10,7 @@ import '../widgets/active_walk_map.dart';
 import '../widgets/active_walk_stats.dart';
 import '../widgets/active_walker_container.dart';
 
-class ActiveWalkScreen
-    extends StatefulWidget {
+class ActiveWalkScreen extends StatefulWidget {
   const ActiveWalkScreen({
     super.key,
     required this.activeWalkId,
@@ -26,14 +25,10 @@ class ActiveWalkScreen
       _ActiveWalkScreenState();
 }
 
-class _ActiveWalkScreenState
-    extends State<ActiveWalkScreen> {
-  final ActiveWalkService _service =
-      ActiveWalkService();
+class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
+  final ActiveWalkService _service = ActiveWalkService();
 
-  StreamSubscription<ActiveWalk?>?
-      _subscription;
-
+  StreamSubscription<ActiveWalk?>? _subscription;
   ActiveWalk? _walk;
 
   Timer? _timer;
@@ -41,30 +36,25 @@ class _ActiveWalkScreenState
   String _duration = '00:00';
 
   bool _loading = true;
-
   bool _ending = false;
 
-  static const Color navy =
-      Color(0xFF263746);
-
-  static const Color primary =
-      Color(0xFFFF8A00);
-
-  static const Color lightBg =
-      Color(0xFFF7F8F9);
+  static const Color navy = Color(0xFF263746);
+  static const Color primary = Color(0xFFFF8A00);
+  static const Color lightBg = Color(0xFFF7F8F9);
 
   @override
   void initState() {
     super.initState();
-
     _listen();
   }
 
+  // ==========================================================
+  // LISTEN ACTIVE WALK
+  // ==========================================================
+
   void _listen() {
     _subscription = _service
-        .watchActiveWalk(
-          widget.activeWalkId,
-        )
+        .watchActiveWalk(widget.activeWalkId)
         .listen(
       (ActiveWalk? walk) {
         if (!mounted) {
@@ -94,6 +84,10 @@ class _ActiveWalkScreenState
     );
   }
 
+  // ==========================================================
+  // DURATION
+  // ==========================================================
+
   void _startDurationTimer() {
     _timer ??= Timer.periodic(
       const Duration(seconds: 1),
@@ -102,48 +96,34 @@ class _ActiveWalkScreenState
           return;
         }
 
-        final DateTime? startedAt =
-            _walk?.startedAt;
+        final DateTime? startedAt = _walk?.startedAt;
 
         if (startedAt == null) {
           return;
         }
 
         final Duration difference =
-            DateTime.now().difference(
-          startedAt,
-        );
+            DateTime.now().difference(startedAt);
 
         setState(() {
-          _duration =
-              _formatDuration(
-            difference,
-          );
+          _duration = _formatDuration(difference);
         });
       },
     );
 
-    final DateTime? startedAt =
-        _walk?.startedAt;
+    final DateTime? startedAt = _walk?.startedAt;
 
     if (startedAt != null) {
       _duration = _formatDuration(
-        DateTime.now().difference(
-          startedAt,
-        ),
+        DateTime.now().difference(startedAt),
       );
     }
   }
 
-  String _formatDuration(
-    Duration duration,
-  ) {
-    final int hours =
-        duration.inHours;
-
+  String _formatDuration(Duration duration) {
+    final int hours = duration.inHours;
     final int minutes =
         duration.inMinutes.remainder(60);
-
     final int seconds =
         duration.inSeconds.remainder(60);
 
@@ -157,6 +137,10 @@ class _ActiveWalkScreenState
         '${seconds.toString().padLeft(2, '0')}';
   }
 
+  // ==========================================================
+  // BUILD
+  // ==========================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,23 +148,22 @@ class _ActiveWalkScreenState
       body: SafeArea(
         child: _loading
             ? const Center(
-                child:
-                    CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   color: primary,
                 ),
               )
             : _walk == null
                 ? _buildNotFound()
-                : _buildContent(
-                    _walk!,
-                  ),
+                : _buildContent(_walk!),
       ),
     );
   }
 
-  Widget _buildContent(
-    ActiveWalk walk,
-  ) {
+  // ==========================================================
+  // CONTENT
+  // ==========================================================
+
+  Widget _buildContent(ActiveWalk walk) {
     return Column(
       children: [
         ActiveWalkHeader(
@@ -200,9 +183,7 @@ class _ActiveWalkScreenState
                 ),
               ),
 
-              _buildBottomPanel(
-                walk,
-              ),
+              _buildBottomPanel(walk),
             ],
           ),
         ),
@@ -210,13 +191,14 @@ class _ActiveWalkScreenState
     );
   }
 
-  Widget _buildBottomPanel(
-    ActiveWalk walk,
-  ) {
+  // ==========================================================
+  // BOTTOM PANEL
+  // ==========================================================
+
+  Widget _buildBottomPanel(ActiveWalk walk) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         14,
         12,
         14,
@@ -224,8 +206,7 @@ class _ActiveWalkScreenState
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.vertical(
+        borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
         ),
         boxShadow: [
@@ -238,17 +219,15 @@ class _ActiveWalkScreenState
       ),
       child: SingleChildScrollView(
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDestination(
-              walk,
-            ),
+            _buildDestination(walk),
 
             const SizedBox(height: 10),
 
             ActiveWalkerContainer(
-              walk: walk,
+              activeWalkId: walk.id,
+              isWalker: widget.isWalker,
             ),
 
             const SizedBox(height: 10),
@@ -268,9 +247,7 @@ class _ActiveWalkScreenState
 
             if (widget.isWalker) ...[
               const SizedBox(height: 10),
-              _buildEndWalkButton(
-                walk,
-              ),
+              _buildEndWalkButton(walk),
             ],
           ],
         ),
@@ -278,17 +255,20 @@ class _ActiveWalkScreenState
     );
   }
 
-  Widget _buildDestination(
-    ActiveWalk walk,
-  ) {
+  // ==========================================================
+  // DESTINATION
+  // ==========================================================
+
+  Widget _buildDestination(ActiveWalk walk) {
+    final String address =
+        walk.destinationAddress.trim();
+
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius:
-            BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(13),
         border: Border.all(
           color: const Color(0xFFE5E7EB),
         ),
@@ -299,10 +279,8 @@ class _ActiveWalkScreenState
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color:
-                  primary.withOpacity(.10),
-              borderRadius:
-                  BorderRadius.circular(10),
+              color: primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.location_on_rounded,
@@ -323,22 +301,21 @@ class _ActiveWalkScreenState
                   style: TextStyle(
                     color: Colors.black54,
                     fontSize: 8,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: .5,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  walk.destinationAddress,
+                  address.isEmpty
+                      ? 'Destination not available'
+                      : address,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 12,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -349,23 +326,22 @@ class _ActiveWalkScreenState
     );
   }
 
-  Widget _buildEndWalkButton(
-    ActiveWalk walk,
-  ) {
+  // ==========================================================
+  // END WALK
+  // ==========================================================
+
+  Widget _buildEndWalkButton(ActiveWalk walk) {
     return SizedBox(
       width: double.infinity,
       height: 46,
       child: ElevatedButton.icon(
         onPressed:
-            _ending
-                ? null
-                : () => _endWalk(walk),
+            _ending ? null : () => _endWalk(walk),
         icon: _ending
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child:
-                    CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
@@ -374,63 +350,58 @@ class _ActiveWalkScreenState
                 Icons.flag_rounded,
               ),
         label: Text(
-          _ending
-              ? 'Ending Walk...'
-              : 'End Walk',
+          _ending ? 'Ending Walk...' : 'End Walk',
           style: const TextStyle(
-            fontWeight:
-                FontWeight.w900,
+            fontWeight: FontWeight.w900,
           ),
         ),
-        style:
-            ElevatedButton.styleFrom(
+        style: ElevatedButton.styleFrom(
           backgroundColor: navy,
           foregroundColor: Colors.white,
           disabledBackgroundColor:
-              navy.withOpacity(.5),
+              navy.withValues(alpha: 0.5),
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
           ),
         ),
       ),
     );
   }
 
+  // ==========================================================
+  // NOT FOUND
+  // ==========================================================
+
   Widget _buildNotFound() {
+    const ActiveWalk fallbackWalk = ActiveWalk(
+      id: '',
+      ownerId: '',
+      ownerName: '',
+      walkerId: '',
+      walkerUid: '',
+      walkerName: 'Walker',
+      walkerPhone: '',
+      dogName: 'Dog',
+      dogBreed: 'Breed not available',
+      status: 'ended',
+      walkerLocation: null,
+      ownerLocation: null,
+      address: 'Destination not available',
+      startedAt: null,
+      createdAt: null,
+    );
+
     return Column(
       children: [
         ActiveWalkHeader(
-          walk: const ActiveWalk(
-            id: '',
-            ownerId: '',
-            ownerName: '',
-            walkerId: '',
-            walkerUid: '',
-            walkerName: 'Walker',
-            walkerPhone: '',
-            dogName: 'Dog',
-            dogBreed:
-                'Breed not available',
-            destinationAddress:
-                'Destination not available',
-            walkerLocation: null,
-            destination: null,
-            routePoints: [],
-            startedAt: null,
-            status: 'ended',
-            distance: '0.0 km',
-            steps: 0,
-            peeCount: 0,
-            poopCount: 0,
-          ),
+          walk: fallbackWalk,
           isWalker: widget.isWalker,
           onBack: () {
             Navigator.pop(context);
           },
         ),
+
         const Expanded(
           child: Center(
             child: Padding(
@@ -440,8 +411,7 @@ class _ActiveWalkScreenState
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -451,24 +421,32 @@ class _ActiveWalkScreenState
     );
   }
 
+  // ==========================================================
+  // MAP BUTTON
+  // ==========================================================
+
   void _mapButton() {
     final ActiveWalk? walk = _walk;
 
     if (walk?.walkerLocation == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Walker location is not available yet.',
           ),
         ),
       );
+
+      return;
     }
   }
 
+  // ==========================================================
+  // CHAT
+  // ==========================================================
+
   void _openChat() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
           'Chat screen will be connected here.',
@@ -477,9 +455,11 @@ class _ActiveWalkScreenState
     );
   }
 
-  Future<void> _endWalk(
-    ActiveWalk walk,
-  ) async {
+  // ==========================================================
+  // END WALK
+  // ==========================================================
+
+  Future<void> _endWalk(ActiveWalk walk) async {
     final bool? confirm =
         await showDialog<bool>(
       context: context,
@@ -522,8 +502,7 @@ class _ActiveWalkScreenState
       },
     );
 
-    if (confirm != true ||
-        !mounted) {
+    if (confirm != true || !mounted) {
       return;
     }
 
@@ -532,9 +511,7 @@ class _ActiveWalkScreenState
     });
 
     try {
-      await _service.endWalk(
-        walk,
-      );
+      await _service.endWalk(walk);
 
       if (!mounted) {
         return;
@@ -554,8 +531,7 @@ class _ActiveWalkScreenState
         _ending = false;
       });
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Unable to end walk: $e',
@@ -564,6 +540,10 @@ class _ActiveWalkScreenState
       );
     }
   }
+
+  // ==========================================================
+  // DISPOSE
+  // ==========================================================
 
   @override
   void dispose() {
