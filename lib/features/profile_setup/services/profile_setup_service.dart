@@ -135,40 +135,32 @@ class ProfileSetupService {
   // ============================================================
 
   static Future<Position?> _getCurrentLocation() async {
-    try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+  try {
+    final bool serviceEnabled =
+        await Geolocator.isLocationServiceEnabled();
 
-      if (!serviceEnabled) {
-        return null;
-      }
-
-      LocationPermission permission =
-          await Geolocator.checkPermission();
-
-      if (permission ==
-          LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
-      }
-
-      if (permission ==
-              LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
-        return null;
-      }
-
-      return await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-    } catch (_) {
+    if (!serviceEnabled) {
       return null;
     }
+
+    LocationPermission permission =
+        await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission =
+          await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+
+    return await Geolocator.getCurrentPosition();
+  } catch (_) {
+    return null;
   }
+}
 
   // ============================================================
   // UPLOAD OWNER PROFILE PHOTO
