@@ -1,4 +1,4 @@
-// File location:
+// File:
 // lib/screens/splash_screen.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,59 +15,83 @@ class SplashScreen extends StatefulWidget {
   });
 
   @override
-  State<SplashScreen> createState() =>
-      _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  bool _checking = true;
+  bool _navigated = false;
+
+  // ==========================================================
+  // INIT
+  // ==========================================================
+
   @override
   void initState() {
     super.initState();
 
-    _checkLoginAndProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLoginAndProfile();
+    });
   }
 
   // ==========================================================
-  // CHECK LOGIN + OWNER PROFILE
+  // CHECK LOGIN + PROFILE
   // ==========================================================
 
   Future<void> _checkLoginAndProfile() async {
+    if (_navigated) {
+      return;
+    }
+
     try {
+      debugPrint('==========================================');
+      debugPrint('SPLASH: CHECKING LOGIN');
+      debugPrint('==========================================');
+
       // ========================================================
-      // 1. FIREBASE AUTH
+      // 1. FIREBASE AUTH USER
       // ========================================================
 
       final User? user =
           FirebaseAuth.instance.currentUser;
 
       if (user == null) {
+        debugPrint(
+          'Splash: No Firebase user found.',
+        );
+
         _goTo(
           const LoginScreen(),
         );
+
         return;
       }
 
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
       if (uid.isEmpty) {
+        debugPrint(
+          'Splash: Firebase UID is empty.',
+        );
+
         await FirebaseAuth.instance.signOut();
 
         _goTo(
           const LoginScreen(),
         );
+
         return;
       }
 
       debugPrint(
-        'Splash: Firebase user logged in: $uid',
+        'Splash: Firebase UID = $uid',
       );
 
       // ========================================================
       // 2. PHONE ACCOUNT
       //
-      // Collection:
-      // phoneAccounts/{uid}
+      // phoneAccounts/{firebaseUid}
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
@@ -77,50 +101,79 @@ class _SplashScreenState extends State<SplashScreen> {
               .doc(uid)
               .get();
 
+      // ========================================================
+      // PHONE ACCOUNT DOES NOT EXIST
+      // ========================================================
+
       if (!accountSnapshot.exists) {
         debugPrint(
-          'Splash: phoneAccounts document not found.',
+          'Splash: phoneAccounts/$uid does not exist.',
         );
+
+        // ------------------------------------------------------
+        // IMPORTANT:
+        // Do NOT sign out here.
+        //
+        // User is authenticated, but account/profile setup
+        // has not been completed yet.
+        // ------------------------------------------------------
 
         _goTo(
           const ProfileSetupScreen(),
         );
+
         return;
       }
 
-      final Map<String, dynamic>? accountData =
-          accountSnapshot.data();
+      final Map<String, dynamic> accountData =
+          accountSnapshot.data() ??
+              <String, dynamic>{};
+
+      debugPrint(
+        'Splash: phoneAccounts data loaded.',
+      );
 
       // ========================================================
       // 3. OWNER ID
       // ========================================================
 
       final dynamic ownerIdValue =
-          accountData?['ownerId'];
+          accountData['ownerId'];
 
-      if (ownerIdValue is! String ||
-          ownerIdValue.trim().isEmpty) {
+      if (ownerIdValue == null) {
         debugPrint(
-          'Splash: ownerId not found.',
+          'Splash: ownerId is missing.',
         );
 
         _goTo(
           const ProfileSetupScreen(),
         );
+
         return;
       }
 
       final String ownerId =
-          ownerIdValue.trim();
+          ownerIdValue.toString().trim();
+
+      if (ownerId.isEmpty) {
+        debugPrint(
+          'Splash: ownerId is empty.',
+        );
+
+        _goTo(
+          const ProfileSetupScreen(),
+        );
+
+        return;
+      }
 
       debugPrint(
-        'Splash: Owner ID = $ownerId',
+        'Splash: ownerId = $ownerId',
       );
 
       // ========================================================
       // 4. OWNER PROFILE
       //
-      // Collection:
       // owners/{ownerId}
       // ========================================================
 
@@ -131,26 +184,44 @@ class _SplashScreenState extends State<SplashScreen> {
               .doc(ownerId)
               .get();
 
+      // ========================================================
+      // OWNER PROFILE DOES NOT EXIST
+      // ========================================================
+
       if (!ownerSnapshot.exists) {
         debugPrint(
-          'Splash: owner profile not found.',
+          'Splash: owners/$ownerId does not exist.',
         );
 
         _goTo(
           const ProfileSetupScreen(),
         );
+
         return;
       }
 
-      final Map<String, dynamic>? ownerData =
-          ownerSnapshot.data();
+      final Map<String, dynamic> ownerData =
+          ownerSnapshot.data() ??
+              <String, dynamic>{};
+
+      debugPrint(
+        'Splash: owner profile loaded.',
+      );
 
       // ========================================================
-      // 5. CHECK OWNER ACTIVE
+      // 5. CHECK ACCOUNT ACTIVE
       // ========================================================
+
+      final dynamic activeValue =
+          ownerData['isActive'];
 
       final bool isActive =
-          ownerData?['isActive'] != false;
+          activeValue == null ||
+          activeValue == true;
+
+      debugPrint(
+        'Splash: isActive = $isActive',
+      );
 
       if (!isActive) {
         debugPrint(
@@ -162,6 +233,7 @@ class _SplashScreenState extends State<SplashScreen> {
         _goTo(
           const LoginScreen(),
         );
+
         return;
       }
 
@@ -170,7 +242,7 @@ class _SplashScreenState extends State<SplashScreen> {
       // ========================================================
 
       final bool profileCompleted =
-          ownerData?['profileCompleted'] == true;
+          ownerData['profileCompleted'] == true;
 
       debugPrint(
         'Splash: profileCompleted = '
@@ -178,19 +250,32 @@ class _SplashScreenState extends State<SplashScreen> {
       );
 
       // ========================================================
-      // 7. PROFILE COMPLETE → MAIN NAVIGATION
+      // 7. PROFILE COMPLETE
       // ========================================================
 
       if (profileCompleted) {
+        debugPrint(
+          'Splash: Profile complete.',
+        );
+
+        debugPrint(
+          'Splash: Opening MainNavigationScreen.',
+        );
+
         _goTo(
           const MainNavigationScreen(),
         );
+
         return;
       }
 
       // ========================================================
-      // 8. PROFILE INCOMPLETE → PROFILE SETUP
+      // 8. PROFILE INCOMPLETE
       // ========================================================
+
+      debugPrint(
+        'Splash: Profile incomplete.',
+      );
 
       _goTo(
         const ProfileSetupScreen(),
@@ -203,15 +288,38 @@ class _SplashScreenState extends State<SplashScreen> {
 
     on FirebaseException catch (e) {
       debugPrint(
-        'Splash Firebase error: '
-        '${e.code}',
+        '==========================================',
       );
 
-      if (!mounted) return;
+      debugPrint(
+        'SPLASH FIREBASE ERROR',
+      );
+
+      debugPrint(
+        'Code: ${e.code}',
+      );
+
+      debugPrint(
+        'Message: ${e.message}',
+      );
+
+      debugPrint(
+        '==========================================',
+      );
+
+      if (!mounted || _navigated) {
+        return;
+      }
+
+      setState(() {
+        _checking = false;
+      });
 
       _showFirebaseError(
-        e.message ??
-            'Unable to connect to Firebase.',
+        e.code == 'permission-denied'
+            ? 'Unable to access your account. Please check Firebase permissions.'
+            : e.message ??
+                'Unable to connect to Firebase.',
       );
     }
 
@@ -221,35 +329,33 @@ class _SplashScreenState extends State<SplashScreen> {
 
     catch (e) {
       debugPrint(
-        'Splash unknown error: $e',
+        '==========================================',
       );
 
-      if (!mounted) return;
+      debugPrint(
+        'SPLASH UNKNOWN ERROR',
+      );
+
+      debugPrint(
+        '$e',
+      );
+
+      debugPrint(
+        '==========================================',
+      );
+
+      if (!mounted || _navigated) {
+        return;
+      }
+
+      setState(() {
+        _checking = false;
+      });
 
       _showFirebaseError(
-        'Unable to load your account. '
-        'Please try again.',
+        'Unable to load your account. Please try again.',
       );
     }
-  }
-
-  // ==========================================================
-  // SHOW ERROR
-  // ==========================================================
-
-  void _showFirebaseError(
-    String message,
-  ) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-      ),
-    );
   }
 
   // ==========================================================
@@ -259,14 +365,57 @@ class _SplashScreenState extends State<SplashScreen> {
   void _goTo(
     Widget screen,
   ) {
-    if (!mounted) return;
+    if (!mounted || _navigated) {
+      return;
+    }
 
-    Navigator.of(context)
-        .pushReplacement(
+    _navigated = true;
+
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => screen,
       ),
     );
+  }
+
+  // ==========================================================
+  // ERROR MESSAGE
+  // ==========================================================
+
+  void _showFirebaseError(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(
+            seconds: 5,
+          ),
+        ),
+      );
+  }
+
+  // ==========================================================
+  // RETRY
+  // ==========================================================
+
+  void _retry() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _checking = true;
+    });
+
+    _checkLoginAndProfile();
   }
 
   // ==========================================================
@@ -278,8 +427,6 @@ class _SplashScreenState extends State<SplashScreen> {
     BuildContext context,
   ) {
     return Scaffold(
-      // Explicit background prevents
-      // black Flutter background.
       backgroundColor:
           const Color(0xFFF4511E),
 
@@ -293,49 +440,110 @@ class _SplashScreenState extends State<SplashScreen> {
           Image.asset(
             'assets/dojo_splash.png',
             fit: BoxFit.cover,
+            errorBuilder:
+                (
+              BuildContext context,
+              Object error,
+              StackTrace? stackTrace,
+            ) {
+              return Container(
+                color:
+                    const Color(0xFFF4511E),
+              );
+            },
           ),
 
           // ====================================================
-          // LOADING TEXT + INDICATOR
+          // LOADING / ERROR
           // ====================================================
 
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 65,
+            left: 20,
+            right: 20,
+            bottom: 55,
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
               children: [
-                const Text(
-                  'Getting things ready...',
-                  textAlign:
-                      TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight:
-                        FontWeight.w500,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 18,
-                ),
-
-                const SizedBox(
-                  width: 30,
-                  height: 30,
-                  child:
-                      CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor:
-                        AlwaysStoppedAnimation<
-                            Color>(
-                      Colors.white,
+                if (_checking) ...[
+                  const Text(
+                    'Getting things ready...',
+                    textAlign:
+                        TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight:
+                          FontWeight.w500,
                     ),
                   ),
-                ),
+
+                  const SizedBox(
+                    height: 18,
+                  ),
+
+                  const SizedBox(
+                    width: 30,
+                    height: 30,
+                    child:
+                        CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor:
+                          AlwaysStoppedAnimation<
+                              Color>(
+                        Colors.white,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const Text(
+                    'Unable to load your account',
+                    textAlign:
+                        TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight:
+                          FontWeight.w700,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 14,
+                  ),
+
+                  SizedBox(
+                    height: 44,
+                    child: ElevatedButton(
+                      onPressed: _retry,
+                      style:
+                          ElevatedButton.styleFrom(
+                        backgroundColor:
+                            Colors.white,
+                        foregroundColor:
+                            const Color(
+                          0xFFF4511E,
+                        ),
+                        elevation: 0,
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(
+                            14,
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        'Retry',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                              FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
