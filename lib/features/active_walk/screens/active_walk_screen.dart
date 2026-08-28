@@ -66,7 +66,9 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
           _loading = false;
         });
 
-        _startDurationTimer();
+        if (walk != null) {
+          _startDurationTimer();
+        }
       },
       onError: (Object error) {
         debugPrint(
@@ -89,7 +91,11 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
   // ==========================================================
 
   void _startDurationTimer() {
-    _timer ??= Timer.periodic(
+    if (_timer != null) {
+      return;
+    }
+
+    _timer = Timer.periodic(
       const Duration(seconds: 1),
       (_) {
         if (!mounted) {
@@ -121,6 +127,10 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
   }
 
   String _formatDuration(Duration duration) {
+    if (duration.isNegative) {
+      return '00:00';
+    }
+
     final int hours = duration.inHours;
     final int minutes =
         duration.inMinutes.remainder(60);
@@ -260,8 +270,7 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
   // ==========================================================
 
   Widget _buildDestination(ActiveWalk walk) {
-    final String address =
-        walk.destinationAddress.trim();
+    final String address = walk.address.trim();
 
     return Container(
       width: double.infinity,
@@ -327,7 +336,7 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
   }
 
   // ==========================================================
-  // END WALK
+  // END WALK BUTTON
   // ==========================================================
 
   Widget _buildEndWalkButton(ActiveWalk walk) {
@@ -350,7 +359,9 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
                 Icons.flag_rounded,
               ),
         label: Text(
-          _ending ? 'Ending Walk...' : 'End Walk',
+          _ending
+              ? 'Ending Walk...'
+              : 'End Walk',
           style: const TextStyle(
             fontWeight: FontWeight.w900,
           ),
@@ -374,7 +385,7 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
   // ==========================================================
 
   Widget _buildNotFound() {
-    const ActiveWalk fallbackWalk = ActiveWalk(
+    final ActiveWalk fallbackWalk = ActiveWalk(
       id: '',
       ownerId: '',
       ownerName: '',
@@ -428,7 +439,8 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
   void _mapButton() {
     final ActiveWalk? walk = _walk;
 
-    if (walk?.walkerLocation == null) {
+    if (walk == null ||
+        walk.walkerLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -439,6 +451,9 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
 
       return;
     }
+
+    // Map is already visible on this screen.
+    // Rebuild/recenter is handled by ActiveWalkMap.
   }
 
   // ==========================================================
@@ -511,7 +526,10 @@ class _ActiveWalkScreenState extends State<ActiveWalkScreen> {
     });
 
     try {
-      await _service.endWalk(walk);
+      // IMPORTANT:
+      // ActiveWalkService.endWalk() expects String.
+      // Therefore pass the active walk ID, NOT the ActiveWalk object.
+      await _service.endWalk(walk.id);
 
       if (!mounted) {
         return;
