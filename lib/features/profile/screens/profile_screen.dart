@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../change_mobile/change_mobile_flow.dart';
 import '../services/profile_location_service.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
@@ -500,17 +501,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _changeMobile() async {
-    final bool? changed =
-        await Navigator.pushNamed<bool>(
-      context,
-      '/change-mobile',
-      arguments:
-          _mobileNumber,
-    );
+  final String number = _mobileNumber.trim();
 
-    if (changed == true) {
-      await _loadProfile();
-    }
+  if (number.isEmpty || number == '-') {
+    _showMessage(
+      'Current mobile number was not found.',
+    );
+    return;
+  }
+
+  final bool? changed =
+      await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(24),
+      ),
+    ),
+    builder: (context) {
+      return ChangeMobileFlow(
+        currentNumber: number,
+        onChanged: (_) {},
+      );
+    },
+  );
+
+  if (changed == true && mounted) {
+    await _loadProfile();
+  }
   }
 
   // ============================================================
