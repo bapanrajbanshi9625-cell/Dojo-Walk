@@ -65,7 +65,6 @@ class _ChangeMobileOtpScreenState
 
   late String _verificationId;
 
-  int? _resendToken;
 
   bool _isVerifying = false;
   bool _isResending = false;
@@ -75,25 +74,22 @@ class _ChangeMobileOtpScreenState
   // ============================================================
 
   @override
-  void initState() {
-    super.initState();
+void initState() {
+  super.initState();
 
-    _verificationId =
-        widget.verificationId.trim();
+  _verificationId =
+      widget.verificationId.trim();
 
-    _resendToken =
-        widget.resendToken;
+  WidgetsBinding.instance
+      .addPostFrameCallback((_) {
+    if (!mounted) {
+      return;
+    }
 
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      _otpFocusNode.requestFocus();
-    });
-  }
-
+    _otpFocusNode.requestFocus();
+  });
+}
+  
   // ============================================================
   // DISPOSE
   // ============================================================
