@@ -17,22 +17,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isSendingOtp = false;
 
-  // =====================================================
+  // ============================================================
   // MSG91 OTP CONFIGURATION
-  // =====================================================
+  // ============================================================
 
   static const String _widgetId =
       '3668426c306d353733343031';
 
   // IMPORTANT:
-  // Do NOT put your real secret AuthToken in public GitHub code.
+  // Replace this with the REAL AuthToken from MSG91.
   //
-  // Replace this with your secure configuration later.
-  static const String _authToken = 'YOUR_MSG91_AUTH_TOKEN';
+  // Do NOT leave:
+  // YOUR_MSG91_AUTH_TOKEN
+  //
+  // MSG91 Dashboard:
+  // OTP -> Widget -> Mobile Integration
+  // Then copy the AuthToken generated for this widget.
+  static const String _authToken =
+      'YOUR_MSG91_AUTH_TOKEN';
 
-  // =====================================================
-  // INIT MSG91 WIDGET
-  // =====================================================
+  // ============================================================
+  // INIT
+  // ============================================================
 
   @override
   void initState() {
@@ -42,33 +48,30 @@ class _LoginScreenState extends State<LoginScreen> {
       _widgetId,
       _authToken,
     );
+
+    debugPrint('MSG91 OTP widget initialized.');
   }
 
-  // =====================================================
+  // ============================================================
   // SEND OTP
-  // =====================================================
+  // ============================================================
 
   Future<void> _sendOtp() async {
-    final String phone =
-        _phoneController.text.trim();
-
-    // -----------------------------------------------------
-    // VALIDATE MOBILE NUMBER
-    // -----------------------------------------------------
-
-    if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please enter a valid 10-digit mobile number.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    if (_isSendingOtp) {
       return;
     }
 
-    if (_isSendingOtp) {
+    final String phone =
+        _phoneController.text.trim();
+
+    // ----------------------------------------------------------
+    // VALIDATE PHONE
+    // ----------------------------------------------------------
+
+    if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
+      _showMessage(
+        'Please enter a valid 10-digit mobile number.',
+      );
       return;
     }
 
@@ -76,110 +79,310 @@ class _LoginScreenState extends State<LoginScreen> {
       _isSendingOtp = true;
     });
 
-    // India country code without +
+    // MSG91 requires country code WITHOUT +
+    //
+    // Example:
+    // 9540700348
+    // becomes:
+    // 919540700348
     final String identifier = '91$phone';
 
     try {
-      // ---------------------------------------------------
-      // MSG91 SEND OTP
-      // ---------------------------------------------------
+      // --------------------------------------------------------
+      // SEND OTP
+      // --------------------------------------------------------
 
-      final Map<String, dynamic> data = {
+      final Map<String, dynamic> payload =
+          <String, dynamic>{
         'identifier': identifier,
       };
 
-      final dynamic response =
-          await OTPWidget.sendOTP(data);
+      final Map<String, dynamic>? response =
+          await OTPWidget.sendOTP(payload);
 
+      debugPrint(
+        '================================================',
+      );
       debugPrint(
         'MSG91 SEND OTP RESPONSE: $response',
       );
+      debugPrint(
+        '================================================',
+      );
 
-      // ---------------------------------------------------
-      // EXTRACT REQUEST ID
-      // ---------------------------------------------------
+      // --------------------------------------------------------
+      // NULL RESPONSE
+      // --------------------------------------------------------
 
-      String? reqId;
-
-      if (response is Map) {
-        final dynamic value =
-            response['reqId'] ??
-            response['req_id'] ??
-            response['requestId'];
-
-        if (value != null) {
-          reqId = value.toString();
+      if (response == null) {
+        if (!mounted) {
+          return;
         }
-      }
-
-      // ---------------------------------------------------
-      // REQUEST ID REQUIRED
-      // ---------------------------------------------------
-
-      if (reqId == null || reqId.isEmpty) {
-        if (!mounted) return;
 
         setState(() {
           _isSendingOtp = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'OTP could not be sent. Please try again.',
+        _showMessage(
+          'MSG91 did not return a response. Please try again.',
+        );
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // RESPONSE TYPE
+      // --------------------------------------------------------
+
+      final String type =
+          response['type']?.toString().trim() ?? '';
+
+      // --------------------------------------------------------
+      // SUCCESS
+      // --------------------------------------------------------
+
+      if (type == 'success') {
+        String? reqId;
+
+        // ------------------------------------------------------
+        // MSG91 SDK normally returns request ID in "message"
+        // ------------------------------------------------------
+
+        final dynamic message =
+            response['message'];
+
+        if (message != null) {
+          final String value =
+              message.toString().trim();
+
+          if (value.isNotEmpty) {
+            reqId = value;
+          }
+        }
+
+        // ------------------------------------------------------
+        // FALLBACK RESPONSE KEYS
+        // ------------------------------------------------------
+
+        if (reqId == null || reqId.isEmpty) {
+          final dynamic value =
+              response['reqId'] ??
+              response['req_id'] ??
+              response['requestId'];
+
+          if (value != null) {
+            final String fallback =
+                value.toString().trim();
+
+            if (fallback.isNotEmpty) {
+              reqId = fallback;
+            }
+          }
+        }
+
+        // ------------------------------------------------------
+        // ALREADY VERIFIED
+        // ------------------------------------------------------
+
+        if (response.containsKey('access-token')) {
+          debugPrint(
+            'MSG91 number already verified.',
+          );
+
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {
+            _isSendingOtp = false;
+          });
+
+          _showMessage(
+            'Mobile number is already verified.',
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------------
+        // REQUEST ID REQUIRED
+        // ------------------------------------------------------
+
+        if (reqId == null || reqId.isEmpty) {
+          debugPrint(
+            'MSG91 SUCCESS RESPONSE WITHOUT REQUEST ID: '
+            '$response',
+          );
+
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {
+            _isSendingOtp = false;
+          });
+
+          _showMessage(
+            'OTP was sent, but request ID was not received.',
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------------
+        // OTP SENT SUCCESSFULLY
+        // ------------------------------------------------------
+
+        debugPrint(
+          'MSG91 OTP SENT SUCCESSFULLY.',
+        );
+
+        debugPrint(
+          'MSG91 REQUEST ID: $reqId',
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isSendingOtp = false;
+        });
+
+        // ------------------------------------------------------
+        // OPEN OTP SCREEN
+        // ------------------------------------------------------
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (BuildContext context) =>
+                OtpVerificationScreen(
+              phoneNumber: phone,
+              reqId: reqId!,
             ),
-            behavior: SnackBarBehavior.floating,
           ),
         );
 
         return;
       }
 
-      if (!mounted) return;
+      // --------------------------------------------------------
+      // MSG91 ERROR
+      // --------------------------------------------------------
 
-      setState(() {
-        _isSendingOtp = false;
-      });
-
-      // ---------------------------------------------------
-      // OPEN OTP VERIFICATION SCREEN
-      // ---------------------------------------------------
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              OtpVerificationScreen(
-            phoneNumber: phone,
-            reqId: reqId!,
-          ),
-        ),
-      );
-    } catch (e) {
       debugPrint(
-        'MSG91 SEND OTP ERROR: $e',
+        'MSG91 OTP FAILED.',
       );
 
-      if (!mounted) return;
+      debugPrint(
+        'MSG91 ERROR RESPONSE: $response',
+      );
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _isSendingOtp = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to send OTP. Please try again.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      final String errorMessage =
+          _extractErrorMessage(response);
+
+      _showMessage(
+        errorMessage,
+      );
+    } catch (e, stackTrace) {
+      // --------------------------------------------------------
+      // EXCEPTION
+      // --------------------------------------------------------
+
+      debugPrint(
+        '================================================',
+      );
+
+      debugPrint(
+        'MSG91 SEND OTP EXCEPTION: $e',
+      );
+
+      debugPrint(
+        'MSG91 STACK TRACE: $stackTrace',
+      );
+
+      debugPrint(
+        '================================================',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingOtp = false;
+      });
+
+      _showMessage(
+        'Failed to send OTP. Please try again.',
       );
     }
   }
 
-  // =====================================================
+  // ============================================================
+  // EXTRACT MSG91 ERROR
+  // ============================================================
+
+  String _extractErrorMessage(
+    Map<String, dynamic> response,
+  ) {
+    final List<dynamic> possibleMessages = <dynamic>[
+      response['message'],
+      response['error'],
+      response['description'],
+      response['error_message'],
+      response['errorMessage'],
+    ];
+
+    for (final dynamic value in possibleMessages) {
+      if (value == null) {
+        continue;
+      }
+
+      final String text =
+          value.toString().trim();
+
+      if (text.isNotEmpty) {
+        return 'OTP could not be sent: $text';
+      }
+    }
+
+    return 'OTP could not be sent. Please try again.';
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  // ============================================================
   // DISPOSE
-  // =====================================================
+  // ============================================================
 
   @override
   void dispose() {
@@ -187,9 +390,9 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // =====================================================
+  // ============================================================
   // BUILD
-  // =====================================================
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -229,10 +432,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
           child: Column(
             children: [
-
-              // =================================================
-              // DOJO WALK LOGO
-              // =================================================
+              // ==================================================
+              // LOGO
+              // ==================================================
 
               Container(
                 height: 96,
@@ -244,8 +446,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary
-                          .withOpacity(0.22),
+                      color:
+                          AppColors.primary
+                              .withValues(
+                        alpha: 0.22,
+                      ),
                       blurRadius: 22,
                       offset:
                           const Offset(0, 8),
@@ -260,11 +465,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(
+                height: 18,
+              ),
 
-              // =================================================
+              // ==================================================
               // APP NAME
-              // =================================================
+              // ==================================================
 
               const Text(
                 'Dojo Walk',
@@ -277,7 +484,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(
+                height: 5,
+              ),
 
               const Text(
                 'Dog walking made simple',
@@ -289,14 +498,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 42),
+              const SizedBox(
+                height: 42,
+              ),
 
-              // =================================================
+              // ==================================================
               // LOGIN CARD
-              // =================================================
+              // ==================================================
 
               Container(
                 width: double.infinity,
+
                 padding:
                     const EdgeInsets.fromLTRB(
                   20,
@@ -308,16 +520,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration:
                     BoxDecoration(
                   color: cardColor,
+
                   borderRadius:
-                      BorderRadius.circular(24),
+                      BorderRadius.circular(
+                    24,
+                  ),
+
                   border:
                       Border.all(
-                    color: borderColor,
+                    color:
+                        borderColor,
                   ),
+
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black
-                          .withOpacity(0.06),
+                      color:
+                          Colors.black
+                              .withValues(
+                        alpha: 0.06,
+                      ),
                       blurRadius: 20,
                       offset:
                           const Offset(0, 8),
@@ -330,10 +551,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       CrossAxisAlignment.start,
 
                   children: [
-
-                    // =========================================
-                    // MOBILE NUMBER LABEL
-                    // =========================================
+                    // ==========================================
+                    // LABEL
+                    // ==========================================
 
                     const Text(
                       'Mobile Number',
@@ -345,11 +565,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(
+                      height: 10,
+                    ),
 
-                    // =========================================
+                    // ==========================================
                     // PHONE FIELD
-                    // =========================================
+                    // ==========================================
 
                     Container(
                       height: 60,
@@ -358,10 +580,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           BoxDecoration(
                         color:
                             inputBackground,
+
                         borderRadius:
                             BorderRadius.circular(
                           16,
                         ),
+
                         border:
                             Border.all(
                           color:
@@ -371,11 +595,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       child: Row(
                         children: [
-
                           // PHONE ICON
                           Container(
                             width: 50,
                             height: 46,
+
                             margin:
                                 const EdgeInsets.only(
                               left: 6,
@@ -383,11 +607,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             decoration:
                                 BoxDecoration(
-                              color: AppColors
-                                  .primary
-                                  .withOpacity(
-                                0.10,
+                              color:
+                                  AppColors
+                                      .primary
+                                      .withValues(
+                                alpha: 0.10,
                               ),
+
                               borderRadius:
                                   BorderRadius.circular(
                                 13,
@@ -398,7 +624,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 const Icon(
                               Icons.phone,
                               color:
-                                  AppColors.primary,
+                                  AppColors
+                                      .primary,
                               size: 23,
                             ),
                           ),
@@ -445,7 +672,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               keyboardType:
                                   TextInputType.phone,
 
+                              textInputAction:
+                                  TextInputAction.done,
+
                               maxLength: 10,
+
+                              enabled:
+                                  !_isSendingOtp,
 
                               style:
                                   const TextStyle(
@@ -491,13 +724,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 20,
                     ),
 
-                    // =========================================
-                    // GET OTP BUTTON
-                    // =========================================
+                    // ==========================================
+                    // GET OTP
+                    // ==========================================
 
                     SizedBox(
                       width:
                           double.infinity,
+
                       height: 58,
 
                       child:
@@ -510,12 +744,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         style:
                             ElevatedButton.styleFrom(
                           backgroundColor:
-                              AppColors.primary,
+                              AppColors
+                                  .primary,
 
                           disabledBackgroundColor:
-                              AppColors.primary
-                                  .withOpacity(
-                            0.65,
+                              AppColors
+                                  .primary
+                                  .withValues(
+                            alpha: 0.65,
                           ),
 
                           foregroundColor:
@@ -524,9 +760,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           elevation: 3,
 
                           shadowColor:
-                              AppColors.primary
-                                  .withOpacity(
-                            0.30,
+                              AppColors
+                                  .primary
+                                  .withValues(
+                            alpha: 0.30,
                           ),
 
                           shape:
@@ -584,16 +821,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 22,
                     ),
 
-                    // =========================================
-                    // OTP INFORMATION
-                    // =========================================
+                    // ==========================================
+                    // OTP INFO
+                    // ==========================================
 
                     Row(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
 
                       children: [
-
                         Container(
                           height: 42,
                           width: 42,
@@ -623,9 +860,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
 
                         const Expanded(
-                          child: Text(
+                          child:
+                              Text(
                             'We will send a one-time password '
                             '(OTP) to verify your mobile number.',
+
                             style:
                                 TextStyle(
                               color:
@@ -647,15 +886,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 40,
               ),
 
-              // =================================================
+              // ==================================================
               // FOOTER DIVIDER
-              // =================================================
+              // ==================================================
 
               Row(
                 children: [
-
                   Expanded(
-                    child: Container(
+                    child:
+                        Container(
                       height: 1,
                       color:
                           borderColor,
@@ -664,7 +903,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   Container(
                     margin:
-                        const EdgeInsets.symmetric(
+                        const EdgeInsets
+                            .symmetric(
                       horizontal: 12,
                     ),
 
@@ -674,14 +914,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration:
                         const BoxDecoration(
                       color:
-                          AppColors.primary,
+                          AppColors
+                              .primary,
                       shape:
                           BoxShape.circle,
                     ),
                   ),
 
                   Expanded(
-                    child: Container(
+                    child:
+                        Container(
                       height: 1,
                       color:
                           borderColor,
@@ -694,9 +936,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 18,
               ),
 
-              // =================================================
+              // ==================================================
               // FOOTER
-              // =================================================
+              // ==================================================
 
               const Text(
                 'Dojo Platform',
