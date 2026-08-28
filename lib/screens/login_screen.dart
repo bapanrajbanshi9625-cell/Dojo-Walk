@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // OTP -> Widget -> Mobile Integration
   // Then copy the AuthToken generated for this widget.
   static const String _authToken =
-      'YOUR_MSG91_AUTH_TOKEN';
+      '565278AGmr6TyWn6a91bf8aP1';
 
   // ============================================================
   // INIT
