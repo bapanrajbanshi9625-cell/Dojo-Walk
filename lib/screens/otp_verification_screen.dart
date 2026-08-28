@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 
 import '../core/constants/app_colors.dart';
 import '../services/owner_id_service.dart';
@@ -10,12 +11,12 @@ import 'profile_setup.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
-  final String verificationId;
+  final String reqId;
 
   const OtpVerificationScreen({
     super.key,
     required this.phoneNumber,
-    required this.verificationId,
+    required this.reqId,
   });
 
   @override
@@ -31,9 +32,19 @@ class _OtpVerificationScreenState
   final FocusNode _otpFocusNode = FocusNode();
 
   bool _isVerifying = false;
+  bool _isResending = false;
+
+  String _reqId = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    _reqId = widget.reqId.trim();
+  }
 
   // ============================================================
-  // VERIFY OTP
+  // VERIFY MSG91 OTP
   // ============================================================
 
   Future<void> _verifyOtp() async {
@@ -55,12 +66,9 @@ class _OtpVerificationScreenState
       return;
     }
 
-    final String verificationId =
-        widget.verificationId.trim();
-
-    if (verificationId.isEmpty) {
+    if (_reqId.isEmpty) {
       _showMessage(
-        'Verification session is invalid. Please request a new OTP.',
+        'OTP session is invalid. Please request a new OTP.',
       );
       return;
     }
@@ -71,65 +79,142 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // 1. CREATE PHONE CREDENTIAL
+      // 1. VERIFY OTP WITH MSG91
       // ========================================================
 
-      final PhoneAuthCredential credential =
-          PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: otp,
+      final Map<String, dynamic> data = {
+        'reqId': _reqId,
+        'otp': otp,
+      };
+
+      final dynamic response =
+          await OTPWidget.verifyOTP(data);
+
+      debugPrint(
+        'MSG91 VERIFY OTP RESPONSE: $response',
       );
 
       // ========================================================
-      // 2. FIREBASE PHONE LOGIN
+      // 2. CHECK RESPONSE
       // ========================================================
 
-      final UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(
-        credential,
-      );
+      bool verified = false;
 
-      final User? user = userCredential.user;
+      if (response is Map) {
+        final dynamic type =
+            response['type'] ??
+            response['status'] ??
+            response['message'];
 
-      if (user == null) {
-        throw FirebaseAuthException(
-          code: 'user-not-found',
-          message:
-              'Firebase user was not found after OTP verification.',
+        final String result =
+            type?.toString().toLowerCase() ?? '';
+
+        if (result.contains('success') ||
+            result == 'success' ||
+            result == 'verified') {
+          verified = true;
+        }
+
+        // Some MSG91 SDK responses expose success
+        // through a boolean.
+        if (response['success'] == true ||
+            response['verified'] == true) {
+          verified = true;
+        }
+      }
+
+      // Some SDK versions return a successful response
+      // that is not represented as a simple Map.
+      if (!verified && response != null) {
+        final String responseText =
+            response.toString().toLowerCase();
+
+        if (responseText.contains('success') ||
+            responseText.contains('verified')) {
+          verified = true;
+        }
+      }
+
+      if (!verified) {
+        throw Exception(
+          'Invalid OTP. Please check the OTP and try again.',
         );
       }
 
       // ========================================================
-      // 3. FIREBASE UID
+      // 3. OTP VERIFIED
       // ========================================================
+
+      debugPrint(
+        'MSG91 OTP VERIFIED SUCCESSFULLY',
+      );
+
+      // ========================================================
+      // 4. CREATE / RESTORE FIREBASE SESSION
+      // ========================================================
+      //
+      // MSG91 verification does not create a Firebase
+      // PhoneAuth user. We therefore create an anonymous
+      // Firebase session so the existing Firestore/Owner
+      // flow can continue.
+      //
+      // The verified phone number remains the application's
+      // logical login identifier.
+      // ========================================================
+
+      User? user =
+          FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        final UserCredential credential =
+            await FirebaseAuth.instance
+                .signInAnonymously();
+
+        user = credential.user;
+      }
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'firebase-user-missing',
+          message:
+              'Unable to create Firebase session.',
+        );
+      }
 
       final String uid = user.uid.trim();
 
       if (uid.isEmpty) {
         throw FirebaseAuthException(
           code: 'invalid-user',
-          message: 'Firebase UID was not found.',
+          message:
+              'Firebase UID was not found.',
         );
       }
 
+      debugPrint(
+        'Firebase UID: $uid',
+      );
+
       // ========================================================
-      // 4. VERIFIED PHONE NUMBER
+      // 5. NORMALIZE PHONE NUMBER
       // ========================================================
 
       String phoneNumber =
-          user.phoneNumber?.trim() ?? '';
+          widget.phoneNumber.trim();
 
-      if (phoneNumber.isEmpty) {
+      phoneNumber = phoneNumber.replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
+
+      if (phoneNumber.length > 10) {
         phoneNumber =
-            widget.phoneNumber.trim();
-
-        if (phoneNumber.isNotEmpty &&
-            !phoneNumber.startsWith('+')) {
-          phoneNumber = '+91$phoneNumber';
-        }
+            phoneNumber.substring(
+          phoneNumber.length - 10,
+        );
       }
 
-      if (phoneNumber.isEmpty) {
+      if (phoneNumber.length != 10) {
         throw FirebaseAuthException(
           code: 'phone-not-found',
           message:
@@ -137,14 +222,18 @@ class _OtpVerificationScreenState
         );
       }
 
+      final String fullPhoneNumber =
+          '+91$phoneNumber';
+
       // ========================================================
-      // 5. GET / CREATE OWNER ID
+      // 6. GET / CREATE OWNER ID
       // ========================================================
 
       final String ownerId =
-          await OwnerIdService.instance.getOrCreateOwnerId(
+          await OwnerIdService.instance
+              .getOrCreateOwnerId(
         uid: uid,
-        phoneNumber: phoneNumber,
+        phoneNumber: fullPhoneNumber,
       );
 
       final String cleanOwnerId =
@@ -154,7 +243,8 @@ class _OtpVerificationScreenState
         throw FirebaseException(
           plugin: 'cloud_firestore',
           code: 'owner-id-missing',
-          message: 'Owner ID could not be created.',
+          message:
+              'Owner ID could not be created.',
         );
       }
 
@@ -163,25 +253,25 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 6. LOAD OWNER PROFILE
+      // 7. LOAD OWNER PROFILE
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
-          profileSnapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> profileSnapshot =
           await FirebaseFirestore.instance
               .collection('owners')
               .doc(cleanOwnerId)
               .get();
 
       // ========================================================
-      // 7. PROFILE DATA
+      // 8. PROFILE DATA
       // ========================================================
 
       final Map<String, dynamic>? data =
           profileSnapshot.data();
 
       // ========================================================
-      // 8. ACTIVE STATUS
+      // 9. ACTIVE STATUS
       // ========================================================
 
       final bool isActive =
@@ -194,13 +284,15 @@ class _OtpVerificationScreenState
           return;
         }
 
-        _showInactiveDialog(cleanOwnerId);
+        _showInactiveDialog(
+          cleanOwnerId,
+        );
 
         return;
       }
 
       // ========================================================
-      // 9. PROFILE COMPLETED
+      // 10. PROFILE COMPLETED
       // ========================================================
 
       final bool profileCompleted =
@@ -211,7 +303,7 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 10. PROFILE NOT COMPLETED
+      // 11. PROFILE NOT COMPLETED
       // ========================================================
 
       if (!profileCompleted) {
@@ -228,7 +320,7 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 11. PROFILE COMPLETED → MAIN APP
+      // 12. PROFILE COMPLETED
       // ========================================================
 
       Navigator.pushAndRemoveUntil(
@@ -247,50 +339,24 @@ class _OtpVerificationScreenState
 
     on FirebaseAuthException catch (e) {
       debugPrint(
-        'Owner OTP Auth Error: ${e.code}',
+        'Owner Firebase Auth Error: ${e.code}',
       );
+
+      if (!mounted) {
+        return;
+      }
 
       String message;
 
       switch (e.code) {
-        case 'invalid-verification-code':
-          message =
-              'Invalid OTP. Please check the code and try again.';
-          break;
-
-        case 'session-expired':
-          message =
-              'This OTP has expired. Please request a new OTP.';
-          break;
-
-        case 'invalid-verification-id':
-          message =
-              'Verification session expired. Please request a new OTP.';
-          break;
-
-        case 'credential-already-in-use':
-          message =
-              'This mobile number is already linked to another account.';
-          break;
-
-        case 'too-many-requests':
-          message =
-              'Too many attempts. Please try again later.';
-          break;
-
-        case 'network-request-failed':
-          message =
-              'Network error. Please check your internet connection.';
-          break;
-
-        case 'user-not-found':
-          message =
-              'Unable to complete phone verification. Please try again.';
-          break;
-
         case 'invalid-user':
           message =
               'Unable to identify your account. Please try again.';
+          break;
+
+        case 'firebase-user-missing':
+          message =
+              'Unable to create your login session. Please try again.';
           break;
 
         case 'phone-not-found':
@@ -298,22 +364,28 @@ class _OtpVerificationScreenState
               'Verified mobile number was not found.';
           break;
 
+        case 'network-request-failed':
+          message =
+              'Network error. Please check your internet connection.';
+          break;
+
+        case 'too-many-requests':
+          message =
+              'Too many attempts. Please try again later.';
+          break;
+
         default:
           message =
               e.message?.trim().isNotEmpty == true
                   ? e.message!.trim()
-                  : 'OTP verification failed. Please try again.';
-      }
-
-      if (!mounted) {
-        return;
+                  : 'Login failed. Please try again.';
       }
 
       _showMessage(message);
     }
 
     // ==========================================================
-    // FIRESTORE / FIREBASE ERROR
+    // FIREBASE / FIRESTORE ERROR
     // ==========================================================
 
     on FirebaseException catch (e) {
@@ -335,46 +407,61 @@ class _OtpVerificationScreenState
 
         case 'unavailable':
           message =
-              'Firebase is temporarily unavailable. Please check your internet connection and try again.';
+              'Firebase is temporarily unavailable. Please check your internet connection.';
           break;
 
         case 'deadline-exceeded':
           message =
-              'The request took too long. Please check your internet connection and try again.';
+              'The request took too long. Please try again.';
           break;
 
         case 'owner-id-missing':
           message =
               e.message ??
-                  'Owner ID could not be found.';
+                  'Owner ID could not be created.';
           break;
 
         default:
           message =
               e.message?.trim().isNotEmpty == true
                   ? e.message!.trim()
-                  : 'Unable to load your Owner profile. Please try again.';
+                  : 'Unable to load your Owner profile.';
       }
 
       _showMessage(message);
     }
 
     // ==========================================================
-    // GENERAL ERROR
+    // MSG91 / GENERAL ERROR
     // ==========================================================
 
     catch (e) {
       debugPrint(
-        'Owner OTP Error: $e',
+        'MSG91 OTP Verification Error: $e',
       );
 
       if (!mounted) {
         return;
       }
 
-      _showMessage(
-        'Something went wrong. Please try again.',
-      );
+      final String error =
+          e.toString().toLowerCase();
+
+      if (error.contains('invalid') &&
+          error.contains('otp')) {
+        _showMessage(
+          'Invalid OTP. Please check the code and try again.',
+        );
+      } else if (error.contains('expired') ||
+          error.contains('session')) {
+        _showMessage(
+          'This OTP session has expired. Please request a new OTP.',
+        );
+      } else {
+        _showMessage(
+          'OTP verification failed. Please try again.',
+        );
+      }
     }
 
     // ==========================================================
@@ -391,22 +478,105 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
+  // RESEND OTP
+  // ============================================================
+
+  Future<void> _resendOtp() async {
+    if (_isResending || _isVerifying) {
+      return;
+    }
+
+    setState(() {
+      _isResending = true;
+    });
+
+    try {
+      final dynamic response =
+          await OTPWidget.retryOTP({
+        'reqId': _reqId,
+      });
+
+      debugPrint(
+        'MSG91 RETRY OTP RESPONSE: $response',
+      );
+
+      String? newReqId;
+
+      if (response is Map) {
+        final dynamic value =
+            response['reqId'] ??
+            response['req_id'] ??
+            response['requestId'];
+
+        if (value != null) {
+          newReqId = value.toString();
+        }
+      }
+
+      if (newReqId != null &&
+          newReqId.trim().isNotEmpty) {
+        _reqId = newReqId.trim();
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      _otpController.clear();
+
+      _showMessage(
+        'OTP sent again successfully.',
+      );
+
+      _otpFocusNode.requestFocus();
+    } catch (e) {
+      debugPrint(
+        'MSG91 RESEND OTP ERROR: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Unable to resend OTP. Please try again.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isResending = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
   // INACTIVE OWNER DIALOG
   // ============================================================
 
-  void _showInactiveDialog(String ownerId) {
-    const Color primary = AppColors.primary;
-    const Color textColor = Color(0xFF263746);
+  void _showInactiveDialog(
+    String ownerId,
+  ) {
+    const Color primary =
+        AppColors.primary;
+
+    const Color textColor =
+        Color(0xFF263746);
 
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+          backgroundColor:
+              Colors.white,
+
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(20),
           ),
+
           title: const Row(
             children: [
               Icon(
@@ -420,12 +590,14 @@ class _OtpVerificationScreenState
                   'Account Inactive',
                   style: TextStyle(
                     color: textColor,
-                    fontWeight: FontWeight.w800,
+                    fontWeight:
+                        FontWeight.w800,
                   ),
                 ),
               ),
             ],
           ),
+
           content: Text(
             'Your Owner ID $ownerId is currently inactive.\n\n'
             'Please contact support to activate your account.',
@@ -434,16 +606,20 @@ class _OtpVerificationScreenState
               height: 1.5,
             ),
           ),
+
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext);
+                Navigator.pop(
+                  dialogContext,
+                );
               },
               child: const Text(
                 'OK',
                 style: TextStyle(
                   color: primary,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
             ),
@@ -457,7 +633,9 @@ class _OtpVerificationScreenState
   // MESSAGE
   // ============================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -465,19 +643,27 @@ class _OtpVerificationScreenState
     ScaffoldMessenger.of(context)
         .hideCurrentSnackBar();
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        backgroundColor: const Color(0xFF263746),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+        behavior:
+            SnackBarBehavior.floating,
+        margin:
+            const EdgeInsets.all(16),
+        backgroundColor:
+            const Color(0xFF263746),
+        shape:
+            RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(12),
         ),
         content: Text(
           message,
-          style: const TextStyle(
+          style:
+              const TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.w600,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ),
@@ -492,7 +678,8 @@ class _OtpVerificationScreenState
     final String raw =
         widget.phoneNumber.trim();
 
-    final String clean = raw.replaceAll(
+    final String clean =
+        raw.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
@@ -505,14 +692,18 @@ class _OtpVerificationScreenState
 
     if (clean.length > 10) {
       final String last10 =
-          clean.substring(clean.length - 10);
+          clean.substring(
+        clean.length - 10,
+      );
 
       return '+91 '
           '${last10.substring(0, 5)} '
           '${last10.substring(5)}';
     }
 
-    return raw.isEmpty ? 'Mobile number' : raw;
+    return raw.isEmpty
+        ? 'Mobile number'
+        : raw;
   }
 
   // ============================================================
@@ -531,365 +722,538 @@ class _OtpVerificationScreenState
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
-    const Color primary = AppColors.primary;
-    const Color background = Color(0xFFF7F9FC);
-    const Color textColor = Color(0xFF263746);
-    const Color secondaryText = Color(0xFF64748B);
-    const Color cardColor = Colors.white;
-    const Color borderColor = Color(0xFFDDE2E8);
-    const Color inputBackground = Color(0xFFFAFBFC);
+  Widget build(
+    BuildContext context,
+  ) {
+    const Color primary =
+        AppColors.primary;
+
+    const Color background =
+        Color(0xFFF7F9FC);
+
+    const Color textColor =
+        Color(0xFF263746);
+
+    const Color secondaryText =
+        Color(0xFF64748B);
+
+    const Color cardColor =
+        Colors.white;
+
+    const Color borderColor =
+        Color(0xFFDDE2E8);
+
+    const Color inputBackground =
+        Color(0xFFFAFBFC);
 
     return Scaffold(
-      backgroundColor: background,
-
-      // ========================================================
-      // APP BAR
-      // ========================================================
+      backgroundColor:
+          background,
 
       appBar: AppBar(
-        backgroundColor: background,
+        backgroundColor:
+            background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        foregroundColor: textColor,
-        automaticallyImplyLeading: true,
+        foregroundColor:
+            textColor,
         toolbarHeight: 55,
       ),
-
-      // ========================================================
-      // BODY
-      // ========================================================
 
       body: SafeArea(
         child: GestureDetector(
           onTap: () {
-            FocusScope.of(context).unfocus();
+            FocusScope.of(context)
+                .unfocus();
           },
-          child: SingleChildScrollView(
+
+          child:
+              SingleChildScrollView(
             keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(
+                ScrollViewKeyboardDismissBehavior
+                    .onDrag,
+
+            padding:
+                const EdgeInsets.fromLTRB(
               22,
               10,
               22,
               30,
             ),
+
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 12),
-
-                // ==============================================
-                // TOP ICON
-                // ==============================================
-
-                Center(
-                  child: Container(
-                    height: 78,
-                    width: 78,
-                    decoration: BoxDecoration(
-                      color: primary,
-                      borderRadius:
-                          BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              primary.withOpacity(0.22),
-                          blurRadius: 18,
-                          offset:
-                              const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.verified_user_rounded,
-                      color: Colors.white,
-                      size: 38,
-                    ),
-                  ),
+                const SizedBox(
+                  height: 12,
                 ),
 
-                const SizedBox(height: 26),
-
-                // ==============================================
-                // TITLE
-                // ==============================================
-
-                const Center(
-                  child: Text(
-                    'Verify your number',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 9),
-
-                // ==============================================
-                // SUBTITLE
-                // ==============================================
-
-                const Center(
-                  child: Text(
-                    'Enter the 6-digit OTP sent to',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: secondaryText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 5),
-
-                // ==============================================
-                // PHONE
-                // ==============================================
-
-                Center(
-                  child: Text(
-                    _displayPhoneNumber(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // ==============================================
-                // OTP CARD
-                // ==============================================
+                // ==================================================
+                // ICON
+                // ==================================================
 
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(
-                    18,
-                    20,
-                    18,
-                    20,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cardColor,
+                  height: 78,
+                  width: 78,
+
+                  decoration:
+                      BoxDecoration(
+                    color: primary,
                     borderRadius:
-                        BorderRadius.circular(20),
-                    border: Border.all(
-                      color: borderColor,
+                        BorderRadius.circular(
+                      24,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            Colors.black.withOpacity(0.045),
+                        color: primary
+                            .withOpacity(
+                          0.22,
+                        ),
                         blurRadius: 18,
                         offset:
-                            const Offset(0, 6),
+                            const Offset(
+                          0,
+                          8,
+                        ),
                       ),
                     ],
                   ),
+
+                  child: const Icon(
+                    Icons
+                        .verified_user_rounded,
+                    color:
+                        Colors.white,
+                    size: 38,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 26,
+                ),
+
+                // ==================================================
+                // TITLE
+                // ==================================================
+
+                const Text(
+                  'Verify your number',
+                  textAlign:
+                      TextAlign.center,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 27,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 9,
+                ),
+
+                const Text(
+                  'Enter the 6-digit OTP sent to',
+                  textAlign:
+                      TextAlign.center,
+                  style: TextStyle(
+                    color:
+                        secondaryText,
+                    fontSize: 14,
+                    fontWeight:
+                        FontWeight.w500,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 5,
+                ),
+
+                Text(
+                  _displayPhoneNumber(),
+                  textAlign:
+                      TextAlign.center,
+                  style:
+                      const TextStyle(
+                    color: textColor,
+                    fontSize: 15,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 30,
+                ),
+
+                // ==================================================
+                // OTP CARD
+                // ==================================================
+
+                Container(
+                  width:
+                      double.infinity,
+
+                  padding:
+                      const EdgeInsets.fromLTRB(
+                    18,
+                    20,
+                    18,
+                    20,
+                  ),
+
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        cardColor,
+                    borderRadius:
+                        BorderRadius.circular(
+                      20,
+                    ),
+                    border:
+                        Border.all(
+                      color:
+                          borderColor,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors
+                            .black
+                            .withOpacity(
+                          0.045,
+                        ),
+                        blurRadius: 18,
+                        offset:
+                            const Offset(
+                          0,
+                          6,
+                        ),
+                      ),
+                    ],
+                  ),
+
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
+
                     children: [
                       const Text(
                         'One-Time Password',
                         style: TextStyle(
-                          color: textColor,
+                          color:
+                              textColor,
                           fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                          fontWeight:
+                              FontWeight.w800,
                         ),
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(
+                        height: 12,
+                      ),
 
                       // ==========================================
-                      // OTP FIELD
+                      // OTP INPUT
                       // ==========================================
 
                       TextField(
-                        controller: _otpController,
-                        focusNode: _otpFocusNode,
+                        controller:
+                            _otpController,
+
+                        focusNode:
+                            _otpFocusNode,
+
                         autofocus: true,
-                        enabled: !_isVerifying,
+
+                        enabled:
+                            !_isVerifying,
+
                         keyboardType:
                             TextInputType.number,
+
                         textInputAction:
                             TextInputAction.done,
+
                         maxLength: 6,
-                        textAlign: TextAlign.center,
+
+                        textAlign:
+                            TextAlign.center,
+
                         inputFormatters: [
                           FilteringTextInputFormatter
                               .digitsOnly,
                         ],
-                        onChanged: (value) {
-                          if (value.length == 6 &&
+
+                        onChanged:
+                            (value) {
+                          if (value.length ==
+                                  6 &&
                               !_isVerifying) {
-                            FocusScope.of(context)
-                                .unfocus();
+                            FocusScope.of(
+                              context,
+                            ).unfocus();
                           }
                         },
-                        onSubmitted: (_) {
+
+                        onSubmitted:
+                            (_) {
                           if (!_isVerifying) {
                             _verifyOtp();
                           }
                         },
-                        style: const TextStyle(
-                          color: textColor,
+
+                        style:
+                            const TextStyle(
+                          color:
+                              textColor,
                           fontSize: 25,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 10,
+                          fontWeight:
+                              FontWeight.w800,
+                          letterSpacing:
+                              10,
                         ),
-                        decoration: InputDecoration(
-                          hintText: '------',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF9AA6B5),
+
+                        decoration:
+                            InputDecoration(
+                          hintText:
+                              '------',
+
+                          hintStyle:
+                              const TextStyle(
+                            color:
+                                Color(
+                              0xFF9AA6B5,
+                            ),
                             fontSize: 24,
-                            letterSpacing: 9,
+                            letterSpacing:
+                                9,
                           ),
-                          counterText: '',
+
+                          counterText:
+                              '',
+
                           filled: true,
-                          fillColor: inputBackground,
+
+                          fillColor:
+                              inputBackground,
+
                           contentPadding:
-                              const EdgeInsets.symmetric(
+                              const EdgeInsets
+                                  .symmetric(
                             vertical: 17,
                           ),
-                          border: OutlineInputBorder(
+
+                          border:
+                              OutlineInputBorder(
                             borderRadius:
-                                BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                              color: borderColor,
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            borderSide:
+                                const BorderSide(
+                              color:
+                                  borderColor,
                             ),
                           ),
+
                           enabledBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                              color: borderColor,
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            borderSide:
+                                const BorderSide(
+                              color:
+                                  borderColor,
                             ),
                           ),
+
                           focusedBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                              color: primary,
-                              width: 2,
+                                BorderRadius
+                                    .circular(
+                              14,
                             ),
-                          ),
-                          disabledBorder:
-                              OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(14),
-                            borderSide: BorderSide(
+                            borderSide:
+                                const BorderSide(
                               color:
-                                  borderColor.withOpacity(
-                                0.65,
-                              ),
+                                  primary,
+                              width: 2,
                             ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==========================================
                       // VERIFY BUTTON
                       // ==========================================
 
                       SizedBox(
-                        width: double.infinity,
+                        width:
+                            double.infinity,
                         height: 54,
-                        child: ElevatedButton(
-                          onPressed: _isVerifying
-                              ? null
-                              : _verifyOtp,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primary,
+
+                        child:
+                            ElevatedButton(
+                          onPressed:
+                              _isVerifying
+                                  ? null
+                                  : _verifyOtp,
+
+                          style:
+                              ElevatedButton
+                                  .styleFrom(
+                            backgroundColor:
+                                primary,
                             foregroundColor:
                                 Colors.white,
                             disabledBackgroundColor:
-                                primary.withOpacity(0.55),
-                            disabledForegroundColor:
-                                Colors.white.withOpacity(0.9),
+                                primary
+                                    .withOpacity(
+                              0.55,
+                            ),
                             elevation: 0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius.circular(14),
+                                  BorderRadius
+                                      .circular(
+                                14,
+                              ),
                             ),
                           ),
-                          child: _isVerifying
-                              ? const SizedBox(
-                                  height: 23,
-                                  width: 23,
-                                  child:
-                                      CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  'Verify & Continue',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight:
-                                        FontWeight.w800,
-                                  ),
-                                ),
+
+                          child:
+                              _isVerifying
+                                  ? const SizedBox(
+                                      height: 23,
+                                      width: 23,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth:
+                                            2.5,
+                                        color:
+                                            Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Verify & Continue',
+                                      style:
+                                          TextStyle(
+                                        fontSize:
+                                            16,
+                                        fontWeight:
+                                            FontWeight
+                                                .w800,
+                                      ),
+                                    ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 16,
+                      ),
+
+                      // ==========================================
+                      // RESEND
+                      // ==========================================
+
+                      Center(
+                        child:
+                            TextButton(
+                          onPressed:
+                              (_isResending ||
+                                      _isVerifying)
+                                  ? null
+                                  : _resendOtp,
+
+                          child:
+                              _isResending
+                                  ? const SizedBox(
+                                      height: 19,
+                                      width: 19,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth:
+                                            2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Resend OTP',
+                                      style:
+                                          TextStyle(
+                                        color:
+                                            primary,
+                                        fontWeight:
+                                            FontWeight
+                                                .w800,
+                                      ),
+                                    ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 20),
-
-                // ==============================================
-                // SECURITY INFO
-                // ==============================================
-
-                const Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.lock_outline_rounded,
-                        size: 15,
-                        color: secondaryText,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Secure phone verification',
-                        style: TextStyle(
-                          color: secondaryText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(
+                  height: 20,
                 ),
 
-                const SizedBox(height: 8),
+                // ==================================================
+                // SECURITY
+                // ==================================================
 
-                const Center(
-                  child: Text(
-                    'Your Firebase UID is kept in the backend.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: secondaryText,
-                      fontSize: 11,
+                const Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment
+                          .center,
+                  children: [
+                    Icon(
+                      Icons
+                          .lock_outline_rounded,
+                      size: 15,
+                      color:
+                          secondaryText,
                     ),
+                    SizedBox(
+                      width: 6,
+                    ),
+                    Text(
+                      'Secure phone verification',
+                      style:
+                          TextStyle(
+                        color:
+                            secondaryText,
+                        fontSize: 12,
+                        fontWeight:
+                            FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 8,
+                ),
+
+                const Text(
+                  'Dojo Platform',
+                  textAlign:
+                      TextAlign.center,
+                  style: TextStyle(
+                    color:
+                        secondaryText,
+                    fontSize: 13,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
               ],
