@@ -19,41 +19,127 @@ class ActiveWalk {
     required this.createdAt,
   });
 
+  // ==========================================================
+  // DOCUMENT ID
+  // ==========================================================
+
   final String id;
+
+  // ==========================================================
+  // OWNER
+  // ==========================================================
 
   final String ownerId;
   final String ownerName;
+
+  // ==========================================================
+  // WALKER
+  // ==========================================================
 
   final String walkerId;
   final String walkerUid;
   final String walkerName;
   final String walkerPhone;
 
+  // ==========================================================
+  // DOG
+  // ==========================================================
+
   final String dogName;
   final String dogBreed;
 
+  // ==========================================================
+  // STATUS
+  // ==========================================================
+
   final String status;
+
+  // ==========================================================
+  // LOCATION
+  // ==========================================================
 
   final GeoPoint? walkerLocation;
   final GeoPoint? ownerLocation;
 
+  // ==========================================================
+  // DESTINATION
+  // ==========================================================
+
   final String address;
+
+  // ==========================================================
+  // TIME
+  // ==========================================================
 
   final DateTime? startedAt;
   final DateTime? createdAt;
 
-  bool get isActive =>
-      status == 'active' ||
-      status == 'accepted' ||
-      status == 'on_the_way';
+  // ==========================================================
+  // NORMALIZED STATUS
+  // ==========================================================
 
-  bool get isWalkerReached =>
-      status == 'reached';
+  String get normalizedStatus {
+    return status
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+  }
 
-  bool get isLiveWalk =>
-      status == 'walking' ||
-      status == 'in_progress';
+  // ==========================================================
+  // ACTIVE
+  //
+  // Walker is still coming / active pickup phase.
+  // ==========================================================
 
-  bool get isCompleted =>
-      status == 'completed';
+  bool get isActive {
+    return normalizedStatus == 'active' ||
+        normalizedStatus == 'accepted' ||
+        normalizedStatus == 'on_the_way' ||
+        normalizedStatus == 'on_that_way';
+  }
+
+  // ==========================================================
+  // WALKER REACHED
+  // ==========================================================
+
+  bool get isWalkerReached {
+    return normalizedStatus == 'reached';
+  }
+
+  // ==========================================================
+  // ACTUAL WALK / LIVE WALK
+  //
+  // This is where live_walk_screen.dart is used.
+  // ==========================================================
+
+  bool get isLiveWalk {
+    return normalizedStatus == 'walking' ||
+        normalizedStatus == 'in_progress';
+  }
+
+  // ==========================================================
+  // COMPLETED
+  // ==========================================================
+
+  bool get isCompleted {
+    return normalizedStatus == 'completed' ||
+        normalizedStatus == 'ended';
+  }
+
+  // ==========================================================
+  // WALKER LOCATION AVAILABLE
+  // ==========================================================
+
+  bool get hasWalkerLocation {
+    return walkerLocation != null;
+  }
+
+  // ==========================================================
+  // OWNER LOCATION AVAILABLE
+  // ==========================================================
+
+  bool get hasOwnerLocation {
+    return ownerLocation != null;
+  }
 }
