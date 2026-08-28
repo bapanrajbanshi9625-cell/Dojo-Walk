@@ -819,117 +819,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ================================================================
 
 class _ProfileActionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color? iconColor;
-  final VoidCallback onTap;
+final IconData icon;
+final String title;
+final String subtitle;
+final VoidCallback onTap;
 
-  const _ProfileActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.iconColor,
-  });
+const _ProfileActionCard({
+required this.icon,
+required this.title,
+required this.subtitle,
+required this.onTap,
+});
 
-  @override
-  Widget build(BuildContext context) {
-    final Color color =
-        iconColor ?? const Color(0xFFFF6B35);
+@override
+Widget build(BuildContext context) {
+const Color color = Color(0xFFFF6B35);
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      elevation: 0,
-      child: InkWell(
-        onTap: onTap,
+return Material(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(18),
+  elevation: 0,
+  child: InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(18),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color:
-                  Colors.black.withValues(
-                alpha: 0.04,
-              ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color:
-                    Colors.black.withValues(
-                  alpha: 0.04,
-                ),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color:
-                      color.withValues(
-                    alpha: 0.10,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 22,
-                ),
-              ),
-
-              const SizedBox(
-                width: 12,
-              ),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            FontWeight.w800,
-                        color:
-                            Color(0xFF263746),
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 3,
-                    ),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.grey,
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.grey,
-              ),
-            ],
+        border: Border.all(
+          color: Colors.black.withValues(
+            alpha: 0.04,
           ),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: 0.04,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-    );
-  }
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(
+                alpha: 0.10,
+              ),
+              borderRadius: BorderRadius.circular(
+                13,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 22,
+            ),
+          ),
+
+          const SizedBox(
+            width: 12,
+          ),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF263746),
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 3,
+                ),
+
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.grey,
+          ),
+        ],
+      ),
+    ),
+  ),
+);
+
+}
 }
