@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/active_walk.dart';
 
-class ActiveWalkStats
-    extends StatelessWidget {
+class ActiveWalkStats extends StatelessWidget {
   const ActiveWalkStats({
     super.key,
     required this.walk,
@@ -27,59 +26,57 @@ class ActiveWalkStats
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _stat(
-                Icons.timer_outlined,
-                'Duration',
-                duration,
-              ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: _stat(
-                Icons.directions_walk_rounded,
-                'Steps',
-                '${walk.steps}',
-              ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: _stat(
-                Icons.route_rounded,
-                'Distance',
-                walk.distance,
-              ),
-            ),
-          ],
+        Expanded(
+          child: _stat(
+            Icons.timer_outlined,
+            'Duration',
+            duration,
+          ),
         ),
-
-        const SizedBox(height: 8),
-
-        Row(
-          children: [
-            Expanded(
-              child: _smallStat(
-                Icons.water_drop_rounded,
-                'Pee',
-                walk.peeCount,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _smallStat(
-                Icons.eco_rounded,
-                'Poop',
-                walk.poopCount,
-              ),
-            ),
-          ],
+        const SizedBox(width: 7),
+        Expanded(
+          child: _stat(
+            Icons.directions_walk_rounded,
+            'Status',
+            _statusText(),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: _stat(
+            Icons.location_on_rounded,
+            'Location',
+            walk.hasWalkerLocation
+                ? 'Live'
+                : 'Waiting',
+          ),
         ),
       ],
     );
+  }
+
+  String _statusText() {
+    switch (walk.normalizedStatus) {
+      case 'on_the_way':
+      case 'on_that_way':
+        return 'On Way';
+
+      case 'reached':
+        return 'Reached';
+
+      case 'walking':
+      case 'in_progress':
+        return 'Walking';
+
+      case 'completed':
+      case 'ended':
+        return 'Ended';
+
+      default:
+        return 'Active';
+    }
   }
 
   Widget _stat(
@@ -88,8 +85,7 @@ class ActiveWalkStats
     String value,
   ) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         vertical: 9,
         horizontal: 5,
       ),
@@ -114,8 +110,7 @@ class ActiveWalkStats
             style: const TextStyle(
               color: navy,
               fontSize: 12,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 1),
@@ -124,59 +119,7 @@ class ActiveWalkStats
             style: const TextStyle(
               color: slate,
               fontSize: 8,
-              fontWeight:
-                  FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _smallStat(
-    IconData icon,
-    String title,
-    int value,
-  ) {
-    return Container(
-      height: 42,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 12,
-      ),
-      decoration: BoxDecoration(
-        color: lightBg,
-        borderRadius:
-            BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: primary,
-            size: 18,
-          ),
-          const SizedBox(width: 7),
-          Text(
-            title,
-            style: const TextStyle(
-              color: slate,
-              fontSize: 11,
-              fontWeight:
-                  FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: navy,
-              fontSize: 14,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
