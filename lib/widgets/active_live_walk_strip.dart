@@ -162,6 +162,10 @@ class _ActiveLiveWalkStripState
 
     DateTime? newestTime;
 
+    // ========================================================
+    // FIND NEWEST ACTIVE / LIVE WALK
+    // ========================================================
+
     for (final QueryDocumentSnapshot<
             Map<String, dynamic>>
         document in snapshot.docs) {
@@ -183,57 +187,90 @@ class _ActiveLiveWalkStripState
       // ======================================================
 
       if (!_isVisibleStatus(status)) {
-  continue;
-}
+        continue;
+      }
 
-final DateTime? createdAt =
-    _readDate(
-  data['createdAt'],
-);
+      // ======================================================
+      // CREATED AT
+      // ======================================================
 
-final DateTime? startedAt =
-    _readDate(
-  data['startedAt'],
-);
+      final DateTime? createdAt =
+          _readDate(
+        data['createdAt'],
+      );
 
-final DateTime? candidateTime =
-    startedAt ?? createdAt;
+      // ======================================================
+      // STARTED AT
+      // ======================================================
 
-if (currentDocument == null) {
-  currentDocument = document;
-  newestTime = candidateTime;
-  continue;
-}
+      final DateTime? startedAt =
+          _readDate(
+        data['startedAt'],
+      );
 
-if (candidateTime != null &&
-    (newestTime == null ||
-        candidateTime.isAfter(
-          newestTime,
-        ))) {
-  currentDocument = document;
-  newestTime = candidateTime;
-}
+      // ======================================================
+      // USE STARTED AT FIRST
+      // ======================================================
+
+      final DateTime? candidateTime =
+          startedAt ?? createdAt;
+
+      // ======================================================
+      // FIRST ACTIVE WALK
+      // ======================================================
+
+      if (currentDocument == null) {
+        currentDocument = document;
+        newestTime = candidateTime;
+        continue;
+      }
+
+      // ======================================================
+      // NEWER ACTIVE WALK
+      // ======================================================
+
+      if (candidateTime != null &&
+          (newestTime == null ||
+              candidateTime.isAfter(
+                newestTime,
+              ))) {
+        currentDocument = document;
+        newestTime = candidateTime;
+      }
+    }
 
     // ========================================================
     // NO ACTIVE WALK
     // ========================================================
 
-    if (currentDocument == null) {
+    final QueryDocumentSnapshot<
+            Map<String, dynamic>>?
+        selectedDocument =
+        currentDocument;
+
+    if (selectedDocument == null) {
       setState(() {
         _loading = false;
         _activeWalkId = null;
         _status = '';
+        _dogName = 'Dog';
+        _dogBreed = '';
+        _walkerName = 'Walker';
       });
 
       return;
     }
 
     // ========================================================
-    // CURRENT WALK
+    // CURRENT WALK DATA
     // ========================================================
 
     final Map<String, dynamic> data =
-        currentDocument.data();
+        selectedDocument.data();
+
+    // ========================================================
+    // STATUS
+    // ========================================================
 
     final String status =
         _normalizeStatus(
@@ -295,7 +332,7 @@ if (candidateTime != null &&
       _loading = false;
 
       _activeWalkId =
-          currentDocument!.id;
+          selectedDocument.id;
 
       _status = status;
 
@@ -405,9 +442,9 @@ if (candidateTime != null &&
         child: Container(
           width: double.infinity,
 
-          // IMPORTANT:
-          // Full navigation width.
-          // No left/right gap.
+          // ====================================================
+          // FULL NAVIGATION WIDTH
+          // ====================================================
 
           height: 56,
 
@@ -422,12 +459,12 @@ if (candidateTime != null &&
             border: Border(
               top: BorderSide(
                 color:
-                    statusColor.withOpacity(
-                  .18,
+                    statusColor.withValues(
+                  alpha: .18,
                 ),
                 width: 0.7,
               ),
-              bottom: BorderSide(
+              bottom: const BorderSide(
                 color: border,
                 width: 0.6,
               ),
@@ -447,8 +484,8 @@ if (candidateTime != null &&
                 decoration:
                     BoxDecoration(
                   color:
-                      statusColor.withOpacity(
-                    .10,
+                      statusColor.withValues(
+                    alpha: .10,
                   ),
                   borderRadius:
                       BorderRadius.circular(
@@ -474,17 +511,14 @@ if (candidateTime != null &&
                 child: Column(
                   mainAxisAlignment:
                       MainAxisAlignment.center,
-
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
-
                   children: [
                     Row(
                       children: [
                         Container(
                           width: 7,
                           height: 7,
-
                           decoration:
                               BoxDecoration(
                             color:
@@ -523,7 +557,6 @@ if (candidateTime != null &&
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
-
                       style:
                           const TextStyle(
                         color: navy,
@@ -615,19 +648,28 @@ if (candidateTime != null &&
             .toLowerCase()
             .trim();
 
-    // Remove repeated spaces.
+    // ========================================================
+    // REMOVE REPEATED SPACES
+    // ========================================================
+
     status = status.replaceAll(
       RegExp(r'\s+'),
       '_',
     );
 
-    // Convert hyphen to underscore.
+    // ========================================================
+    // HYPHEN -> UNDERSCORE
+    // ========================================================
+
     status = status.replaceAll(
       '-',
       '_',
     );
 
-    // Remove repeated underscores.
+    // ========================================================
+    // REMOVE REPEATED UNDERSCORES
+    // ========================================================
+
     while (status.contains('__')) {
       status = status.replaceAll(
         '__',
@@ -640,10 +682,6 @@ if (candidateTime != null &&
     // ========================================================
 
     if (status == 'on_that_way') {
-      return 'on_the_way';
-    }
-
-    if (status == 'on_the_way') {
       return 'on_the_way';
     }
 
