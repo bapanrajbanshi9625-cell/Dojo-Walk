@@ -80,7 +80,7 @@ dependencies:
   # MSG91 OTP
   # ==========================================================
 
-  sendotp_flutter_sdk: ^1.0.0
+  sendotp_flutter_sdk: ^0.0.2
 
 dev_dependencies:
   flutter_test:
