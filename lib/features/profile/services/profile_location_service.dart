@@ -3,17 +3,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
-
-class ProfileLocationResult {
-  final double latitude;
-  final double longitude;
-
-  const ProfileLocationResult({
-    required this.latitude,
-    required this.longitude,
-  });
-}
 
 class ProfileLocationService {
   ProfileLocationService._();
@@ -21,35 +12,21 @@ class ProfileLocationService {
   static final ProfileLocationService instance =
       ProfileLocationService._();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
+
+  final geocoding.Geocoding _geocoding =
+      geocoding.Geocoding();
 
   // ============================================================
   // CONNECT CURRENT LOCATION
   // ============================================================
 
-  Future<ProfileLocationResult> connectCurrentLocation() async {
-    // ----------------------------------------------------------
-    // AUTH USER
-    // ----------------------------------------------------------
-
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      throw const ProfileLocationException(
-        'Your login session has expired. Please login again.',
-      );
-    }
-
-    final String uid = user.uid.trim();
-
-    if (uid.isEmpty) {
-      throw const ProfileLocationException(
-        'Firebase user ID was not found.',
-      );
-    }
+  Future<Map<String, dynamic>> connectCurrentLocation() async {
+    final User user = _requireCurrentUser();
 
     // ----------------------------------------------------------
     // LOCATION SERVICE
@@ -59,7 +36,7 @@ class ProfileLocationService {
         await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
-      throw const ProfileLocationServiceDisabledException();
+      throw const LocationServiceDisabledException();
     }
 
     // ----------------------------------------------------------
@@ -75,96 +52,209 @@ class ProfileLocationService {
     }
 
     if (permission == LocationPermission.denied) {
-      throw const ProfileLocationPermissionDeniedException();
+      throw const LocationPermissionDeniedException();
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw const ProfileLocationPermissionDeniedForeverException();
+      throw const LocationPermissionDeniedForeverException();
     }
 
     // ----------------------------------------------------------
-    // GET CURRENT GPS POSITION
+    // CURRENT POSITION
     // ----------------------------------------------------------
 
     final Position position =
         await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
 
-    final double latitude = position.latitude;
-    final double longitude = position.longitude;
+    // ----------------------------------------------------------
+    // REVERSE GEOCODING
+    // ----------------------------------------------------------
+
+    final List<geocoding.Placemark> placemarks =
+        await _geocoding.placemarkFromCoordinates(
+      position.latitude,
+      position.longitude,
+    );
+
+    if (placemarks.isEmpty) {
+      throw const AddressNotFoundException();
+    }
+
+    final geocoding.Placemark place =
+        placemarks.first;
+
+    // ----------------------------------------------------------
+    // ADDRESS VALUES
+    // ----------------------------------------------------------
+
+    final String street =
+        place.street?.trim() ?? '';
+
+    final String subLocality =
+        place.subLocality?.trim() ?? '';
+
+    final String locality =
+        place.locality?.trim() ?? '';
+
+    final String subAdministrativeArea =
+        place.subAdministrativeArea?.trim() ?? '';
+
+    final String administrativeArea =
+        place.administrativeArea?.trim() ?? '';
+
+    final String postalCode =
+        place.postalCode?.trim() ?? '';
+
+    // ----------------------------------------------------------
+    // AREA
+    // ----------------------------------------------------------
+
+    String area = '';
+
+    if (subLocality.isNotEmpty) {
+      area = subLocality;
+    } else if (locality.isNotEmpty) {
+      area = locality;
+    }
+
+    // ----------------------------------------------------------
+    // CITY
+    // ----------------------------------------------------------
+
+    String city = '';
+
+    if (locality.isNotEmpty) {
+      city = locality;
+    } else if (subAdministrativeArea.isNotEmpty) {
+      city = subAdministrativeArea;
+    }
 
     // ----------------------------------------------------------
     // FIND OWNER DOCUMENT
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        ownerRef = await _findOwnerDocument(uid);
+    final DocumentReference<Map<String, dynamic>> ownerRef =
+        await _findOwnerDocument(
+      uid: user.uid.trim(),
+    );
 
     // ----------------------------------------------------------
-    // SAVE LOCATION
+    // ADDRESS STRING
+    // ----------------------------------------------------------
+
+    final List<String> addressParts = <String>[
+      street,
+      area,
+      city,
+      administrativeArea,
+      postalCode,
+    ]
+        .where(
+          (String value) => value.trim().isNotEmpty,
+        )
+        .map(
+          (String value) => value.trim(),
+        )
+        .toList();
+
+    final String fullAddress =
+        addressParts.join(', ');
+
+    // ----------------------------------------------------------
+    // FIRESTORE DATA
     //
-    // Existing owners document is preserved.
-    // Only location fields are updated.
+    // Existing profile fields are preserved.
+    // ----------------------------------------------------------
+
+    final Map<String, dynamic> locationData =
+        <String, dynamic>{
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+
+      'addressLine1': street,
+      'area': area,
+      'city': city,
+      'state': administrativeArea,
+      'pincode': postalCode,
+
+      'address': fullAddress,
+
+      'locationUpdatedAt':
+          FieldValue.serverTimestamp(),
+
+      'updatedAt':
+          FieldValue.serverTimestamp(),
+
+      'authUid': user.uid,
+    };
+
+    // ----------------------------------------------------------
+    // SAVE
     // ----------------------------------------------------------
 
     await ownerRef.set(
-      <String, dynamic>{
-        'latitude': latitude,
-        'longitude': longitude,
-        'locationConnected': true,
-        'locationUpdatedAt':
-            FieldValue.serverTimestamp(),
-        'authUid': uid,
-      },
-      SetOptions(merge: true),
+      locationData,
+      SetOptions(
+        merge: true,
+      ),
     );
 
     // ----------------------------------------------------------
-    // RETURN RESULT
+    // RETURN
     // ----------------------------------------------------------
 
-    return ProfileLocationResult(
-      latitude: latitude,
-      longitude: longitude,
-    );
+    return <String, dynamic>{
+      ...locationData,
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'addressLine1': street,
+      'area': area,
+      'city': city,
+      'state': administrativeArea,
+      'pincode': postalCode,
+      'address': fullAddress,
+    };
   }
 
   // ============================================================
   // FIND OWNER DOCUMENT
   //
-  // Supported structures:
+  // Priority:
   //
-  // 1. owners/{firebaseUid}
-  //
-  // 2. owners/{documentId}
-  //      authUid: firebaseUid
+  // 1. owners/{Firebase UID}
+  // 2. owners where authUid == Firebase UID
   //
   // ============================================================
 
   Future<DocumentReference<Map<String, dynamic>>>
-      _findOwnerDocument(
-    String uid,
-  ) async {
+      _findOwnerDocument({
+    required String uid,
+  }) async {
     final String cleanUid = uid.trim();
 
     if (cleanUid.isEmpty) {
-      throw const ProfileLocationException(
-        'Firebase user ID was not found.',
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'invalid-auth-uid',
+        message:
+            'Firebase Auth UID was not found.',
       );
     }
 
     // ----------------------------------------------------------
-    // FIRST:
-    // owners/{uid}
+    // FIRST: owners/{uid}
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        directRef =
-        _firestore.collection('owners').doc(cleanUid);
+    final DocumentReference<Map<String, dynamic>> directRef =
+        _firestore
+            .collection('owners')
+            .doc(cleanUid);
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        directDoc =
+    final DocumentSnapshot<Map<String, dynamic>> directDoc =
         await directRef.get();
 
     if (directDoc.exists) {
@@ -172,12 +262,10 @@ class ProfileLocationService {
     }
 
     // ----------------------------------------------------------
-    // SECOND:
-    // Search authUid
+    // SECOND: authUid QUERY
     // ----------------------------------------------------------
 
-    final QuerySnapshot<Map<String, dynamic>>
-        snapshot =
+    final QuerySnapshot<Map<String, dynamic>> query =
         await _firestore
             .collection('owners')
             .where(
@@ -187,15 +275,35 @@ class ProfileLocationService {
             .limit(1)
             .get();
 
-    if (snapshot.docs.isNotEmpty) {
-      return snapshot.docs.first.reference;
+    if (query.docs.isNotEmpty) {
+      return query.docs.first.reference;
     }
 
-    // ----------------------------------------------------------
-    // OWNER NOT FOUND
-    // ----------------------------------------------------------
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'owner-not-found',
+      message:
+          'Owner profile was not found.',
+    );
+  }
 
-    throw const ProfileOwnerNotFoundException();
+  // ============================================================
+  // CURRENT USER
+  // ============================================================
+
+  User _requireCurrentUser() {
+    final User? user =
+        _auth.currentUser;
+
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message:
+            'User session was not found. Please login again.',
+      );
+    }
+
+    return user;
   }
 
   // ============================================================
@@ -213,160 +321,23 @@ class ProfileLocationService {
   Future<void> openAppSettings() async {
     await Geolocator.openAppSettings();
   }
-
-  // ============================================================
-  // GET SAVED LOCATION
-  // ============================================================
-
-  Future<ProfileLocationResult?> getSavedLocation() async {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      return null;
-    }
-
-    final String uid = user.uid.trim();
-
-    if (uid.isEmpty) {
-      return null;
-    }
-
-    try {
-      final DocumentReference<Map<String, dynamic>>
-          ownerRef = await _findOwnerDocument(uid);
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot = await ownerRef.get();
-
-      if (!snapshot.exists) {
-        return null;
-      }
-
-      final Map<String, dynamic>? data =
-          snapshot.data();
-
-      if (data == null) {
-        return null;
-      }
-
-      final dynamic latitudeValue =
-          data['latitude'];
-
-      final dynamic longitudeValue =
-          data['longitude'];
-
-      if (latitudeValue is! num ||
-          longitudeValue is! num) {
-        return null;
-      }
-
-      return ProfileLocationResult(
-        latitude: latitudeValue.toDouble(),
-        longitude: longitudeValue.toDouble(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ============================================================
-  // CHECK LOCATION CONNECTED
-  // ============================================================
-
-  Future<bool> isLocationConnected() async {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      return false;
-    }
-
-    final String uid = user.uid.trim();
-
-    if (uid.isEmpty) {
-      return false;
-    }
-
-    try {
-      final DocumentReference<Map<String, dynamic>>
-          ownerRef = await _findOwnerDocument(uid);
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot = await ownerRef.get();
-
-      final Map<String, dynamic>? data =
-          snapshot.data();
-
-      if (data == null) {
-        return false;
-      }
-
-      return data['locationConnected'] == true;
-    } catch (_) {
-      return false;
-    }
-  }
 }
 
 // ============================================================
-// GENERAL PROFILE LOCATION EXCEPTION
+// CUSTOM EXCEPTIONS
 // ============================================================
 
-class ProfileLocationException
+class LocationPermissionDeniedException
     implements Exception {
-  final String message;
-
-  const ProfileLocationException(
-    this.message,
-  );
-
-  @override
-  String toString() => message;
+  const LocationPermissionDeniedException();
 }
 
-// ============================================================
-// LOCATION SERVICE DISABLED
-// ============================================================
-
-class ProfileLocationServiceDisabledException
-    extends ProfileLocationException {
-  const ProfileLocationServiceDisabledException()
-      : super(
-          'Location service is turned off. Please turn on GPS and try again.',
-        );
+class LocationPermissionDeniedForeverException
+    implements Exception {
+  const LocationPermissionDeniedForeverException();
 }
 
-// ============================================================
-// LOCATION PERMISSION DENIED
-// ============================================================
-
-class ProfileLocationPermissionDeniedException
-    extends ProfileLocationException {
-  const ProfileLocationPermissionDeniedException()
-      : super(
-          'Location permission is required to connect your current location.',
-        );
-}
-
-// ============================================================
-// LOCATION PERMISSION DENIED FOREVER
-// ============================================================
-
-class ProfileLocationPermissionDeniedForeverException
-    extends ProfileLocationException {
-  const ProfileLocationPermissionDeniedForeverException()
-      : super(
-          'Location permission is permanently denied. Please enable it from app settings.',
-        );
-}
-
-// ============================================================
-// OWNER NOT FOUND
-// ============================================================
-
-class ProfileOwnerNotFoundException
-    extends ProfileLocationException {
-  const ProfileOwnerNotFoundException()
-      : super(
-          'Owner profile was not found.',
-        );
+class AddressNotFoundException
+    implements Exception {
+  const AddressNotFoundException();
 }
