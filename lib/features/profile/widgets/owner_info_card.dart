@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/colors/dojo_brand_colors.dart';
 
 class OwnerInfoCard extends StatelessWidget {
   final String ownerId;
@@ -33,11 +33,14 @@ class OwnerInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DojoColors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: DojoBrandColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DojoBrandColors.slate.withValues(alpha: 0.08),
+        ),
         boxShadow: [
           BoxShadow(
-            color: DojoColors.black.withValues(alpha: 0.05),
+            color: DojoBrandColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -56,7 +59,7 @@ class OwnerInfoCard extends StatelessWidget {
                     icon: const Icon(
                       Icons.copy_rounded,
                       size: 18,
-                      color: DojoColors.orange,
+                      color: DojoBrandColors.orange,
                     ),
                     onPressed: onCopyOwnerId,
                   ),
@@ -81,7 +84,7 @@ class OwnerInfoCard extends StatelessWidget {
               icon: const Icon(
                 Icons.edit_outlined,
                 size: 19,
-                color: DojoColors.orange,
+                color: DojoBrandColors.orange,
               ),
               onPressed: onChangeMobile,
             ),
@@ -115,12 +118,13 @@ class OwnerInfoCard extends StatelessWidget {
 
           OwnerInfoRow(
             icon: isActive
-                ? Icons.check_circle_outline
+                ? Icons.check_circle_outline_rounded
                 : Icons.block_outlined,
             label: 'Account Status',
             value: isActive ? 'Active' : 'Inactive',
-            valueColor:
-                isActive ? DojoColors.green : DojoColors.red,
+            valueColor: isActive
+                ? Colors.green
+                : Colors.red,
           ),
         ],
       ),
@@ -157,12 +161,12 @@ class OwnerInfoRow extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: DojoColors.lightOrange,
+            color: DojoBrandColors.mintTint,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: DojoColors.orange,
+            color: DojoBrandColors.orange,
             size: 19,
           ),
         ),
@@ -179,7 +183,7 @@ class OwnerInfoRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: DojoColors.grey,
+                  color: DojoBrandColors.slate,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -192,7 +196,7 @@ class OwnerInfoRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
-                  color: valueColor ?? DojoColors.navy,
+                  color: valueColor ?? DojoBrandColors.navy,
                   fontWeight: FontWeight.w700,
                 ),
               ),
