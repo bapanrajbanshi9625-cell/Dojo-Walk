@@ -25,14 +25,12 @@ class _LoginScreenState extends State<LoginScreen> {
       '3668426c306d353733343031';
 
   // IMPORTANT:
-  // Replace this with the REAL AuthToken from MSG91.
+  // Paste the CURRENT AuthToken generated for THIS OTP Widget.
   //
-  // Do NOT leave:
-  // YOUR_MSG91_AUTH_TOKEN
-  //
-  // MSG91 Dashboard:
+  // MSG91:
   // OTP -> Widget -> Mobile Integration
-  // Then copy the AuthToken generated for this widget.
+  //
+  // Do not use an old token or a token from another widget.
   static const String _authToken =
       '565278AGmr6TyWn6a91bf8aP1';
 
@@ -49,7 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _authToken,
     );
 
-    debugPrint('MSG91 OTP widget initialized.');
+    debugPrint(
+      'MSG91 OTP widget initialized.',
+    );
   }
 
   // ============================================================
@@ -75,27 +75,39 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // ----------------------------------------------------------
+    // LOADING
+    // ----------------------------------------------------------
+
     setState(() {
       _isSendingOtp = true;
     });
 
-    // MSG91 requires country code WITHOUT +
+    // ----------------------------------------------------------
+    // INDIA COUNTRY CODE
+    // ----------------------------------------------------------
+    //
+    // The user-entered 10-digit number is prefixed with 91.
     //
     // Example:
-    // 9540700348
-    // becomes:
-    // 919540700348
+    //
+    // MSG91 identifier: 919876543210
+    //
+    // No "+" is added.
+    //
+    // ----------------------------------------------------------
+
     final String identifier = '91$phone';
 
     try {
-      // --------------------------------------------------------
-      // SEND OTP
-      // --------------------------------------------------------
-
       final Map<String, dynamic> payload =
           <String, dynamic>{
         'identifier': identifier,
       };
+
+      debugPrint(
+        'MSG91 sending OTP to: $identifier',
+      );
 
       final Map<String, dynamic>? response =
           await OTPWidget.sendOTP(payload);
@@ -115,13 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // --------------------------------------------------------
 
       if (response == null) {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _isSendingOtp = false;
-        });
+        _finishLoading();
 
         _showMessage(
           'MSG91 did not return a response. Please try again.',
@@ -130,72 +136,31 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // --------------------------------------------------------
-      // RESPONSE TYPE
-      // --------------------------------------------------------
-
       final String type =
-          response['type']?.toString().trim() ?? '';
+          response['type']?.toString().trim().toLowerCase() ?? '';
 
       // --------------------------------------------------------
       // SUCCESS
       // --------------------------------------------------------
 
       if (type == 'success') {
-        String? reqId;
+        final String? reqId =
+            _extractRequestId(response);
+
+        debugPrint(
+          'MSG91 OTP SUCCESS.',
+        );
+
+        debugPrint(
+          'MSG91 REQUEST ID: $reqId',
+        );
 
         // ------------------------------------------------------
-        // MSG91 SDK normally returns request ID in "message"
-        // ------------------------------------------------------
-
-        final dynamic message =
-            response['message'];
-
-        if (message != null) {
-          final String value =
-              message.toString().trim();
-
-          if (value.isNotEmpty) {
-            reqId = value;
-          }
-        }
-
-        // ------------------------------------------------------
-        // FALLBACK RESPONSE KEYS
-        // ------------------------------------------------------
-
-        if (reqId == null || reqId.isEmpty) {
-          final dynamic value =
-              response['reqId'] ??
-              response['req_id'] ??
-              response['requestId'];
-
-          if (value != null) {
-            final String fallback =
-                value.toString().trim();
-
-            if (fallback.isNotEmpty) {
-              reqId = fallback;
-            }
-          }
-        }
-
-        // ------------------------------------------------------
-        // ALREADY VERIFIED
+        // ALREADY VERIFIED / ACCESS TOKEN
         // ------------------------------------------------------
 
         if (response.containsKey('access-token')) {
-          debugPrint(
-            'MSG91 number already verified.',
-          );
-
-          if (!mounted) {
-            return;
-          }
-
-          setState(() {
-            _isSendingOtp = false;
-          });
+          _finishLoading();
 
           _showMessage(
             'Mobile number is already verified.',
@@ -205,22 +170,11 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         // ------------------------------------------------------
-        // REQUEST ID REQUIRED
+        // REQUEST ID MISSING
         // ------------------------------------------------------
 
         if (reqId == null || reqId.isEmpty) {
-          debugPrint(
-            'MSG91 SUCCESS RESPONSE WITHOUT REQUEST ID: '
-            '$response',
-          );
-
-          if (!mounted) {
-            return;
-          }
-
-          setState(() {
-            _isSendingOtp = false;
-          });
+          _finishLoading();
 
           _showMessage(
             'OTP was sent, but request ID was not received.',
@@ -230,37 +184,24 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         // ------------------------------------------------------
-        // OTP SENT SUCCESSFULLY
+        // OTP SENT
         // ------------------------------------------------------
 
-        debugPrint(
-          'MSG91 OTP SENT SUCCESSFULLY.',
-        );
-
-        debugPrint(
-          'MSG91 REQUEST ID: $reqId',
-        );
+        _finishLoading();
 
         if (!mounted) {
           return;
         }
 
-        setState(() {
-          _isSendingOtp = false;
-        });
-
-        // ------------------------------------------------------
-        // OPEN OTP SCREEN
-        // ------------------------------------------------------
-
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (BuildContext context) =>
-                OtpVerificationScreen(
-              phoneNumber: phone,
-              reqId: reqId!,
-            ),
+            builder: (BuildContext context) {
+              return OtpVerificationScreen(
+                phoneNumber: phone,
+                reqId: reqId,
+              );
+            },
           ),
         );
 
@@ -268,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // --------------------------------------------------------
-      // MSG91 ERROR
+      // ERROR
       // --------------------------------------------------------
 
       debugPrint(
@@ -279,25 +220,12 @@ class _LoginScreenState extends State<LoginScreen> {
         'MSG91 ERROR RESPONSE: $response',
       );
 
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isSendingOtp = false;
-      });
-
-      final String errorMessage =
-          _extractErrorMessage(response);
+      _finishLoading();
 
       _showMessage(
-        errorMessage,
+        _extractErrorMessage(response),
       );
     } catch (e, stackTrace) {
-      // --------------------------------------------------------
-      // EXCEPTION
-      // --------------------------------------------------------
-
       debugPrint(
         '================================================',
       );
@@ -314,13 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
         '================================================',
       );
 
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isSendingOtp = false;
-      });
+      _finishLoading();
 
       _showMessage(
         'Failed to send OTP. Please try again.',
@@ -329,7 +251,38 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ============================================================
-  // EXTRACT MSG91 ERROR
+  // EXTRACT REQUEST ID
+  // ============================================================
+
+  String? _extractRequestId(
+    Map<String, dynamic> response,
+  ) {
+    final List<dynamic> possibleValues = <dynamic>[
+      response['reqId'],
+      response['req_id'],
+      response['requestId'],
+      response['request_id'],
+      response['message'],
+    ];
+
+    for (final dynamic value in possibleValues) {
+      if (value == null) {
+        continue;
+      }
+
+      final String text =
+          value.toString().trim();
+
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // EXTRACT ERROR
   // ============================================================
 
   String _extractErrorMessage(
@@ -357,6 +310,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     return 'OTP could not be sent. Please try again.';
+  }
+
+  // ============================================================
+  // STOP LOADING
+  // ============================================================
+
+  void _finishLoading() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSendingOtp = false;
+    });
   }
 
   // ============================================================
@@ -416,12 +383,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: background,
-
       body: SafeArea(
         child: SingleChildScrollView(
           physics:
               const BouncingScrollPhysics(),
-
           padding:
               const EdgeInsets.fromLTRB(
             20,
@@ -429,7 +394,6 @@ class _LoginScreenState extends State<LoginScreen> {
             20,
             25,
           ),
-
           child: Column(
             children: [
               // ==================================================
@@ -465,9 +429,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(
-                height: 18,
-              ),
+              const SizedBox(height: 18),
 
               // ==================================================
               // APP NAME
@@ -484,9 +446,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(
-                height: 5,
-              ),
+              const SizedBox(height: 5),
 
               const Text(
                 'Dog walking made simple',
@@ -498,9 +458,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(
-                height: 42,
-              ),
+              const SizedBox(height: 42),
 
               // ==================================================
               // LOGIN CARD
@@ -508,7 +466,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
               Container(
                 width: double.infinity,
-
                 padding:
                     const EdgeInsets.fromLTRB(
                   20,
@@ -516,27 +473,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   20,
                   24,
                 ),
-
                 decoration:
                     BoxDecoration(
                   color: cardColor,
-
                   borderRadius:
-                      BorderRadius.circular(
-                    24,
-                  ),
-
+                      BorderRadius.circular(24),
                   border:
                       Border.all(
-                    color:
-                        borderColor,
+                    color: borderColor,
                   ),
-
                   boxShadow: [
                     BoxShadow(
                       color:
-                          Colors.black
-                              .withValues(
+                          Colors.black.withValues(
                         alpha: 0.06,
                       ),
                       blurRadius: 20,
@@ -545,16 +494,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
-
                   children: [
-                    // ==========================================
-                    // LABEL
-                    // ==========================================
-
                     const Text(
                       'Mobile Number',
                       style: TextStyle(
@@ -565,9 +508,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 10,
-                    ),
+                    const SizedBox(height: 10),
 
                     // ==========================================
                     // PHONE FIELD
@@ -575,81 +516,59 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     Container(
                       height: 60,
-
                       decoration:
                           BoxDecoration(
                         color:
                             inputBackground,
-
                         borderRadius:
-                            BorderRadius.circular(
-                          16,
-                        ),
-
+                            BorderRadius.circular(16),
                         border:
                             Border.all(
                           color:
                               borderColor,
                         ),
                       ),
-
                       child: Row(
                         children: [
-                          // PHONE ICON
                           Container(
                             width: 50,
                             height: 46,
-
                             margin:
                                 const EdgeInsets.only(
                               left: 6,
                             ),
-
                             decoration:
                                 BoxDecoration(
                               color:
-                                  AppColors
-                                      .primary
+                                  AppColors.primary
                                       .withValues(
                                 alpha: 0.10,
                               ),
-
                               borderRadius:
-                                  BorderRadius.circular(
-                                13,
-                              ),
+                                  BorderRadius.circular(13),
                             ),
-
                             child:
                                 const Icon(
                               Icons.phone,
                               color:
-                                  AppColors
-                                      .primary,
+                                  AppColors.primary,
                               size: 23,
                             ),
                           ),
 
-                          const SizedBox(
-                            width: 12,
-                          ),
+                          const SizedBox(width: 12),
 
-                          // COUNTRY CODE
                           const Text(
                             '+91',
-                            style:
-                                TextStyle(
-                              color:
-                                  textColor,
+                            style: TextStyle(
+                              color: textColor,
                               fontSize: 16,
                               fontWeight:
                                   FontWeight.w800,
                             ),
                           ),
 
-                          const SizedBox(
-                            width: 12,
-                          ),
+                          const SizedBox(width: 12),
 
                           Container(
                             height: 30,
@@ -658,28 +577,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 borderColor,
                           ),
 
-                          const SizedBox(
-                            width: 10,
-                          ),
+                          const SizedBox(width: 10),
 
-                          // PHONE INPUT
                           Expanded(
                             child:
                                 TextField(
                               controller:
                                   _phoneController,
-
                               keyboardType:
                                   TextInputType.phone,
-
                               textInputAction:
                                   TextInputAction.done,
-
                               maxLength: 10,
-
                               enabled:
                                   !_isSendingOtp,
-
                               style:
                                   const TextStyle(
                                 color:
@@ -688,29 +599,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 fontWeight:
                                     FontWeight.w600,
                               ),
-
                               decoration:
                                   const InputDecoration(
                                 hintText:
                                     'Enter mobile number',
-
                                 hintStyle:
                                     TextStyle(
                                   color:
-                                      Color(
-                                    0xFF9AA6B5,
-                                  ),
+                                      Color(0xFF9AA6B5),
                                   fontSize: 14,
                                   fontWeight:
                                       FontWeight.w500,
                                 ),
-
                                 border:
                                     InputBorder.none,
-
-                                counterText:
-                                    '',
-
+                                counterText: '',
                                 contentPadding:
                                     EdgeInsets.zero,
                               ),
@@ -720,61 +623,44 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 20,
-                    ),
+                    const SizedBox(height: 20),
 
                     // ==========================================
                     // GET OTP
                     // ==========================================
 
                     SizedBox(
-                      width:
-                          double.infinity,
-
+                      width: double.infinity,
                       height: 58,
-
                       child:
                           ElevatedButton(
                         onPressed:
                             _isSendingOtp
                                 ? null
                                 : _sendOtp,
-
                         style:
                             ElevatedButton.styleFrom(
                           backgroundColor:
-                              AppColors
-                                  .primary,
-
+                              AppColors.primary,
                           disabledBackgroundColor:
-                              AppColors
-                                  .primary
+                              AppColors.primary
                                   .withValues(
                             alpha: 0.65,
                           ),
-
                           foregroundColor:
                               Colors.white,
-
                           elevation: 3,
-
                           shadowColor:
-                              AppColors
-                                  .primary
+                              AppColors.primary
                                   .withValues(
                             alpha: 0.30,
                           ),
-
                           shape:
                               RoundedRectangleBorder(
                             borderRadius:
-                                BorderRadius.circular(
-                              16,
-                            ),
+                                BorderRadius.circular(16),
                           ),
                         ),
-
                         child:
                             _isSendingOtp
                                 ? const SizedBox(
@@ -782,8 +668,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 23,
                                     child:
                                         CircularProgressIndicator(
-                                      strokeWidth:
-                                          2.5,
+                                      strokeWidth: 2.5,
                                       color:
                                           Colors.white,
                                     ),
@@ -794,8 +679,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             .center,
                                     children: [
                                       Icon(
-                                        Icons
-                                            .sms_outlined,
+                                        Icons.sms_outlined,
                                         size: 23,
                                       ),
                                       SizedBox(
@@ -805,11 +689,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                         'Get OTP',
                                         style:
                                             TextStyle(
-                                          fontSize:
-                                              17,
+                                          fontSize: 17,
                                           fontWeight:
-                                              FontWeight
-                                                  .w900,
+                                              FontWeight.w900,
                                         ),
                                       ),
                                     ],
@@ -817,9 +699,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 22,
-                    ),
+                    const SizedBox(height: 22),
 
                     // ==========================================
                     // OTP INFO
@@ -827,24 +707,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     Row(
                       crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-
+                          CrossAxisAlignment.start,
                       children: [
                         Container(
                           height: 42,
                           width: 42,
-
                           decoration:
                               const BoxDecoration(
                             color:
-                                Color(
-                              0xFFF1F4F7,
-                            ),
+                                Color(0xFFF1F4F7),
                             shape:
                                 BoxShape.circle,
                           ),
-
                           child:
                               const Icon(
                             Icons
@@ -855,18 +729,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(
-                          width: 12,
-                        ),
+                        const SizedBox(width: 12),
 
                         const Expanded(
-                          child:
-                              Text(
+                          child: Text(
                             'We will send a one-time password '
                             '(OTP) to verify your mobile number.',
-
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               color:
                                   secondaryText,
                               fontSize: 12,
@@ -882,9 +751,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(
-                height: 40,
-              ),
+              const SizedBox(height: 40),
 
               // ==================================================
               // FOOTER DIVIDER
@@ -903,19 +770,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   Container(
                     margin:
-                        const EdgeInsets
-                            .symmetric(
+                        const EdgeInsets.symmetric(
                       horizontal: 12,
                     ),
-
                     height: 7,
                     width: 7,
-
                     decoration:
                         const BoxDecoration(
                       color:
-                          AppColors
-                              .primary,
+                          AppColors.primary,
                       shape:
                           BoxShape.circle,
                     ),
@@ -932,19 +795,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(
-                height: 18,
-              ),
-
-              // ==================================================
-              // FOOTER
-              // ==================================================
+              const SizedBox(height: 18),
 
               const Text(
                 'Dojo Platform',
                 textAlign:
                     TextAlign.center,
-
                 style:
                     TextStyle(
                   color:
@@ -955,15 +811,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(
-                height: 5,
-              ),
+              const SizedBox(height: 5),
 
               const Text(
                 'Secure Mobile login',
                 textAlign:
                     TextAlign.center,
-
                 style:
                     TextStyle(
                   color:
@@ -974,9 +827,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(
-                height: 8,
-              ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
