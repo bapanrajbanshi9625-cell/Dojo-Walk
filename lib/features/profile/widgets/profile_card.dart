@@ -1,8 +1,6 @@
-// File: lib/features/profile/widgets/profile_card.dart
-
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/colors/dojo_brand_colors.dart';
 
 class ProfileCard extends StatelessWidget {
   final String ownerName;
@@ -21,11 +19,11 @@ class ProfileCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: DojoColors.white,
+        color: DojoBrandColors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: DojoColors.black.withValues(alpha: 0.05),
+            color: DojoBrandColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -37,12 +35,12 @@ class ProfileCard extends StatelessWidget {
             width: 62,
             height: 62,
             decoration: BoxDecoration(
-              color: DojoColors.lightOrange,
+              color: DojoBrandColors.mintTint,
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(
               Icons.person_rounded,
-              color: DojoColors.orange,
+              color: DojoBrandColors.orange,
               size: 34,
             ),
           ),
@@ -56,7 +54,7 @@ class ProfileCard extends StatelessWidget {
                 const Text(
                   'Welcome back',
                   style: TextStyle(
-                    color: DojoColors.grey,
+                    color: DojoBrandColors.slate,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -69,7 +67,7 @@ class ProfileCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: DojoColors.navy,
+                    color: DojoBrandColors.navy,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
@@ -81,14 +79,14 @@ class ProfileCard extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.verified_rounded,
-                      color: DojoColors.green,
+                      color: DojoBrandColors.mint,
                       size: 15,
                     ),
                     SizedBox(width: 5),
                     Text(
                       'Owner Profile',
                       style: TextStyle(
-                        color: DojoColors.grey,
+                        color: DojoBrandColors.slate,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                       ),
