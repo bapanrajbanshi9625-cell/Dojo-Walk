@@ -267,8 +267,8 @@ class _OtpVerificationScreenState
       // 8. PROFILE DATA
       // ========================================================
 
-      final Map<String, dynamic>? data =
-          profileSnapshot.data();
+      final Map<String, dynamic>? profileData =
+         profileSnapshot.data();
 
       // ========================================================
       // 9. ACTIVE STATUS
