@@ -76,27 +76,27 @@ class OwnerInfoCard extends StatelessWidget {
           const Divider(height: 20),
 
           OwnerInfoRow(
-            icon: Icons.phone_outlined,
-            label: 'Mobile Number',
-            value: mobileNumber.isEmpty ? '-' : mobileNumber,
-            trailing: IconButton(
-              tooltip: 'Change Mobile Number',
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 19,
-                color: DojoBrandColors.orange,
-              ),
-              onPressed: onChangeMobile,
-            ),
-          ),
+  icon: Icons.phone_outlined,
+  label: 'Mobile Number',
+  value: mobileNumber.isEmpty ? '-' : mobileNumber,
+  trailing: IconButton(
+    tooltip: 'Change Mobile Number',
+    icon: const Icon(
+      Icons.edit_outlined,
+      size: 19,
+      color: DojoBrandColors.orange,
+    ),
+    onPressed: onChangeMobile,
+  ),
+),
 
-          const Divider(height: 20),
+const Divider(height: 20),
 
-          OwnerInfoRow(
-            icon: Icons.cake_outlined,
-            label: 'Date of Birth',
-            value: ownerDob.isEmpty ? '-' : ownerDob,
-          ),
+OwnerInfoRow(
+  icon: Icons.cake_outlined,
+  label: 'Date of Birth',
+  value: ownerDob.isEmpty ? '-' : ownerDob,
+),
 
           const Divider(height: 20),
 
