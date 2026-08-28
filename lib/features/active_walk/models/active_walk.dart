@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:latlong2/latlong.dart';
 
 class ActiveWalk {
   const ActiveWalk({
@@ -12,16 +11,12 @@ class ActiveWalk {
     required this.walkerPhone,
     required this.dogName,
     required this.dogBreed,
-    required this.destinationAddress,
-    required this.walkerLocation,
-    required this.destination,
-    required this.routePoints,
-    required this.startedAt,
     required this.status,
-    required this.distance,
-    required this.steps,
-    required this.peeCount,
-    required this.poopCount,
+    required this.walkerLocation,
+    required this.ownerLocation,
+    required this.address,
+    required this.startedAt,
+    required this.createdAt,
   });
 
   final String id;
@@ -37,107 +32,28 @@ class ActiveWalk {
   final String dogName;
   final String dogBreed;
 
-  final String destinationAddress;
-
-  final LatLng? walkerLocation;
-  final LatLng? destination;
-
-  final List<LatLng> routePoints;
-
-  final DateTime? startedAt;
-
   final String status;
 
-  final String distance;
-  final int steps;
-  final int peeCount;
-  final int poopCount;
+  final GeoPoint? walkerLocation;
+  final GeoPoint? ownerLocation;
 
-  bool get isActive {
-    return status.toLowerCase() == 'active' ||
-        status.toLowerCase() == 'started' ||
-        status.toLowerCase() == 'in_progress' ||
-        status.toLowerCase() == 'ongoing';
-  }
+  final String address;
 
-  bool get isCompleted {
-    return status.toLowerCase() == 'completed' ||
-        status.toLowerCase() == 'ended';
-  }
+  final DateTime? startedAt;
+  final DateTime? createdAt;
 
-  Duration? get elapsed {
-    if (startedAt == null) {
-      return null;
-    }
+  bool get isActive =>
+      status == 'active' ||
+      status == 'accepted' ||
+      status == 'on_the_way';
 
-    return DateTime.now().difference(startedAt!);
-  }
+  bool get isWalkerReached =>
+      status == 'reached';
 
-  static LatLng? geoPointToLatLng(dynamic value) {
-    if (value is GeoPoint) {
-      return LatLng(
-        value.latitude,
-        value.longitude,
-      );
-    }
+  bool get isLiveWalk =>
+      status == 'walking' ||
+      status == 'in_progress';
 
-    if (value is Map) {
-      final dynamic lat =
-          value['latitude'] ?? value['lat'];
-
-      final dynamic lng =
-          value['longitude'] ?? value['lng'];
-
-      final double? latitude =
-          double.tryParse(lat?.toString() ?? '');
-
-      final double? longitude =
-          double.tryParse(lng?.toString() ?? '');
-
-      if (latitude != null &&
-          longitude != null) {
-        return LatLng(
-          latitude,
-          longitude,
-        );
-      }
-    }
-
-    return null;
-  }
-
-  static DateTime? readDate(dynamic value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
-    if (value is DateTime) {
-      return value;
-    }
-
-    if (value is String) {
-      return DateTime.tryParse(value);
-    }
-
-    return null;
-  }
-
-  static String readString(dynamic value) {
-    return value?.toString().trim() ?? '';
-  }
-
-  static int readInt(dynamic value) {
-    if (value is int) {
-      return value;
-    }
-
-    if (value is num) {
-      return value.toInt();
-    }
-
-    return int.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
-  }
+  bool get isCompleted =>
+      status == 'completed';
 }
