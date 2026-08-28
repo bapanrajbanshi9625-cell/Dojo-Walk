@@ -1,22 +1,22 @@
 // File location:
 // lib/screens/main_navigation_screen.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
-import '../features/home/services/home_live_walk_service.dart';
-import '../features/home/widgets/home_live_walk_bar.dart';
+import '../widgets/active_live_walk_strip.dart';
 
 import 'home_screen.dart';
-import 'live_walk_screen.dart';
 import 'menu_screen.dart';
 import 'walks_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({
     super.key,
+    this.isWalker = false,
   });
+
+  final bool isWalker;
 
   @override
   State<MainNavigationScreen> createState() =>
@@ -38,21 +38,6 @@ class _MainNavigationScreenState
   late final List<Widget> _screens;
 
   // ==========================================================
-  // LIVE WALK SERVICE
-  // ==========================================================
-
-  final HomeLiveWalkService _liveWalkService =
-      HomeLiveWalkService.instance;
-
-  // ==========================================================
-  // AUTO OPEN CONTROL
-  // ==========================================================
-
-  String? _autoOpenedWalkId;
-
-  bool _isOpeningLiveWalk = false;
-
-  // ==========================================================
   // INIT
   // ==========================================================
 
@@ -60,7 +45,7 @@ class _MainNavigationScreenState
   void initState() {
     super.initState();
 
-    _screens = [
+    _screens = <Widget>[
       const HomeScreen(),
       const WalksScreen(),
       const MenuScreen(),
@@ -82,159 +67,6 @@ class _MainNavigationScreenState
   }
 
   // ==========================================================
-  // STRING READER
-  // ==========================================================
-
-  String _readString(
-    Map<String, dynamic> data,
-    List<String> keys,
-  ) {
-    for (final String key in keys) {
-      final dynamic value = data[key];
-
-      if (value != null) {
-        final String result = value.toString().trim();
-
-        if (result.isNotEmpty) {
-          return result;
-        }
-      }
-    }
-
-    return '';
-  }
-
-  // ==========================================================
-  // GET WALK ID
-  // ==========================================================
-
-  String _getWalkId(
-    Map<String, dynamic> data,
-  ) {
-    return _readString(
-      data,
-      const [
-        'walkId',
-        'walkID',
-        'id',
-        '_documentId',
-      ],
-    );
-  }
-
-  // ==========================================================
-  // OPEN LIVE WALK
-  // ==========================================================
-
-  Future<void> _openLiveWalk(
-    Map<String, dynamic> data, {
-    bool automatic = false,
-  }) async {
-    if (!mounted || _isOpeningLiveWalk) {
-      return;
-    }
-
-    final String walkId = _getWalkId(data);
-
-    if (walkId.isEmpty) {
-      return;
-    }
-
-    if (automatic) {
-      _autoOpenedWalkId = walkId;
-    }
-
-    _isOpeningLiveWalk = true;
-
-    try {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LiveWalkScreen(
-            walkId: walkId,
-
-            walkerUid: _readString(
-              data,
-              const [
-                'walkerUid',
-                'walkerUID',
-                'walkerId',
-              ],
-            ),
-
-            walkerName: _readString(
-              data,
-              const [
-                'walkerName',
-                'name',
-              ],
-            ).isEmpty
-                ? 'Walker'
-                : _readString(
-                    data,
-                    const [
-                      'walkerName',
-                      'name',
-                    ],
-                  ),
-
-            walkerPhone: _readString(
-              data,
-              const [
-                'walkerPhone',
-                'phone',
-                'phoneNumber',
-              ],
-            ).isEmpty
-                ? null
-                : _readString(
-                    data,
-                    const [
-                      'walkerPhone',
-                      'phone',
-                      'phoneNumber',
-                    ],
-                  ),
-          ),
-        ),
-      );
-    } finally {
-      _isOpeningLiveWalk = false;
-    }
-  }
-
-  // ==========================================================
-  // ACTIVE WALK HANDLER
-  // ==========================================================
-
-  void _handleActiveWalk(
-    Map<String, dynamic>? data,
-  ) {
-    if (data == null) {
-      _autoOpenedWalkId = null;
-      return;
-    }
-
-    final String walkId = _getWalkId(data);
-
-    if (walkId.isEmpty ||
-        _autoOpenedWalkId == walkId) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isOpeningLiveWalk) {
-        return;
-      }
-
-      _openLiveWalk(
-        data,
-        automatic: true,
-      );
-    });
-  }
-
-  // ==========================================================
   // BUILD
   // ==========================================================
 
@@ -243,120 +75,112 @@ class _MainNavigationScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
 
+      // ========================================================
+      // MAIN CONTENT
+      // ========================================================
+
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
 
       // ========================================================
-      // LIVE BAR + BOTTOM NAVIGATION
+      // ACTIVE / LIVE WALK STRIP + NAVIGATION
       //
-      // NO GAP BETWEEN THEM
+      // IMPORTANT:
+      // No gap between strip and bottom navigation.
+      //
+      // Strip remains visible from:
+      //
+      // active
+      // accepted
+      // on_the_way
+      // reached
+      // walking
+      // in_progress
+      //
+      // It disappears only when the walk is completed/ended/
+      // cancelled.
       // ========================================================
 
-      bottomNavigationBar:
-          StreamBuilder<
-              QuerySnapshot<Map<String, dynamic>>>(
-        stream: _liveWalkService.liveWalkStream(),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ======================================================
+          // ACTIVE / LIVE WALK STRIP
+          // ======================================================
 
-        builder: (
-          BuildContext context,
-          AsyncSnapshot<
-                  QuerySnapshot<Map<String, dynamic>>>
-              snapshot,
-        ) {
-          Map<String, dynamic>? liveWalkData;
+          ActiveLiveWalkStrip(
+            isWalker: widget.isWalker,
+          ),
 
-          if (snapshot.hasData &&
-              !snapshot.hasError) {
-            liveWalkData =
-                _liveWalkService.getLiveWalkData(
-              snapshot.data!,
-            );
-          }
+          // ======================================================
+          // BOTTOM NAVIGATION
+          // ======================================================
 
-          final bool isActive =
-              liveWalkData != null;
-
-          if (isActive) {
-            _handleActiveWalk(
-              liveWalkData,
-            );
-          }
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ==================================================
-              // LIVE WALK BAR
-              // ==================================================
-
-              if (isActive)
-                HomeLiveWalkBar(
-                  onTap: () {
-                    _openLiveWalk(
-                      liveWalkData!,
-                    );
-                  },
-                ),
-
-              // ==================================================
-              // BOTTOM NAVIGATION
-              // ==================================================
-
-                            Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    top: BorderSide(
-                      color: AppColors.border,
-                      width: 0.6,
-                    ),
-                  ),
-                ),
-                child: BottomNavigationBar(
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  currentIndex: _currentIndex,
-                  selectedItemColor: AppColors.primary,
-                  unselectedItemColor: Colors.black54,
-
-                  selectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                  ),
-
-                  unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                  ),
-
-                  type: BottomNavigationBarType.fixed,
-                  onTap: _onNavigationTap,
-
-                  items: const [
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.home_rounded,
-                      ),
-                      label: 'Home',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.directions_walk_rounded,
-                      ),
-                      label: 'Walks',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.menu_rounded,
-                      ),
-                      label: 'Menu',
-                    ),
-                  ],
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.border,
+                  width: 0.6,
                 ),
               ),
-            ],
-          );
-        },
+            ),
+            child: BottomNavigationBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+
+              currentIndex: _currentIndex,
+
+              selectedItemColor:
+                  AppColors.primary,
+
+              unselectedItemColor:
+                  Colors.black54,
+
+              selectedLabelStyle:
+                  const TextStyle(
+                fontWeight: FontWeight.w700,
+              ),
+
+              unselectedLabelStyle:
+                  const TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+
+              type:
+                  BottomNavigationBarType.fixed,
+
+              onTap: _onNavigationTap,
+
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.home_rounded,
+                  ),
+                  label: 'Home',
+                ),
+
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.directions_walk_rounded,
+                  ),
+                  label: 'Walks',
+                ),
+
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.menu_rounded,
+                  ),
+                  label: 'Menu',
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
