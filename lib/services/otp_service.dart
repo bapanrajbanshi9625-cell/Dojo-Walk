@@ -27,7 +27,8 @@ import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 class OtpService {
   OtpService._();
 
-  static final OtpService instance = OtpService._();
+  static final OtpService instance =
+      OtpService._();
 
   // ============================================================
   // VERIFY OTP
@@ -37,8 +38,15 @@ class OtpService {
     required String reqId,
     required String otp,
   }) async {
-    final String cleanReqId = reqId.trim();
-    final String cleanOtp = otp.trim();
+    final String cleanReqId =
+        reqId.trim();
+
+    final String cleanOtp =
+        otp.trim();
+
+    // ----------------------------------------------------------
+    // VALIDATE REQUEST ID
+    // ----------------------------------------------------------
 
     if (cleanReqId.isEmpty) {
       throw Exception(
@@ -46,84 +54,150 @@ class OtpService {
       );
     }
 
-    if (cleanOtp.length != 6) {
+    // ----------------------------------------------------------
+    // VALIDATE OTP
+    // ----------------------------------------------------------
+
+    if (!RegExp(r'^[0-9]{6}$')
+        .hasMatch(cleanOtp)) {
       throw Exception(
         'Please enter the complete 6-digit OTP.',
       );
     }
 
     // ----------------------------------------------------------
-    // MSG91 VERIFY
+    // MSG91 VERIFY REQUEST
     // ----------------------------------------------------------
 
-    final Map<String, dynamic> request = {
+    final Map<String, dynamic> request =
+        <String, dynamic>{
       'reqId': cleanReqId,
       'otp': cleanOtp,
     };
 
-    final dynamic response =
-        await OTPWidget.verifyOTP(request);
+    try {
+      final dynamic response =
+          await OTPWidget.verifyOTP(request);
 
-    // ----------------------------------------------------------
-    // DEBUG
-    // ----------------------------------------------------------
+      // --------------------------------------------------------
+      // DEBUG
+      // --------------------------------------------------------
 
-    print(
-      'MSG91 VERIFY OTP RESPONSE: $response',
-    );
+      print(
+        '==============================================',
+      );
 
-    // ----------------------------------------------------------
-    // CHECK RESPONSE
-    // ----------------------------------------------------------
+      print(
+        'MSG91 VERIFY OTP RESPONSE: $response',
+      );
 
-    bool verified = false;
+      print(
+        'MSG91 VERIFY OTP RESPONSE TYPE: '
+        '${response.runtimeType}',
+      );
 
-    if (response is Map) {
-      final dynamic type =
-          response['type'] ??
-          response['status'] ??
-          response['message'];
+      print(
+        '==============================================',
+      );
 
-      final String result =
-          type?.toString().toLowerCase() ?? '';
+      // --------------------------------------------------------
+      // RESPONSE CHECK
+      // --------------------------------------------------------
 
-      if (result.contains('success') ||
-          result == 'verified') {
-        verified = true;
+      if (response is Map) {
+        final Map<String, dynamic> result =
+            Map<String, dynamic>.from(
+          response,
+        );
+
+        final dynamic success =
+            result['success'];
+
+        final dynamic verified =
+            result['verified'];
+
+        final dynamic type =
+            result['type'];
+
+        final dynamic status =
+            result['status'];
+
+        // ------------------------------------------------------
+        // BOOLEAN SUCCESS
+        // ------------------------------------------------------
+
+        if (success == true ||
+            verified == true) {
+          print(
+            'MSG91 OTP VERIFIED SUCCESSFULLY',
+          );
+
+          return true;
+        }
+
+        // ------------------------------------------------------
+        // STRING STATUS
+        // ------------------------------------------------------
+
+        final String typeText =
+            type?.toString().trim().toLowerCase() ??
+                '';
+
+        final String statusText =
+            status?.toString().trim().toLowerCase() ??
+                '';
+
+        if (typeText == 'success' ||
+            typeText == 'verified' ||
+            statusText == 'success' ||
+            statusText == 'verified') {
+          print(
+            'MSG91 OTP VERIFIED SUCCESSFULLY',
+          );
+
+          return true;
+        }
+
+        // ------------------------------------------------------
+        // MSG91 ERROR MESSAGE
+        // ------------------------------------------------------
+
+        final dynamic message =
+            result['message'] ??
+            result['error'] ??
+            result['description'];
+
+        final String errorMessage =
+            message?.toString().trim() ?? '';
+
+        if (errorMessage.isNotEmpty) {
+          throw Exception(
+            'OTP verification failed: $errorMessage',
+          );
+        }
       }
 
-      // Some MSG91 SDK responses use boolean values.
-      if (response['success'] == true ||
-          response['verified'] == true) {
-        verified = true;
-      }
-    }
+      // --------------------------------------------------------
+      // UNKNOWN RESPONSE
+      // --------------------------------------------------------
 
-    // ----------------------------------------------------------
-    // FALLBACK
-    // ----------------------------------------------------------
-
-    if (!verified && response != null) {
-      final String responseText =
-          response.toString().toLowerCase();
-
-      if (responseText.contains('success') ||
-          responseText.contains('verified')) {
-        verified = true;
-      }
-    }
-
-    if (!verified) {
       throw Exception(
         'Invalid OTP. Please check the OTP and try again.',
       );
+    } catch (e) {
+      print(
+        'MSG91 VERIFY OTP ERROR: $e',
+      );
+
+      // Already formatted error
+      if (e is Exception) {
+        rethrow;
+      }
+
+      throw Exception(
+        'Could not verify OTP. Please try again.',
+      );
     }
-
-    print(
-      'MSG91 OTP VERIFIED SUCCESSFULLY',
-    );
-
-    return true;
   }
 
   // ============================================================
@@ -133,7 +207,12 @@ class OtpService {
   Future<String?> resendOtp({
     required String reqId,
   }) async {
-    final String cleanReqId = reqId.trim();
+    final String cleanReqId =
+        reqId.trim();
+
+    // ----------------------------------------------------------
+    // VALIDATE REQUEST ID
+    // ----------------------------------------------------------
 
     if (cleanReqId.isEmpty) {
       throw Exception(
@@ -141,45 +220,107 @@ class OtpService {
       );
     }
 
-    // ----------------------------------------------------------
-    // MSG91 RETRY
-    // ----------------------------------------------------------
+    try {
+      // --------------------------------------------------------
+      // MSG91 RETRY
+      // --------------------------------------------------------
 
-    final dynamic response =
-        await OTPWidget.retryOTP({
-      'reqId': cleanReqId,
-    });
+      final Map<String, dynamic> request =
+          <String, dynamic>{
+        'reqId': cleanReqId,
+      };
 
-    // ----------------------------------------------------------
-    // DEBUG
-    // ----------------------------------------------------------
+      final dynamic response =
+          await OTPWidget.retryOTP(request);
 
-    print(
-      'MSG91 RETRY OTP RESPONSE: $response',
-    );
+      // --------------------------------------------------------
+      // DEBUG
+      // --------------------------------------------------------
 
-    // ----------------------------------------------------------
-    // GET NEW REQUEST ID
-    // ----------------------------------------------------------
+      print(
+        '==============================================',
+      );
 
-    String? newReqId;
+      print(
+        'MSG91 RETRY OTP RESPONSE: $response',
+      );
 
-    if (response is Map) {
-      final dynamic value =
-          response['reqId'] ??
-          response['req_id'] ??
-          response['requestId'];
+      print(
+        'MSG91 RETRY OTP RESPONSE TYPE: '
+        '${response.runtimeType}',
+      );
 
-      if (value != null) {
-        final String valueString =
-            value.toString().trim();
+      print(
+        '==============================================',
+      );
 
-        if (valueString.isNotEmpty) {
-          newReqId = valueString;
+      // --------------------------------------------------------
+      // EXTRACT NEW REQUEST ID
+      // --------------------------------------------------------
+
+      if (response is Map) {
+        final Map<String, dynamic> result =
+            Map<String, dynamic>.from(
+          response,
+        );
+
+        final dynamic value =
+            result['reqId'] ??
+            result['req_id'] ??
+            result['requestId'] ??
+            result['request_id'];
+
+        if (value != null) {
+          final String newReqId =
+              value.toString().trim();
+
+          if (newReqId.isNotEmpty) {
+            print(
+              'MSG91 NEW REQUEST ID: $newReqId',
+            );
+
+            return newReqId;
+          }
+        }
+
+        // ------------------------------------------------------
+        // RETRY ERROR
+        // ------------------------------------------------------
+
+        final dynamic message =
+            result['message'] ??
+            result['error'] ??
+            result['description'];
+
+        final String errorMessage =
+            message?.toString().trim() ?? '';
+
+        if (errorMessage.isNotEmpty) {
+          throw Exception(
+            'Could not resend OTP: $errorMessage',
+          );
         }
       }
-    }
 
-    return newReqId;
+      // --------------------------------------------------------
+      // NO REQUEST ID
+      // --------------------------------------------------------
+
+      throw Exception(
+        'OTP resend failed. Please try again.',
+      );
+    } catch (e) {
+      print(
+        'MSG91 RETRY OTP ERROR: $e',
+      );
+
+      if (e is Exception) {
+        rethrow;
+      }
+
+      throw Exception(
+        'Could not resend OTP. Please try again.',
+      );
+    }
   }
 }
