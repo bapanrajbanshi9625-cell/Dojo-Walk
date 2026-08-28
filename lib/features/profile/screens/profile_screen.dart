@@ -916,29 +916,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 12,
                 ),
 
-                // ==================================================
-                // LOGOUT
-                // ==================================================
-
-                _ProfileActionCard(
-                  icon: Icons
-                      .logout_rounded,
-                  title:
-                      'Logout',
-                  subtitle:
-                      'Sign out from this account',
-                  iconColor:
-                      Colors.red,
-                  onTap:
-                      _logout,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+                
 
   // ============================================================
   // LOCATION DISPLAY TEXT
