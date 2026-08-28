@@ -19,7 +19,6 @@ class ActiveWalkerContainer extends StatefulWidget {
 
   final String activeWalkId;
   final bool isWalker;
-
   final VoidCallback? onLiveWalk;
 
   @override
@@ -40,7 +39,7 @@ class _ActiveWalkerContainerState
       MapController();
 
   StreamSubscription<
-      DocumentSnapshot<Map<String, dynamic>>>?
+          DocumentSnapshot<Map<String, dynamic>>>?
       _subscription;
 
   // ==========================================================
@@ -51,7 +50,6 @@ class _ActiveWalkerContainerState
 
   bool _loading = true;
   bool _updating = false;
-
   bool _didInitialCenter = false;
 
   // ==========================================================
@@ -89,17 +87,17 @@ class _ActiveWalkerContainerState
   @override
   void initState() {
     super.initState();
-
     _listenToActiveWalk();
   }
 
   // ==========================================================
-  // LISTENER
+  // FIRESTORE LISTENER
+  // FINAL COLLECTION = active_walks
   // ==========================================================
 
   void _listenToActiveWalk() {
     _subscription = _firestore
-        .collection('active_walk')
+        .collection('active_walks')
         .doc(widget.activeWalkId)
         .snapshots()
         .listen(
@@ -120,9 +118,7 @@ class _ActiveWalkerContainerState
         }
 
         final ActiveWalk walk =
-            ActiveWalkMapper.fromDocument(
-          snapshot,
-        );
+            ActiveWalkMapper.fromDocument(snapshot);
 
         if (!mounted) {
           return;
@@ -137,7 +133,7 @@ class _ActiveWalkerContainerState
       },
       onError: (Object error) {
         debugPrint(
-          'ActiveWalkerContainer error: $error',
+          'ActiveWalkerContainer Firestore error: $error',
         );
 
         if (!mounted) {
@@ -147,6 +143,14 @@ class _ActiveWalkerContainerState
         setState(() {
           _loading = false;
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to load active walk.',
+            ),
+          ),
+        );
       },
     );
   }
@@ -243,7 +247,6 @@ class _ActiveWalkerContainerState
               color: navy,
             ),
           ),
-
           Expanded(
             child: Column(
               mainAxisAlignment:
@@ -268,8 +271,7 @@ class _ActiveWalkerContainerState
                       ? 'Walker has arrived'
                       : '${walk.dogName} • ${walk.dogBreed}',
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 16,
@@ -279,7 +281,6 @@ class _ActiveWalkerContainerState
               ],
             ),
           ),
-
           _statusBadge(walk),
         ],
       ),
@@ -287,7 +288,7 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // STATUS
+  // STATUS BADGE
   // ==========================================================
 
   Widget _statusBadge(
@@ -304,25 +305,21 @@ class _ActiveWalkerContainerState
       decoration: BoxDecoration(
         color: (reached ? green : primary)
             .withOpacity(.10),
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.circle,
             size: 7,
-            color: reached
-                ? green
-                : primary,
+            color: reached ? green : primary,
           ),
           const SizedBox(width: 4),
           Text(
             reached ? 'REACHED' : 'ACTIVE',
             style: TextStyle(
-              color: reached
-                  ? green
-                  : primary,
+              color: reached ? green : primary,
               fontSize: 8,
               fontWeight: FontWeight.w900,
             ),
@@ -368,9 +365,7 @@ class _ActiveWalkerContainerState
             if (walk.ownerLocation != null)
               Marker(
                 point:
-                    _latLng(
-                      walk.ownerLocation,
-                    )!,
+                    _latLng(walk.ownerLocation)!,
                 width: 58,
                 height: 68,
                 child: _destinationMarker(),
@@ -379,9 +374,7 @@ class _ActiveWalkerContainerState
             if (walk.walkerLocation != null)
               Marker(
                 point:
-                    _latLng(
-                      walk.walkerLocation,
-                    )!,
+                    _latLng(walk.walkerLocation)!,
                 width: 60,
                 height: 70,
                 child: _walkerMarker(),
@@ -482,6 +475,9 @@ class _ActiveWalkerContainerState
       right: 0,
       bottom: 0,
       child: Container(
+        constraints: const BoxConstraints(
+          maxHeight: 360,
+        ),
         padding: const EdgeInsets.fromLTRB(
           15,
           14,
@@ -554,8 +550,7 @@ class _ActiveWalkerContainerState
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: border,
         ),
@@ -566,8 +561,7 @@ class _ActiveWalkerContainerState
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color:
-                  primary.withOpacity(.10),
+              color: primary.withOpacity(.10),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -593,21 +587,17 @@ class _ActiveWalkerContainerState
                     letterSpacing: .6,
                   ),
                 ),
-
                 const SizedBox(height: 2),
-
                 Text(
                   name,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-
                 if (walk.walkerUid.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
@@ -641,8 +631,7 @@ class _ActiveWalkerContainerState
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: border,
         ),
@@ -653,8 +642,7 @@ class _ActiveWalkerContainerState
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color:
-                  primary.withOpacity(.10),
+              color: primary.withOpacity(.10),
               borderRadius:
                   BorderRadius.circular(10),
             ),
@@ -681,14 +669,11 @@ class _ActiveWalkerContainerState
                     letterSpacing: .5,
                   ),
                 ),
-
                 const SizedBox(height: 2),
-
                 Text(
                   walk.address,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 12,
@@ -704,7 +689,7 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // CALL + CHAT
+  // CALL + CHAT + MAP
   // ==========================================================
 
   Widget _buildActions(
@@ -736,12 +721,10 @@ class _ActiveWalkerContainerState
 
         Expanded(
           child: _actionButton(
-            icon:
-                Icons.my_location_rounded,
+            icon: Icons.my_location_rounded,
             label: 'Map',
             color: primary,
-            onTap:
-                _recenterOnWalker,
+            onTap: _recenterOnWalker,
           ),
         ),
       ],
@@ -775,12 +758,10 @@ class _ActiveWalkerContainerState
           backgroundColor:
               color.withOpacity(.05),
           side: BorderSide(
-            color:
-                color.withOpacity(.18),
+            color: color.withOpacity(.18),
           ),
           padding: EdgeInsets.zero,
-          shape:
-              RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(11),
           ),
@@ -799,8 +780,7 @@ class _ActiveWalkerContainerState
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: green.withOpacity(.08),
-        borderRadius:
-            BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: green.withOpacity(.20),
         ),
@@ -829,7 +809,7 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // WALKER REACHED
+  // REACHED BUTTON
   // ==========================================================
 
   Widget _buildReachedButton() {
@@ -843,8 +823,7 @@ class _ActiveWalkerContainerState
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child:
-                    CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
@@ -864,8 +843,7 @@ class _ActiveWalkerContainerState
           backgroundColor: green,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(13),
           ),
@@ -876,6 +854,10 @@ class _ActiveWalkerContainerState
 
   // ==========================================================
   // START LIVE WALK
+  //
+  // IMPORTANT:
+  // Live Walk अलग screen है.
+  // यह button केवल callback चलाता है.
   // ==========================================================
 
   Widget _buildStartLiveWalkButton() {
@@ -897,8 +879,7 @@ class _ActiveWalkerContainerState
           backgroundColor: navy,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(13),
           ),
@@ -916,17 +897,23 @@ class _ActiveWalkerContainerState
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _updating = true;
     });
 
     try {
       await _firestore
-          .collection('active_walk')
+          .collection('active_walks')
           .doc(widget.activeWalkId)
           .update({
         'status': 'reached',
         'reachedAt':
+            FieldValue.serverTimestamp(),
+        'updatedAt':
             FieldValue.serverTimestamp(),
       });
 
@@ -934,8 +921,7 @@ class _ActiveWalkerContainerState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Walker marked as reached.',
@@ -951,8 +937,7 @@ class _ActiveWalkerContainerState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Unable to update reached status: $e',
@@ -987,8 +972,7 @@ class _ActiveWalkerContainerState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Walker phone number is not available.',
@@ -1005,7 +989,18 @@ class _ActiveWalkerContainerState
     );
 
     try {
-      await launchUrl(uri);
+      final bool launched =
+          await launchUrl(uri);
+
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to open phone dialer.',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint(
         'Call error: $e',
@@ -1015,11 +1010,13 @@ class _ActiveWalkerContainerState
 
   // ==========================================================
   // CHAT
+  //
+  // SMS नहीं.
+  // यहां आपका actual chat screen बाद में connect होगा.
   // ==========================================================
 
   void _openChat() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
           'Chat screen will be connected next.',
@@ -1029,7 +1026,7 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // RECENTER
+  // RECENTER MAP
   // ==========================================================
 
   void _recenterOnWalker() {
@@ -1047,8 +1044,7 @@ class _ActiveWalkerContainerState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Walker location is not available yet.',
@@ -1066,7 +1062,7 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // INITIAL CENTER
+  // INITIAL MAP CENTER
   // ==========================================================
 
   void _centerMapOnce(
@@ -1077,12 +1073,8 @@ class _ActiveWalkerContainerState
     }
 
     final LatLng? location =
-        _latLng(
-          walk.walkerLocation,
-        ) ??
-        _latLng(
-          walk.ownerLocation,
-        );
+        _latLng(walk.walkerLocation) ??
+            _latLng(walk.ownerLocation);
 
     if (location == null) {
       return;
@@ -1090,8 +1082,7 @@ class _ActiveWalkerContainerState
 
     _didInitialCenter = true;
 
-    WidgetsBinding.instance
-        .addPostFrameCallback(
+    WidgetsBinding.instance.addPostFrameCallback(
       (_) {
         if (!mounted) {
           return;
