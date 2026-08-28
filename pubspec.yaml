@@ -76,6 +76,12 @@ dependencies:
 
   geocoding: ^5.0.0
 
+  # ==========================================================
+  # MSG91 OTP
+  # ==========================================================
+
+  sendotp_flutter_sdk: ^1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
