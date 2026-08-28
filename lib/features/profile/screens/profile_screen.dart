@@ -1,248 +1,435 @@
+// File: lib/features/profile/screens/profile_screen.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/profile_card.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  // ============================================================
+  // COLORS
+  // ============================================================
+
+  static const Color orange = Color(0xFFFF6B35);
+  static const Color navy = Color(0xFF102A43);
+  static const Color background = Color(0xFFF7F9FC);
+
+  // ============================================================
+  // STATE
+  // ============================================================
+
+  bool _isLoading = true;
+
+  String _ownerId = '';
+  String _ownerName = '';
+  String _mobileNumber = '';
+  String _ownerDob = '';
+  String _ownerGender = '';
+  String _memberSince = '';
+
+  String _flatHouseNo = '';
+  String _streetRoad = '';
+  String _landmark = '';
+
+  bool _isActive = true;
+  bool _isConnecting = false;
+
+  // ============================================================
+  // INIT
+  // ============================================================
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  // ============================================================
+  // LOAD PROFILE
+  // ============================================================
+
+  Future<void> _loadProfile() async {
     final User? user = FirebaseAuth.instance.currentUser;
 
-    final String ownerId = user?.uid ?? '';
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
-    final String ownerName =
-        user?.displayName?.trim().isNotEmpty == true
-            ? user!.displayName!.trim()
+    try {
+      final String uid = user.uid.trim();
+
+      QuerySnapshot<Map<String, dynamic>> query =
+          await FirebaseFirestore.instance
+              .collection('owners')
+              .where(
+                'authUid',
+                isEqualTo: uid,
+              )
+              .limit(1)
+              .get();
+
+      DocumentSnapshot<Map<String, dynamic>>? ownerDoc;
+
+      if (query.docs.isNotEmpty) {
+        ownerDoc = query.docs.first;
+      } else {
+        final DocumentSnapshot<Map<String, dynamic>> directDoc =
+            await FirebaseFirestore.instance
+                .collection('owners')
+                .doc(uid)
+                .get();
+
+        if (directDoc.exists) {
+          ownerDoc = directDoc;
+        }
+      }
+
+      if (ownerDoc == null || !ownerDoc.exists) {
+        if (mounted) {
+          setState(() {
+            _ownerName = _firebaseName(user);
+            _mobileNumber = _firebasePhone(user);
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final Map<String, dynamic> data =
+          ownerDoc.data() ?? <String, dynamic>{};
+
+      final String ownerId = _stringValue(
+        data['ownerId'],
+      );
+
+      final String ownerName = _firstNonEmpty([
+        data['ownerName'],
+        data['name'],
+        user.displayName,
+      ]);
+
+      final String mobile = _firstNonEmpty([
+        data['mainPhone'],
+        data['phone'],
+        user.phoneNumber,
+      ]);
+
+      final String dob = _firstNonEmpty([
+        data['dob'],
+        data['dateOfBirth'],
+        data['ownerDob'],
+      ]);
+
+      final String gender = _firstNonEmpty([
+        data['gender'],
+        data['ownerGender'],
+      ]);
+
+      final String memberSince = _formatMemberSince(
+        data['createdAt'],
+      );
+
+      final String flatHouseNo = _firstNonEmpty([
+        data['flatHouseNo'],
+        data['flat'],
+        data['houseNo'],
+        data['houseNumber'],
+      ]);
+
+      final String streetRoad = _firstNonEmpty([
+        data['streetRoad'],
+        data['street'],
+        data['road'],
+      ]);
+
+      final String landmark = _stringValue(
+        data['landmark'],
+      );
+
+      final bool active = _boolValue(
+        data['isActive'],
+        fallback: true,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _ownerId = ownerId.isNotEmpty
+            ? ownerId
+            : ownerDoc!.id;
+
+        _ownerName = ownerName.isNotEmpty
+            ? ownerName
             : 'Owner';
 
-    final String mobileNumber =
-        user?.phoneNumber?.trim().isNotEmpty == true
-            ? user!.phoneNumber!.trim()
+        _mobileNumber = mobile.isNotEmpty
+            ? mobile
             : 'Not available';
 
-    return Scaffold(
-      backgroundColor: DojoColors.background,
+        _ownerDob = dob;
+        _ownerGender = gender;
+        _memberSince = memberSince;
 
-      // ============================================================
-      // APP BAR
-      // ============================================================
+        _flatHouseNo = flatHouseNo;
+        _streetRoad = streetRoad;
+        _landmark = landmark;
 
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: DojoColors.white,
-        foregroundColor: DojoColors.navy,
-        centerTitle: false,
-        title: const Text(
-          'My Profile',
-          style: TextStyle(
-            color: DojoColors.navy,
-            fontSize: 21,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
+        _isActive = active;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint(
+        'Profile Load Error: $e',
+      );
 
-      // ============================================================
-      // BODY
-      // ============================================================
+      if (!mounted) {
+        return;
+      }
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            30,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ======================================================
-              // PROFILE CARD
-              // ======================================================
+      final User? currentUser =
+          FirebaseAuth.instance.currentUser;
 
-              ProfileCard(
-                ownerName: ownerName,
-              ),
+      setState(() {
+        _ownerName = _firebaseName(currentUser);
+        _mobileNumber = _firebasePhone(currentUser);
+        _isLoading = false;
+      });
 
-              const SizedBox(height: 16),
+      _showMessage(
+        'Could not load complete profile information.',
+      );
+    }
+  }
 
-              // ======================================================
-              // OWNER INFORMATION
-              // ======================================================
+  // ============================================================
+  // STRING HELPERS
+  // ============================================================
 
-              OwnerInfoCard(
-                ownerId: ownerId,
-                mobileNumber: mobileNumber,
-                ownerName: ownerName,
+  String _stringValue(dynamic value) {
+    if (value == null) {
+      return '';
+    }
 
-                // These are display-only for now.
-                ownerDob: '-',
-                ownerGender: '-',
+    return value.toString().trim();
+  }
 
-                // Firebase user creation date.
-                memberSince: _memberSince(user),
+  String _firstNonEmpty(
+    List<dynamic> values,
+  ) {
+    for (final dynamic value in values) {
+      final String text = _stringValue(value);
 
-                // Firebase Auth user is considered active
-                // when a signed-in user exists.
-                isActive: user != null,
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
 
-                onChangeMobile: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/change-mobile',
-                  );
-                },
+    return '';
+  }
 
-                onCopyOwnerId: () {
-                  _copyOwnerId(
-                    context,
-                    ownerId,
-                  );
-                },
-              ),
+  // ============================================================
+  // USER FALLBACK
+  // ============================================================
 
-              const SizedBox(height: 16),
+  String _firebaseName(User? user) {
+    final String name =
+        user?.displayName?.trim() ?? '';
 
-              // ======================================================
-              // ADDRESS
-              // ======================================================
+    return name.isNotEmpty ? name : 'Owner';
+  }
 
-              AddressCard(
-                flatHouseNo: '',
-                streetRoad: '',
-                landmark: '',
-                isConnecting: false,
-                onConnectLocation: () {
-                  _showComingSoon(context);
-                },
-              ),
+  String _firebasePhone(User? user) {
+    final String phone =
+        user?.phoneNumber?.trim() ?? '';
 
-              const SizedBox(height: 24),
+    return phone.isNotEmpty
+        ? phone
+        : 'Not available';
+  }
 
-              // ======================================================
-              // CHANGE MOBILE
-              // ======================================================
+  // ============================================================
+  // BOOL HELPER
+  // ============================================================
 
-              _ProfileActionCard(
-                icon: Icons.phone_android_rounded,
-                title: 'Change Mobile Number',
-                subtitle:
-                    'Update your registered mobile number',
-                onTap: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/change-mobile',
-                  );
-                },
-              ),
+  bool _boolValue(
+    dynamic value, {
+    required bool fallback,
+  }) {
+    if (value is bool) {
+      return value;
+    }
 
-              const SizedBox(height: 12),
-
-              // ======================================================
-              // LOGOUT
-              // ======================================================
-
-              _ProfileActionCard(
-                icon: Icons.logout_rounded,
-                title: 'Logout',
-                subtitle: 'Sign out from this account',
-                iconColor: DojoColors.red,
-                onTap: () async {
-                  await _logout(context);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return fallback;
   }
 
   // ============================================================
   // MEMBER SINCE
   // ============================================================
 
-  String _memberSince(User? user) {
-    final DateTime? createdAt = user?.metadata.creationTime;
-
-    if (createdAt == null) {
-      return '-';
+  String _formatMemberSince(dynamic value) {
+    if (value == null) {
+      return '';
     }
 
+    DateTime? date;
+
+    if (value is Timestamp) {
+      date = value.toDate();
+    } else if (value is DateTime) {
+      date = value;
+    } else if (value is String) {
+      date = DateTime.tryParse(value);
+    }
+
+    if (date == null) {
+      return _stringValue(value);
+    }
+
+    return '${_monthName(date.month)} ${date.year}';
+  }
+
+  String _monthName(int month) {
     const List<String> months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
+      'January',
+      'February',
+      'March',
+      'April',
       'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
-    return '${months[createdAt.month - 1]} ${createdAt.year}';
+    if (month < 1 || month > 12) {
+      return '';
+    }
+
+    return months[month - 1];
   }
 
   // ============================================================
   // COPY OWNER ID
   // ============================================================
 
-  void _copyOwnerId(
-    BuildContext context,
-    String ownerId,
-  ) {
-    if (ownerId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Owner ID is not available.'),
-        ),
-      );
+  void _copyOwnerId() {
+    if (_ownerId.trim().isEmpty) {
       return;
     }
 
-    // Clipboard functionality can be added here if desired.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Owner ID copied.'),
+    Clipboard.setData(
+      ClipboardData(
+        text: _ownerId.trim(),
       ),
+    );
+
+    _showMessage(
+      'Owner ID copied.',
     );
   }
 
   // ============================================================
-  // ADDRESS LOCATION PLACEHOLDER
+  // CHANGE MOBILE
   // ============================================================
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Location connection will be available here.',
-        ),
+  Future<void> _changeMobile() async {
+    final bool? changed =
+        await Navigator.pushNamed<bool>(
+      context,
+      '/change-mobile',
+      arguments: _mobileNumber,
+    );
+
+    if (changed == true) {
+      await _loadProfile();
+    }
+  }
+
+  // ============================================================
+  // CONNECT LOCATION
+  // ============================================================
+
+  Future<void> _connectLocation() async {
+    if (_isConnecting) {
+      return;
+    }
+
+    setState(() {
+      _isConnecting = true;
+    });
+
+    // Location connection logic can be connected here
+    // with your existing location service.
+
+    await Future<void>.delayed(
+      const Duration(
+        milliseconds: 500,
       ),
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isConnecting = false;
+    });
+
+    _showMessage(
+      'Location connection is ready to be connected.',
+    );
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   // ============================================================
   // LOGOUT
   // ============================================================
 
-  Future<void> _logout(BuildContext context) async {
+  Future<void> _logout() async {
     try {
       await FirebaseAuth.instance.signOut();
 
-      if (!context.mounted) {
+      if (!mounted) {
         return;
       }
 
@@ -250,19 +437,155 @@ class ProfileScreen extends StatelessWidget {
         '/mobile-login',
         (route) => false,
       );
-    } catch (_) {
-      if (!context.mounted) {
+    } catch (e) {
+      debugPrint(
+        'Logout Error: $e',
+      );
+
+      if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to logout. Please try again.',
+      _showMessage(
+        'Unable to logout. Please try again.',
+      );
+    }
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: background,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: orange,
           ),
         ),
       );
     }
+
+    return Scaffold(
+      backgroundColor: background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: navy,
+        centerTitle: false,
+        title: const Text(
+          'My Profile',
+          style: TextStyle(
+            color: navy,
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: orange,
+          onRefresh: _loadProfile,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              30,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ==================================================
+                // PROFILE CARD
+                // ==================================================
+
+                ProfileCard(
+                  ownerName: _ownerName,
+                ),
+
+                const SizedBox(height: 16),
+
+                // ==================================================
+                // OWNER INFORMATION
+                // ==================================================
+
+                OwnerInfoCard(
+                  ownerId: _ownerId,
+                  mobileNumber: _mobileNumber,
+                  ownerName: _ownerName,
+                  ownerDob: _ownerDob,
+                  ownerGender: _ownerGender,
+                  memberSince: _memberSince,
+                  isActive: _isActive,
+                  onChangeMobile: _changeMobile,
+                  onCopyOwnerId: _copyOwnerId,
+                ),
+
+                const SizedBox(height: 16),
+
+                // ==================================================
+                // ADDRESS
+                // ==================================================
+
+                AddressCard(
+                  flatHouseNo: _flatHouseNo,
+                  streetRoad: _streetRoad,
+                  landmark: _landmark,
+                  isConnecting: _isConnecting,
+                  onConnectLocation: _connectLocation,
+                ),
+
+                const SizedBox(height: 24),
+
+                // ==================================================
+                // CHANGE MOBILE
+                // ==================================================
+
+                _ProfileActionCard(
+                  icon: Icons.phone_android_rounded,
+                  title: 'Change Mobile Number',
+                  subtitle:
+                      'Update your registered mobile number',
+                  onTap: _changeMobile,
+                ),
+
+                const SizedBox(height: 12),
+
+                // ==================================================
+                // LOGOUT
+                // ==================================================
+
+                _ProfileActionCard(
+                  icon: Icons.logout_rounded,
+                  title: 'Logout',
+                  subtitle: 'Sign out from this account',
+                  iconColor: Colors.red,
+                  onTap: _logout,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -288,10 +611,10 @@ class _ProfileActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color =
-        iconColor ?? DojoColors.orange;
+        iconColor ?? const Color(0xFFFF6B35);
 
     return Material(
-      color: DojoColors.white,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(18),
       elevation: 0,
       child: InkWell(
@@ -301,15 +624,13 @@ class _ProfileActionCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: DojoColors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: DojoColors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.04),
             ),
             boxShadow: [
               BoxShadow(
-                color:
-                    DojoColors.black.withValues(alpha: 0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -317,10 +638,6 @@ class _ProfileActionCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // ==================================================
-              // ICON
-              // ==================================================
-
               Container(
                 width: 48,
                 height: 48,
@@ -337,10 +654,6 @@ class _ProfileActionCard extends StatelessWidget {
 
               const SizedBox(width: 14),
 
-              // ==================================================
-              // TEXT
-              // ==================================================
-
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -351,7 +664,7 @@ class _ProfileActionCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: DojoColors.navy,
+                        color: Color(0xFF102A43),
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -362,7 +675,7 @@ class _ProfileActionCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: DojoColors.grey,
+                        color: Color(0xFF52606D),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -373,13 +686,9 @@ class _ProfileActionCard extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              // ==================================================
-              // ARROW
-              // ==================================================
-
               const Icon(
                 Icons.chevron_right_rounded,
-                color: DojoColors.grey,
+                color: Colors.grey,
                 size: 25,
               ),
             ],
