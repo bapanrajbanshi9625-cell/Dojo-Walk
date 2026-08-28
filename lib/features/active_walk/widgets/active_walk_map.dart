@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -17,18 +18,13 @@ class ActiveWalkMap extends StatefulWidget {
       _ActiveWalkMapState();
 }
 
-class _ActiveWalkMapState
-    extends State<ActiveWalkMap> {
-  final MapController _mapController =
-      MapController();
+class _ActiveWalkMapState extends State<ActiveWalkMap> {
+  final MapController _mapController = MapController();
 
   bool _initialCentered = false;
 
-  static const Color primary =
-      Color(0xFFFF8A00);
-
-  static const Color red =
-      Color(0xFFDC2626);
+  static const Color primary = Color(0xFFFF8A00);
+  static const Color red = Color(0xFFDC2626);
 
   // ==========================================================
   // GEOPOINT -> LATLNG
@@ -45,6 +41,26 @@ class _ActiveWalkMapState
     );
   }
 
+  // ==========================================================
+  // WALKER LOCATION
+  // ==========================================================
+
+  LatLng? get _walkerLocation {
+    return _toLatLng(
+      widget.walk.walkerLocation,
+    );
+  }
+
+  // ==========================================================
+  // OWNER LOCATION
+  // ==========================================================
+
+  LatLng? get _ownerLocation {
+    return _toLatLng(
+      widget.walk.ownerLocation,
+    );
+  }
+
   @override
   void didUpdateWidget(
     covariant ActiveWalkMap oldWidget,
@@ -52,14 +68,10 @@ class _ActiveWalkMapState
     super.didUpdateWidget(oldWidget);
 
     final LatLng? oldLocation =
-        _toLatLng(
-      oldWidget.walk.walkerLocation,
-    );
+        _toLatLng(oldWidget.walk.walkerLocation);
 
     final LatLng? newLocation =
-        _toLatLng(
-      widget.walk.walkerLocation,
-    );
+        _walkerLocation;
 
     if (newLocation != null &&
         (oldLocation == null ||
@@ -79,22 +91,18 @@ class _ActiveWalkMapState
   @override
   Widget build(BuildContext context) {
     final LatLng? walkerLocation =
-        _toLatLng(
-      widget.walk.walkerLocation,
-    );
+        _walkerLocation;
 
     final LatLng? ownerLocation =
-        _toLatLng(
-      widget.walk.ownerLocation,
-    );
+        _ownerLocation;
 
     final LatLng center =
         walkerLocation ??
-            ownerLocation ??
-            const LatLng(
-              28.6139,
-              77.2090,
-            );
+        ownerLocation ??
+        const LatLng(
+          28.6139,
+          77.2090,
+        );
 
     return Stack(
       children: [
@@ -113,12 +121,8 @@ class _ActiveWalkMapState
               _initialCentered = true;
 
               final LatLng? location =
-                  _toLatLng(
-                widget.walk.walkerLocation,
-              ) ??
-                      _toLatLng(
-                        widget.walk.ownerLocation,
-                      );
+                  _walkerLocation ??
+                  _ownerLocation;
 
               if (location != null) {
                 _mapController.move(
@@ -138,14 +142,20 @@ class _ActiveWalkMapState
 
             MarkerLayer(
               markers: [
+                // ------------------------------------------------
+                // OWNER / PICKUP LOCATION
+                // ------------------------------------------------
                 if (ownerLocation != null)
                   Marker(
                     point: ownerLocation,
                     width: 56,
                     height: 68,
-                    child: _destinationMarker(),
+                    child: _ownerMarker(),
                   ),
 
+                // ------------------------------------------------
+                // WALKER LOCATION
+                // ------------------------------------------------
                 if (walkerLocation != null)
                   Marker(
                     point: walkerLocation,
@@ -162,8 +172,7 @@ class _ActiveWalkMapState
           left: 14,
           top: 14,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 7,
             ),
@@ -188,11 +197,10 @@ class _ActiveWalkMapState
                 ),
                 SizedBox(width: 5),
                 Text(
-                  'Walker Location',
+                  'Live Walker Location',
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -233,9 +241,7 @@ class _ActiveWalkMapState
 
   void _recenter() {
     final LatLng? location =
-        _toLatLng(
-      widget.walk.walkerLocation,
-    );
+        _walkerLocation;
 
     if (location == null) {
       ScaffoldMessenger.of(context)
@@ -296,10 +302,10 @@ class _ActiveWalkMapState
   }
 
   // ==========================================================
-  // OWNER / DESTINATION MARKER
+  // OWNER MARKER
   // ==========================================================
 
-  Widget _destinationMarker() {
+  Widget _ownerMarker() {
     return Column(
       children: [
         Container(
