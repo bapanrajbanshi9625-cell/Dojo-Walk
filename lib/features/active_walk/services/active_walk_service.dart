@@ -11,19 +11,18 @@ class ActiveWalkService {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<
-      Map<String, dynamic>> get _activeWalks {
-    return _firestore.collection(
-      'active_walk',
-    );
+  // ==========================================================
+  // ACTIVE WALKS COLLECTION
+  // ==========================================================
+
+  CollectionReference<Map<String, dynamic>>
+      get _activeWalks {
+    return _firestore.collection('active_walks');
   }
 
-  CollectionReference<
-      Map<String, dynamic>> get _history {
-    return _firestore.collection(
-      'walk_history',
-    );
-  }
+  // ==========================================================
+  // WATCH ACTIVE WALK
+  // ==========================================================
 
   Stream<ActiveWalk?> watchActiveWalk(
     String activeWalkId,
@@ -32,7 +31,9 @@ class ActiveWalkService {
         .doc(activeWalkId)
         .snapshots()
         .map(
-      (snapshot) {
+      (
+        DocumentSnapshot<Map<String, dynamic>> snapshot,
+      ) {
         if (!snapshot.exists) {
           return null;
         }
@@ -44,11 +45,15 @@ class ActiveWalkService {
     );
   }
 
+  // ==========================================================
+  // GET ACTIVE WALK
+  // ==========================================================
+
   Future<ActiveWalk?> getActiveWalk(
     String activeWalkId,
   ) async {
-    final DocumentSnapshot<
-        Map<String, dynamic>> snapshot =
+    final DocumentSnapshot<Map<String, dynamic>>
+        snapshot =
         await _activeWalks
             .doc(activeWalkId)
             .get();
@@ -62,16 +67,83 @@ class ActiveWalkService {
     );
   }
 
-  Future<void> endWalk(
-    ActiveWalk walk,
-  ) async {
-    final DocumentReference<
-        Map<String, dynamic>> activeRef =
-        _activeWalks.doc(walk.id);
+  // ==========================================================
+  // MARK WALK AS REACHED
+  //
+  // Walker reaches owner's location.
+  // This is NOT the live-walk screen.
+  // ==========================================================
 
-    final DocumentSnapshot<
-        Map<String, dynamic>> snapshot =
-        await activeRef.get();
+  Future<void> markReached(
+    String activeWalkId,
+  ) async {
+    await _activeWalks
+        .doc(activeWalkId)
+        .update({
+      'status': 'reached',
+      'updatedAt':
+          FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ==========================================================
+  // START ACTUAL WALK
+  //
+  // After walker reaches owner/pickup location,
+  // actual walking can start.
+  // ==========================================================
+
+  Future<void> startWalk(
+    String activeWalkId,
+  ) async {
+    await _activeWalks
+        .doc(activeWalkId)
+        .update({
+      'status': 'walking',
+      'startedAt':
+          FieldValue.serverTimestamp(),
+      'updatedAt':
+          FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ==========================================================
+  // UPDATE WALKER LOCATION
+  //
+  // Real OpenStreetMap screen reads this location.
+  // ==========================================================
+
+  Future<void> updateWalkerLocation({
+    required String activeWalkId,
+    required GeoPoint location,
+  }) async {
+    await _activeWalks
+        .doc(activeWalkId)
+        .update({
+      'walkerLocation': location,
+      'updatedAt':
+          FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ==========================================================
+  // END WALK
+  //
+  // Only marks the active walk completed.
+  // History transfer can be handled by the dedicated
+  // walk-history flow.
+  // ==========================================================
+
+  Future<void> endWalk(
+    String activeWalkId,
+  ) async {
+    final DocumentReference<Map<String, dynamic>>
+        reference =
+        _activeWalks.doc(activeWalkId);
+
+    final DocumentSnapshot<Map<String, dynamic>>
+        snapshot =
+        await reference.get();
 
     if (!snapshot.exists) {
       throw Exception(
@@ -79,79 +151,14 @@ class ActiveWalkService {
       );
     }
 
-    final Map<String, dynamic> data =
-        snapshot.data() ??
-            <String, dynamic>{};
-
-    final List<GeoPoint> routePoints =
-        walk.routePoints
-            .map(
-              (point) => GeoPoint(
-                point.latitude,
-                point.longitude,
-              ),
-            )
-            .toList();
-
-    if (walk.walkerLocation != null) {
-      final GeoPoint finalPoint =
-          GeoPoint(
-        walk.walkerLocation!.latitude,
-        walk.walkerLocation!.longitude,
-      );
-
-      if (routePoints.isEmpty ||
-          routePoints.last.latitude !=
-              finalPoint.latitude ||
-          routePoints.last.longitude !=
-              finalPoint.longitude) {
-        routePoints.add(finalPoint);
-      }
-    }
-
-    final Map<String, dynamic> historyData =
-        <String, dynamic>{
-      ...data,
-
-      'activeWalkId': walk.id,
-
-      'status': 'completed',
-
-      'endedAt':
-          FieldValue.serverTimestamp(),
-
-      'completedAt':
-          FieldValue.serverTimestamp(),
-
-      'distance': walk.distance,
-
-      'steps': walk.steps,
-
-      'peeCount': walk.peeCount,
-
-      'poopCount': walk.poopCount,
-
-      'routePoints': routePoints,
-    };
-
-    await _history
-        .doc(walk.id)
-        .set(
-          historyData,
-          SetOptions(merge: true),
-        );
-
-    await activeRef.update({
+    await reference.update({
       'status': 'completed',
       'endedAt':
           FieldValue.serverTimestamp(),
-      'completedAt':
+      'updatedAt':
           FieldValue.serverTimestamp(),
-      'distance': walk.distance,
-      'steps': walk.steps,
-      'peeCount': walk.peeCount,
-      'poopCount': walk.poopCount,
-      'routePoints': routePoints,
+      'walkEnded': true,
+      'trackingEnded': true,
     });
   }
 }
