@@ -183,37 +183,36 @@ class _ActiveLiveWalkStripState
       // ======================================================
 
       if (!_isVisibleStatus(status)) {
-        continue;
-      }
+  continue;
+}
 
-      final DateTime? createdAt =
-          _readDate(
-        data['createdAt'],
-      );
+final DateTime? createdAt =
+    _readDate(
+  data['createdAt'],
+);
 
-      final DateTime? startedAt =
-          _readDate(
-        data['startedAt'],
-      );
+final DateTime? startedAt =
+    _readDate(
+  data['startedAt'],
+);
 
-      final DateTime? candidateTime =
-          startedAt ?? createdAt;
+final DateTime? candidateTime =
+    startedAt ?? createdAt;
 
-      if (currentDocument == null) {
-        currentDocument = document;
-        newestTime = candidateTime;
-        continue;
-      }
+if (currentDocument == null) {
+  currentDocument = document;
+  newestTime = candidateTime;
+  continue;
+}
 
-      if (candidateTime != null &&
-          (newestTime == null ||
-              candidateTime.isAfter(
-                newestTime!,
-              ))) {
-        currentDocument = document;
-        newestTime = candidateTime;
-      }
-    }
+if (candidateTime != null &&
+    (newestTime == null ||
+        candidateTime.isAfter(
+          newestTime,
+        ))) {
+  currentDocument = document;
+  newestTime = candidateTime;
+}
 
     // ========================================================
     // NO ACTIVE WALK
