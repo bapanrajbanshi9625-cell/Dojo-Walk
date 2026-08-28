@@ -30,6 +30,21 @@ class _ActiveWalkMapState
   static const Color red =
       Color(0xFFDC2626);
 
+  // ==========================================================
+  // GEOPOINT -> LATLNG
+  // ==========================================================
+
+  LatLng? _toLatLng(GeoPoint? point) {
+    if (point == null) {
+      return null;
+    }
+
+    return LatLng(
+      point.latitude,
+      point.longitude,
+    );
+  }
+
   @override
   void didUpdateWidget(
     covariant ActiveWalkMap oldWidget,
@@ -37,10 +52,14 @@ class _ActiveWalkMapState
     super.didUpdateWidget(oldWidget);
 
     final LatLng? oldLocation =
-        oldWidget.walk.walkerLocation;
+        _toLatLng(
+      oldWidget.walk.walkerLocation,
+    );
 
     final LatLng? newLocation =
-        widget.walk.walkerLocation;
+        _toLatLng(
+      widget.walk.walkerLocation,
+    );
 
     if (newLocation != null &&
         (oldLocation == null ||
@@ -59,9 +78,19 @@ class _ActiveWalkMapState
 
   @override
   Widget build(BuildContext context) {
+    final LatLng? walkerLocation =
+        _toLatLng(
+      widget.walk.walkerLocation,
+    );
+
+    final LatLng? ownerLocation =
+        _toLatLng(
+      widget.walk.ownerLocation,
+    );
+
     final LatLng center =
-        widget.walk.walkerLocation ??
-            widget.walk.destination ??
+        walkerLocation ??
+            ownerLocation ??
             const LatLng(
               28.6139,
               77.2090,
@@ -70,8 +99,7 @@ class _ActiveWalkMapState
     return Stack(
       children: [
         FlutterMap(
-          mapController:
-              _mapController,
+          mapController: _mapController,
           options: MapOptions(
             initialCenter: center,
             initialZoom: 16,
@@ -85,8 +113,12 @@ class _ActiveWalkMapState
               _initialCentered = true;
 
               final LatLng? location =
-                  widget.walk.walkerLocation ??
-                      widget.walk.destination;
+                  _toLatLng(
+                widget.walk.walkerLocation,
+              ) ??
+                      _toLatLng(
+                        widget.walk.ownerLocation,
+                      );
 
               if (location != null) {
                 _mapController.move(
@@ -104,47 +136,22 @@ class _ActiveWalkMapState
                   'com.doojowalker.app',
             ),
 
-            if (widget
-                    .walk
-                    .routePoints
-                    .length >=
-                2)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: widget
-                        .walk
-                        .routePoints,
-                    strokeWidth: 5,
-                    color: primary,
-                  ),
-                ],
-              ),
-
             MarkerLayer(
               markers: [
-                if (widget.walk.destination !=
-                    null)
+                if (ownerLocation != null)
                   Marker(
-                    point: widget
-                        .walk
-                        .destination!,
+                    point: ownerLocation,
                     width: 56,
                     height: 68,
-                    child:
-                        _destinationMarker(),
+                    child: _destinationMarker(),
                   ),
 
-                if (widget.walk.walkerLocation !=
-                    null)
+                if (walkerLocation != null)
                   Marker(
-                    point: widget
-                        .walk
-                        .walkerLocation!,
+                    point: walkerLocation,
                     width: 60,
                     height: 70,
-                    child:
-                        _walkerMarker(),
+                    child: _walkerMarker(),
                   ),
               ],
             ),
@@ -172,8 +179,7 @@ class _ActiveWalkMapState
               ],
             ),
             child: const Row(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.location_on_rounded,
@@ -221,9 +227,15 @@ class _ActiveWalkMapState
     );
   }
 
+  // ==========================================================
+  // RECENTER
+  // ==========================================================
+
   void _recenter() {
     final LatLng? location =
-        widget.walk.walkerLocation;
+        _toLatLng(
+      widget.walk.walkerLocation,
+    );
 
     if (location == null) {
       ScaffoldMessenger.of(context)
@@ -243,6 +255,10 @@ class _ActiveWalkMapState
       17,
     );
   }
+
+  // ==========================================================
+  // WALKER MARKER
+  // ==========================================================
 
   Widget _walkerMarker() {
     return Column(
@@ -278,6 +294,10 @@ class _ActiveWalkMapState
       ],
     );
   }
+
+  // ==========================================================
+  // OWNER / DESTINATION MARKER
+  // ==========================================================
 
   Widget _destinationMarker() {
     return Column(
