@@ -33,17 +33,14 @@ class _ChangeMobileFlowState
   // ============================================================
 
   static const Color orange =
-      Color(0xFFF4511E);
+    Color(0xFFF4511E);
 
-  static const Color navy =
-      Color(0xFF263746);
+static const Color navy =
+    Color(0xFF263746);
 
-  static const Color background =
-      Color(0xFFEDEFF2);
-
-  static const Color lightOrange =
-      Color(0xFFFFF1E8);
-
+static const Color lightOrange =
+    Color(0xFFFFF1E8);
+  
   // ============================================================
   // CONTROLLERS
   // ============================================================
