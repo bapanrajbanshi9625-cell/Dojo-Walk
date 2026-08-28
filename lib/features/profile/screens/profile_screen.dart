@@ -577,48 +577,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'Current location connected successfully.',
       );
     }
-
-    // ==========================================================
-    // GPS OFF
-    // ==========================================================
-
-    on LocationServiceDisabledException {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'GPS is turned off. Please turn it on and try again.',
-      );
-    }
-
-    // ==========================================================
-    // PERMISSION DENIED
-    // ==========================================================
-
-    on LocationPermissionDeniedException {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Location permission is required to connect your address.',
-      );
-    }
-
-    // ==========================================================
-    // PERMISSION DENIED FOREVER
-    // ==========================================================
-
-    on LocationPermissionDeniedForeverException {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Location permission is permanently denied. Please enable it from App Settings.',
-      );
-    }
+    
 
     // ==========================================================
     // ADDRESS NOT FOUND
