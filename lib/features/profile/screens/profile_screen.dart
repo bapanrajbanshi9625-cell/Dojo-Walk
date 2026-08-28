@@ -948,8 +948,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // PROFILE ACTION CARD
 // ================================================================
 
-class _ProfileActionCard
-    extends StatelessWidget {
+class _ProfileActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
@@ -965,137 +964,76 @@ class _ProfileActionCard
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     final Color color =
-        iconColor ??
-            const Color(
-              0xFFFF6B35,
-            );
+        iconColor ?? const Color(0xFFFF6B35);
 
     return Material(
       color: Colors.white,
-      borderRadius:
-          BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(18),
       elevation: 0,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
           width: double.infinity,
-          padding:
-              const EdgeInsets.all(16),
-          decoration:
-              BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(
-              18,
-            ),
-            border:
-                Border.all(
-              color:
-                  Colors.black.withValues(
-                alpha: 0.04,
-              ),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.04),
             ),
             boxShadow: [
               BoxShadow(
-                color:
-                    Colors.black.withValues(
-                  alpha: 0.04,
-                ),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
-                offset:
-                    const Offset(0, 3),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      color.withValues(
-                    alpha: 0.10,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: 25,
+                  size: 22,
                 ),
               ),
-
-              const SizedBox(
-                width: 14,
-              ),
-
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style:
-                          const TextStyle(
-                        color:
-                            Color(
-                          0xFF102A43,
-                        ),
-                        fontSize: 15,
-                        fontWeight:
-                            FontWeight.w800,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF263746),
                       ),
                     ),
-                    const SizedBox(
-                      height: 3,
-                    ),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      maxLines: 2,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style:
-                          const TextStyle(
-                        color:
-                            Color(
-                          0xFF52606D,
-                        ),
-                        fontSize: 12,
-                        fontWeight:
-                            FontWeight.w500,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(
-                width: 8,
-              ),
-
               const Icon(
-                Icons
-                    .chevron_right_rounded,
-                color:
-                    Colors.grey,
-                size: 25,
+                Icons.chevron_right_rounded,
+                color: Colors.grey,
               ),
             ],
           ),
