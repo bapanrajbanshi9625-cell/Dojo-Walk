@@ -236,11 +236,10 @@ class _ProfileSetupScreenState
       // ========================================================
 
       await ProfileSetupService.saveProfile(
-        ownerName:
-            ownerController.text.trim(),
-        address:
-            addressController.text.trim(),
-        pets: pets,
+       ownerName: ownerController.text.trim(),
+       address: addressController.text.trim(),
+       phoneNumber: phone,
+       pets: pets,
       );
 
       if (!mounted) {
