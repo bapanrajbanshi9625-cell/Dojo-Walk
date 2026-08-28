@@ -5,13 +5,13 @@ import '../widgets/menu_card.dart';
 import '../widgets/section_title.dart';
 
 import 'custom_app_bar.dart';
-import 'profile_screen.dart';
 import 'notifications_screen.dart';
 import 'login_screen.dart';
 import 'address_screen.dart';
 import 'settings_screen.dart';
 import 'help_support_screen.dart';
 import 'about_screen.dart';
+import '../features/profile/screens/profile_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
