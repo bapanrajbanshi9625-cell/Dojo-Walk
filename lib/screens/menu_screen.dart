@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/colors/dojo_brand_colors.dart';
+import '../core/theme/colors/dojo_light_colors.dart';
+import '../core/theme/colors/dojo_card_colors.dart';
 import '../widgets/menu_card.dart';
 import '../widgets/section_title.dart';
 
@@ -46,15 +48,13 @@ class MenuScreen extends StatelessWidget {
           title: const Text(
             'Logout',
             style: TextStyle(
-              color: AppColors.navy,
+              color: DojoBrandColors.navy,
               fontWeight: FontWeight.bold,
             ),
           ),
-
           content: const Text(
             'Are you sure you want to logout?',
           ),
-
           actions: [
             TextButton(
               onPressed: () {
@@ -63,32 +63,26 @@ class MenuScreen extends StatelessWidget {
               child: const Text(
                 'Cancel',
                 style: TextStyle(
-                  color: AppColors.slate,
+                  color: DojoBrandColors.slate,
                 ),
               ),
             ),
-
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    AppColors.primary,
-                foregroundColor:
-                    Colors.white,
+                backgroundColor: DojoBrandColors.orange,
+                foregroundColor: Colors.white,
               ),
-
               onPressed: () {
                 Navigator.pop(dialogContext);
 
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        const LoginScreen(),
+                    builder: (_) => const LoginScreen(),
                   ),
                   (route) => false,
                 );
               },
-
               child: const Text(
                 'Logout',
               ),
@@ -106,8 +100,7 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.background,
+      backgroundColor: DojoLightColors.background,
 
       // ========================================================
       // DOJO WALK APP BAR
@@ -120,14 +113,12 @@ class MenuScreen extends StatelessWidget {
       // ========================================================
 
       body: ListView(
-        padding:
-            const EdgeInsets.fromLTRB(
+        padding: const EdgeInsets.fromLTRB(
           15,
           16,
           15,
           30,
         ),
-
         children: [
           // ======================================================
           // ACCOUNT
@@ -142,10 +133,8 @@ class MenuScreen extends StatelessWidget {
           ),
 
           MenuCard(
-            icon:
-                Icons.person_outline,
-            title:
-                'Profile Settings',
+            icon: Icons.person_outline,
+            title: 'Profile Settings',
             subtitle:
                 'Manage your profile information',
             onTap: () {
@@ -161,10 +150,8 @@ class MenuScreen extends StatelessWidget {
           ),
 
           MenuCard(
-            icon:
-                Icons.location_on_outlined,
-            title:
-                'Address',
+            icon: Icons.location_on_outlined,
+            title: 'Address',
             subtitle:
                 'Update your home or walking address',
             onTap: () {
@@ -180,10 +167,8 @@ class MenuScreen extends StatelessWidget {
           ),
 
           MenuCard(
-            icon:
-                Icons.notifications_none,
-            title:
-                'Notifications',
+            icon: Icons.notifications_none,
+            title: 'Notifications',
             subtitle:
                 'Manage your notification preferences',
             onTap: () {
@@ -211,10 +196,8 @@ class MenuScreen extends StatelessWidget {
           ),
 
           MenuCard(
-            icon:
-                Icons.settings_outlined,
-            title:
-                'Settings',
+            icon: Icons.settings_outlined,
+            title: 'Settings',
             subtitle:
                 'Manage your Dojo Walk app settings',
             onTap: () {
@@ -242,10 +225,8 @@ class MenuScreen extends StatelessWidget {
           ),
 
           MenuCard(
-            icon:
-                Icons.help_outline,
-            title:
-                'Help & Support',
+            icon: Icons.help_outline,
+            title: 'Help & Support',
             subtitle:
                 'Get help with your Dojo Walk account',
             onTap: () {
@@ -261,10 +242,8 @@ class MenuScreen extends StatelessWidget {
           ),
 
           MenuCard(
-            icon:
-                Icons.info_outline,
-            title:
-                'About Dojo Walk',
+            icon: Icons.info_outline,
+            title: 'About Dojo Walk',
             subtitle:
                 'App information and version',
             onTap: () {
@@ -284,20 +263,13 @@ class MenuScreen extends StatelessWidget {
           // ======================================================
 
           MenuCard(
-            icon:
-                Icons.logout,
-            title:
-                'Logout',
-            subtitle:
-                'Sign out of your account',
-            iconColor:
-                Colors.red,
-            titleColor:
-                Colors.red,
+            icon: Icons.logout,
+            title: 'Logout',
+            subtitle: 'Sign out of your account',
+            iconColor: DojoCardColors.error,
+            titleColor: DojoCardColors.error,
             onTap: () {
-              _showLogoutDialog(
-                context,
-              );
+              _showLogoutDialog(context);
             },
           ),
 
@@ -313,11 +285,9 @@ class MenuScreen extends StatelessWidget {
             child: Text(
               'Dojo Walk',
               style: TextStyle(
-                color:
-                    AppColors.navy,
+                color: DojoBrandColors.navy,
                 fontSize: 16,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -330,8 +300,7 @@ class MenuScreen extends StatelessWidget {
             child: Text(
               'Version 1.0.0',
               style: TextStyle(
-                color:
-                    AppColors.slate,
+                color: DojoBrandColors.slate,
                 fontSize: 11,
               ),
             ),
