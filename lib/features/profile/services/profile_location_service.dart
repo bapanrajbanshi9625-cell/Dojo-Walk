@@ -12,8 +12,7 @@ class ProfileLocationService {
   static final ProfileLocationService instance =
       ProfileLocationService._();
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
@@ -28,9 +27,11 @@ class ProfileLocationService {
   Future<Map<String, dynamic>> connectCurrentLocation() async {
     final User user = _requireCurrentUser();
 
-    // ----------------------------------------------------------
+    final String uid = user.uid.trim();
+
+    // ==========================================================
     // LOCATION SERVICE
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final bool serviceEnabled =
         await Geolocator.isLocationServiceEnabled();
@@ -39,16 +40,15 @@ class ProfileLocationService {
       throw const LocationServiceDisabledException();
     }
 
-    // ----------------------------------------------------------
-    // PERMISSION
-    // ----------------------------------------------------------
+    // ==========================================================
+    // LOCATION PERMISSION
+    // ==========================================================
 
     LocationPermission permission =
         await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied) {
@@ -59,9 +59,9 @@ class ProfileLocationService {
       throw const LocationPermissionDeniedForeverException();
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // CURRENT POSITION
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final Position position =
         await Geolocator.getCurrentPosition(
@@ -70,9 +70,9 @@ class ProfileLocationService {
       ),
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // REVERSE GEOCODING
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final List<geocoding.Placemark> placemarks =
         await _geocoding.placemarkFromCoordinates(
@@ -87,9 +87,9 @@ class ProfileLocationService {
     final geocoding.Placemark place =
         placemarks.first;
 
-    // ----------------------------------------------------------
-    // ADDRESS VALUES
-    // ----------------------------------------------------------
+    // ==========================================================
+    // ADDRESS COMPONENTS
+    // ==========================================================
 
     final String street =
         place.street?.trim() ?? '';
@@ -109,9 +109,9 @@ class ProfileLocationService {
     final String postalCode =
         place.postalCode?.trim() ?? '';
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // AREA
-    // ----------------------------------------------------------
+    // ==========================================================
 
     String area = '';
 
@@ -121,9 +121,9 @@ class ProfileLocationService {
       area = locality;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // CITY
-    // ----------------------------------------------------------
+    // ==========================================================
 
     String city = '';
 
@@ -133,28 +133,36 @@ class ProfileLocationService {
       city = subAdministrativeArea;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
+    // STATE
+    // ==========================================================
+
+    final String state =
+        administrativeArea;
+
+    // ==========================================================
     // FIND OWNER DOCUMENT
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final DocumentReference<Map<String, dynamic>> ownerRef =
         await _findOwnerDocument(
-      uid: user.uid.trim(),
+      uid: uid,
     );
 
-    // ----------------------------------------------------------
-    // ADDRESS STRING
-    // ----------------------------------------------------------
+    // ==========================================================
+    // FULL ADDRESS
+    // ==========================================================
 
     final List<String> addressParts = <String>[
       street,
       area,
       city,
-      administrativeArea,
+      state,
       postalCode,
     ]
         .where(
-          (String value) => value.trim().isNotEmpty,
+          (String value) =>
+              value.trim().isNotEmpty,
         )
         .map(
           (String value) => value.trim(),
@@ -164,37 +172,38 @@ class ProfileLocationService {
     final String fullAddress =
         addressParts.join(', ');
 
-    // ----------------------------------------------------------
-    // FIRESTORE DATA
-    //
-    // Existing profile fields are preserved.
-    // ----------------------------------------------------------
+    // ==========================================================
+    // FIRESTORE LOCATION DATA
+    // ==========================================================
 
     final Map<String, dynamic> locationData =
         <String, dynamic>{
+      // GPS
       'latitude': position.latitude,
       'longitude': position.longitude,
 
+      // Address
       'addressLine1': street,
       'area': area,
       'city': city,
-      'state': administrativeArea,
+      'state': state,
       'pincode': postalCode,
-
       'address': fullAddress,
 
+      // Auth synchronization
+      'authUid': uid,
+
+      // Timestamps
       'locationUpdatedAt':
           FieldValue.serverTimestamp(),
 
       'updatedAt':
           FieldValue.serverTimestamp(),
-
-      'authUid': user.uid,
     };
 
-    // ----------------------------------------------------------
-    // SAVE
-    // ----------------------------------------------------------
+    // ==========================================================
+    // SAVE TO OWNER PROFILE
+    // ==========================================================
 
     await ownerRef.set(
       locationData,
@@ -203,18 +212,17 @@ class ProfileLocationService {
       ),
     );
 
-    // ----------------------------------------------------------
-    // RETURN
-    // ----------------------------------------------------------
+    // ==========================================================
+    // RETURN TO PROFILE SCREEN
+    // ==========================================================
 
     return <String, dynamic>{
-      ...locationData,
       'latitude': position.latitude,
       'longitude': position.longitude,
       'addressLine1': street,
       'area': area,
       'city': city,
-      'state': administrativeArea,
+      'state': state,
       'pincode': postalCode,
       'address': fullAddress,
     };
@@ -225,8 +233,8 @@ class ProfileLocationService {
   //
   // Priority:
   //
-  // 1. owners/{Firebase UID}
-  // 2. owners where authUid == Firebase UID
+  // 1. owners where authUid == Firebase UID
+  // 2. owners/{Firebase UID}
   //
   // ============================================================
 
@@ -245,25 +253,9 @@ class ProfileLocationService {
       );
     }
 
-    // ----------------------------------------------------------
-    // FIRST: owners/{uid}
-    // ----------------------------------------------------------
-
-    final DocumentReference<Map<String, dynamic>> directRef =
-        _firestore
-            .collection('owners')
-            .doc(cleanUid);
-
-    final DocumentSnapshot<Map<String, dynamic>> directDoc =
-        await directRef.get();
-
-    if (directDoc.exists) {
-      return directRef;
-    }
-
-    // ----------------------------------------------------------
-    // SECOND: authUid QUERY
-    // ----------------------------------------------------------
+    // ==========================================================
+    // FIRST: authUid QUERY
+    // ==========================================================
 
     final QuerySnapshot<Map<String, dynamic>> query =
         await _firestore
@@ -279,6 +271,26 @@ class ProfileLocationService {
       return query.docs.first.reference;
     }
 
+    // ==========================================================
+    // SECOND: owners/{uid}
+    // ==========================================================
+
+    final DocumentReference<Map<String, dynamic>> directRef =
+        _firestore
+            .collection('owners')
+            .doc(cleanUid);
+
+    final DocumentSnapshot<Map<String, dynamic>> directDoc =
+        await directRef.get();
+
+    if (directDoc.exists) {
+      return directRef;
+    }
+
+    // ==========================================================
+    // OWNER NOT FOUND
+    // ==========================================================
+
     throw FirebaseException(
       plugin: 'cloud_firestore',
       code: 'owner-not-found',
@@ -288,7 +300,7 @@ class ProfileLocationService {
   }
 
   // ============================================================
-  // CURRENT USER
+  // CURRENT FIREBASE USER
   // ============================================================
 
   User _requireCurrentUser() {
