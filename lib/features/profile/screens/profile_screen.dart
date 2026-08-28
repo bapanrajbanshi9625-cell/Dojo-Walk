@@ -1,8 +1,7 @@
-// File: lib/features/profile/screens/profile_screen.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_colors.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/profile_card.dart';
@@ -10,54 +9,48 @@ import '../widgets/profile_card.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-  static const Color background = Color(0xFFF7F8FA);
-
   @override
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
+
+    final String ownerId = user?.uid ?? '';
 
     final String ownerName =
         user?.displayName?.trim().isNotEmpty == true
             ? user!.displayName!.trim()
             : 'Owner';
 
-    final String phoneNumber =
+    final String mobileNumber =
         user?.phoneNumber?.trim().isNotEmpty == true
             ? user!.phoneNumber!.trim()
             : 'Not available';
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: DojoColors.background,
 
-      // ========================================================
+      // ============================================================
       // APP BAR
-      // ========================================================
+      // ============================================================
 
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: navy,
+        backgroundColor: DojoColors.white,
+        foregroundColor: DojoColors.navy,
         centerTitle: false,
         title: const Text(
           'My Profile',
           style: TextStyle(
-            color: navy,
+            color: DojoColors.navy,
             fontSize: 21,
             fontWeight: FontWeight.w900,
           ),
         ),
       ),
 
-      // ========================================================
+      // ============================================================
       // BODY
-      // ========================================================
+      // ============================================================
 
       body: SafeArea(
         child: SingleChildScrollView(
@@ -71,9 +64,9 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ==================================================
+              // ======================================================
               // PROFILE CARD
-              // ==================================================
+              // ======================================================
 
               ProfileCard(
                 ownerName: ownerName,
@@ -81,33 +74,68 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // ==================================================
+              // ======================================================
               // OWNER INFORMATION
-              // ==================================================
+              // ======================================================
 
               OwnerInfoCard(
+                ownerId: ownerId,
+                mobileNumber: mobileNumber,
                 ownerName: ownerName,
-                phoneNumber: phoneNumber,
+
+                // These are display-only for now.
+                ownerDob: '-',
+                ownerGender: '-',
+
+                // Firebase user creation date.
+                memberSince: _memberSince(user),
+
+                // Firebase Auth user is considered active
+                // when a signed-in user exists.
+                isActive: user != null,
+
+                onChangeMobile: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/change-mobile',
+                  );
+                },
+
+                onCopyOwnerId: () {
+                  _copyOwnerId(
+                    context,
+                    ownerId,
+                  );
+                },
               ),
 
               const SizedBox(height: 16),
 
-              // ==================================================
+              // ======================================================
               // ADDRESS
-              // ==================================================
+              // ======================================================
 
-              const AddressCard(),
+              AddressCard(
+                flatHouseNo: '',
+                streetRoad: '',
+                landmark: '',
+                isConnecting: false,
+                onConnectLocation: () {
+                  _showComingSoon(context);
+                },
+              ),
 
               const SizedBox(height: 24),
 
-              // ==================================================
+              // ======================================================
               // CHANGE MOBILE
-              // ==================================================
+              // ======================================================
 
               _ProfileActionCard(
                 icon: Icons.phone_android_rounded,
                 title: 'Change Mobile Number',
-                subtitle: 'Update your registered mobile number',
+                subtitle:
+                    'Update your registered mobile number',
                 onTap: () {
                   Navigator.pushNamed(
                     context,
@@ -118,21 +146,89 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // ==================================================
+              // ======================================================
               // LOGOUT
-              // ==================================================
+              // ======================================================
 
               _ProfileActionCard(
                 icon: Icons.logout_rounded,
                 title: 'Logout',
                 subtitle: 'Sign out from this account',
-                iconColor: Colors.red,
+                iconColor: DojoColors.red,
                 onTap: () async {
                   await _logout(context);
                 },
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // MEMBER SINCE
+  // ============================================================
+
+  String _memberSince(User? user) {
+    final DateTime? createdAt = user?.metadata.creationTime;
+
+    if (createdAt == null) {
+      return '-';
+    }
+
+    const List<String> months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${months[createdAt.month - 1]} ${createdAt.year}';
+  }
+
+  // ============================================================
+  // COPY OWNER ID
+  // ============================================================
+
+  void _copyOwnerId(
+    BuildContext context,
+    String ownerId,
+  ) {
+    if (ownerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Owner ID is not available.'),
+        ),
+      );
+      return;
+    }
+
+    // Clipboard functionality can be added here if desired.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Owner ID copied.'),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ADDRESS LOCATION PLACEHOLDER
+  // ============================================================
+
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Location connection will be available here.',
         ),
       ),
     );
@@ -154,7 +250,7 @@ class ProfileScreen extends StatelessWidget {
         '/mobile-login',
         (route) => false,
       );
-    } catch (e) {
+    } catch (_) {
       if (!context.mounted) {
         return;
       }
@@ -192,10 +288,10 @@ class _ProfileActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color =
-        iconColor ?? ProfileScreen.orange;
+        iconColor ?? DojoColors.orange;
 
     return Material(
-      color: Colors.white,
+      color: DojoColors.white,
       borderRadius: BorderRadius.circular(18),
       elevation: 0,
       child: InkWell(
@@ -205,13 +301,15 @@ class _ProfileActionCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
+            color: DojoColors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: DojoColors.black.withValues(alpha: 0.04),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color:
+                    DojoColors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -253,7 +351,7 @@ class _ProfileActionCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: ProfileScreen.navy,
+                        color: DojoColors.navy,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -264,7 +362,7 @@ class _ProfileActionCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.grey,
+                        color: DojoColors.grey,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -281,7 +379,7 @@ class _ProfileActionCard extends StatelessWidget {
 
               const Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.grey,
+                color: DojoColors.grey,
                 size: 25,
               ),
             ],
