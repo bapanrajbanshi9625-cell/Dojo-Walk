@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'colors/dojo_appbar_colors.dart';
-import 'colors/dojo_bottom_colors.dart';
-import 'colors/dojo_brand_colors.dart';
-import 'colors/dojo_button_colors.dart';
-import 'colors/dojo_card_colors.dart';
-import 'colors/dojo_dark_colors.dart';
-import 'colors/dojo_input_colors.dart';
-import 'colors/dojo_light_colors.dart';
-import 'colors/dojo_tab_colors.dart';
+import 'dojo_colors.dart';
 
 class DojoTheme {
   DojoTheme._();
