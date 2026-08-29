@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/theme/dojo_colors.dart';
+
 import '../models/pet_data.dart';
 import '../screens/main_navigation_screen.dart';
 
@@ -21,10 +23,6 @@ import '../features/profile_setup/pickers/breed_picker.dart';
 // ============================================================
 // DOJO THEME COLORS
 // ============================================================
-
-import '../core/theme/colors/dojo_brand_colors.dart';
-import '../core/theme/colors/dojo_input_colors.dart';
-import '../core/theme/colors/dojo_light_colors.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({
