@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'custom_app_bar.dart';
 
-import '../core/theme/colors/dojo_brand_colors.dart';
-import '../core/theme/colors/dojo_card_colors.dart';
-import '../core/theme/colors/dojo_light_colors.dart';
+import '../core/theme/dojo_colors.dart';
 
 import '../features/home/services/home_data_service.dart'
     as home_data;
