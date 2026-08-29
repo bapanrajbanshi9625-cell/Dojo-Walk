@@ -537,8 +537,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // RESTORE ACCEPTED WALKER
     // ==========================================================
 
-    _walkerAccepted(
-      accepted,
+    await _walkerAccepted(
+     accepted,
     );
   }
 }
