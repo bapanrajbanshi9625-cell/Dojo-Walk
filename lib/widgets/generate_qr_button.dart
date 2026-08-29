@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/qr_service.dart';
+import '../screens/live_walk_screen.dart';
 
 class GenerateQRButton extends StatefulWidget {
   final bool isLiveWalk;
@@ -32,6 +33,10 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
 
   bool _opening = false;
 
+  // Prevent duplicate navigation if Firestore
+  // sends the connected state more than once.
+  bool _liveScreenOpened = false;
+
   // ==========================================================
   // DISPOSE
   // ==========================================================
@@ -54,6 +59,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
 
     setState(() {
       _opening = true;
+      _liveScreenOpened = false;
     });
 
     try {
@@ -82,7 +88,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
       _scanSubscription = QRService.instance
           .watchScan(qr.ownerId)
           .listen(
-        (QRScanState state) {
+        (QRScanState state) async {
           if (!mounted) {
             return;
           }
@@ -99,6 +105,44 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             'walkId=${state.walkId}',
           );
 
+          // ------------------------------------------------------
+          // OPEN OWNER LIVE WALK SCREEN
+          // ------------------------------------------------------
+
+          if (state.walkId.trim().isNotEmpty &&
+              !_liveScreenOpened) {
+            _liveScreenOpened = true;
+
+            // Close QR bottom sheet first.
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+
+            // Give the bottom sheet a moment to close.
+            await Future<void>.delayed(
+              const Duration(milliseconds: 150),
+            );
+
+            if (!mounted) {
+              return;
+            }
+
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => LiveWalkScreen(
+                  activeWalkId: state.walkId.trim(),
+                  isWalker: false,
+                ),
+              ),
+            );
+
+            // Allow another connection after returning.
+            if (mounted) {
+              _liveScreenOpened = false;
+            }
+          }
+
+          // Keep existing parent callback.
           widget.onWalkerConnected?.call(state);
         },
         onError: (
