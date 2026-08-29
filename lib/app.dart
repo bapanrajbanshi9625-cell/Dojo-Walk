@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/network/network_monitor.dart';
-import 'core/theme/colors/dojo_brand_colors.dart';
+import 'core/theme/dojo_colors.dart';
 import 'screens/splash_screen.dart';
 
 class DojoWalk extends StatelessWidget {
