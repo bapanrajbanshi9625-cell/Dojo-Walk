@@ -7,7 +7,7 @@ import 'owner_id_service.dart';
 /// OWNER AUTH SERVICE
 /// ============================================================
 ///
-/// जिम्मेदारी:
+/// Responsibility:
 /// - Firebase session create / restore
 /// - Firebase UID प्राप्त करना
 /// - Owner ID प्राप्त / create करना
@@ -16,11 +16,11 @@ import 'owner_id_service.dart';
 /// - isActive check करना
 /// - profileCompleted check करना
 ///
-/// यह service:
-/// - MSG91 OTP verify नहीं करती
-/// - OTP resend नहीं करती
-/// - Navigation नहीं करती
-/// - Profile setup UI नहीं संभालती
+/// NOT responsible for:
+/// - MSG91 OTP verification
+/// - OTP resend
+/// - Navigation
+/// - Profile setup UI
 ///
 /// Flow:
 ///
@@ -69,8 +69,7 @@ class OwnerAuthService {
   // ============================================================
 
   Future<User> createOrRestoreSession() async {
-    User? user =
-        _auth.currentUser;
+    User? user = _auth.currentUser;
 
     // ----------------------------------------------------------
     // EXISTING SESSION
@@ -125,26 +124,49 @@ class OwnerAuthService {
   // ============================================================
   // NORMALIZE PHONE NUMBER
   // ============================================================
-  //
-  // IMPORTANT:
-  // यहां कोई substring / last-10-digits logic नहीं है.
-  //
-  // यह method केवल:
-  // - spaces हटाता है
-  // - + / - / brackets जैसे characters हटाता है
-  // - exactly 10 digits check करता है
-  // - Indian mobile number validate करता है
-  //
+  ///
+  /// Accepted:
+  ///
+  /// 9876543210
+  /// +919876543210
+  /// 919876543210
+  /// +91 9876543210
+  /// 91-9876543210
+  ///
+  /// Final returned value:
+  ///
+  /// 9876543210
+  ///
+  /// बाद में जहां phone save करना है वहां:
+  ///
+  /// +91$cleanPhone
+  ///
+  /// किया जाएगा.
+  ///
   // ============================================================
 
   String _normalizePhoneNumber(
     String phoneNumber,
   ) {
-    final String cleanPhone =
+    String cleanPhone =
         phoneNumber.trim().replaceAll(
-          RegExp(r'[^0-9]'),
-          '',
-        );
+              RegExp(r'[^0-9]'),
+              '',
+            );
+
+    // ----------------------------------------------------------
+    // REMOVE INDIA COUNTRY CODE
+    // ----------------------------------------------------------
+
+    if (cleanPhone.length == 12 &&
+        cleanPhone.startsWith('91')) {
+      cleanPhone =
+          cleanPhone.substring(2);
+    }
+
+    // ----------------------------------------------------------
+    // VALIDATE EXACTLY 10 DIGITS
+    // ----------------------------------------------------------
 
     if (cleanPhone.length != 10) {
       throw FirebaseAuthException(
@@ -153,6 +175,10 @@ class OwnerAuthService {
             'Please enter a valid 10-digit mobile number.',
       );
     }
+
+    // ----------------------------------------------------------
+    // VALIDATE INDIAN MOBILE NUMBER
+    // ----------------------------------------------------------
 
     if (!RegExp(r'^[6-9][0-9]{9}$')
         .hasMatch(cleanPhone)) {
@@ -185,7 +211,7 @@ class OwnerAuthService {
         '+91$cleanPhone';
 
     // ----------------------------------------------------------
-    // EXISTING OWNER ID SERVICE
+    // OWNER ID SERVICE
     // ----------------------------------------------------------
 
     final String ownerId =
@@ -217,8 +243,6 @@ class OwnerAuthService {
   /// Firestore:
   ///
   /// phoneAccounts/{uid}
-  ///
-  /// SplashScreen इसी document को पढ़ता है.
   ///
   // ============================================================
 
@@ -255,6 +279,9 @@ class OwnerAuthService {
       );
     }
 
+    final String fullPhoneNumber =
+        '+91$cleanPhone';
+
     final DocumentReference<
         Map<String, dynamic>> accountRef =
         _firestore
@@ -266,9 +293,19 @@ class OwnerAuthService {
     await accountRef.set(
       <String, dynamic>{
         'uid': cleanUid,
+        'authUid': cleanUid,
+
         'ownerId': cleanOwnerId,
-        'phoneNumber': '+91$cleanPhone',
-        'phone': cleanPhone,
+
+        // Final standard phone format.
+        'phoneNumber': fullPhoneNumber,
+
+        'phone': fullPhoneNumber,
+
+        'mainPhone': fullPhoneNumber,
+
+        'role': 'owner',
+
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -288,6 +325,10 @@ class OwnerAuthService {
     print(
       'Owner ID: $cleanOwnerId',
     );
+
+    print(
+      'Phone: $fullPhoneNumber',
+    );
   }
 
   // ============================================================
@@ -297,9 +338,6 @@ class OwnerAuthService {
   /// Firestore:
   ///
   /// owners/{ownerId}
-  ///
-  /// नया user पहली बार login करे तो document
-  /// automatically create होगा.
   ///
   // ============================================================
 
@@ -337,19 +375,24 @@ class OwnerAuthService {
       );
     }
 
+    final String fullPhoneNumber =
+        '+91$cleanPhone';
+
     final DocumentReference<
         Map<String, dynamic>> ownerRef =
         _firestore
-            .collection(_ownersCollection)
+            .collection(
+              _ownersCollection,
+            )
             .doc(cleanOwnerId);
 
     final DocumentSnapshot<
         Map<String, dynamic>> snapshot =
         await ownerRef.get();
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // EXISTING OWNER
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (snapshot.exists) {
       final Map<String, dynamic>? existingData =
@@ -359,11 +402,27 @@ class OwnerAuthService {
           existingData ??
               <String, dynamic>{};
 
+      // --------------------------------------------------------
+      // IMPORTANT:
+      // Existing profileCompleted value को overwrite नहीं करना.
+      // --------------------------------------------------------
+
       await ownerRef.set(
         <String, dynamic>{
           'ownerId': cleanOwnerId,
+
           'uid': cleanUid,
-          'phoneNumber': '+91$cleanPhone',
+
+          'authUid': cleanUid,
+
+          'phoneNumber': fullPhoneNumber,
+
+          'phone': fullPhoneNumber,
+
+          'mainPhone': fullPhoneNumber,
+
+          'role': 'owner',
+
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -379,15 +438,25 @@ class OwnerAuthService {
       return data;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // NEW OWNER
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final Map<String, dynamic> newOwnerData =
         <String, dynamic>{
       'ownerId': cleanOwnerId,
+
       'uid': cleanUid,
-      'phoneNumber': '+91$cleanPhone',
+
+      'authUid': cleanUid,
+
+      'phoneNumber': fullPhoneNumber,
+
+      'phone': fullPhoneNumber,
+
+      'mainPhone': fullPhoneNumber,
+
+      'role': 'owner',
 
       // Profile setup अभी बाकी है.
       'profileCompleted': false,
@@ -439,7 +508,9 @@ class OwnerAuthService {
     final DocumentSnapshot<
         Map<String, dynamic>> snapshot =
         await _firestore
-            .collection(_ownersCollection)
+            .collection(
+              _ownersCollection,
+            )
             .doc(cleanOwnerId)
             .get();
 
@@ -464,7 +535,7 @@ class OwnerAuthService {
   // ============================================================
   ///
   /// MSG91 OTP successfully verify होने के बाद
-  /// OtpVerificationScreen से इसे call करें.
+  /// इस method को call करें.
   ///
   // ============================================================
 
@@ -472,18 +543,26 @@ class OwnerAuthService {
       authenticateOwner({
     required String phoneNumber,
   }) async {
-    // ----------------------------------------------------------
+    // ==========================================================
     // 1. VALIDATE PHONE
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String cleanPhone =
         _normalizePhoneNumber(
       phoneNumber,
     );
 
-    // ----------------------------------------------------------
+    final String fullPhoneNumber =
+        '+91$cleanPhone';
+
+    print(
+      'OwnerAuthService: Verified phone = '
+      '$fullPhoneNumber',
+    );
+
+    // ==========================================================
     // 2. FIREBASE SESSION
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String uid =
         await getFirebaseUid();
@@ -492,9 +571,9 @@ class OwnerAuthService {
       'OwnerAuthService: Firebase UID = $uid',
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 3. OWNER ID
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String ownerId =
         await getOwnerId(
@@ -505,9 +584,9 @@ class OwnerAuthService {
       'OwnerAuthService: Owner ID = $ownerId',
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 4. SAVE PHONE ACCOUNT
-    // ----------------------------------------------------------
+    // ==========================================================
 
     await savePhoneAccount(
       uid: uid,
@@ -515,9 +594,9 @@ class OwnerAuthService {
       phoneNumber: cleanPhone,
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 5. CREATE OWNER IF MISSING
-    // ----------------------------------------------------------
+    // ==========================================================
 
     await createOwnerIfMissing(
       ownerId: ownerId,
@@ -525,31 +604,32 @@ class OwnerAuthService {
       phoneNumber: cleanPhone,
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 6. LOAD OWNER PROFILE
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final Map<String, dynamic> profileData =
         await getOwnerProfile(
       ownerId: ownerId,
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 7. ACTIVE STATUS
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final bool isActive =
         profileData['isActive'] != false;
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 8. PROFILE COMPLETED
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final bool profileCompleted =
         profileData['profileCompleted'] == true;
 
     print(
-      'OwnerAuthService: isActive = $isActive',
+      'OwnerAuthService: isActive = '
+      '$isActive',
     );
 
     print(
@@ -557,14 +637,14 @@ class OwnerAuthService {
       '$profileCompleted',
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // 9. RETURN RESULT
-    // ----------------------------------------------------------
+    // ==========================================================
 
     return OwnerAuthResult(
       uid: uid,
       ownerId: ownerId,
-      phoneNumber: '+91$cleanPhone',
+      phoneNumber: fullPhoneNumber,
       profileData: profileData,
       isActive: isActive,
       profileCompleted: profileCompleted,
