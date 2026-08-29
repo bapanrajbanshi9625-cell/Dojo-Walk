@@ -25,12 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
       '3668426c306d353733343031';
 
   // IMPORTANT:
-  // Paste the CURRENT AuthToken generated for THIS OTP Widget.
+  // Use the CURRENT AuthToken generated for THIS OTP Widget.
   //
   // MSG91:
   // OTP -> Widget -> Mobile Integration
   //
-  // Do not use an old token or a token from another widget.
+  // Security:
+  // If this token has been exposed publicly, regenerate it
+  // in MSG91 and replace the value below.
   static const String _authToken =
       '565278AGmr6TyWn6a91bf8aP1';
 
@@ -61,11 +63,15 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // ----------------------------------------------------------
+    // GET USER INPUT
+    // ----------------------------------------------------------
+
     final String phone =
         _phoneController.text.trim();
 
     // ----------------------------------------------------------
-    // VALIDATE PHONE
+    // VALIDATE 10-DIGIT INDIAN MOBILE NUMBER
     // ----------------------------------------------------------
 
     if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
@@ -87,14 +93,16 @@ class _LoginScreenState extends State<LoginScreen> {
     // INDIA COUNTRY CODE
     // ----------------------------------------------------------
     //
-    // The user-entered 10-digit number is prefixed with 91.
+    // UI:
+    // +91 | 9625813987
     //
-    // Example:
+    // User enters only:
+    // 9625813987
     //
-    // MSG91 identifier: 919876543210
+    // MSG91 receives:
+    // 919625813987
     //
-    // No "+" is added.
-    //
+    // No "+" is added to the identifier.
     // ----------------------------------------------------------
 
     final String identifier = '91$phone';
@@ -136,8 +144,16 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // --------------------------------------------------------
+      // RESPONSE TYPE
+      // --------------------------------------------------------
+
       final String type =
-          response['type']?.toString().trim().toLowerCase() ?? '';
+          response['type']
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
 
       // --------------------------------------------------------
       // SUCCESS
@@ -184,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         // ------------------------------------------------------
-        // OTP SENT
+        // OTP SENT SUCCESSFULLY
         // ------------------------------------------------------
 
         _finishLoading();
@@ -209,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // --------------------------------------------------------
-      // ERROR
+      // ERROR RESPONSE
       // --------------------------------------------------------
 
       debugPrint(
@@ -257,7 +273,8 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _extractRequestId(
     Map<String, dynamic> response,
   ) {
-    final List<dynamic> possibleValues = <dynamic>[
+    final List<dynamic> possibleValues =
+        <dynamic>[
       response['reqId'],
       response['req_id'],
       response['requestId'],
@@ -265,7 +282,8 @@ class _LoginScreenState extends State<LoginScreen> {
       response['message'],
     ];
 
-    for (final dynamic value in possibleValues) {
+    for (final dynamic value
+        in possibleValues) {
       if (value == null) {
         continue;
       }
@@ -282,13 +300,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ============================================================
-  // EXTRACT ERROR
+  // EXTRACT ERROR MESSAGE
   // ============================================================
 
   String _extractErrorMessage(
     Map<String, dynamic> response,
   ) {
-    final List<dynamic> possibleMessages = <dynamic>[
+    final List<dynamic> possibleMessages =
+        <dynamic>[
       response['message'],
       response['error'],
       response['description'],
@@ -296,7 +315,8 @@ class _LoginScreenState extends State<LoginScreen> {
       response['errorMessage'],
     ];
 
-    for (final dynamic value in possibleMessages) {
+    for (final dynamic value
+        in possibleMessages) {
       if (value == null) {
         continue;
       }
@@ -342,7 +362,8 @@ class _LoginScreenState extends State<LoginScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior:
+              SnackBarBehavior.floating,
         ),
       );
   }
@@ -403,7 +424,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 height: 96,
                 width: 96,
-                decoration: BoxDecoration(
+                decoration:
+                    BoxDecoration(
                   color:
                       AppColors.primary,
                   shape:
@@ -421,7 +443,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
+                child:
+                    const Icon(
                   Icons.pets,
                   size: 52,
                   color:
@@ -429,7 +452,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(
+                height: 18,
+              ),
 
               // ==================================================
               // APP NAME
@@ -437,8 +462,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const Text(
                 'Dojo Walk',
-                style: TextStyle(
-                  color: textColor,
+                style:
+                    TextStyle(
+                  color:
+                      textColor,
                   fontSize: 31,
                   fontWeight:
                       FontWeight.w900,
@@ -446,26 +473,33 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(
+                height: 5,
+              ),
 
               const Text(
                 'Dog walking made simple',
-                style: TextStyle(
-                  color: secondaryText,
+                style:
+                    TextStyle(
+                  color:
+                      secondaryText,
                   fontSize: 15,
                   fontWeight:
                       FontWeight.w500,
                 ),
               ),
 
-              const SizedBox(height: 42),
+              const SizedBox(
+                height: 42,
+              ),
 
               // ==================================================
               // LOGIN CARD
               // ==================================================
 
               Container(
-                width: double.infinity,
+                width:
+                    double.infinity,
                 padding:
                     const EdgeInsets.fromLTRB(
                   20,
@@ -475,17 +509,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 decoration:
                     BoxDecoration(
-                  color: cardColor,
+                  color:
+                      cardColor,
                   borderRadius:
-                      BorderRadius.circular(24),
+                      BorderRadius.circular(
+                    24,
+                  ),
                   border:
                       Border.all(
-                    color: borderColor,
+                    color:
+                        borderColor,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color:
-                          Colors.black.withValues(
+                          Colors.black
+                              .withValues(
                         alpha: 0.06,
                       ),
                       blurRadius: 20,
@@ -494,24 +533,29 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                child: Column(
+                child:
+                    Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Mobile Number',
-                      style: TextStyle(
-                        color: textColor,
+                      style:
+                          TextStyle(
+                        color:
+                            textColor,
                         fontSize: 16,
                         fontWeight:
                             FontWeight.w900,
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(
+                      height: 10,
+                    ),
 
                     // ==========================================
-                    // PHONE FIELD
+                    // PHONE INPUT
                     // ==========================================
 
                     Container(
@@ -521,15 +565,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         color:
                             inputBackground,
                         borderRadius:
-                            BorderRadius.circular(16),
+                            BorderRadius.circular(
+                          16,
+                        ),
                         border:
                             Border.all(
                           color:
                               borderColor,
                         ),
                       ),
-                      child: Row(
+                      child:
+                          Row(
                         children: [
+                          // ====================================
+                          // PHONE ICON
+                          // ====================================
+
                           Container(
                             width: 50,
                             height: 46,
@@ -542,10 +593,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               color:
                                   AppColors.primary
                                       .withValues(
-                                alpha: 0.10,
+                                alpha:
+                                    0.10,
                               ),
                               borderRadius:
-                                  BorderRadius.circular(13),
+                                  BorderRadius.circular(
+                                13,
+                              ),
                             ),
                             child:
                                 const Icon(
@@ -556,19 +610,34 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
 
-                          const SizedBox(width: 12),
+                          const SizedBox(
+                            width: 12,
+                          ),
+
+                          // ====================================
+                          // HARD-CODED INDIA CODE
+                          // ====================================
 
                           const Text(
                             '+91',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 16,
+                            style:
+                                TextStyle(
+                              color:
+                                  textColor,
+                              fontSize:
+                                  16,
                               fontWeight:
                                   FontWeight.w800,
                             ),
                           ),
 
-                          const SizedBox(width: 12),
+                          const SizedBox(
+                            width: 10,
+                          ),
+
+                          // ====================================
+                          // DIVIDER
+                          // ====================================
 
                           Container(
                             height: 30,
@@ -577,7 +646,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 borderColor,
                           ),
 
-                          const SizedBox(width: 10),
+                          const SizedBox(
+                            width: 10,
+                          ),
+
+                          // ====================================
+                          // NUMBER INPUT
+                          // ====================================
 
                           Expanded(
                             child:
@@ -585,17 +660,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               controller:
                                   _phoneController,
                               keyboardType:
-                                  TextInputType.phone,
+                                  TextInputType.number,
                               textInputAction:
                                   TextInputAction.done,
-                              maxLength: 10,
+                              maxLength:
+                                  10,
                               enabled:
                                   !_isSendingOtp,
                               style:
                                   const TextStyle(
                                 color:
                                     textColor,
-                                fontSize: 16,
+                                fontSize:
+                                    16,
                                 fontWeight:
                                     FontWeight.w600,
                               ),
@@ -606,14 +683,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                 hintStyle:
                                     TextStyle(
                                   color:
-                                      Color(0xFF9AA6B5),
-                                  fontSize: 14,
+                                      Color(
+                                    0xFF9AA6B5,
+                                  ),
+                                  fontSize:
+                                      14,
                                   fontWeight:
                                       FontWeight.w500,
                                 ),
                                 border:
                                     InputBorder.none,
-                                counterText: '',
+                                counterText:
+                                    '',
                                 contentPadding:
                                     EdgeInsets.zero,
                               ),
@@ -623,14 +704,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(
+                      height: 20,
+                    ),
 
                     // ==========================================
-                    // GET OTP
+                    // GET OTP BUTTON
                     // ==========================================
 
                     SizedBox(
-                      width: double.infinity,
+                      width:
+                          double.infinity,
                       height: 58,
                       child:
                           ElevatedButton(
@@ -658,7 +742,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           shape:
                               RoundedRectangleBorder(
                             borderRadius:
-                                BorderRadius.circular(16),
+                                BorderRadius.circular(
+                              16,
+                            ),
                           ),
                         ),
                         child:
@@ -668,7 +754,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 23,
                                     child:
                                         CircularProgressIndicator(
-                                      strokeWidth: 2.5,
+                                      strokeWidth:
+                                          2.5,
                                       color:
                                           Colors.white,
                                     ),
@@ -679,7 +766,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                             .center,
                                     children: [
                                       Icon(
-                                        Icons.sms_outlined,
+                                        Icons
+                                            .sms_outlined,
                                         size: 23,
                                       ),
                                       SizedBox(
@@ -689,9 +777,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                         'Get OTP',
                                         style:
                                             TextStyle(
-                                          fontSize: 17,
+                                          fontSize:
+                                              17,
                                           fontWeight:
-                                              FontWeight.w900,
+                                              FontWeight
+                                                  .w900,
                                         ),
                                       ),
                                     ],
@@ -699,7 +789,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 22),
+                    const SizedBox(
+                      height: 22,
+                    ),
 
                     // ==========================================
                     // OTP INFO
@@ -715,7 +807,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration:
                               const BoxDecoration(
                             color:
-                                Color(0xFFF1F4F7),
+                                Color(
+                              0xFFF1F4F7,
+                            ),
                             shape:
                                 BoxShape.circle,
                           ),
@@ -729,17 +823,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(width: 12),
+                        const SizedBox(
+                          width: 12,
+                        ),
 
                         const Expanded(
-                          child: Text(
+                          child:
+                              Text(
                             'We will send a one-time password '
                             '(OTP) to verify your mobile number.',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               color:
                                   secondaryText,
-                              fontSize: 12,
-                              height: 1.55,
+                              fontSize:
+                                  12,
+                              height:
+                                  1.55,
                               fontWeight:
                                   FontWeight.w500,
                             ),
@@ -751,7 +851,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(
+                height: 40,
+              ),
 
               // ==================================================
               // FOOTER DIVIDER
@@ -795,7 +897,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(
+                height: 18,
+              ),
 
               const Text(
                 'Dojo Platform',
@@ -805,13 +909,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextStyle(
                   color:
                       secondaryText,
-                  fontSize: 15,
+                  fontSize:
+                      15,
                   fontWeight:
                       FontWeight.w500,
                 ),
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(
+                height: 5,
+              ),
 
               const Text(
                 'Secure Mobile login',
@@ -821,13 +928,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextStyle(
                   color:
                       secondaryText,
-                  fontSize: 13,
+                  fontSize:
+                      13,
                   fontWeight:
                       FontWeight.w400,
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(
+                height: 8,
+              ),
             ],
           ),
         ),
