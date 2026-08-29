@@ -92,7 +92,7 @@ class _ActiveWalkerContainerState
 
   // ==========================================================
   // FIRESTORE LISTENER
-  // FINAL COLLECTION = active_walks
+  // COLLECTION = active_walks
   // ==========================================================
 
   void _listenToActiveWalk() {
@@ -118,7 +118,9 @@ class _ActiveWalkerContainerState
         }
 
         final ActiveWalk walk =
-            ActiveWalkMapper.fromDocument(snapshot);
+            ActiveWalkMapper.fromDocument(
+          snapshot,
+        );
 
         if (!mounted) {
           return;
@@ -305,7 +307,8 @@ class _ActiveWalkerContainerState
       decoration: BoxDecoration(
         color: (reached ? green : primary)
             .withOpacity(.10),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -330,7 +333,7 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // REAL OPENSTREETMAP
+  // OPENSTREETMAP
   // ==========================================================
 
   Widget _buildMap(
@@ -359,7 +362,6 @@ class _ActiveWalkerContainerState
           userAgentPackageName:
               'com.doojowalker.app',
         ),
-
         MarkerLayer(
           markers: [
             if (walk.ownerLocation != null)
@@ -370,7 +372,6 @@ class _ActiveWalkerContainerState
                 height: 68,
                 child: _destinationMarker(),
               ),
-
             if (walk.walkerLocation != null)
               Marker(
                 point:
@@ -550,7 +551,8 @@ class _ActiveWalkerContainerState
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
           color: border,
         ),
@@ -570,9 +572,7 @@ class _ActiveWalkerContainerState
               size: 27,
             ),
           ),
-
           const SizedBox(width: 11),
-
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -591,7 +591,8 @@ class _ActiveWalkerContainerState
                 Text(
                   name,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 16,
@@ -631,7 +632,8 @@ class _ActiveWalkerContainerState
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
           color: border,
         ),
@@ -652,9 +654,7 @@ class _ActiveWalkerContainerState
               size: 20,
             ),
           ),
-
           const SizedBox(width: 10),
-
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -673,7 +673,8 @@ class _ActiveWalkerContainerState
                 Text(
                   walk.address,
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 12,
@@ -705,9 +706,7 @@ class _ActiveWalkerContainerState
             onTap: _callWalker,
           ),
         ),
-
         const SizedBox(width: 8),
-
         Expanded(
           child: _actionButton(
             icon: Icons.chat_rounded,
@@ -716,12 +715,11 @@ class _ActiveWalkerContainerState
             onTap: _openChat,
           ),
         ),
-
         const SizedBox(width: 8),
-
         Expanded(
           child: _actionButton(
-            icon: Icons.my_location_rounded,
+            icon:
+                Icons.my_location_rounded,
             label: 'Map',
             color: primary,
             onTap: _recenterOnWalker,
@@ -751,17 +749,21 @@ class _ActiveWalkerContainerState
           style: TextStyle(
             color: color,
             fontSize: 11,
-            fontWeight: FontWeight.w800,
+            fontWeight:
+                FontWeight.w800,
           ),
         ),
-        style: OutlinedButton.styleFrom(
+        style:
+            OutlinedButton.styleFrom(
           backgroundColor:
               color.withOpacity(.05),
           side: BorderSide(
-            color: color.withOpacity(.18),
+            color:
+                color.withOpacity(.18),
           ),
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(11),
           ),
@@ -780,7 +782,8 @@ class _ActiveWalkerContainerState
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: green.withOpacity(.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(12),
         border: Border.all(
           color: green.withOpacity(.20),
         ),
@@ -823,7 +826,8 @@ class _ActiveWalkerContainerState
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
+                child:
+                    CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
@@ -833,17 +837,19 @@ class _ActiveWalkerContainerState
               ),
         label: Text(
           _updating
-              ? 'Updating...'
+              ? 'Creating Live Session...'
               : 'I Have Reached',
           style: const TextStyle(
             fontWeight: FontWeight.w900,
           ),
         ),
-        style: ElevatedButton.styleFrom(
+        style:
+            ElevatedButton.styleFrom(
           backgroundColor: green,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(13),
           ),
@@ -854,10 +860,6 @@ class _ActiveWalkerContainerState
 
   // ==========================================================
   // START LIVE WALK
-  //
-  // IMPORTANT:
-  // Live Walk अलग screen है.
-  // यह button केवल callback चलाता है.
   // ==========================================================
 
   Widget _buildStartLiveWalkButton() {
@@ -875,11 +877,13 @@ class _ActiveWalkerContainerState
             fontWeight: FontWeight.w900,
           ),
         ),
-        style: ElevatedButton.styleFrom(
+        style:
+            ElevatedButton.styleFrom(
           backgroundColor: navy,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(13),
           ),
@@ -889,11 +893,17 @@ class _ActiveWalkerContainerState
   }
 
   // ==========================================================
-  // MARK REACHED
+  // MARK REACHED + CREATE LIVE SESSION
   // ==========================================================
 
   Future<void> _markReached() async {
     if (_updating) {
+      return;
+    }
+
+    final ActiveWalk? walk = _walk;
+
+    if (walk == null) {
       return;
     }
 
@@ -906,16 +916,237 @@ class _ActiveWalkerContainerState
     });
 
     try {
-      await _firestore
-          .collection('active_walks')
-          .doc(widget.activeWalkId)
-          .update({
+      // ========================================================
+      // ACTIVE WALK REFERENCE
+      // ========================================================
+
+      final DocumentReference<
+              Map<String, dynamic>>
+          activeWalkRef = _firestore
+              .collection('active_walks')
+              .doc(widget.activeWalkId);
+
+      // ========================================================
+      // READ ACTIVE WALK
+      // ========================================================
+
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          activeWalkSnapshot =
+          await activeWalkRef.get();
+
+      if (!activeWalkSnapshot.exists) {
+        throw Exception(
+          'Active walk does not exist.',
+        );
+      }
+
+      final Map<String, dynamic> data =
+          activeWalkSnapshot.data() ??
+              <String, dynamic>{};
+
+      // ========================================================
+      // PREVENT DUPLICATE LIVE SESSION
+      // ========================================================
+
+      final String existingLiveSessionId =
+          (data['liveSessionId'] ?? '')
+              .toString()
+              .trim();
+
+      String liveSessionId =
+          existingLiveSessionId;
+
+      if (liveSessionId.isEmpty) {
+        final QuerySnapshot<
+                Map<String, dynamic>>
+            existingSession =
+            await _firestore
+                .collection('liveWalkSessions')
+                .where(
+                  'walkId',
+                  isEqualTo: widget.activeWalkId,
+                )
+                .limit(1)
+                .get();
+
+        if (existingSession.docs.isNotEmpty) {
+          liveSessionId =
+              existingSession.docs.first.id;
+        }
+      }
+
+      // ========================================================
+      // CREATE LIVE SESSION IF NOT EXISTS
+      // ========================================================
+
+      if (liveSessionId.isEmpty) {
+        final DocumentReference<
+                Map<String, dynamic>>
+            sessionRef = _firestore
+                .collection('liveWalkSessions')
+                .doc();
+
+        liveSessionId = sessionRef.id;
+
+        final dynamic walkerLocation =
+            data['walkerLocation'];
+
+        final dynamic ownerLocation =
+            data['ownerLocation'] ??
+                data['destinationLocation'];
+
+        await sessionRef.set({
+          // ==================================================
+          // IDENTIFICATION
+          // ==================================================
+
+          'walkId':
+              widget.activeWalkId,
+
+          'activeWalkId':
+              widget.activeWalkId,
+
+          'requestId':
+              data['requestId'] ?? '',
+
+          // ==================================================
+          // OWNER
+          // ==================================================
+
+          'ownerId':
+              data['ownerId'] ?? '',
+
+          'ownerUid':
+              data['ownerUid'] ??
+                  data['ownerAuthUid'] ??
+                  '',
+
+          'ownerName':
+              data['ownerName'] ?? '',
+
+          'ownerPhone':
+              data['ownerPhone'] ?? '',
+
+          // ==================================================
+          // WALKER
+          // ==================================================
+
+          'walkerId':
+              data['walkerId'] ?? '',
+
+          'walkerUid':
+              data['walkerUid'] ?? '',
+
+          'walkerName':
+              data['walkerName'] ?? '',
+
+          'walkerPhone':
+              data['walkerPhone'] ?? '',
+
+          // ==================================================
+          // DOG
+          // ==================================================
+
+          'dogName':
+              data['dogName'] ??
+                  data['petName'] ??
+                  '',
+
+          'dogBreed':
+              data['dogBreed'] ??
+                  data['breed'] ??
+                  '',
+
+          // ==================================================
+          // STATUS
+          //
+          // Reached only.
+          // Actual walking has NOT started.
+          // ==================================================
+
+          'status': 'active',
+
+          'trackingStarted': false,
+          'trackingEnded': false,
+
+          'walkStarted': false,
+          'walkEnded': false,
+
+          // ==================================================
+          // LOCATION
+          // ==================================================
+
+          'currentLocation':
+              walkerLocation,
+
+          'destinationLocation':
+              ownerLocation,
+
+          // ==================================================
+          // STATS
+          // ==================================================
+
+          'distanceKm': 0.0,
+          'elapsedSeconds': 0,
+          'peeCount': 0,
+          'poopCount': 0,
+          'steps': 0,
+
+          // ==================================================
+          // ROUTE
+          // ==================================================
+
+          'routeCoordinates':
+              <GeoPoint>[],
+
+          // ==================================================
+          // EVENTS
+          // ==================================================
+
+          'events': <String>[
+            'Walker reached owner location',
+          ],
+
+          // ==================================================
+          // TIME
+          // ==================================================
+
+          'createdAt':
+              FieldValue.serverTimestamp(),
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+
+          'reachedAt':
+              FieldValue.serverTimestamp(),
+
+          'startedAt': null,
+
+          'endedAt': null,
+        });
+      }
+
+      // ========================================================
+      // UPDATE ACTIVE WALK
+      // ========================================================
+
+      await activeWalkRef.update({
         'status': 'reached',
+
         'reachedAt':
             FieldValue.serverTimestamp(),
+
+        'liveSessionId':
+            liveSessionId,
+
         'updatedAt':
             FieldValue.serverTimestamp(),
       });
+
+      // ========================================================
+      // SUCCESS
+      // ========================================================
 
       if (!mounted) {
         return;
@@ -924,13 +1155,13 @@ class _ActiveWalkerContainerState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Walker marked as reached.',
+            'Walker reached. Live session created.',
           ),
         ),
       );
     } catch (e) {
       debugPrint(
-        'Mark reached error: $e',
+        'Mark reached / create live session error: $e',
       );
 
       if (!mounted) {
@@ -940,7 +1171,7 @@ class _ActiveWalkerContainerState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Unable to update reached status: $e',
+            'Unable to create live session: $e',
           ),
         ),
       );
@@ -1010,9 +1241,6 @@ class _ActiveWalkerContainerState
 
   // ==========================================================
   // CHAT
-  //
-  // SMS नहीं.
-  // यहां आपका actual chat screen बाद में connect होगा.
   // ==========================================================
 
   void _openChat() {
