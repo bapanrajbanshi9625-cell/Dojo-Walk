@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/colors/dojo_card_colors.dart';
+import '../../../core/theme/dojo_colors.dart';
 
 class ProfileSectionCard extends StatelessWidget {
   final Widget child;
