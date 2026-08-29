@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/colors/dojo_button_colors.dart';
-import '../../../core/theme/colors/dojo_brand_colors.dart';
+import '../../../core/theme/dojo_colors.dart';
 
 class SaveProfileButton extends StatelessWidget {
   final bool isSaving;
