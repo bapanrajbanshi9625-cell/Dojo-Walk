@@ -748,7 +748,7 @@ class _LiveWalkScreenState
                           : live
                               ? green
                               : primary)
-                      .withOpacity(.10),
+                      .withValues(alpha: .10),
               borderRadius:
                   BorderRadius.circular(20),
             ),
@@ -1177,7 +1177,7 @@ class _LiveWalkScreenState
                     foregroundColor:
                         Colors.white,
                     disabledBackgroundColor:
-                        navy.withOpacity(.5),
+                        navy.withValues(alpha: .5),
                     elevation: 0,
                     shape:
                         RoundedRectangleBorder(
@@ -1221,7 +1221,7 @@ class _LiveWalkScreenState
             decoration:
                 BoxDecoration(
               color:
-                  primary.withOpacity(.10),
+                  primary.withValues(alpha: .10),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -1294,7 +1294,7 @@ class _LiveWalkScreenState
                   (_walkCompleted
                           ? red
                           : green)
-                      .withOpacity(.10),
+                      .withValues(alpha: .10),
               borderRadius:
                   BorderRadius.circular(20),
             ),
@@ -1345,7 +1345,7 @@ class _LiveWalkScreenState
             decoration:
                 BoxDecoration(
               color:
-                  primary.withOpacity(.10),
+                  primary.withValues(alpha: .10),
               borderRadius:
                   BorderRadius.circular(10),
             ),
@@ -1615,10 +1615,10 @@ class _LiveWalkScreenState
         style:
             OutlinedButton.styleFrom(
           backgroundColor:
-              color.withOpacity(.05),
+              color.withValues(alpha: .05),
           side: BorderSide(
             color:
-                color.withOpacity(.18),
+                color.withValues(alpha: .18),
           ),
           padding:
               EdgeInsets.zero,
