@@ -297,109 +297,210 @@ class _LoginScreenState extends State<LoginScreen> {
       response['requestId'],
       response['request_id'],
       response['requestID'],
+// ============================================================
+// GET REQUEST ID
+// ============================================================
+
+String? _getRequestId(
+  Map<String, dynamic> response,
+) {
+  debugPrint(
+    'MSG91 REQUEST ID SEARCH RESPONSE: $response',
+  );
+
+  // ==========================================================
+  // DIRECT KEYS
+  // ==========================================================
+
+  const List<String> requestIdKeys = <String>[
+    'reqId',
+    'req_id',
+    'requestId',
+    'request_id',
+    'requestID',
+    'request_id_value',
+    'requestIDValue',
+  ];
+
+  // ==========================================================
+  // SEARCH DIRECT RESPONSE
+  // ==========================================================
+
+  for (final String key in requestIdKeys) {
+    final String? id =
+        _cleanRequestId(response[key]);
+
+    if (id != null) {
+      debugPrint(
+        'MSG91 REQUEST ID FOUND: $id',
+      );
+
+      return id;
+    }
+  }
+
+  // ==========================================================
+  // SEARCH NESTED DATA
+  // ==========================================================
+
+  final dynamic data = response['data'];
+
+  if (data is Map) {
+    final Map<String, dynamic> dataMap =
+        Map<String, dynamic>.from(data);
+
+    for (final String key in requestIdKeys) {
+      final String? id =
+          _cleanRequestId(dataMap[key]);
+
+      if (id != null) {
+        debugPrint(
+          'MSG91 REQUEST ID FOUND IN DATA: $id',
+        );
+
+        return id;
+      }
+    }
+  }
+
+  // ==========================================================
+  // SEARCH NESTED REQUEST
+  // ==========================================================
+
+  final dynamic request =
+      response['request'];
+
+  if (request is Map) {
+    final Map<String, dynamic> requestMap =
+        Map<String, dynamic>.from(request);
+
+    for (final String key in requestIdKeys) {
+      final String? id =
+          _cleanRequestId(requestMap[key]);
+
+      if (id != null) {
+        debugPrint(
+          'MSG91 REQUEST ID FOUND IN REQUEST: $id',
+        );
+
+        return id;
+      }
+    }
+  }
+
+  // ==========================================================
+  // SEARCH RESULT
+  // ==========================================================
+
+  final dynamic result =
+      response['result'];
+
+  if (result is Map) {
+    final Map<String, dynamic> resultMap =
+        Map<String, dynamic>.from(result);
+
+    for (final String key in requestIdKeys) {
+      final String? id =
+          _cleanRequestId(resultMap[key]);
+
+      if (id != null) {
+        debugPrint(
+          'MSG91 REQUEST ID FOUND IN RESULT: $id',
+        );
+
+        return id;
+      }
+    }
+  }
+
+  // ==========================================================
+  // SEARCH RESPONSE
+  // ==========================================================
+
+  final dynamic responseData =
+      response['response'];
+
+  if (responseData is Map) {
+    final Map<String, dynamic> responseMap =
+        Map<String, dynamic>.from(responseData);
+
+    for (final String key in requestIdKeys) {
+      final String? id =
+          _cleanRequestId(responseMap[key]);
+
+      if (id != null) {
+        debugPrint(
+          'MSG91 REQUEST ID FOUND IN RESPONSE: $id',
+        );
+
+        return id;
+      }
+    }
+  }
+
+  // ==========================================================
+  // NOT FOUND
+  // ==========================================================
+
+  debugPrint(
+    'MSG91 REQUEST ID NOT FOUND.',
+  );
+
+  debugPrint(
+    'MSG91 AVAILABLE RESPONSE KEYS: '
+    '${response.keys.toList()}',
+  );
+
+  return null;
+}
+
+// ============================================================
+// CLEAN REQUEST ID
+// ============================================================
+
+String? _cleanRequestId(
+  dynamic value,
+) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is Map) {
+    final Map<String, dynamic> map =
+        Map<String, dynamic>.from(value);
+
+    const List<String> keys = <String>[
+      'reqId',
+      'req_id',
+      'requestId',
+      'request_id',
+      'requestID',
+      'request_id_value',
+      'requestIDValue',
     ];
 
-    for (final dynamic value in directValues) {
-      final String? result =
-          _cleanRequestId(value);
+    for (final String key in keys) {
+      final String? nestedId =
+          _cleanRequestId(map[key]);
 
-      if (result != null) {
-        return result;
-      }
-    }
-
-    // ==========================================================
-    // NESTED DATA
-    // ==========================================================
-
-    final dynamic data =
-        response['data'];
-
-    if (data is Map) {
-      final List<dynamic> nestedValues =
-          <dynamic>[
-        data['reqId'],
-        data['req_id'],
-        data['requestId'],
-        data['request_id'],
-        data['requestID'],
-      ];
-
-      for (final dynamic value in nestedValues) {
-        final String? result =
-            _cleanRequestId(value);
-
-        if (result != null) {
-          return result;
-        }
-      }
-    }
-
-    // ==========================================================
-    // NESTED REQUEST
-    // ==========================================================
-
-    final dynamic request =
-        response['request'];
-
-    if (request is Map) {
-      final List<dynamic> requestValues =
-          <dynamic>[
-        request['reqId'],
-        request['req_id'],
-        request['requestId'],
-        request['request_id'],
-        request['requestID'],
-      ];
-
-      for (final dynamic value in requestValues) {
-        final String? result =
-            _cleanRequestId(value);
-
-        if (result != null) {
-          return result;
-        }
+      if (nestedId != null) {
+        return nestedId;
       }
     }
 
     return null;
   }
 
-  // ============================================================
-  // CLEAN REQUEST ID
-  // ============================================================
+  final String text =
+      value.toString().trim();
 
-  String? _cleanRequestId(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is Map) {
-      final dynamic nested =
-          value['reqId'] ??
-          value['req_id'] ??
-          value['requestId'] ??
-          value['request_id'] ??
-          value['requestID'];
-
-      if (nested != null) {
-        return _cleanRequestId(nested);
-      }
-
-      return null;
-    }
-
-    final String text =
-        value.toString().trim();
-
-    if (text.isEmpty) {
-      return null;
-    }
-
-    return text;
+  if (text.isEmpty ||
+      text.toLowerCase() == 'null') {
+    return null;
   }
+
+  return text;
+}
 
   // ============================================================
   // ERROR MESSAGE
