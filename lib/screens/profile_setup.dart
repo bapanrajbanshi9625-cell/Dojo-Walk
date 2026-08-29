@@ -211,15 +211,44 @@ class _ProfileSetupScreenState
     // VERIFIED PHONE
     // ----------------------------------------------------------
 
-    final String phone =
-        user.phoneNumber?.trim() ?? '';
+    String phone =
+    user.phoneNumber?.trim() ?? '';
 
-    if (phone.isEmpty) {
-      _showError(
-        'Verified mobile number was not found.',
-      );
-      return;
+if (phone.isEmpty) {
+  try {
+    final DocumentSnapshot<
+        Map<String, dynamic>> accountSnapshot =
+        await FirebaseFirestore.instance
+            .collection('phoneAccounts')
+            .doc(user.uid)
+            .get();
+
+    if (accountSnapshot.exists) {
+      final Map<String, dynamic>? accountData =
+          accountSnapshot.data();
+
+      phone =
+          (accountData?['phoneNumber'] ??
+                  accountData?['phone'] ??
+                  accountData?['mainPhone'] ??
+                  '')
+              .toString()
+              .trim();
     }
+  } on FirebaseException catch (e) {
+    debugPrint(
+      'Phone account read error: '
+      '${e.code} - ${e.message}',
+    );
+  }
+}
+
+if (phone.isEmpty) {
+  _showError(
+    'Verified mobile number was not found. Please verify your mobile number again.',
+  );
+  return;
+}
 
     // ----------------------------------------------------------
     // START SAVING
