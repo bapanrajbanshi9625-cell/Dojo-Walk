@@ -29,16 +29,15 @@ class DojoWalk extends StatelessWidget {
       // ========================================================
 
       builder: (context, child) {
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: const SystemUiOverlayStyle(
-            statusBarColor: DojoColors.primary,
-            statusBarIconBrightness: Brightness.light,
-            statusBarBrightness: Brightness.dark,
-          ),
-          child: child!,
-        );
-      },
-
+  return AnnotatedRegion<SystemUiOverlayStyle>(
+    value: const SystemUiOverlayStyle(
+      statusBarColor: Color(0xFFFF7A00),
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ),
+    child: child!,
+  );
+},
       // ========================================================
       // STARTUP
       // ========================================================
