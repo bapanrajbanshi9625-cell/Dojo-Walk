@@ -18,23 +18,15 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSendingOtp = false;
 
   // ============================================================
-  // MSG91 OTP CONFIGURATION
+  // MSG91 CONFIGURATION
   // ============================================================
 
-  static const String _widgetId =
+  static const String widgetId =
       '3668426c306d353733343031';
 
-  // IMPORTANT:
-  // Use the CURRENT AuthToken generated for THIS OTP Widget.
-  //
-  // MSG91:
-  // OTP -> Widget -> Mobile Integration
-  //
-  // Security:
-  // If this token has been exposed publicly, regenerate it
-  // in MSG91 and replace the value below.
-  static const String _authToken =
-      '565278AGmr6TyWn6a91bf8aP1';
+  // Put the CURRENT AuthToken of this SAME MSG91 OTP Widget here.
+  static const String authToken =
+      '565278TUyruRuC6a92a86dP1';
 
   // ============================================================
   // INIT
@@ -45,12 +37,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
 
     OTPWidget.initializeWidget(
-      _widgetId,
-      _authToken,
+      widgetId,
+      authToken,
     );
 
     debugPrint(
-      'MSG91 OTP widget initialized.',
+      'MSG91 OTP Widget initialized.',
     );
   }
 
@@ -58,87 +50,75 @@ class _LoginScreenState extends State<LoginScreen> {
   // SEND OTP
   // ============================================================
 
-  Future<void> _sendOtp() async {
+  Future<void> handleSendOtp() async {
     if (_isSendingOtp) {
       return;
     }
 
-    // ----------------------------------------------------------
-    // GET USER INPUT
-    // ----------------------------------------------------------
-
-    final String phone =
+    final String phoneNumber =
         _phoneController.text.trim();
 
     // ----------------------------------------------------------
-    // VALIDATE 10-DIGIT INDIAN MOBILE NUMBER
+    // VALIDATE NUMBER
     // ----------------------------------------------------------
 
-    if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phone)) {
+    if (!RegExp(r'^[6-9][0-9]{9}$')
+        .hasMatch(phoneNumber)) {
       _showMessage(
         'Please enter a valid 10-digit mobile number.',
       );
       return;
     }
 
-    // ----------------------------------------------------------
-    // LOADING
-    // ----------------------------------------------------------
-
     setState(() {
       _isSendingOtp = true;
     });
 
     // ----------------------------------------------------------
-    // INDIA COUNTRY CODE
+    // SAME FORMAT AS MSG91 DOCUMENTATION
     // ----------------------------------------------------------
     //
-    // UI:
-    // +91 | 9625813987
-    //
-    // User enters only:
+    // User:
     // 9625813987
     //
-    // MSG91 receives:
+    // MSG91:
     // 919625813987
     //
-    // No "+" is added to the identifier.
+    // Country code WITHOUT "+"
     // ----------------------------------------------------------
 
-    final String identifier = '91$phone';
+    final Map<String, dynamic> data =
+        <String, dynamic>{
+      'identifier': '91$phoneNumber',
+    };
 
     try {
-      final Map<String, dynamic> payload =
-          <String, dynamic>{
-        'identifier': identifier,
-      };
-
       debugPrint(
-        'MSG91 sending OTP to: $identifier',
-      );
-
-      final Map<String, dynamic>? response =
-          await OTPWidget.sendOTP(payload);
-
-      debugPrint(
-        '================================================',
-      );
-      debugPrint(
-        'MSG91 SEND OTP RESPONSE: $response',
-      );
-      debugPrint(
-        '================================================',
+        'MSG91 identifier: ${data['identifier']}',
       );
 
       // --------------------------------------------------------
-      // NULL RESPONSE
+      // SAME SDK METHOD AS MSG91 EXAMPLE
+      // --------------------------------------------------------
+
+      final Map<String, dynamic>? response =
+          await OTPWidget.sendOTP(data);
+
+      debugPrint(
+        'MSG91 RESPONSE: $response',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      // --------------------------------------------------------
+      // RESPONSE NULL
       // --------------------------------------------------------
 
       if (response == null) {
-        _finishLoading();
-
         _showMessage(
-          'MSG91 did not return a response. Please try again.',
+          'MSG91 did not return a response.',
         );
 
         return;
@@ -161,60 +141,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (type == 'success') {
         final String? reqId =
-            _extractRequestId(response);
+            _getRequestId(response);
 
         debugPrint(
-          'MSG91 OTP SUCCESS.',
+          'MSG91 OTP SUCCESS',
         );
 
         debugPrint(
           'MSG91 REQUEST ID: $reqId',
         );
 
-        // ------------------------------------------------------
-        // ALREADY VERIFIED / ACCESS TOKEN
-        // ------------------------------------------------------
-
-        if (response.containsKey('access-token')) {
-          _finishLoading();
-
-          _showMessage(
-            'Mobile number is already verified.',
-          );
-
-          return;
-        }
-
-        // ------------------------------------------------------
-        // REQUEST ID MISSING
-        // ------------------------------------------------------
-
         if (reqId == null || reqId.isEmpty) {
-          _finishLoading();
-
           _showMessage(
-            'OTP was sent, but request ID was not received.',
+            'OTP sent, but request ID was not received.',
           );
 
           return;
         }
 
         // ------------------------------------------------------
-        // OTP SENT SUCCESSFULLY
+        // OPEN OTP SCREEN
         // ------------------------------------------------------
-
-        _finishLoading();
-
-        if (!mounted) {
-          return;
-        }
 
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (BuildContext context) {
+            builder:
+                (BuildContext context) {
               return OtpVerificationScreen(
-                phoneNumber: phone,
+                phoneNumber: phoneNumber,
                 reqId: reqId,
               );
             },
@@ -225,65 +180,54 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // --------------------------------------------------------
-      // ERROR RESPONSE
+      // ERROR
       // --------------------------------------------------------
 
-      debugPrint(
-        'MSG91 OTP FAILED.',
-      );
+      final String error =
+          _getErrorMessage(response);
 
       debugPrint(
-        'MSG91 ERROR RESPONSE: $response',
+        'MSG91 OTP FAILED: $response',
       );
 
-      _finishLoading();
-
-      _showMessage(
-        _extractErrorMessage(response),
-      );
+      _showMessage(error);
     } catch (e, stackTrace) {
       debugPrint(
-        '================================================',
-      );
-
-      debugPrint(
-        'MSG91 SEND OTP EXCEPTION: $e',
+        'MSG91 OTP EXCEPTION: $e',
       );
 
       debugPrint(
         'MSG91 STACK TRACE: $stackTrace',
       );
 
-      debugPrint(
-        '================================================',
-      );
-
-      _finishLoading();
-
       _showMessage(
-        'Failed to send OTP. Please try again.',
+        'OTP could not be sent. Please try again.',
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingOtp = false;
+        });
+      }
     }
   }
 
   // ============================================================
-  // EXTRACT REQUEST ID
+  // REQUEST ID
   // ============================================================
 
-  String? _extractRequestId(
+  String? _getRequestId(
     Map<String, dynamic> response,
   ) {
-    final List<dynamic> possibleValues =
+    final List<dynamic> values =
         <dynamic>[
       response['reqId'],
       response['req_id'],
       response['requestId'],
       response['request_id'],
-      response['message'],
     ];
 
-    for (final dynamic value
-        in possibleValues) {
+    for (final dynamic value in values) {
       if (value == null) {
         continue;
       }
@@ -300,13 +244,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ============================================================
-  // EXTRACT ERROR MESSAGE
+  // ERROR MESSAGE
   // ============================================================
 
-  String _extractErrorMessage(
+  String _getErrorMessage(
     Map<String, dynamic> response,
   ) {
-    final List<dynamic> possibleMessages =
+    final List<dynamic> values =
         <dynamic>[
       response['message'],
       response['error'],
@@ -315,8 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
       response['errorMessage'],
     ];
 
-    for (final dynamic value
-        in possibleMessages) {
+    for (final dynamic value in values) {
       if (value == null) {
         continue;
       }
@@ -330,20 +273,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     return 'OTP could not be sent. Please try again.';
-  }
-
-  // ============================================================
-  // STOP LOADING
-  // ============================================================
-
-  void _finishLoading() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isSendingOtp = false;
-    });
   }
 
   // ============================================================
@@ -469,7 +398,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   fontSize: 31,
                   fontWeight:
                       FontWeight.w900,
-                  letterSpacing: -0.5,
+                  letterSpacing:
+                      -0.5,
                 ),
               ),
 
@@ -577,10 +507,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child:
                           Row(
                         children: [
-                          // ====================================
                           // PHONE ICON
-                          // ====================================
-
                           Container(
                             width: 50,
                             height: 46,
@@ -614,10 +541,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 12,
                           ),
 
-                          // ====================================
-                          // HARD-CODED INDIA CODE
-                          // ====================================
-
+                          // HARD-CODED +91
                           const Text(
                             '+91',
                             style:
@@ -635,10 +559,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 10,
                           ),
 
-                          // ====================================
                           // DIVIDER
-                          // ====================================
-
                           Container(
                             height: 30,
                             width: 1,
@@ -650,10 +571,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 10,
                           ),
 
-                          // ====================================
                           // NUMBER INPUT
-                          // ====================================
-
                           Expanded(
                             child:
                                 TextField(
@@ -709,7 +627,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     // ==========================================
-                    // GET OTP BUTTON
+                    // GET OTP
                     // ==========================================
 
                     SizedBox(
@@ -721,7 +639,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed:
                             _isSendingOtp
                                 ? null
-                                : _sendOtp,
+                                : handleSendOtp,
                         style:
                             ElevatedButton.styleFrom(
                           backgroundColor:
@@ -856,7 +774,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               // ==================================================
-              // FOOTER DIVIDER
+              // FOOTER
               // ==================================================
 
               Row(
@@ -869,7 +787,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderColor,
                     ),
                   ),
-
                   Container(
                     margin:
                         const EdgeInsets.symmetric(
@@ -885,7 +802,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           BoxShape.circle,
                     ),
                   ),
-
                   Expanded(
                     child:
                         Container(
