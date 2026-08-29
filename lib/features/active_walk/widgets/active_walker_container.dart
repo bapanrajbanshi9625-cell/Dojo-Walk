@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/active_walk.dart';
 import '../models/active_walk_mapper.dart';
+import '../../../screens/live_walk_screen.dart';
 
 class ActiveWalkerContainer extends StatefulWidget {
   const ActiveWalkerContainer({
