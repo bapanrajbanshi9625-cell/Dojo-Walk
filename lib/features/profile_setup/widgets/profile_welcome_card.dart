@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/colors/dojo_brand_colors.dart';
+import '../../../core/theme/dojo_colors.dart';
 
 class ProfileWelcomeCard extends StatelessWidget {
   const ProfileWelcomeCard({
