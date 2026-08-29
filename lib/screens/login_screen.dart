@@ -25,10 +25,10 @@ class _LoginScreenState extends State<LoginScreen> {
       '3668426c306d353733343031';
 
   // IMPORTANT:
-  // Use the CURRENT AuthToken generated for THIS SAME MSG91 OTP Widget.
+  // Use the CURRENT AuthToken generated for THIS SAME
+  // MSG91 OTP Widget.
   //
-  // Do NOT use an old token.
-  // Do NOT paste a token belonging to another widget.
+  // Never commit your real AuthToken publicly.
   static const String authToken =
       '565278TUyruRuC6a92a86dP1';
 
@@ -80,6 +80,8 @@ class _LoginScreenState extends State<LoginScreen> {
     // ==========================================================
     // MSG91 IDENTIFIER
     // ==========================================================
+    //
+    // Example:
     //
     // User enters:
     // 9625813987
@@ -141,7 +143,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response != null) {
         debugPrint(
-          'MSG91 RESPONSE KEYS: ${response.keys.toList()}',
+          'MSG91 RESPONSE KEYS: '
+          '${response.keys.toList()}',
         );
       }
 
@@ -279,211 +282,227 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // ============================================================
+  // GET REQUEST ID
+  // ============================================================
 
-// ============================================================
-// GET REQUEST ID
-// ============================================================
+  String? _getRequestId(
+    Map<String, dynamic> response,
+  ) {
+    debugPrint(
+      'MSG91 REQUEST ID RESPONSE: $response',
+    );
 
-String? _getRequestId(
-  Map<String, dynamic> response,
-) {
-  debugPrint(
-    'MSG91 REQUEST ID SEARCH RESPONSE: $response',
-  );
+    // ==========================================================
+    // PRIMARY MSG91 SDK RESPONSE
+    // ==========================================================
+    //
+    // Expected successful response:
+    //
+    // {
+    //   "type": "success",
+    //   "message": "REQUEST_ID"
+    // }
+    //
+    // Therefore first check response['message'].
+    // ==========================================================
 
-  // ==========================================================
-  // DIRECT KEYS
-  // ==========================================================
-
-  const List<String> requestIdKeys = <String>[
-    'reqId',
-    'req_id',
-    'requestId',
-    'request_id',
-    'requestID',
-    'request_id_value',
-    'requestIDValue',
-  ];
-
-  // ==========================================================
-  // SEARCH DIRECT RESPONSE
-  // ==========================================================
-
-  for (final String key in requestIdKeys) {
-    final String? id =
-        _cleanRequestId(response[key]);
-
-    if (id != null) {
-      debugPrint(
-        'MSG91 REQUEST ID FOUND: $id',
+    if (response['type']
+            ?.toString()
+            .trim()
+            .toLowerCase() ==
+        'success') {
+      final String? requestId =
+          _cleanRequestId(
+        response['message'],
       );
 
-      return id;
-    }
-  }
-
-  // ==========================================================
-  // SEARCH NESTED DATA
-  // ==========================================================
-
-  final dynamic data = response['data'];
-
-  if (data is Map) {
-    final Map<String, dynamic> dataMap =
-        Map<String, dynamic>.from(data);
-
-    for (final String key in requestIdKeys) {
-      final String? id =
-          _cleanRequestId(dataMap[key]);
-
-      if (id != null) {
+      if (requestId != null) {
         debugPrint(
-          'MSG91 REQUEST ID FOUND IN DATA: $id',
+          'MSG91 REQUEST ID FOUND IN MESSAGE: '
+          '$requestId',
         );
 
-        return id;
+        return requestId;
       }
     }
-  }
 
-  // ==========================================================
-  // SEARCH NESTED REQUEST
-  // ==========================================================
+    // ==========================================================
+    // FALLBACK REQUEST ID KEYS
+    // ==========================================================
 
-  final dynamic request =
-      response['request'];
-
-  if (request is Map) {
-    final Map<String, dynamic> requestMap =
-        Map<String, dynamic>.from(request);
-
-    for (final String key in requestIdKeys) {
-      final String? id =
-          _cleanRequestId(requestMap[key]);
-
-      if (id != null) {
-        debugPrint(
-          'MSG91 REQUEST ID FOUND IN REQUEST: $id',
-        );
-
-        return id;
-      }
-    }
-  }
-
-  // ==========================================================
-  // SEARCH RESULT
-  // ==========================================================
-
-  final dynamic result =
-      response['result'];
-
-  if (result is Map) {
-    final Map<String, dynamic> resultMap =
-        Map<String, dynamic>.from(result);
-
-    for (final String key in requestIdKeys) {
-      final String? id =
-          _cleanRequestId(resultMap[key]);
-
-      if (id != null) {
-        debugPrint(
-          'MSG91 REQUEST ID FOUND IN RESULT: $id',
-        );
-
-        return id;
-      }
-    }
-  }
-
-  // ==========================================================
-  // SEARCH RESPONSE
-  // ==========================================================
-
-  final dynamic responseData =
-      response['response'];
-
-  if (responseData is Map) {
-    final Map<String, dynamic> responseMap =
-        Map<String, dynamic>.from(responseData);
-
-    for (final String key in requestIdKeys) {
-      final String? id =
-          _cleanRequestId(responseMap[key]);
-
-      if (id != null) {
-        debugPrint(
-          'MSG91 REQUEST ID FOUND IN RESPONSE: $id',
-        );
-
-        return id;
-      }
-    }
-  }
-
-  // ==========================================================
-  // NOT FOUND
-  // ==========================================================
-
-  debugPrint(
-    'MSG91 REQUEST ID NOT FOUND.',
-  );
-
-  debugPrint(
-    'MSG91 AVAILABLE RESPONSE KEYS: '
-    '${response.keys.toList()}',
-  );
-
-  return null;
-}
-
-// ============================================================
-// CLEAN REQUEST ID
-// ============================================================
-
-String? _cleanRequestId(
-  dynamic value,
-) {
-  if (value == null) {
-    return null;
-  }
-
-  if (value is Map) {
-    final Map<String, dynamic> map =
-        Map<String, dynamic>.from(value);
-
-    const List<String> keys = <String>[
+    const List<String> requestIdKeys =
+        <String>[
       'reqId',
       'req_id',
       'requestId',
       'request_id',
       'requestID',
-      'request_id_value',
-      'requestIDValue',
     ];
 
-    for (final String key in keys) {
-      final String? nestedId =
-          _cleanRequestId(map[key]);
+    for (final String key in requestIdKeys) {
+      final String? id =
+          _cleanRequestId(
+        response[key],
+      );
 
-      if (nestedId != null) {
-        return nestedId;
+      if (id != null) {
+        debugPrint(
+          'MSG91 REQUEST ID FOUND IN $key: $id',
+        );
+
+        return id;
       }
     }
 
+    // ==========================================================
+    // FALLBACK: NESTED DATA
+    // ==========================================================
+
+    final dynamic data =
+        response['data'];
+
+    if (data is Map) {
+      final Map<String, dynamic> dataMap =
+          Map<String, dynamic>.from(data);
+
+      for (final String key in requestIdKeys) {
+        final String? id =
+            _cleanRequestId(
+          dataMap[key],
+        );
+
+        if (id != null) {
+          debugPrint(
+            'MSG91 REQUEST ID FOUND IN DATA.$key: '
+            '$id',
+          );
+
+          return id;
+        }
+      }
+    }
+
+    // ==========================================================
+    // FALLBACK: NESTED REQUEST
+    // ==========================================================
+
+    final dynamic request =
+        response['request'];
+
+    if (request is Map) {
+      final Map<String, dynamic> requestMap =
+          Map<String, dynamic>.from(request);
+
+      for (final String key in requestIdKeys) {
+        final String? id =
+            _cleanRequestId(
+          requestMap[key],
+        );
+
+        if (id != null) {
+          debugPrint(
+            'MSG91 REQUEST ID FOUND IN REQUEST.$key: '
+            '$id',
+          );
+
+          return id;
+        }
+      }
+    }
+
+    // ==========================================================
+    // FALLBACK: NESTED RESULT
+    // ==========================================================
+
+    final dynamic result =
+        response['result'];
+
+    if (result is Map) {
+      final Map<String, dynamic> resultMap =
+          Map<String, dynamic>.from(result);
+
+      for (final String key in requestIdKeys) {
+        final String? id =
+            _cleanRequestId(
+          resultMap[key],
+        );
+
+        if (id != null) {
+          debugPrint(
+            'MSG91 REQUEST ID FOUND IN RESULT.$key: '
+            '$id',
+          );
+
+          return id;
+        }
+      }
+    }
+
+    // ==========================================================
+    // NOT FOUND
+    // ==========================================================
+
+    debugPrint(
+      'MSG91 REQUEST ID NOT FOUND.',
+    );
+
+    debugPrint(
+      'MSG91 RESPONSE KEYS: '
+      '${response.keys.toList()}',
+    );
+
     return null;
   }
 
-  final String text =
-      value.toString().trim();
+  // ============================================================
+  // CLEAN REQUEST ID
+  // ============================================================
 
-  if (text.isEmpty ||
-      text.toLowerCase() == 'null') {
-    return null;
+  String? _cleanRequestId(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is Map) {
+      final Map<String, dynamic> map =
+          Map<String, dynamic>.from(value);
+
+      const List<String> keys =
+          <String>[
+        'reqId',
+        'req_id',
+        'requestId',
+        'request_id',
+        'requestID',
+      ];
+
+      for (final String key in keys) {
+        final String? nestedId =
+            _cleanRequestId(
+          map[key],
+        );
+
+        if (nestedId != null) {
+          return nestedId;
+        }
+      }
+
+      return null;
+    }
+
+    final String text =
+        value.toString().trim();
+
+    if (text.isEmpty ||
+        text.toLowerCase() == 'null') {
+      return null;
+    }
+
+    return text;
   }
-
-  return text;
-}
 
   // ============================================================
   // ERROR MESSAGE
@@ -535,7 +554,8 @@ String? _cleanRequestId(
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior:
+              SnackBarBehavior.floating,
         ),
       );
   }
@@ -555,7 +575,9 @@ String? _cleanRequestId(
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     const Color background =
         Color(0xFFF7F9FC);
 
@@ -575,9 +597,11 @@ String? _cleanRequestId(
         Color(0xFFFAFBFC);
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor:
+          background,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child:
+            SingleChildScrollView(
           physics:
               const BouncingScrollPhysics(),
           padding:
@@ -605,12 +629,16 @@ String? _cleanRequestId(
                   boxShadow: [
                     BoxShadow(
                       color:
-                          AppColors.primary.withValues(
+                          AppColors.primary
+                              .withValues(
                         alpha: 0.22,
                       ),
                       blurRadius: 22,
                       offset:
-                          const Offset(0, 8),
+                          const Offset(
+                        0,
+                        8,
+                      ),
                     ),
                   ],
                 ),
@@ -695,12 +723,16 @@ String? _cleanRequestId(
                   boxShadow: [
                     BoxShadow(
                       color:
-                          Colors.black.withValues(
+                          Colors.black
+                              .withValues(
                         alpha: 0.06,
                       ),
                       blurRadius: 20,
                       offset:
-                          const Offset(0, 8),
+                          const Offset(
+                        0,
+                        8,
+                      ),
                     ),
                   ],
                 ),
@@ -758,7 +790,8 @@ String? _cleanRequestId(
                             decoration:
                                 BoxDecoration(
                               color:
-                                  AppColors.primary
+                                  AppColors
+                                      .primary
                                       .withValues(
                                 alpha: 0.10,
                               ),
@@ -771,7 +804,8 @@ String? _cleanRequestId(
                                 const Icon(
                               Icons.phone,
                               color:
-                                  AppColors.primary,
+                                  AppColors
+                                      .primary,
                               size: 23,
                             ),
                           ),
@@ -786,8 +820,7 @@ String? _cleanRequestId(
                                 TextStyle(
                               color:
                                   textColor,
-                              fontSize:
-                                  16,
+                              fontSize: 16,
                               fontWeight:
                                   FontWeight.w800,
                             ),
@@ -817,16 +850,14 @@ String? _cleanRequestId(
                                   TextInputType.number,
                               textInputAction:
                                   TextInputAction.done,
-                              maxLength:
-                                  10,
+                              maxLength: 10,
                               enabled:
                                   !_isSendingOtp,
                               style:
                                   const TextStyle(
                                 color:
                                     textColor,
-                                fontSize:
-                                    16,
+                                fontSize: 16,
                                 fontWeight:
                                     FontWeight.w600,
                               ),
@@ -840,8 +871,7 @@ String? _cleanRequestId(
                                       Color(
                                     0xFF9AA6B5,
                                   ),
-                                  fontSize:
-                                      14,
+                                  fontSize: 14,
                                   fontWeight:
                                       FontWeight.w500,
                                 ),
@@ -877,11 +907,14 @@ String? _cleanRequestId(
                                 ? null
                                 : handleSendOtp,
                         style:
-                            ElevatedButton.styleFrom(
+                            ElevatedButton
+                                .styleFrom(
                           backgroundColor:
-                              AppColors.primary,
+                              AppColors
+                                  .primary,
                           disabledBackgroundColor:
-                              AppColors.primary
+                              AppColors
+                                  .primary
                                   .withValues(
                             alpha: 0.65,
                           ),
@@ -889,7 +922,8 @@ String? _cleanRequestId(
                               Colors.white,
                           elevation: 3,
                           shadowColor:
-                              AppColors.primary
+                              AppColors
+                                  .primary
                                   .withValues(
                             alpha: 0.30,
                           ),
@@ -916,10 +950,12 @@ String? _cleanRequestId(
                                   )
                                 : const Row(
                                     mainAxisAlignment:
-                                        MainAxisAlignment.center,
+                                        MainAxisAlignment
+                                            .center,
                                     children: [
                                       Icon(
-                                        Icons.sms_outlined,
+                                        Icons
+                                            .sms_outlined,
                                         size: 23,
                                       ),
                                       SizedBox(
@@ -929,9 +965,11 @@ String? _cleanRequestId(
                                         'Get OTP',
                                         style:
                                             TextStyle(
-                                          fontSize: 17,
+                                          fontSize:
+                                              17,
                                           fontWeight:
-                                              FontWeight.w900,
+                                              FontWeight
+                                                  .w900,
                                         ),
                                       ),
                                     ],
@@ -957,13 +995,16 @@ String? _cleanRequestId(
                           decoration:
                               const BoxDecoration(
                             color:
-                                Color(0xFFF1F4F7),
+                                Color(
+                              0xFFF1F4F7,
+                            ),
                             shape:
                                 BoxShape.circle,
                           ),
                           child:
                               const Icon(
-                            Icons.verified_user_outlined,
+                            Icons
+                                .verified_user_outlined,
                             color:
                                 secondaryText,
                             size: 21,
@@ -983,10 +1024,8 @@ String? _cleanRequestId(
                                 TextStyle(
                               color:
                                   secondaryText,
-                              fontSize:
-                                  12,
-                              height:
-                                  1.55,
+                              fontSize: 12,
+                              height: 1.55,
                               fontWeight:
                                   FontWeight.w500,
                             ),
@@ -1019,7 +1058,8 @@ String? _cleanRequestId(
 
                   Container(
                     margin:
-                        const EdgeInsets.symmetric(
+                        const EdgeInsets
+                            .symmetric(
                       horizontal: 12,
                     ),
                     height: 7,
@@ -1027,7 +1067,8 @@ String? _cleanRequestId(
                     decoration:
                         const BoxDecoration(
                       color:
-                          AppColors.primary,
+                          AppColors
+                              .primary,
                       shape:
                           BoxShape.circle,
                     ),
@@ -1056,8 +1097,7 @@ String? _cleanRequestId(
                     TextStyle(
                   color:
                       secondaryText,
-                  fontSize:
-                      15,
+                  fontSize: 15,
                   fontWeight:
                       FontWeight.w500,
                 ),
@@ -1075,8 +1115,7 @@ String? _cleanRequestId(
                     TextStyle(
                   color:
                       secondaryText,
-                  fontSize:
-                      13,
+                  fontSize: 13,
                   fontWeight:
                       FontWeight.w400,
                 ),
