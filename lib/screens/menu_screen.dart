@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme/colors/dojo_brand_colors.dart';
-import '../core/theme/colors/dojo_light_colors.dart';
-import '../core/theme/colors/dojo_card_colors.dart';
+import '../core/theme/dojo_colors.dart';
+
 import '../widgets/menu_card.dart';
 import '../widgets/section_title.dart';
 
