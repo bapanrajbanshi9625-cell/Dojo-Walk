@@ -279,24 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ============================================================
-  // GET REQUEST ID
-  // ============================================================
 
-  String? _getRequestId(
-    Map<String, dynamic> response,
-  ) {
-    // ==========================================================
-    // DIRECT REQUEST ID
-    // ==========================================================
-
-    final List<dynamic> directValues =
-        <dynamic>[
-      response['reqId'],
-      response['req_id'],
-      response['requestId'],
-      response['request_id'],
-      response['requestID'],
 // ============================================================
 // GET REQUEST ID
 // ============================================================
