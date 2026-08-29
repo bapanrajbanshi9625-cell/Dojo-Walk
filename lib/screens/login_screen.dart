@@ -24,7 +24,11 @@ class _LoginScreenState extends State<LoginScreen> {
   static const String widgetId =
       '3668426c306d353733343031';
 
-  // Put the CURRENT AuthToken of this SAME MSG91 OTP Widget here.
+  // IMPORTANT:
+  // Use the CURRENT AuthToken generated for THIS SAME MSG91 OTP Widget.
+  //
+  // Do NOT use an old token.
+  // Do NOT paste a token belonging to another widget.
   static const String authToken =
       '565278TUyruRuC6a92a86dP1';
 
@@ -58,12 +62,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final String phoneNumber =
         _phoneController.text.trim();
 
-    // ----------------------------------------------------------
-    // VALIDATE NUMBER
-    // ----------------------------------------------------------
+    // ==========================================================
+    // VALIDATE MOBILE NUMBER
+    // ==========================================================
 
-    if (!RegExp(r'^[6-9][0-9]{9}$')
-        .hasMatch(phoneNumber)) {
+    if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(phoneNumber)) {
       _showMessage(
         'Please enter a valid 10-digit mobile number.',
       );
@@ -74,18 +77,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _isSendingOtp = true;
     });
 
-    // ----------------------------------------------------------
-    // SAME FORMAT AS MSG91 DOCUMENTATION
-    // ----------------------------------------------------------
+    // ==========================================================
+    // MSG91 IDENTIFIER
+    // ==========================================================
     //
-    // User:
+    // User enters:
     // 9625813987
     //
-    // MSG91:
+    // MSG91 receives:
     // 919625813987
     //
-    // Country code WITHOUT "+"
-    // ----------------------------------------------------------
+    // No "+".
+    // ==========================================================
 
     final Map<String, dynamic> data =
         <String, dynamic>{
@@ -94,39 +97,76 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       debugPrint(
-        'MSG91 identifier: ${data['identifier']}',
+        '================================================',
       );
 
-      // --------------------------------------------------------
-      // SAME SDK METHOD AS MSG91 EXAMPLE
-      // --------------------------------------------------------
+      debugPrint(
+        'MSG91 SEND OTP',
+      );
+
+      debugPrint(
+        'MSG91 IDENTIFIER: ${data['identifier']}',
+      );
+
+      debugPrint(
+        'MSG91 WIDGET ID: $widgetId',
+      );
+
+      debugPrint(
+        '================================================',
+      );
+
+      // ========================================================
+      // SEND OTP
+      // ========================================================
 
       final Map<String, dynamic>? response =
           await OTPWidget.sendOTP(data);
 
+      // ========================================================
+      // DEBUG RESPONSE
+      // ========================================================
+
+      debugPrint(
+        '================================================',
+      );
+
       debugPrint(
         'MSG91 RESPONSE: $response',
+      );
+
+      debugPrint(
+        'MSG91 RESPONSE TYPE: ${response?.runtimeType}',
+      );
+
+      if (response != null) {
+        debugPrint(
+          'MSG91 RESPONSE KEYS: ${response.keys.toList()}',
+        );
+      }
+
+      debugPrint(
+        '================================================',
       );
 
       if (!mounted) {
         return;
       }
 
-      // --------------------------------------------------------
-      // RESPONSE NULL
-      // --------------------------------------------------------
+      // ========================================================
+      // NULL RESPONSE
+      // ========================================================
 
       if (response == null) {
         _showMessage(
           'MSG91 did not return a response.',
         );
-
         return;
       }
 
-      // --------------------------------------------------------
+      // ========================================================
       // RESPONSE TYPE
-      // --------------------------------------------------------
+      // ========================================================
 
       final String type =
           response['type']
@@ -135,9 +175,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   .toLowerCase() ??
               '';
 
-      // --------------------------------------------------------
+      debugPrint(
+        'MSG91 TYPE VALUE: $type',
+      );
+
+      // ========================================================
       // SUCCESS
-      // --------------------------------------------------------
+      // ========================================================
 
       if (type == 'success') {
         final String? reqId =
@@ -151,23 +195,25 @@ class _LoginScreenState extends State<LoginScreen> {
           'MSG91 REQUEST ID: $reqId',
         );
 
+        // ======================================================
+        // REQUEST ID MISSING
+        // ======================================================
+
         if (reqId == null || reqId.isEmpty) {
           _showMessage(
             'OTP sent, but request ID was not received.',
           );
-
           return;
         }
 
-        // ------------------------------------------------------
-        // OPEN OTP SCREEN
-        // ------------------------------------------------------
+        // ======================================================
+        // OPEN OTP VERIFICATION SCREEN
+        // ======================================================
 
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder:
-                (BuildContext context) {
+            builder: (BuildContext context) {
               return OtpVerificationScreen(
                 phoneNumber: phoneNumber,
                 reqId: reqId,
@@ -179,19 +225,30 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // --------------------------------------------------------
-      // ERROR
-      // --------------------------------------------------------
-
-      final String error =
-          _getErrorMessage(response);
+      // ========================================================
+      // ERROR RESPONSE
+      // ========================================================
 
       debugPrint(
-        'MSG91 OTP FAILED: $response',
+        'MSG91 OTP FAILED',
       );
 
-      _showMessage(error);
+      debugPrint(
+        'MSG91 ERROR RESPONSE: $response',
+      );
+
+      _showMessage(
+        _getErrorMessage(response),
+      );
     } catch (e, stackTrace) {
+      // ========================================================
+      // EXCEPTION
+      // ========================================================
+
+      debugPrint(
+        '================================================',
+      );
+
       debugPrint(
         'MSG91 OTP EXCEPTION: $e',
       );
@@ -200,10 +257,20 @@ class _LoginScreenState extends State<LoginScreen> {
         'MSG91 STACK TRACE: $stackTrace',
       );
 
-      _showMessage(
-        'OTP could not be sent. Please try again.',
+      debugPrint(
+        '================================================',
       );
+
+      if (mounted) {
+        _showMessage(
+          'OTP could not be sent. Please try again.',
+        );
+      }
     } finally {
+      // ========================================================
+      // STOP LOADING
+      // ========================================================
+
       if (mounted) {
         setState(() {
           _isSendingOtp = false;
@@ -213,18 +280,143 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ============================================================
-  // REQUEST ID
+  // GET REQUEST ID
   // ============================================================
 
   String? _getRequestId(
     Map<String, dynamic> response,
   ) {
-    final List<dynamic> values =
+    // ==========================================================
+    // DIRECT REQUEST ID
+    // ==========================================================
+
+    final List<dynamic> directValues =
         <dynamic>[
       response['reqId'],
       response['req_id'],
       response['requestId'],
       response['request_id'],
+      response['requestID'],
+    ];
+
+    for (final dynamic value in directValues) {
+      final String? result =
+          _cleanRequestId(value);
+
+      if (result != null) {
+        return result;
+      }
+    }
+
+    // ==========================================================
+    // NESTED DATA
+    // ==========================================================
+
+    final dynamic data =
+        response['data'];
+
+    if (data is Map) {
+      final List<dynamic> nestedValues =
+          <dynamic>[
+        data['reqId'],
+        data['req_id'],
+        data['requestId'],
+        data['request_id'],
+        data['requestID'],
+      ];
+
+      for (final dynamic value in nestedValues) {
+        final String? result =
+            _cleanRequestId(value);
+
+        if (result != null) {
+          return result;
+        }
+      }
+    }
+
+    // ==========================================================
+    // NESTED REQUEST
+    // ==========================================================
+
+    final dynamic request =
+        response['request'];
+
+    if (request is Map) {
+      final List<dynamic> requestValues =
+          <dynamic>[
+        request['reqId'],
+        request['req_id'],
+        request['requestId'],
+        request['request_id'],
+        request['requestID'],
+      ];
+
+      for (final dynamic value in requestValues) {
+        final String? result =
+            _cleanRequestId(value);
+
+        if (result != null) {
+          return result;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // CLEAN REQUEST ID
+  // ============================================================
+
+  String? _cleanRequestId(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is Map) {
+      final dynamic nested =
+          value['reqId'] ??
+          value['req_id'] ??
+          value['requestId'] ??
+          value['request_id'] ??
+          value['requestID'];
+
+      if (nested != null) {
+        return _cleanRequestId(nested);
+      }
+
+      return null;
+    }
+
+    final String text =
+        value.toString().trim();
+
+    if (text.isEmpty) {
+      return null;
+    }
+
+    return text;
+  }
+
+  // ============================================================
+  // ERROR MESSAGE
+  // ============================================================
+
+  String _getErrorMessage(
+    Map<String, dynamic> response,
+  ) {
+    final List<dynamic> values =
+        <dynamic>[
+      response['message'],
+      response['error'],
+      response['description'],
+      response['error_message'],
+      response['errorMessage'],
+      response['msg'],
+      response['details'],
     ];
 
     for (final dynamic value in values) {
@@ -234,416 +426,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final String text =
           value.toString().trim();
-// ============================================================
-// INIT
-// ============================================================
 
-@override
-void initState() {
-  super.initState();
+      if (text.isNotEmpty) {
+        return 'OTP could not be sent: $text';
+      }
+    }
 
-  OTPWidget.initializeWidget(
-    widgetId,
-    authToken,
-  );
-
-  debugPrint(
-    'MSG91 OTP Widget initialized.',
-  );
-}
-
-// ============================================================
-// SEND OTP
-// ============================================================
-
-Future<void> handleSendOtp() async {
-  if (_isSendingOtp) {
-    return;
+    return 'OTP could not be sent. Please try again.';
   }
 
-  final String phoneNumber =
-      _phoneController.text.trim();
+  // ============================================================
+  // SHOW MESSAGE
+  // ============================================================
 
-  // ----------------------------------------------------------
-  // VALIDATE MOBILE NUMBER
-  // ----------------------------------------------------------
-
-  if (!RegExp(r'^[6-9][0-9]{9}$')
-      .hasMatch(phoneNumber)) {
-    _showMessage(
-      'Please enter a valid 10-digit mobile number.',
-    );
-    return;
-  }
-
-  setState(() {
-    _isSendingOtp = true;
-  });
-
-  // ----------------------------------------------------------
-  // MSG91 IDENTIFIER
-  // ----------------------------------------------------------
-  //
-  // UI:
-  // +91 9625813987
-  //
-  // MSG91:
-  // 919625813987
-  //
-  // No "+" is sent.
-  // ----------------------------------------------------------
-
-  final Map<String, dynamic> data =
-      <String, dynamic>{
-    'identifier': '91$phoneNumber',
-  };
-
-  try {
-    debugPrint(
-      'MSG91 IDENTIFIER: ${data['identifier']}',
-    );
-
-    // --------------------------------------------------------
-    // SEND OTP
-    // --------------------------------------------------------
-
-    final Map<String, dynamic>? response =
-        await OTPWidget.sendOTP(data);
-
-    // --------------------------------------------------------
-    // FULL RESPONSE DEBUG
-    // --------------------------------------------------------
-
-    debugPrint(
-      '================================================',
-    );
-
-    debugPrint(
-      'MSG91 RESPONSE FULL: $response',
-    );
-
-    debugPrint(
-      'MSG91 RESPONSE TYPE: ${response?.runtimeType}',
-    );
-
-    debugPrint(
-      '================================================',
-    );
-
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
 
-    // --------------------------------------------------------
-    // RESPONSE NULL
-    // --------------------------------------------------------
-
-    if (response == null) {
-      _showMessage(
-        'MSG91 did not return a response.',
-      );
-
-      return;
-    }
-
-    // --------------------------------------------------------
-    // RESPONSE KEYS
-    // --------------------------------------------------------
-
-    debugPrint(
-      'MSG91 RESPONSE KEYS: ${response.keys.toList()}',
-    );
-
-    // --------------------------------------------------------
-    // RESPONSE TYPE
-    // --------------------------------------------------------
-
-    final String type =
-        response['type']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
-
-    debugPrint(
-      'MSG91 RESPONSE TYPE VALUE: $type',
-    );
-
-    // --------------------------------------------------------
-    // SUCCESS
-    // --------------------------------------------------------
-
-    if (type == 'success') {
-      final String? reqId =
-          _getRequestId(response);
-
-      debugPrint(
-        'MSG91 OTP SUCCESS',
-      );
-
-      debugPrint(
-        'MSG91 REQUEST ID: $reqId',
-      );
-
-      // ------------------------------------------------------
-      // REQUEST ID MISSING
-      // ------------------------------------------------------
-
-      if (reqId == null || reqId.isEmpty) {
-        _showMessage(
-          'OTP sent, but request ID was not received.',
-        );
-
-        return;
-      }
-
-      // ------------------------------------------------------
-      // OTP SCREEN
-      // ------------------------------------------------------
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (BuildContext context) {
-            return OtpVerificationScreen(
-              phoneNumber: phoneNumber,
-              reqId: reqId,
-            );
-          },
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
         ),
       );
-
-      return;
-    }
-
-    // --------------------------------------------------------
-    // ERROR RESPONSE
-    // --------------------------------------------------------
-
-    debugPrint(
-      'MSG91 OTP FAILED.',
-    );
-
-    debugPrint(
-      'MSG91 ERROR RESPONSE: $response',
-    );
-
-    _showMessage(
-      _getErrorMessage(response),
-    );
-  } catch (e, stackTrace) {
-    // --------------------------------------------------------
-    // EXCEPTION
-    // --------------------------------------------------------
-
-    debugPrint(
-      '================================================',
-    );
-
-    debugPrint(
-      'MSG91 OTP EXCEPTION: $e',
-    );
-
-    debugPrint(
-      'MSG91 STACK TRACE: $stackTrace',
-    );
-
-    debugPrint(
-      '================================================',
-    );
-
-    _showMessage(
-      'OTP could not be sent. Please try again.',
-    );
-  } finally {
-    // --------------------------------------------------------
-    // STOP LOADING
-    // --------------------------------------------------------
-
-    if (mounted) {
-      setState(() {
-        _isSendingOtp = false;
-      });
-    }
   }
-}
-
-// ============================================================
-// GET REQUEST ID
-// ============================================================
-
-String? _getRequestId(
-  Map<String, dynamic> response,
-) {
-  // ----------------------------------------------------------
-  // DIRECT REQUEST-ID KEYS
-  // ----------------------------------------------------------
-
-  final List<dynamic> directValues =
-      <dynamic>[
-    response['reqId'],
-    response['req_id'],
-    response['requestId'],
-    response['request_id'],
-    response['requestID'],
-    response['request_id_value'],
-  ];
-
-  for (final dynamic value in directValues) {
-    final String? result =
-        _cleanRequestId(value);
-
-    if (result != null) {
-      return result;
-    }
-  }
-
-  // ----------------------------------------------------------
-  // CHECK NESTED DATA
-  // ----------------------------------------------------------
-
-  final dynamic data =
-      response['data'];
-
-  if (data is Map) {
-    final List<dynamic> nestedValues =
-        <dynamic>[
-      data['reqId'],
-      data['req_id'],
-      data['requestId'],
-      data['request_id'],
-      data['requestID'],
-    ];
-
-    for (final dynamic value in nestedValues) {
-      final String? result =
-          _cleanRequestId(value);
-
-      if (result != null) {
-        return result;
-      }
-    }
-  }
-
-  // ----------------------------------------------------------
-  // CHECK REQUEST OBJECT
-  // ----------------------------------------------------------
-
-  final dynamic request =
-      response['request'];
-
-  if (request is Map) {
-    final List<dynamic> requestValues =
-        <dynamic>[
-      request['reqId'],
-      request['req_id'],
-      request['requestId'],
-      request['request_id'],
-    ];
-
-    for (final dynamic value
-        in requestValues) {
-      final String? result =
-          _cleanRequestId(value);
-
-      if (result != null) {
-        return result;
-      }
-    }
-  }
-
-  return null;
-}
-
-// ============================================================
-// CLEAN REQUEST ID
-// ============================================================
-
-String? _cleanRequestId(
-  dynamic value,
-) {
-  if (value == null) {
-    return null;
-  }
-
-  if (value is Map) {
-    final dynamic nested =
-        value['reqId'] ??
-        value['req_id'] ??
-        value['requestId'] ??
-        value['request_id'];
-
-    if (nested != null) {
-      return _cleanRequestId(nested);
-    }
-
-    return null;
-  }
-
-  final String text =
-      value.toString().trim();
-
-  if (text.isEmpty) {
-    return null;
-  }
-
-  return text;
-}
-
-// ============================================================
-// ERROR MESSAGE
-// ============================================================
-
-String _getErrorMessage(
-  Map<String, dynamic> response,
-) {
-  final List<dynamic> values =
-      <dynamic>[
-    response['message'],
-    response['error'],
-    response['description'],
-    response['error_message'],
-    response['errorMessage'],
-  ];
-
-  for (final dynamic value in values) {
-    if (value == null) {
-      continue;
-    }
-
-    final String text =
-        value.toString().trim();
-
-    if (text.isNotEmpty) {
-      return 'OTP could not be sent: $text';
-    }
-  }
-
-  return 'OTP could not be sent. Please try again.';
-}
-
-// ============================================================
-// MESSAGE
-// ============================================================
-
-void _showMessage(
-  String message,
-) {
-  if (!mounted) {
-    return;
-  }
-
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-      ),
-    );
-}
 
   // ============================================================
   // DISPOSE
@@ -710,8 +521,7 @@ void _showMessage(
                   boxShadow: [
                     BoxShadow(
                       color:
-                          AppColors.primary
-                              .withValues(
+                          AppColors.primary.withValues(
                         alpha: 0.22,
                       ),
                       blurRadius: 22,
@@ -801,8 +611,7 @@ void _showMessage(
                   boxShadow: [
                     BoxShadow(
                       color:
-                          Colors.black
-                              .withValues(
+                          Colors.black.withValues(
                         alpha: 0.06,
                       ),
                       blurRadius: 20,
@@ -855,7 +664,6 @@ void _showMessage(
                       child:
                           Row(
                         children: [
-                          // PHONE ICON
                           Container(
                             width: 50,
                             height: 46,
@@ -868,8 +676,7 @@ void _showMessage(
                               color:
                                   AppColors.primary
                                       .withValues(
-                                alpha:
-                                    0.10,
+                                alpha: 0.10,
                               ),
                               borderRadius:
                                   BorderRadius.circular(
@@ -889,7 +696,6 @@ void _showMessage(
                             width: 12,
                           ),
 
-                          // HARD-CODED +91
                           const Text(
                             '+91',
                             style:
@@ -907,7 +713,6 @@ void _showMessage(
                             width: 10,
                           ),
 
-                          // DIVIDER
                           Container(
                             height: 30,
                             width: 1,
@@ -919,7 +724,6 @@ void _showMessage(
                             width: 10,
                           ),
 
-                          // NUMBER INPUT
                           Expanded(
                             child:
                                 TextField(
@@ -975,7 +779,7 @@ void _showMessage(
                     ),
 
                     // ==========================================
-                    // GET OTP
+                    // GET OTP BUTTON
                     // ==========================================
 
                     SizedBox(
@@ -1028,12 +832,10 @@ void _showMessage(
                                   )
                                 : const Row(
                                     mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .center,
+                                        MainAxisAlignment.center,
                                     children: [
                                       Icon(
-                                        Icons
-                                            .sms_outlined,
+                                        Icons.sms_outlined,
                                         size: 23,
                                       ),
                                       SizedBox(
@@ -1043,11 +845,9 @@ void _showMessage(
                                         'Get OTP',
                                         style:
                                             TextStyle(
-                                          fontSize:
-                                              17,
+                                          fontSize: 17,
                                           fontWeight:
-                                              FontWeight
-                                                  .w900,
+                                              FontWeight.w900,
                                         ),
                                       ),
                                     ],
@@ -1060,7 +860,7 @@ void _showMessage(
                     ),
 
                     // ==========================================
-                    // OTP INFO
+                    // OTP INFORMATION
                     // ==========================================
 
                     Row(
@@ -1073,16 +873,13 @@ void _showMessage(
                           decoration:
                               const BoxDecoration(
                             color:
-                                Color(
-                              0xFFF1F4F7,
-                            ),
+                                Color(0xFFF1F4F7),
                             shape:
                                 BoxShape.circle,
                           ),
                           child:
                               const Icon(
-                            Icons
-                                .verified_user_outlined,
+                            Icons.verified_user_outlined,
                             color:
                                 secondaryText,
                             size: 21,
@@ -1135,6 +932,7 @@ void _showMessage(
                           borderColor,
                     ),
                   ),
+
                   Container(
                     margin:
                         const EdgeInsets.symmetric(
@@ -1150,6 +948,7 @@ void _showMessage(
                           BoxShape.circle,
                     ),
                   ),
+
                   Expanded(
                     child:
                         Container(
