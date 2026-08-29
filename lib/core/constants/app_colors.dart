@@ -6,28 +6,24 @@ import '../theme/dojo_colors.dart';
 /// DOJO WALK - APP COLORS COMPATIBILITY BRIDGE
 /// ============================================================
 ///
-/// IMPORTANT:
-/// This file keeps the existing AppColors API working.
+/// Existing UI files can continue using:
+///   AppColors.primary
+///   AppColors.orange
+///   AppColors.success
+///   AppColors.error
+///   etc.
 ///
-/// Do NOT add hard-coded brand colors here.
-/// All brand colors come from:
-///     lib/core/theme/dojo_colors.dart
+/// Actual colors are controlled by:
+///   lib/core/theme/dojo_colors.dart
 ///
-/// This allows existing screens/widgets using:
-///     AppColors.primary
-///     AppColors.orange
-///     AppColors.success
-/// etc.
-/// to continue working without changing hundreds of imports.
-///
-/// PRIMARY BRAND = DARK ORANGE
+/// PRIMARY = DARK ORANGE
 /// ============================================================
 
 class AppColors {
   AppColors._();
 
   // ==========================================================
-  // PRIMARY / BRAND
+  // BRAND
   // ==========================================================
 
   static const Color primary =
@@ -108,7 +104,7 @@ class AppColors {
       DojoLightColors.border;
 
   // ==========================================================
-  // SEMANTIC / STATUS
+  // STATUS
   // ==========================================================
 
   static const Color success =
