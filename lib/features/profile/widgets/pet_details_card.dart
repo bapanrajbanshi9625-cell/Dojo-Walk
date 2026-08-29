@@ -20,8 +20,7 @@ class PetDetailsCard extends StatelessWidget {
     for (final String key in keys) {
       final dynamic value = pet[key];
 
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
+      if (value != null && value.toString().trim().isNotEmpty) {
         return value.toString().trim();
       }
     }
@@ -69,6 +68,10 @@ class PetDetailsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // ======================================================
+          // PET HEADER
+          // ======================================================
+
           Row(
             children: [
               Container(
@@ -89,8 +92,7 @@ class PetDetailsCard extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Pet ${index + 1}',
@@ -115,6 +117,10 @@ class PetDetailsCard extends StatelessWidget {
                 ),
               ),
 
+              // ==================================================
+              // EDIT
+              // ==================================================
+
               IconButton(
                 tooltip: 'Edit Pet',
                 onPressed: onEdit,
@@ -124,12 +130,16 @@ class PetDetailsCard extends StatelessWidget {
                 ),
               ),
 
+              // ==================================================
+              // DELETE
+              // ==================================================
+
               IconButton(
                 tooltip: 'Delete Pet',
                 onPressed: onDelete,
                 icon: const Icon(
                   Icons.delete_outline_rounded,
-                  color: DojoColors.red,
+                  color: DojoStatusColors.error,
                 ),
               ),
             ],
@@ -141,6 +151,10 @@ class PetDetailsCard extends StatelessWidget {
 
           const SizedBox(height: 13),
 
+          // ======================================================
+          // AGE
+          // ======================================================
+
           _PetRow(
             icon: Icons.cake_outlined,
             label: 'Age',
@@ -149,6 +163,10 @@ class PetDetailsCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
+          // ======================================================
+          // BREED
+          // ======================================================
+
           _PetRow(
             icon: Icons.pets_outlined,
             label: 'Breed',
@@ -156,6 +174,10 @@ class PetDetailsCard extends StatelessWidget {
           ),
 
           const SizedBox(height: 12),
+
+          // ======================================================
+          // BEHAVIOUR
+          // ======================================================
 
           _PetRow(
             icon: Icons.favorite_border_rounded,
@@ -167,6 +189,10 @@ class PetDetailsCard extends StatelessWidget {
     );
   }
 }
+
+// ================================================================
+// PET ROW
+// ================================================================
 
 class _PetRow extends StatelessWidget {
   final IconData icon;
@@ -182,6 +208,7 @@ class _PetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
           icon,
