@@ -1,5 +1,4 @@
-// File location:
-// lib/screens/live_walk_screen.dart
+// File: lib/screens/live_walk_screen.dart
 
 import 'dart:async';
 
@@ -52,17 +51,12 @@ class _LiveWalkScreenState
   String? _sessionDocumentId;
 
   bool _loading = true;
-
   bool _ending = false;
-
   bool _walkCompleted = false;
 
   bool _trackingStarted = false;
-
   bool _trackingEnded = false;
-
   bool _walkStarted = false;
-
   bool _walkEnded = false;
 
   // ==========================================================
@@ -70,11 +64,8 @@ class _LiveWalkScreenState
   // ==========================================================
 
   String _ownerId = '';
-
   String _ownerUid = '';
-
   String _ownerName = 'Owner';
-
   String _ownerPhone = '';
 
   // ==========================================================
@@ -82,17 +73,15 @@ class _LiveWalkScreenState
   // ==========================================================
 
   String _walkerId = '';
-
   String _walkerUid = '';
-
   String _walkerName = 'Walker';
+  String _walkerPhone = '';
 
   // ==========================================================
   // DOG
   // ==========================================================
 
   String _dogName = 'Dog';
-
   String _dogBreed = '';
 
   // ==========================================================
@@ -100,7 +89,6 @@ class _LiveWalkScreenState
   // ==========================================================
 
   LatLng? _walkerLocation;
-
   LatLng? _destination;
 
   final List<LatLng> _routePoints =
@@ -113,13 +101,10 @@ class _LiveWalkScreenState
   // ==========================================================
 
   String _duration = '00:00';
-
   String _distance = '0.0 km';
 
   int _steps = 0;
-
   int _peeCount = 0;
-
   int _poopCount = 0;
 
   // ==========================================================
@@ -178,7 +163,6 @@ class _LiveWalkScreenState
 
     if (walkId.isEmpty) {
       _setLoadingFinished();
-
       return;
     }
 
@@ -218,9 +202,8 @@ class _LiveWalkScreenState
 
     if (snapshot.docs.isEmpty) {
       debugPrint(
-        'LiveWalkScreen: no liveWalkSessions '
-        'document found for walkId='
-        '${widget.activeWalkId}',
+        'LiveWalkScreen: no session found '
+        'for walkId=${widget.activeWalkId}',
       );
 
       setState(() {
@@ -234,8 +217,7 @@ class _LiveWalkScreenState
         Map<String, dynamic>> document =
         snapshot.docs.first;
 
-    _sessionDocumentId =
-        document.id;
+    _sessionDocumentId = document.id;
 
     final Map<String, dynamic> data =
         document.data();
@@ -251,7 +233,6 @@ class _LiveWalkScreenState
     });
 
     _startDurationTimer();
-
     _centerMapOnce();
   }
 
@@ -307,7 +288,11 @@ class _LiveWalkScreenState
     }
 
     _ownerPhone =
-        _readString(data['ownerPhone']);
+        _readString(
+      data['ownerPhone'] ??
+          data['phone'] ??
+          data['ownerPhoneNumber'],
+    );
 
     // ========================================================
     // WALKER
@@ -325,6 +310,12 @@ class _LiveWalkScreenState
     if (_walkerName.isEmpty) {
       _walkerName = 'Walker';
     }
+
+    _walkerPhone =
+        _readString(
+      data['walkerPhone'] ??
+          data['walkerPhoneNumber'],
+    );
 
     // ========================================================
     // DOG
@@ -348,9 +339,6 @@ class _LiveWalkScreenState
         _readLocation(
       data['currentLocation'],
     );
-
-    // Fallback:
-    // Some records may use lat/lng directly.
 
     if (_walkerLocation == null) {
       final double? lat =
@@ -419,14 +407,16 @@ class _LiveWalkScreenState
 
       if (distanceText.isNotEmpty) {
         _distance =
-            distanceText.contains('km')
+            distanceText
+                    .toLowerCase()
+                    .contains('km')
                 ? distanceText
                 : '$distanceText km';
       }
     }
 
     // ========================================================
-    // ELAPSED SECONDS
+    // DURATION
     // ========================================================
 
     final int elapsedSeconds =
@@ -448,10 +438,13 @@ class _LiveWalkScreenState
       );
 
       if (startedAt != null) {
+        final Duration elapsed =
+            DateTime.now()
+                .difference(startedAt);
+
         _duration =
             _formatDuration(
-          DateTime.now()
-              .difference(startedAt),
+          elapsed,
         );
       }
     }
@@ -523,7 +516,7 @@ class _LiveWalkScreenState
   }
 
   // ==========================================================
-  // ROUTE COORDINATES
+  // ROUTE
   // ==========================================================
 
   void _readRouteCoordinates(
@@ -578,12 +571,6 @@ class _LiveWalkScreenState
   }
 
   void _updateDurationFromFirestore() {
-    // The Firestore listener supplies the
-    // latest elapsedSeconds/startedAt.
-    //
-    // We only locally increment when the
-    // walk is actively running.
-
     if (!_walkStarted ||
         _walkEnded ||
         _trackingEnded) {
@@ -595,14 +582,12 @@ class _LiveWalkScreenState
       _duration,
     );
 
-    final int nextSeconds =
-        currentSeconds + 1;
-
     setState(() {
       _duration =
           _formatDuration(
         Duration(
-          seconds: nextSeconds,
+          seconds:
+              currentSeconds + 1,
         ),
       );
     });
@@ -826,7 +811,6 @@ class _LiveWalkScreenState
         FlutterMap(
           mapController:
               _mapController,
-
           options:
               MapOptions(
             initialCenter: center,
@@ -834,12 +818,10 @@ class _LiveWalkScreenState
             minZoom: 3,
             maxZoom: 19,
           ),
-
           children: [
             TileLayer(
               urlTemplate:
                   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-
               userAgentPackageName:
                   'com.doojowalker.app',
             ),
@@ -883,7 +865,7 @@ class _LiveWalkScreenState
         ),
 
         // ======================================================
-        // MAP STATUS
+        // LOCATION STATUS
         // ======================================================
 
         Positioned(
@@ -899,9 +881,7 @@ class _LiveWalkScreenState
                 BoxDecoration(
               color: Colors.white,
               borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
+                  BorderRadius.circular(10),
               boxShadow: const [
                 BoxShadow(
                   color: Colors.black26,
@@ -921,11 +901,7 @@ class _LiveWalkScreenState
                           ? green
                           : Colors.grey,
                 ),
-
-                const SizedBox(
-                  width: 6,
-                ),
-
+                const SizedBox(width: 6),
                 Text(
                   _walkerLocation != null
                       ? 'Live Location'
@@ -953,14 +929,10 @@ class _LiveWalkScreenState
             color: Colors.white,
             elevation: 3,
             borderRadius:
-                BorderRadius.circular(
-              13,
-            ),
+                BorderRadius.circular(13),
             child: InkWell(
               borderRadius:
-                  BorderRadius.circular(
-                13,
-              ),
+                  BorderRadius.circular(13),
               onTap:
                   _recenterOnWalker,
               child:
@@ -1012,7 +984,6 @@ class _LiveWalkScreenState
             size: 22,
           ),
         ),
-
         const Icon(
           Icons.arrow_drop_down,
           color: primary,
@@ -1053,7 +1024,6 @@ class _LiveWalkScreenState
             size: 22,
           ),
         ),
-
         const Icon(
           Icons.arrow_drop_down,
           color: red,
@@ -1070,12 +1040,10 @@ class _LiveWalkScreenState
   Widget _buildBottomPanel() {
     return Container(
       width: double.infinity,
-
       constraints:
           const BoxConstraints(
         maxHeight: 310,
       ),
-
       padding:
           const EdgeInsets.fromLTRB(
         15,
@@ -1083,7 +1051,6 @@ class _LiveWalkScreenState
         15,
         12,
       ),
-
       decoration:
           const BoxDecoration(
         color: Colors.white,
@@ -1099,7 +1066,6 @@ class _LiveWalkScreenState
           ),
         ],
       ),
-
       child: SingleChildScrollView(
         child: Column(
           children: [
@@ -1166,14 +1132,13 @@ class _LiveWalkScreenState
             const SizedBox(height: 10),
 
             // ==================================================
-            // WALKER ONLY
+            // ONLY WALKER CAN END WALK
             // ==================================================
 
             if (widget.isWalker &&
                 !_walkCompleted)
               SizedBox(
-                width:
-                    double.infinity,
+                width: double.infinity,
                 height: 46,
                 child:
                     ElevatedButton.icon(
@@ -1212,9 +1177,7 @@ class _LiveWalkScreenState
                     foregroundColor:
                         Colors.white,
                     disabledBackgroundColor:
-                        navy.withOpacity(
-                      .5,
-                    ),
+                        navy.withOpacity(.5),
                     elevation: 0,
                     shape:
                         RoundedRectangleBorder(
@@ -1245,9 +1208,7 @@ class _LiveWalkScreenState
           BoxDecoration(
         color: lightBg,
         borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
+            BorderRadius.circular(14),
         border: Border.all(
           color: border,
         ),
@@ -1260,9 +1221,7 @@ class _LiveWalkScreenState
             decoration:
                 BoxDecoration(
               color:
-                  primary.withOpacity(
-                .10,
-              ),
+                  primary.withOpacity(.10),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -1291,9 +1250,7 @@ class _LiveWalkScreenState
                   ),
                 ),
 
-                const SizedBox(
-                  height: 2,
-                ),
+                const SizedBox(height: 2),
 
                 Text(
                   _walkerName,
@@ -1309,8 +1266,7 @@ class _LiveWalkScreenState
                   ),
                 ),
 
-                if (_walkerUid
-                    .isNotEmpty)
+                if (_walkerUid.isNotEmpty)
                   Text(
                     'UID: $_walkerUid',
                     maxLines: 1,
@@ -1340,9 +1296,7 @@ class _LiveWalkScreenState
                           : green)
                       .withOpacity(.10),
               borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
+                  BorderRadius.circular(20),
             ),
             child: Text(
               _walkCompleted
@@ -1378,9 +1332,7 @@ class _LiveWalkScreenState
           BoxDecoration(
         color: lightBg,
         borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
+            BorderRadius.circular(14),
         border: Border.all(
           color: border,
         ),
@@ -1393,13 +1345,9 @@ class _LiveWalkScreenState
             decoration:
                 BoxDecoration(
               color:
-                  primary.withOpacity(
-                .10,
-              ),
+                  primary.withOpacity(.10),
               borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
+                  BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.location_on_rounded,
@@ -1427,9 +1375,7 @@ class _LiveWalkScreenState
                   ),
                 ),
 
-                const SizedBox(
-                  height: 2,
-                ),
+                const SizedBox(height: 2),
 
                 Text(
                   _destinationAddress,
@@ -1506,9 +1452,7 @@ class _LiveWalkScreenState
           BoxDecoration(
         color: lightBg,
         borderRadius:
-            BorderRadius.circular(
-          12,
-        ),
+            BorderRadius.circular(12),
       ),
       child: Column(
         children: [
@@ -1596,9 +1540,7 @@ class _LiveWalkScreenState
           BoxDecoration(
         color: lightBg,
         borderRadius:
-            BorderRadius.circular(
-          12,
-        ),
+            BorderRadius.circular(12),
         border: Border.all(
           color: border,
         ),
@@ -1683,9 +1625,7 @@ class _LiveWalkScreenState
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              11,
-            ),
+                BorderRadius.circular(11),
           ),
         ),
       ),
@@ -1754,17 +1694,16 @@ class _LiveWalkScreenState
   }
 
   // ==========================================================
-  // CALL WALKER
+  // CALL
   // ==========================================================
 
   Future<void> _callWalker() async {
     final String phone =
-        _ownerPhone.isNotEmpty &&
-                !widget.isWalker
-            ? _walkerPhoneFromData()
-            : _ownerPhone;
+        widget.isWalker
+            ? _ownerPhone
+            : _walkerPhone;
 
-    if (phone.isEmpty) {
+    if (phone.trim().isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(
         const SnackBar(
@@ -1779,7 +1718,7 @@ class _LiveWalkScreenState
 
     final Uri uri = Uri(
       scheme: 'tel',
-      path: phone,
+      path: phone.trim(),
     );
 
     try {
@@ -1788,9 +1727,8 @@ class _LiveWalkScreenState
 
       if (!launched &&
           mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           const SnackBar(
             content: Text(
               'Unable to open phone dialer.',
@@ -1803,10 +1741,6 @@ class _LiveWalkScreenState
         'Call error: $e',
       );
     }
-  }
-
-  String _walkerPhoneFromData() {
-    return '';
   }
 
   // ==========================================================
@@ -1829,7 +1763,14 @@ class _LiveWalkScreenState
   // ==========================================================
 
   Future<void> _endWalk() async {
-    if (_ending) {
+    // HARD SAFETY:
+    // Owner can NEVER end the walk.
+    if (!widget.isWalker) {
+      return;
+    }
+
+    if (_ending ||
+        _walkCompleted) {
       return;
     }
 
@@ -1866,6 +1807,7 @@ class _LiveWalkScreenState
                 'Keep Walking',
               ),
             ),
+
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(
@@ -1890,11 +1832,8 @@ class _LiveWalkScreenState
       },
     );
 
-    if (confirm != true) {
-      return;
-    }
-
-    if (!mounted) {
+    if (confirm != true ||
+        !mounted) {
       return;
     }
 
@@ -1928,7 +1867,7 @@ class _LiveWalkScreenState
                 .where(
                   'walkId',
                   isEqualTo:
-                      widget.activeWalkId,
+                      widget.activeWalkId.trim(),
                 )
                 .limit(1)
                 .get();
@@ -1979,6 +1918,16 @@ class _LiveWalkScreenState
         }
       }
 
+      final int finalElapsedSeconds =
+          _durationToSeconds(
+        _duration,
+      );
+
+      final double finalDistance =
+          _distanceToNumber(
+        _distance,
+      );
+
       // ======================================================
       // END LIVE SESSION
       // ======================================================
@@ -1997,20 +1946,19 @@ class _LiveWalkScreenState
             FieldValue.serverTimestamp(),
 
         'elapsedSeconds':
-            _durationToSeconds(
-          _duration,
-        ),
+            finalElapsedSeconds,
 
         'distanceKm':
-            _distanceToNumber(
-          _distance,
-        ),
+            finalDistance,
 
         'peeCount':
             _peeCount,
 
         'poopCount':
             _poopCount,
+
+        'steps':
+            _steps,
 
         'routeCoordinates':
             finalRoute,
@@ -2027,16 +1975,16 @@ class _LiveWalkScreenState
       });
 
       // ======================================================
-      // SAVE HISTORY
+      // SAVE WALK HISTORY
       // ======================================================
 
       await _firestore
           .collection('walk_history')
-          .doc(widget.activeWalkId)
+          .doc(widget.activeWalkId.trim())
           .set(
         {
           'walkId':
-              widget.activeWalkId,
+              widget.activeWalkId.trim(),
 
           'status':
               'completed',
@@ -2062,6 +2010,9 @@ class _LiveWalkScreenState
           'walkerName':
               _walkerName,
 
+          'walkerPhone':
+              _walkerPhone,
+
           'dogName':
               _dogName,
 
@@ -2078,14 +2029,13 @@ class _LiveWalkScreenState
               _duration,
 
           'elapsedSeconds':
-              _durationToSeconds(
-            _duration,
-          ),
+              finalElapsedSeconds,
 
           'distanceKm':
-              _distanceToNumber(
-            _distance,
-          ),
+              finalDistance,
+
+          'steps':
+              _steps,
 
           'peeCount':
               _peeCount,
@@ -2116,8 +2066,6 @@ class _LiveWalkScreenState
         _ending = false;
       });
 
-      // Give Firestore listener time to
-      // receive completed status.
       await Future<void>.delayed(
         const Duration(
           milliseconds: 400,
@@ -2158,10 +2106,12 @@ class _LiveWalkScreenState
   double _distanceToNumber(
     String value,
   ) {
-    String clean =
+    final String clean =
         value
             .replaceAll(
-              'km',
+              RegExp(
+                r'[^0-9.\-]',
+              ),
               '',
             )
             .trim();
@@ -2177,6 +2127,24 @@ class _LiveWalkScreenState
   // ==========================================================
 
   DateTime? _readDateForHistory() {
+    final String walkId =
+        widget.activeWalkId.trim();
+
+    if (walkId.isEmpty) {
+      return null;
+    }
+
+    // We intentionally return the
+    // locally known start time from
+    // the current duration when possible.
+    //
+    // Firestore server timestamp cannot
+    // be synchronously converted here.
+    //
+    // History document is merged and the
+    // live session should already contain
+    // startedAt.
+
     return null;
   }
 
@@ -2446,7 +2414,6 @@ class _LiveWalkScreenState
   @override
   void dispose() {
     _subscription?.cancel();
-
     _durationTimer?.cancel();
 
     super.dispose();
