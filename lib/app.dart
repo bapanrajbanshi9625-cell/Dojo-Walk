@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'core/network/network_monitor.dart';
 import 'core/theme/dojo_theme.dart';
@@ -21,6 +22,22 @@ class DojoWalk extends StatelessWidget {
       theme: DojoTheme.light(),
       darkTheme: DojoTheme.dark(),
       themeMode: ThemeMode.system,
+
+      // ========================================================
+      // STATUS BAR
+      // AppBar + Status Bar = Same Colour
+      // ========================================================
+
+      builder: (context, child) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: DojoColors.primary,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          ),
+          child: child!,
+        );
+      },
 
       // ========================================================
       // STARTUP
