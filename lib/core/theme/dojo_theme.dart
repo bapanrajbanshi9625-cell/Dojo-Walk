@@ -18,13 +18,14 @@ class DojoTheme {
           DojoLightColors.background,
 
       colorScheme: const ColorScheme.light(
-        primary: DojoBrandColors.orange,
+        // PRIMARY = DARK ORANGE
+        primary: DojoBrandColors.orangeDark,
         secondary: DojoBrandColors.mint,
         surface: DojoLightColors.surface,
         onPrimary: Colors.white,
         onSecondary: DojoBrandColors.slate,
         onSurface: DojoLightColors.text,
-        error: DojoCardColors.error,
+        error: DojoStatusColors.error,
       ),
 
       // ========================================================
@@ -32,10 +33,8 @@ class DojoTheme {
       // ========================================================
 
       appBarTheme: const AppBarTheme(
-        backgroundColor:
-            DojoAppBarColors.lightBackground,
-        foregroundColor:
-            DojoAppBarColors.lightText,
+        backgroundColor: DojoLightColors.surface,
+        foregroundColor: DojoLightColors.text,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
@@ -61,11 +60,9 @@ class DojoTheme {
       // INPUTS
       // ========================================================
 
-      inputDecorationTheme:
-          InputDecorationTheme(
+      inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor:
-            DojoInputColors.lightBackground,
+        fillColor: DojoInputColors.lightBackground,
 
         hintStyle: const TextStyle(
           color: DojoInputColors.lightHint,
@@ -75,50 +72,37 @@ class DojoTheme {
         prefixIconColor:
             DojoInputColors.lightIcon,
 
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(
-            color:
-                DojoInputColors.lightBorder,
+            color: DojoInputColors.lightBorder,
           ),
         ),
 
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(
-            color:
-                DojoBrandColors.orange,
+            color: DojoBrandColors.orangeDark,
             width: 1.5,
           ),
         ),
 
-        errorBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(
-            color:
-                DojoCardColors.error,
+            color: DojoStatusColors.error,
           ),
         ),
 
-        focusedErrorBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(15),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(
-            color:
-                DojoCardColors.error,
+            color: DojoStatusColors.error,
             width: 1.5,
           ),
         ),
 
-        contentPadding:
-            const EdgeInsets.symmetric(
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 15,
         ),
@@ -128,10 +112,8 @@ class DojoTheme {
       // TABS
       // ========================================================
 
-      tabBarTheme:
-          const TabBarThemeData(
-        labelColor:
-            DojoTabColors.lightSelected,
+      tabBarTheme: const TabBarThemeData(
+        labelColor: DojoTabColors.lightSelected,
         unselectedLabelColor:
             DojoTabColors.lightUnselected,
         indicatorColor:
@@ -144,8 +126,7 @@ class DojoTheme {
 
       elevatedButtonTheme:
           ElevatedButtonThemeData(
-        style:
-            ElevatedButton.styleFrom(
+        style: ElevatedButton.styleFrom(
           backgroundColor:
               DojoButtonColors.primary,
           foregroundColor:
@@ -170,9 +151,22 @@ class DojoTheme {
       floatingActionButtonTheme:
           const FloatingActionButtonThemeData(
         backgroundColor:
-            DojoBrandColors.orange,
+            DojoBrandColors.orangeDark,
         foregroundColor:
             Colors.white,
+      ),
+
+      // ========================================================
+      // NAVIGATION BAR
+      // ========================================================
+
+      navigationBarTheme:
+          const NavigationBarThemeData(
+        backgroundColor:
+            DojoBottomColors.lightBackground,
+        indicatorColor:
+            DojoBottomColors.lightIndicator,
+        elevation: 8,
       ),
 
       // ========================================================
@@ -180,7 +174,7 @@ class DojoTheme {
       // ========================================================
 
       dividerColor:
-          DojoLightColors.border,
+          DojoLightColors.divider,
     );
   }
 
@@ -197,13 +191,14 @@ class DojoTheme {
           DojoDarkColors.background,
 
       colorScheme: const ColorScheme.dark(
-        primary: DojoBrandColors.orange,
+        // PRIMARY = DARK ORANGE
+        primary: DojoBrandColors.orangeDark,
         secondary: DojoBrandColors.mint,
         surface: DojoDarkColors.surface,
         onPrimary: Colors.white,
         onSecondary: DojoBrandColors.slate,
         onSurface: DojoDarkColors.text,
-        error: DojoCardColors.error,
+        error: DojoStatusColors.error,
       ),
 
       // ========================================================
@@ -212,11 +207,12 @@ class DojoTheme {
 
       appBarTheme: const AppBarTheme(
         backgroundColor:
-            DojoAppBarColors.darkBackground,
+            DojoDarkColors.surface,
         foregroundColor:
-            DojoAppBarColors.darkText,
+            DojoDarkColors.text,
         elevation: 0,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor:
+            Colors.transparent,
         centerTitle: false,
       ),
 
@@ -229,7 +225,8 @@ class DojoTheme {
             DojoCardColors.darkBackground,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
+        shape:
+            RoundedRectangleBorder(
           borderRadius:
               BorderRadius.circular(20),
           side: const BorderSide(
@@ -243,12 +240,11 @@ class DojoTheme {
       // INPUTS
       // ========================================================
 
-      // Input boxes intentionally remain
-      // LIGHT even in dark theme.
-
       inputDecorationTheme:
           InputDecorationTheme(
         filled: true,
+
+        // Keep input boxes light.
         fillColor:
             DojoInputColors.lightBackground,
 
@@ -277,7 +273,7 @@ class DojoTheme {
               BorderRadius.circular(15),
           borderSide: const BorderSide(
             color:
-                DojoBrandColors.orange,
+                DojoBrandColors.orangeDark,
             width: 1.5,
           ),
         ),
@@ -288,7 +284,7 @@ class DojoTheme {
               BorderRadius.circular(15),
           borderSide: const BorderSide(
             color:
-                DojoCardColors.error,
+                DojoStatusColors.error,
           ),
         ),
 
@@ -298,7 +294,7 @@ class DojoTheme {
               BorderRadius.circular(15),
           borderSide: const BorderSide(
             color:
-                DojoCardColors.error,
+                DojoStatusColors.error,
             width: 1.5,
           ),
         ),
@@ -321,11 +317,12 @@ class DojoTheme {
         indicatorColor:
             DojoBottomColors.darkIndicator,
         elevation: 8,
+
         labelTextStyle:
             WidgetStatePropertyAll(
           TextStyle(
             color:
-                DojoBottomColors.darkSelected,
+                DojoBrandColors.orangeDark,
             fontWeight:
                 FontWeight.w600,
           ),
@@ -378,7 +375,7 @@ class DojoTheme {
       floatingActionButtonTheme:
           const FloatingActionButtonThemeData(
         backgroundColor:
-            DojoBrandColors.orange,
+            DojoBrandColors.orangeDark,
         foregroundColor:
             Colors.white,
       ),
@@ -388,7 +385,7 @@ class DojoTheme {
       // ========================================================
 
       dividerColor:
-          DojoDarkColors.border,
+          DojoDarkColors.divider,
     );
   }
 }
