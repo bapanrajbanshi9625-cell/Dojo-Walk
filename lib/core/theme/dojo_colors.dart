@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 class DojoBrandColors {
   DojoBrandColors._();
 
+  // ----------------------------------------------------------
+  // BRAND
+  // ----------------------------------------------------------
+
   static const Color orangeDark = Color(0xFFE85A2A);
   static const Color orange = Color(0xFFFF6B35);
   static const Color orangeLight = Color(0xFFFF8A5B);
@@ -277,4 +281,89 @@ class DojoOverlayColors {
 
   static const Color glow30 = Color(0x4DE85A2A);
   static const Color glow40 = Color(0x66E85A2A);
+}
+
+// ============================================================
+// DOJO COLORS
+// Compatibility shortcuts used by existing screens/widgets.
+//
+// IMPORTANT:
+// Do NOT create another color file.
+// Existing code can continue using:
+// DojoColors.orange
+// DojoColors.navy
+// DojoColors.white
+// DojoColors.black
+// DojoColors.grey
+// DojoColors.lightOrange
+// ============================================================
+
+class DojoColors {
+  DojoColors._();
+
+  // ----------------------------------------------------------
+  // BRAND
+  // ----------------------------------------------------------
+
+  static const Color orangeDark = DojoBrandColors.orangeDark;
+  static const Color orange = DojoBrandColors.orange;
+  static const Color lightOrange = DojoBrandColors.orangeLight;
+
+  static const Color mint = DojoBrandColors.mint;
+  static const Color mintTint = DojoBrandColors.mintTint;
+
+  static const Color navy = DojoBrandColors.navy;
+  static const Color slate = DojoBrandColors.slate;
+  static const Color deepTeal = DojoBrandColors.deepTeal;
+
+  // ----------------------------------------------------------
+  // BASIC
+  // ----------------------------------------------------------
+
+  static const Color white = DojoBrandColors.white;
+  static const Color black = DojoBrandColors.black;
+  static const Color transparent = DojoBrandColors.transparent;
+
+  // ----------------------------------------------------------
+  // BACKGROUND / SURFACE
+  // ----------------------------------------------------------
+
+  static const Color background = DojoLightColors.background;
+  static const Color surface = DojoLightColors.surface;
+  static const Color surfaceSoft = DojoLightColors.surfaceSoft;
+  static const Color card = DojoBrandColors.card;
+
+  // ----------------------------------------------------------
+  // TEXT
+  // ----------------------------------------------------------
+
+  static const Color text = DojoLightColors.text;
+  static const Color secondaryText = DojoLightColors.secondaryText;
+  static const Color mutedText = DojoLightColors.mutedText;
+
+  // Existing widgets use "grey".
+  static const Color grey = DojoLightColors.secondaryText;
+
+  // ----------------------------------------------------------
+  // BORDER / DIVIDER
+  // ----------------------------------------------------------
+
+  static const Color border = DojoLightColors.border;
+  static const Color divider = DojoLightColors.divider;
+
+  // ----------------------------------------------------------
+  // STATUS
+  // ----------------------------------------------------------
+
+  static const Color success = DojoStatusColors.success;
+  static const Color successSoft = DojoStatusColors.successSoft;
+
+  static const Color warning = DojoStatusColors.warning;
+  static const Color warningSoft = DojoStatusColors.warningSoft;
+
+  static const Color error = DojoStatusColors.error;
+  static const Color errorSoft = DojoStatusColors.errorSoft;
+
+  static const Color info = DojoStatusColors.info;
+  static const Color infoSoft = DojoStatusColors.infoSoft;
 }
