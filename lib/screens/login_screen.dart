@@ -234,68 +234,416 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final String text =
           value.toString().trim();
+// ============================================================
+// INIT
+// ============================================================
 
-      if (text.isNotEmpty) {
-        return text;
+@override
+void initState() {
+  super.initState();
+
+  OTPWidget.initializeWidget(
+    widgetId,
+    authToken,
+  );
+
+  debugPrint(
+    'MSG91 OTP Widget initialized.',
+  );
+}
+
+// ============================================================
+// SEND OTP
+// ============================================================
+
+Future<void> handleSendOtp() async {
+  if (_isSendingOtp) {
+    return;
+  }
+
+  final String phoneNumber =
+      _phoneController.text.trim();
+
+  // ----------------------------------------------------------
+  // VALIDATE MOBILE NUMBER
+  // ----------------------------------------------------------
+
+  if (!RegExp(r'^[6-9][0-9]{9}$')
+      .hasMatch(phoneNumber)) {
+    _showMessage(
+      'Please enter a valid 10-digit mobile number.',
+    );
+    return;
+  }
+
+  setState(() {
+    _isSendingOtp = true;
+  });
+
+  // ----------------------------------------------------------
+  // MSG91 IDENTIFIER
+  // ----------------------------------------------------------
+  //
+  // UI:
+  // +91 9625813987
+  //
+  // MSG91:
+  // 919625813987
+  //
+  // No "+" is sent.
+  // ----------------------------------------------------------
+
+  final Map<String, dynamic> data =
+      <String, dynamic>{
+    'identifier': '91$phoneNumber',
+  };
+
+  try {
+    debugPrint(
+      'MSG91 IDENTIFIER: ${data['identifier']}',
+    );
+
+    // --------------------------------------------------------
+    // SEND OTP
+    // --------------------------------------------------------
+
+    final Map<String, dynamic>? response =
+        await OTPWidget.sendOTP(data);
+
+    // --------------------------------------------------------
+    // FULL RESPONSE DEBUG
+    // --------------------------------------------------------
+
+    debugPrint(
+      '================================================',
+    );
+
+    debugPrint(
+      'MSG91 RESPONSE FULL: $response',
+    );
+
+    debugPrint(
+      'MSG91 RESPONSE TYPE: ${response?.runtimeType}',
+    );
+
+    debugPrint(
+      '================================================',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    // --------------------------------------------------------
+    // RESPONSE NULL
+    // --------------------------------------------------------
+
+    if (response == null) {
+      _showMessage(
+        'MSG91 did not return a response.',
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // RESPONSE KEYS
+    // --------------------------------------------------------
+
+    debugPrint(
+      'MSG91 RESPONSE KEYS: ${response.keys.toList()}',
+    );
+
+    // --------------------------------------------------------
+    // RESPONSE TYPE
+    // --------------------------------------------------------
+
+    final String type =
+        response['type']
+                ?.toString()
+                .trim()
+                .toLowerCase() ??
+            '';
+
+    debugPrint(
+      'MSG91 RESPONSE TYPE VALUE: $type',
+    );
+
+    // --------------------------------------------------------
+    // SUCCESS
+    // --------------------------------------------------------
+
+    if (type == 'success') {
+      final String? reqId =
+          _getRequestId(response);
+
+      debugPrint(
+        'MSG91 OTP SUCCESS',
+      );
+
+      debugPrint(
+        'MSG91 REQUEST ID: $reqId',
+      );
+
+      // ------------------------------------------------------
+      // REQUEST ID MISSING
+      // ------------------------------------------------------
+
+      if (reqId == null || reqId.isEmpty) {
+        _showMessage(
+          'OTP sent, but request ID was not received.',
+        );
+
+        return;
       }
+
+      // ------------------------------------------------------
+      // OTP SCREEN
+      // ------------------------------------------------------
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (BuildContext context) {
+            return OtpVerificationScreen(
+              phoneNumber: phoneNumber,
+              reqId: reqId,
+            );
+          },
+        ),
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // ERROR RESPONSE
+    // --------------------------------------------------------
+
+    debugPrint(
+      'MSG91 OTP FAILED.',
+    );
+
+    debugPrint(
+      'MSG91 ERROR RESPONSE: $response',
+    );
+
+    _showMessage(
+      _getErrorMessage(response),
+    );
+  } catch (e, stackTrace) {
+    // --------------------------------------------------------
+    // EXCEPTION
+    // --------------------------------------------------------
+
+    debugPrint(
+      '================================================',
+    );
+
+    debugPrint(
+      'MSG91 OTP EXCEPTION: $e',
+    );
+
+    debugPrint(
+      'MSG91 STACK TRACE: $stackTrace',
+    );
+
+    debugPrint(
+      '================================================',
+    );
+
+    _showMessage(
+      'OTP could not be sent. Please try again.',
+    );
+  } finally {
+    // --------------------------------------------------------
+    // STOP LOADING
+    // --------------------------------------------------------
+
+    if (mounted) {
+      setState(() {
+        _isSendingOtp = false;
+      });
+    }
+  }
+}
+
+// ============================================================
+// GET REQUEST ID
+// ============================================================
+
+String? _getRequestId(
+  Map<String, dynamic> response,
+) {
+  // ----------------------------------------------------------
+  // DIRECT REQUEST-ID KEYS
+  // ----------------------------------------------------------
+
+  final List<dynamic> directValues =
+      <dynamic>[
+    response['reqId'],
+    response['req_id'],
+    response['requestId'],
+    response['request_id'],
+    response['requestID'],
+    response['request_id_value'],
+  ];
+
+  for (final dynamic value in directValues) {
+    final String? result =
+        _cleanRequestId(value);
+
+    if (result != null) {
+      return result;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // CHECK NESTED DATA
+  // ----------------------------------------------------------
+
+  final dynamic data =
+      response['data'];
+
+  if (data is Map) {
+    final List<dynamic> nestedValues =
+        <dynamic>[
+      data['reqId'],
+      data['req_id'],
+      data['requestId'],
+      data['request_id'],
+      data['requestID'],
+    ];
+
+    for (final dynamic value in nestedValues) {
+      final String? result =
+          _cleanRequestId(value);
+
+      if (result != null) {
+        return result;
+      }
+    }
+  }
+
+  // ----------------------------------------------------------
+  // CHECK REQUEST OBJECT
+  // ----------------------------------------------------------
+
+  final dynamic request =
+      response['request'];
+
+  if (request is Map) {
+    final List<dynamic> requestValues =
+        <dynamic>[
+      request['reqId'],
+      request['req_id'],
+      request['requestId'],
+      request['request_id'],
+    ];
+
+    for (final dynamic value
+        in requestValues) {
+      final String? result =
+          _cleanRequestId(value);
+
+      if (result != null) {
+        return result;
+      }
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+// CLEAN REQUEST ID
+// ============================================================
+
+String? _cleanRequestId(
+  dynamic value,
+) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is Map) {
+    final dynamic nested =
+        value['reqId'] ??
+        value['req_id'] ??
+        value['requestId'] ??
+        value['request_id'];
+
+    if (nested != null) {
+      return _cleanRequestId(nested);
     }
 
     return null;
   }
 
-  // ============================================================
-  // ERROR MESSAGE
-  // ============================================================
+  final String text =
+      value.toString().trim();
 
-  String _getErrorMessage(
-    Map<String, dynamic> response,
-  ) {
-    final List<dynamic> values =
-        <dynamic>[
-      response['message'],
-      response['error'],
-      response['description'],
-      response['error_message'],
-      response['errorMessage'],
-    ];
-
-    for (final dynamic value in values) {
-      if (value == null) {
-        continue;
-      }
-
-      final String text =
-          value.toString().trim();
-
-      if (text.isNotEmpty) {
-        return 'OTP could not be sent: $text';
-      }
-    }
-
-    return 'OTP could not be sent. Please try again.';
+  if (text.isEmpty) {
+    return null;
   }
 
-  // ============================================================
-  // MESSAGE
-  // ============================================================
+  return text;
+}
 
-  void _showMessage(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
+// ============================================================
+// ERROR MESSAGE
+// ============================================================
+
+String _getErrorMessage(
+  Map<String, dynamic> response,
+) {
+  final List<dynamic> values =
+      <dynamic>[
+    response['message'],
+    response['error'],
+    response['description'],
+    response['error_message'],
+    response['errorMessage'],
+  ];
+
+  for (final dynamic value in values) {
+    if (value == null) {
+      continue;
     }
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-        ),
-      );
+    final String text =
+        value.toString().trim();
+
+    if (text.isNotEmpty) {
+      return 'OTP could not be sent: $text';
+    }
   }
+
+  return 'OTP could not be sent. Please try again.';
+}
+
+// ============================================================
+// MESSAGE
+// ============================================================
+
+void _showMessage(
+  String message,
+) {
+  if (!mounted) {
+    return;
+  }
+
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior:
+            SnackBarBehavior.floating,
+      ),
+    );
+}
 
   // ============================================================
   // DISPOSE
