@@ -4,7 +4,8 @@ part of 'insta_walk_container.dart';
 // FIND WALKER
 // ============================================================
 
-extension _FindWalkerRole on _InstaWalkContainerState {
+extension _FindWalkerRole
+    on _InstaWalkContainerState {
   Future<void> _findWalker() async {
     if (_searching ||
         _checkingAddress ||
@@ -33,22 +34,18 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     try {
       // ========================================================
       // FIND OWNER PROFILE
-      //
-      // Firestore:
-      // owners/{documentId}
-      //
-      // Matched using:
-      // authUid == FirebaseAuth.currentUser.uid
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
+      final DocumentSnapshot<
+          Map<String, dynamic>>? ownerDoc =
           await _service.findOwnerProfile();
 
       if (!mounted) {
         return;
       }
 
-      if (ownerDoc == null || !ownerDoc.exists) {
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
         _updateState(() {
           _checkingAddress = false;
         });
@@ -61,7 +58,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       }
 
       final Map<String, dynamic> data =
-          ownerDoc.data() ?? <String, dynamic>{};
+          ownerDoc.data() ??
+              <String, dynamic>{};
 
       // ========================================================
       // PROFILE COMPLETION
@@ -84,12 +82,6 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
       // ========================================================
       // OWNER ID
-      //
-      // IMPORTANT:
-      // Use Firestore ownerId, NOT Firebase Auth UID.
-      //
-      // Example:
-      // ownerId = OWN26GH0004
       // ========================================================
 
       String ownerId =
@@ -102,65 +94,110 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       );
 
       if (ownerId.isEmpty) {
-        // Safe fallback only if ownerId is not present.
         ownerId = user.uid;
       }
 
       // ========================================================
-      // PET NAME
+      // PET / DOG DATA
       // ========================================================
 
-      _petName = _readFirstString(
+      String dogName =
+          _readFirstString(
         data,
         const [
-          'petName',
-          'Pet Name',
           'dogName',
+          'petName',
           'Dog Name',
+          'Pet Name',
+        ],
+      );
+
+      String dogBreed =
+          _readFirstString(
+        data,
+        const [
+          'dogBreed',
+          'petBreed',
+          'Dog Breed',
+          'Pet Breed',
         ],
       );
 
       // ========================================================
       // PETS ARRAY FALLBACK
       //
-      // Your current Firestore structure has:
+      // Current owners structure:
       //
-      // pets:
-      //   [
-      //     {
-      //       name: "Brono"
-      //     }
-      //   ]
+      // pets
+      //   0
+      //     name
+      //     breed
+      //
+      // Example:
+      //
+      // name  = Tomy
+      // breed = Golden Retriever
       // ========================================================
 
-      if (_petName.isEmpty) {
-        final dynamic pets =
-            data['pets'];
+      final dynamic pets =
+          data['pets'];
 
-        if (pets is List &&
-            pets.isNotEmpty) {
-          final dynamic firstPet =
-              pets.first;
+      if (pets is List &&
+          pets.isNotEmpty) {
+        final dynamic firstPet =
+            pets.first;
 
-          if (firstPet is Map) {
+        if (firstPet is Map) {
+          // ----------------------------------------------------
+          // PET NAME
+          // ----------------------------------------------------
+
+          if (dogName.isEmpty) {
             final dynamic petName =
-                firstPet['name'];
+                firstPet['name'] ??
+                    firstPet['petName'] ??
+                    firstPet['dogName'];
 
             if (petName != null) {
               final String value =
                   petName.toString().trim();
 
               if (value.isNotEmpty) {
-                _petName = value;
+                dogName = value;
+              }
+            }
+          }
+
+          // ----------------------------------------------------
+          // PET BREED
+          // ----------------------------------------------------
+
+          if (dogBreed.isEmpty) {
+            final dynamic petBreed =
+                firstPet['breed'] ??
+                    firstPet['petBreed'] ??
+                    firstPet['dogBreed'];
+
+            if (petBreed != null) {
+              final String value =
+                  petBreed.toString().trim();
+
+              if (value.isNotEmpty) {
+                dogBreed = value;
               }
             }
           }
         }
       }
 
-      if (_petName.isEmpty) {
-        _petName = 'Your Pet';
-      }
+      // ========================================================
+      // SAVE PET NAME FOR UI
+      // ========================================================
+
+      _petName =
+          dogName.isEmpty
+              ? 'Your Pet'
+              : dogName;
 
       // ========================================================
       // ADDRESS
@@ -237,6 +274,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ownerName: ownerName,
         address: address,
         position: position,
+        dogName: dogName,
+        dogBreed: dogBreed,
       );
     } on FirebaseException catch (e) {
       debugPrint(
@@ -283,7 +322,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
   Future<Position?> _getLocation() async {
     try {
       final bool enabled =
-          await Geolocator.isLocationServiceEnabled();
+          await Geolocator
+              .isLocationServiceEnabled();
 
       if (!enabled) {
         _message(
@@ -313,7 +353,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         return null;
       }
 
-      return await Geolocator.getCurrentPosition();
+      return await Geolocator
+          .getCurrentPosition();
     } catch (e) {
       debugPrint(
         'Location error: $e',
