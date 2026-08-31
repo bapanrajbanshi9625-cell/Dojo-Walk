@@ -17,8 +17,7 @@ class InstaWalkSearchService {
     FirebaseAuth? auth,
   })  : _firestore =
             firestore ?? FirebaseFirestore.instance,
-        _auth =
-            auth ?? FirebaseAuth.instance,
+        _auth = auth ?? FirebaseAuth.instance,
         _helper = InstaWalkFirestoreHelper(
           firestore:
               firestore ?? FirebaseFirestore.instance,
@@ -88,8 +87,7 @@ class InstaWalkSearchService {
     }
 
     try {
-      final QuerySnapshot<
-              Map<String, dynamic>>
+      final QuerySnapshot<Map<String, dynamic>>
           snapshot =
           await _firestore
               .collection(ownersCollection)
@@ -110,13 +108,11 @@ class InstaWalkSearchService {
         'findOwnerProfile Firebase error: '
         '${e.code} - ${e.message}',
       );
-
       rethrow;
     } catch (e) {
       print(
         'findOwnerProfile error: $e',
       );
-
       rethrow;
     }
   }
@@ -126,8 +122,7 @@ class InstaWalkSearchService {
   // ==========================================================
 
   Future<bool> isOwnerProfileCompleted() async {
-    final DocumentSnapshot<
-            Map<String, dynamic>>?
+    final DocumentSnapshot<Map<String, dynamic>>?
         profile =
         await findOwnerProfile();
 
@@ -140,24 +135,11 @@ class InstaWalkSearchService {
         profile.data() ??
             <String, dynamic>{};
 
-    return data['profileCompleted'] ==
-        true;
+    return data['profileCompleted'] == true;
   }
 
   // ==========================================================
   // START SEARCH
-  // ==========================================================
-  //
-  // dogName / dogBreed are OPTIONAL.
-  //
-  // This keeps existing callers working
-  // without compile errors.
-  //
-  // Firestore will receive:
-  //
-  // dogName  -> string
-  // dogBreed -> string
-  //
   // ==========================================================
 
   Future<InstaWalkSearchResult> startSearch({
@@ -165,6 +147,10 @@ class InstaWalkSearchService {
     required String ownerName,
     required String address,
     required GeoPoint ownerLocation,
+
+    // ========================================================
+    // DOG / PET
+    // ========================================================
 
     String dogName = '',
     String dogBreed = '',
@@ -199,7 +185,9 @@ class InstaWalkSearchService {
         address.trim();
 
     final String cleanDogName =
-        dogName.trim();
+        dogName.trim().isEmpty
+            ? 'Your Pet'
+            : dogName.trim();
 
     final String cleanDogBreed =
         dogBreed.trim();
@@ -228,8 +216,7 @@ class InstaWalkSearchService {
       // ======================================================
 
       final DocumentSnapshot<
-              Map<String, dynamic>>?
-          profile =
+          Map<String, dynamic>>? profile =
           await findOwnerProfile();
 
       if (profile == null ||
@@ -241,8 +228,7 @@ class InstaWalkSearchService {
         );
       }
 
-      final Map<String, dynamic>
-          profileData =
+      final Map<String, dynamic> profileData =
           profile.data() ??
               <String, dynamic>{};
 
@@ -285,8 +271,7 @@ class InstaWalkSearchService {
       // ======================================================
 
       final DocumentReference<
-              Map<String, dynamic>>
-          ref =
+          Map<String, dynamic>> ref =
           await _helper.createRequest(
         data: <String, dynamic>{
           // --------------------------------------------------
@@ -321,12 +306,6 @@ class InstaWalkSearchService {
 
           // --------------------------------------------------
           // DOG / PET
-          //
-          // Firestore:
-          //
-          // dogName  -> string
-          // dogBreed -> string
-          //
           // --------------------------------------------------
 
           'dogName': cleanDogName,
@@ -396,8 +375,7 @@ class InstaWalkSearchService {
       return InstaWalkSearchResult.failure(
         message:
             'Unable to start search.',
-        errorCode:
-            e.toString(),
+        errorCode: e.toString(),
       );
     }
   }
@@ -420,25 +398,15 @@ class InstaWalkSearchService {
       );
     }
 
-    // ========================================================
-    // CANCEL PREVIOUS LOCAL LISTENER
-    // ========================================================
-
     _requestSubscription?.cancel();
-
     _requestSubscription = null;
 
     _activeRequestId =
         cleanRequestId;
 
-    // ========================================================
-    // FIRESTORE STREAM
-    // ========================================================
-
     final Stream<
-            DocumentSnapshot<
-                Map<String, dynamic>>>
-        stream =
+        DocumentSnapshot<
+            Map<String, dynamic>>> stream =
         _firestore
             .collection(
               walkRequestsCollection,
@@ -446,34 +414,27 @@ class InstaWalkSearchService {
             .doc(cleanRequestId)
             .snapshots();
 
-    // ========================================================
-    // MAP STATE
-    // ========================================================
-
     return stream.map(
       (
         DocumentSnapshot<
-                Map<String, dynamic>>
+            Map<String, dynamic>>
             snapshot,
       ) {
         if (!snapshot.exists) {
-          return InstaWalkRequestState
-              .notFound(
+          return InstaWalkRequestState.notFound(
             requestId:
                 cleanRequestId,
           );
         }
 
         return InstaWalkRequestState
-            .fromDocument(
-          snapshot,
-        );
+            .fromDocument(snapshot);
       },
     );
   }
 
   // ==========================================================
-  // LISTEN AND STORE SUBSCRIPTION
+  // LISTEN AND STORE
   // ==========================================================
 
   void listenAndStore(
@@ -481,8 +442,7 @@ class InstaWalkSearchService {
     required void Function(
       InstaWalkRequestState state,
     ) onData,
-    void Function(Object error)?
-        onError,
+    void Function(Object error)? onError,
   }) {
     _requestSubscription?.cancel();
 
@@ -513,8 +473,7 @@ class InstaWalkSearchService {
 
     try {
       final DocumentSnapshot<
-              Map<String, dynamic>>
-          snapshot =
+          Map<String, dynamic>> snapshot =
           await _firestore
               .collection(
                 walkRequestsCollection,
@@ -531,9 +490,7 @@ class InstaWalkSearchService {
       }
 
       return InstaWalkRequestState
-          .fromDocument(
-        snapshot,
-      );
+          .fromDocument(snapshot);
     } on FirebaseException {
       rethrow;
     }
@@ -567,7 +524,7 @@ class InstaWalkSearchService {
       // ======================================================
 
       final QuerySnapshot<
-              Map<String, dynamic>>
+          Map<String, dynamic>>
           searchingSnapshot =
           await _firestore
               .collection(
@@ -588,18 +545,14 @@ class InstaWalkSearchService {
           .docs
           .isNotEmpty) {
         final QueryDocumentSnapshot<
-                Map<String, dynamic>>
-            doc =
-            searchingSnapshot.docs
-                .first;
+            Map<String, dynamic>> doc =
+            searchingSnapshot.docs.first;
 
         _activeRequestId =
             doc.id;
 
         return InstaWalkRequestState
-            .fromDocument(
-          doc,
-        );
+            .fromDocument(doc);
       }
 
       // ======================================================
@@ -607,7 +560,7 @@ class InstaWalkSearchService {
       // ======================================================
 
       final QuerySnapshot<
-              Map<String, dynamic>>
+          Map<String, dynamic>>
           acceptedSnapshot =
           await _firestore
               .collection(
@@ -628,18 +581,14 @@ class InstaWalkSearchService {
           .docs
           .isNotEmpty) {
         final QueryDocumentSnapshot<
-                Map<String, dynamic>>
-            doc =
-            acceptedSnapshot.docs
-                .first;
+            Map<String, dynamic>> doc =
+            acceptedSnapshot.docs.first;
 
         _activeRequestId =
             doc.id;
 
         return InstaWalkRequestState
-            .fromDocument(
-          doc,
-        );
+            .fromDocument(doc);
       }
 
       return null;
@@ -682,7 +631,7 @@ class InstaWalkSearchService {
 
     try {
       final DocumentReference<
-              Map<String, dynamic>>
+          Map<String, dynamic>>
           requestRef =
           _firestore
               .collection(
@@ -691,34 +640,25 @@ class InstaWalkSearchService {
               .doc(cleanRequestId);
 
       final bool cancelled =
-          await _firestore
-              .runTransaction<bool>(
+          await _firestore.runTransaction<
+              bool>(
         (
           Transaction transaction,
         ) async {
           final DocumentSnapshot<
-                  Map<String, dynamic>>
+              Map<String, dynamic>>
               snapshot =
               await transaction.get(
             requestRef,
           );
 
-          // ==================================================
-          // DOCUMENT DOES NOT EXIST
-          // ==================================================
-
           if (!snapshot.exists) {
             return true;
           }
 
-          final Map<String, dynamic>
-              data =
+          final Map<String, dynamic> data =
               snapshot.data() ??
                   <String, dynamic>{};
-
-          // ==================================================
-          // STATUS
-          // ==================================================
 
           final String status =
               (data['status'] ?? '')
@@ -726,53 +666,28 @@ class InstaWalkSearchService {
                   .trim()
                   .toLowerCase();
 
-          // ==================================================
-          // ALREADY FINISHED
-          // ==================================================
-
-          if (status ==
-                  'cancelled' ||
-              status ==
-                  'expired' ||
-              status ==
-                  'completed') {
+          if (status == 'cancelled' ||
+              status == 'expired' ||
+              status == 'completed') {
             return true;
           }
-
-          // ==================================================
-          // ACCEPTED
-          // ==================================================
 
           if (status == 'accepted') {
             return false;
           }
 
-          // ==================================================
-          // ONLY SEARCHING
-          // ==================================================
-
           if (status != 'searching') {
             return false;
           }
 
-          // ==================================================
-          // OWNER AUTH CHECK
-          // ==================================================
-
           final String ownerAuthUid =
-              (data['ownerAuthUid'] ??
-                      '')
+              (data['ownerAuthUid'] ?? '')
                   .toString()
                   .trim();
 
-          if (ownerAuthUid !=
-              user.uid) {
+          if (ownerAuthUid != user.uid) {
             return false;
           }
-
-          // ==================================================
-          // UPDATE
-          // ==================================================
 
           transaction.update(
             requestRef,
@@ -781,18 +696,13 @@ class InstaWalkSearchService {
               'cancelledAt':
                   FieldValue
                       .serverTimestamp(),
-              'cancelledBy':
-                  user.uid,
+              'cancelledBy': user.uid,
             },
           );
 
           return true;
         },
       );
-
-      // ======================================================
-      // CLEAR LOCAL REQUEST
-      // ======================================================
 
       if (cancelled &&
           _activeRequestId ==
@@ -831,7 +741,6 @@ class InstaWalkSearchService {
 
   void dispose() {
     _requestSubscription?.cancel();
-
     _requestSubscription = null;
   }
 }
