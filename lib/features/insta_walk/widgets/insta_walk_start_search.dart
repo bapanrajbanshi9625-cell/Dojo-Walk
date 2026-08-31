@@ -10,8 +10,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
     required String ownerName,
     required String address,
     required Position position,
-    String dogName = '',
-    String dogBreed = '',
+    required String dogName,
+    required String dogBreed,
   }) async {
     try {
       final InstaWalkSearchResult result =
@@ -35,7 +35,6 @@ extension _StartSearchRole on _InstaWalkContainerState {
           result.requestId == null ||
           result.requestId!.trim().isEmpty) {
         _requestId = null;
-
         _stopRadar();
 
         _updateState(() {
@@ -68,6 +67,10 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
       _setActive(true);
       _startRadar();
+
+      // ========================================================
+      // FIRESTORE REALTIME LISTENER
+      // ========================================================
 
       _service.listenAndStore(
         requestId,
@@ -102,6 +105,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
             );
             return;
           }
+
+          // searching = continue
         },
         onError: (Object error) {
           debugPrint(
