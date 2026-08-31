@@ -1,5 +1,8 @@
 part of 'insta_walk_container.dart';
 
+import '../services/insta_walk_search_result.dart';
+
+//
 // ============================================================
 // START SEARCH
 // ============================================================
