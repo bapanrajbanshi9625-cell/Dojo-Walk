@@ -16,7 +16,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // CREATE INSTA WALK REQUEST
       // ========================================================
 
-      final result = await _service.startSearch(
+      final InstaWalkSearchResult result =
+          await _service.startSearch(
         ownerId: ownerId,
         ownerName: ownerName,
         address: address,
@@ -24,6 +25,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
           position.latitude,
           position.longitude,
         ),
+        dogName: _petName,
       );
 
       if (!mounted) {
@@ -127,8 +129,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
             if (state.isCancelled) {
               _finishSearch(
-                message:
-                    'Walk request was cancelled.',
+                message: 'Walk request was cancelled.',
               );
               return;
             }
@@ -136,13 +137,13 @@ extension _StartSearchRole on _InstaWalkContainerState {
             // ==================================================
             // EXPIRED
             //
-            // Only responds to an actual expired Firestore state.
+            // Only responds to an actual expired
+            // Firestore state.
             // ==================================================
 
             if (state.isExpired) {
               _finishSearch(
-                message:
-                    'Walk request expired.',
+                message: 'Walk request expired.',
               );
               return;
             }
