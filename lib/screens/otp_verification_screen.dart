@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 
 import '../core/constants/app_colors.dart';
+import 'splash_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -33,9 +34,14 @@ class _OtpVerificationScreenState
 
   late String _reqId;
 
+  // ============================================================
+  // INIT
+  // ============================================================
+
   @override
   void initState() {
     super.initState();
+
     _reqId = widget.reqId.trim();
   }
 
@@ -51,9 +57,9 @@ class _OtpVerificationScreenState
     final String otp =
         _otpController.text.trim();
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // OTP VALIDATION
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (otp.length != 6) {
       _showMessage(
@@ -71,8 +77,13 @@ class _OtpVerificationScreenState
       _showMessage(
         'OTP session is invalid. Please request a new OTP.',
       );
+
       return;
     }
+
+    // ==========================================================
+    // START VERIFYING
+    // ==========================================================
 
     setState(() {
       _isVerifying = true;
@@ -114,19 +125,22 @@ class _OtpVerificationScreenState
       // 3. IMPORTANT
       // ========================================================
       //
-      // DO NOT:
+      // OTP SCREEN DOES NOT:
       //
-      // - create Anonymous Firebase UID
-      // - call OwnerAuthService.authenticateOwner()
-      // - check profileCompleted here
-      // - check isActive here
-      // - open ProfileSetup here
-      // - open MainNavigation here
+      // - create Firebase UID
+      // - create Anonymous Firebase session
+      // - create Owner ID
+      // - call OwnerAuthService
+      // - check profileCompleted
+      // - check isActive
+      // - open MainNavigationScreen
+      // - open ProfileSetupScreen
       //
       // OTP SCREEN ONLY VERIFIES OTP.
       //
-      // AFTER OTP SUCCESS:
-      // Splash Screen will control the complete login flow.
+      // AFTER SUCCESS:
+      // SplashScreen gets the verified phone number
+      // and makes the complete account decision.
       //
       // ========================================================
 
@@ -134,29 +148,16 @@ class _OtpVerificationScreenState
         return;
       }
 
-      // --------------------------------------------------------
-      // GO TO SPLASH
-      // --------------------------------------------------------
-      //
-      // IMPORTANT:
-      // We intentionally do not decide where the user belongs.
-      //
-      // Splash/Main startup flow should perform:
-      //
-      // Firebase Auth check
-      //        ↓
-      // Existing account/profile check
-      //        ↓
-      // profileCompleted
-      //        ↓
-      // active status
-      //        ↓
-      // Home / Profile Setup
-      //
-      // --------------------------------------------------------
+      // ========================================================
+      // 4. GO TO SPLASH
+      // ========================================================
 
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/',
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => SplashScreen(
+            phoneNumber: widget.phoneNumber,
+          ),
+        ),
         (route) => false,
       );
     }
@@ -167,7 +168,7 @@ class _OtpVerificationScreenState
 
     on FirebaseAuthException catch (e) {
       debugPrint(
-        'OWNER FIREBASE AUTH ERROR: ${e.code}',
+        'OTP FIREBASE AUTH ERROR: ${e.code}',
       );
 
       if (!mounted) {
@@ -185,11 +186,11 @@ class _OtpVerificationScreenState
 
     on FirebaseException catch (e) {
       debugPrint(
-        'OWNER FIREBASE ERROR: ${e.code}',
+        'OTP FIREBASE ERROR: ${e.code}',
       );
 
       debugPrint(
-        'OWNER FIREBASE MESSAGE: ${e.message}',
+        'OTP FIREBASE MESSAGE: ${e.message}',
       );
 
       if (!mounted) {
@@ -266,6 +267,10 @@ class _OtpVerificationScreenState
       return false;
     }
 
+    // ==========================================================
+    // MAP RESPONSE
+    // ==========================================================
+
     if (response is Map) {
       final dynamic success =
           response['success'];
@@ -293,15 +298,17 @@ class _OtpVerificationScreenState
         status,
         message,
       ]
-          .where(
-            (dynamic value) =>
-                value != null,
-          )
-          .map(
-            (dynamic value) =>
-                value.toString().toLowerCase(),
-          )
-          .join(' ');
+              .where(
+                (dynamic value) =>
+                    value != null,
+              )
+              .map(
+                (dynamic value) =>
+                    value
+                        .toString()
+                        .toLowerCase(),
+              )
+              .join(' ');
 
       if (result.contains('success') ||
           result.contains('verified')) {
@@ -310,6 +317,10 @@ class _OtpVerificationScreenState
 
       return false;
     }
+
+    // ==========================================================
+    // STRING / OTHER RESPONSE
+    // ==========================================================
 
     final String responseText =
         response.toString().toLowerCase();
@@ -332,6 +343,7 @@ class _OtpVerificationScreenState
       _showMessage(
         'OTP session is invalid. Please request OTP again.',
       );
+
       return;
     }
 
@@ -340,6 +352,10 @@ class _OtpVerificationScreenState
     });
 
     try {
+      // ========================================================
+      // MSG91 RETRY
+      // ========================================================
+
       final dynamic response =
           await OTPWidget.retryOTP({
         'reqId': _reqId,
@@ -348,6 +364,10 @@ class _OtpVerificationScreenState
       debugPrint(
         'MSG91 RETRY RESPONSE: $response',
       );
+
+      // ========================================================
+      // GET NEW REQUEST ID
+      // ========================================================
 
       String? newReqId;
 
@@ -367,9 +387,17 @@ class _OtpVerificationScreenState
         }
       }
 
+      // ========================================================
+      // UPDATE REQUEST ID
+      // ========================================================
+
       if (newReqId != null) {
         _reqId = newReqId;
       }
+
+      // ========================================================
+      // CLEAR OLD OTP
+      // ========================================================
 
       _otpController.clear();
 
@@ -418,7 +446,7 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // FIREBASE AUTH ERROR
+  // FIREBASE AUTH ERROR MESSAGE
   // ============================================================
 
   String _firebaseAuthErrorMessage(
@@ -455,7 +483,7 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // FIREBASE ERROR
+  // FIREBASE ERROR MESSAGE
   // ============================================================
 
   String _firebaseErrorMessage(
@@ -540,6 +568,16 @@ class _OtpVerificationScreenState
       return '+91 '
           '${clean.substring(0, 5)} '
           '${clean.substring(5)}';
+    }
+
+    if (clean.length == 12 &&
+        clean.startsWith('91')) {
+      final String number =
+          clean.substring(2);
+
+      return '+91 '
+          '${number.substring(0, 5)} '
+          '${number.substring(5)}';
     }
 
     return raw.isEmpty
@@ -666,6 +704,10 @@ class _OtpVerificationScreenState
                   height: 26,
                 ),
 
+                // ==================================================
+                // TITLE
+                // ==================================================
+
                 const Text(
                   'Verify your number',
                   textAlign:
@@ -778,6 +820,10 @@ class _OtpVerificationScreenState
                       const SizedBox(
                         height: 12,
                       ),
+
+                      // ==========================================
+                      // OTP INPUT
+                      // ==========================================
 
                       TextField(
                         controller:
@@ -895,6 +941,10 @@ class _OtpVerificationScreenState
                         height: 18,
                       ),
 
+                      // ==========================================
+                      // VERIFY BUTTON
+                      // ==========================================
+
                       SizedBox(
                         width:
                             double.infinity,
@@ -958,6 +1008,10 @@ class _OtpVerificationScreenState
                         height: 16,
                       ),
 
+                      // ==========================================
+                      // RESEND OTP
+                      // ==========================================
+
                       Center(
                         child:
                             TextButton(
@@ -984,7 +1038,8 @@ class _OtpVerificationScreenState
                                         color:
                                             primary,
                                         fontWeight:
-                                            FontWeight.w800,
+                                            FontWeight
+                                                .w800,
                                       ),
                                     ),
                         ),
@@ -996,6 +1051,10 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 20,
                 ),
+
+                // ==================================================
+                // SECURITY
+                // ==================================================
 
                 const Row(
                   mainAxisAlignment:
