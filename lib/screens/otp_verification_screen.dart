@@ -4,9 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 
 import '../core/constants/app_colors.dart';
-import '../services/owner_auth_service.dart';
-import 'main_navigation_screen.dart';
-import 'profile_setup.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -35,10 +32,6 @@ class _OtpVerificationScreenState
   bool _isResending = false;
 
   late String _reqId;
-
-  // ============================================================
-  // INIT
-  // ============================================================
 
   @override
   void initState() {
@@ -118,76 +111,23 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 3. OWNER AUTH SERVICE
+      // 3. IMPORTANT
       // ========================================================
       //
-      // यह service:
+      // DO NOT:
       //
-      // Firebase Anonymous Session
-      //        ↓
-      // Firebase UID
-      //        ↓
-      // Owner ID
-      //        ↓
-      // phoneAccounts/{uid}
-      //        ↓
-      // owners/{ownerId}
-      //        ↓
-      // profileCompleted
+      // - create Anonymous Firebase UID
+      // - call OwnerAuthService.authenticateOwner()
+      // - check profileCompleted here
+      // - check isActive here
+      // - open ProfileSetup here
+      // - open MainNavigation here
       //
-      // ========================================================
-
-      final OwnerAuthResult result =
-          await OwnerAuthService.instance
-              .authenticateOwner(
-        phoneNumber: widget.phoneNumber,
-      );
-
-      debugPrint(
-        'OWNER AUTH SUCCESS',
-      );
-
-      debugPrint(
-        'Firebase UID: ${result.uid}',
-      );
-
-      debugPrint(
-        'Owner ID: ${result.ownerId}',
-      );
-
-      debugPrint(
-        'Phone: ${result.phoneNumber}',
-      );
-
-      debugPrint(
-        'isActive: ${result.isActive}',
-      );
-
-      debugPrint(
-        'profileCompleted: '
-        '${result.profileCompleted}',
-      );
-
-      // ========================================================
-      // 4. CHECK ACTIVE STATUS
-      // ========================================================
-
-      if (!result.isActive) {
-        await OwnerAuthService.instance.signOut();
-
-        if (!mounted) {
-          return;
-        }
-
-        _showInactiveDialog(
-          result.ownerId,
-        );
-
-        return;
-      }
-
-      // ========================================================
-      // 5. NAVIGATION
+      // OTP SCREEN ONLY VERIFIES OTP.
+      //
+      // AFTER OTP SUCCESS:
+      // Splash Screen will control the complete login flow.
+      //
       // ========================================================
 
       if (!mounted) {
@@ -195,32 +135,28 @@ class _OtpVerificationScreenState
       }
 
       // --------------------------------------------------------
-      // PROFILE NOT COMPLETED
+      // GO TO SPLASH
+      // --------------------------------------------------------
+      //
+      // IMPORTANT:
+      // We intentionally do not decide where the user belongs.
+      //
+      // Splash/Main startup flow should perform:
+      //
+      // Firebase Auth check
+      //        ↓
+      // Existing account/profile check
+      //        ↓
+      // profileCompleted
+      //        ↓
+      // active status
+      //        ↓
+      // Home / Profile Setup
+      //
       // --------------------------------------------------------
 
-      if (!result.profileCompleted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                const ProfileSetupScreen(),
-          ),
-          (route) => false,
-        );
-
-        return;
-      }
-
-      // --------------------------------------------------------
-      // PROFILE COMPLETED
-      // --------------------------------------------------------
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              const MainNavigationScreen(),
-        ),
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/',
         (route) => false,
       );
     }
@@ -231,8 +167,7 @@ class _OtpVerificationScreenState
 
     on FirebaseAuthException catch (e) {
       debugPrint(
-        'OWNER FIREBASE AUTH ERROR: '
-        '${e.code}',
+        'OWNER FIREBASE AUTH ERROR: ${e.code}',
       );
 
       if (!mounted) {
@@ -245,18 +180,16 @@ class _OtpVerificationScreenState
     }
 
     // ==========================================================
-    // FIREBASE / FIRESTORE ERROR
+    // FIREBASE ERROR
     // ==========================================================
 
     on FirebaseException catch (e) {
       debugPrint(
-        'OWNER FIREBASE ERROR: '
-        '${e.code}',
+        'OWNER FIREBASE ERROR: ${e.code}',
       );
 
       debugPrint(
-        'OWNER FIREBASE MESSAGE: '
-        '${e.message}',
+        'OWNER FIREBASE MESSAGE: ${e.message}',
       );
 
       if (!mounted) {
@@ -333,10 +266,6 @@ class _OtpVerificationScreenState
       return false;
     }
 
-    // ----------------------------------------------------------
-    // MAP RESPONSE
-    // ----------------------------------------------------------
-
     if (response is Map) {
       final dynamic success =
           response['success'];
@@ -358,7 +287,8 @@ class _OtpVerificationScreenState
       final dynamic message =
           response['message'];
 
-      final String result = <dynamic>[
+      final String result =
+          <dynamic>[
         type,
         status,
         message,
@@ -380,10 +310,6 @@ class _OtpVerificationScreenState
 
       return false;
     }
-
-    // ----------------------------------------------------------
-    // STRING / OTHER RESPONSE
-    // ----------------------------------------------------------
 
     final String responseText =
         response.toString().toLowerCase();
@@ -414,10 +340,6 @@ class _OtpVerificationScreenState
     });
 
     try {
-      // ========================================================
-      // MSG91 RETRY
-      // ========================================================
-
       final dynamic response =
           await OTPWidget.retryOTP({
         'reqId': _reqId,
@@ -426,10 +348,6 @@ class _OtpVerificationScreenState
       debugPrint(
         'MSG91 RETRY RESPONSE: $response',
       );
-
-      // ========================================================
-      // GET NEW REQUEST ID
-      // ========================================================
 
       String? newReqId;
 
@@ -449,17 +367,9 @@ class _OtpVerificationScreenState
         }
       }
 
-      // --------------------------------------------------------
-      // UPDATE REQUEST ID
-      // --------------------------------------------------------
-
       if (newReqId != null) {
         _reqId = newReqId;
       }
-
-      // --------------------------------------------------------
-      // CLEAR OLD OTP
-      // --------------------------------------------------------
 
       _otpController.clear();
 
@@ -508,7 +418,7 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // FIREBASE AUTH ERROR MESSAGE
+  // FIREBASE AUTH ERROR
   // ============================================================
 
   String _firebaseAuthErrorMessage(
@@ -518,15 +428,15 @@ class _OtpVerificationScreenState
       case 'invalid-user':
         return 'Unable to identify your account. Please try again.';
 
-      case 'firebase-user-missing':
-        return 'Unable to create your Firebase login session.';
+      case 'user-not-found':
+        return 'Account not found. Please complete profile setup.';
 
+      case 'invalid-phone-number':
       case 'invalid-phone':
-      case 'phone-not-found':
         return 'Please enter a valid 10-digit mobile number.';
 
       case 'operation-not-allowed':
-        return 'Anonymous Authentication is disabled in Firebase. Please enable it.';
+        return 'Firebase Authentication is not enabled.';
 
       case 'network-request-failed':
         return 'Network error. Please check your internet connection.';
@@ -540,12 +450,12 @@ class _OtpVerificationScreenState
 
         return message.isNotEmpty
             ? message
-            : 'Firebase login failed. Please try again.';
+            : 'Firebase authentication failed. Please try again.';
     }
   }
 
   // ============================================================
-  // FIREBASE / FIRESTORE ERROR MESSAGE
+  // FIREBASE ERROR
   // ============================================================
 
   String _firebaseErrorMessage(
@@ -556,16 +466,10 @@ class _OtpVerificationScreenState
         return 'Firebase permission denied. Please check Firestore rules.';
 
       case 'unavailable':
-        return 'Firebase is temporarily unavailable. Please check your internet connection.';
+        return 'Firebase is temporarily unavailable. Please try again.';
 
       case 'deadline-exceeded':
         return 'The Firebase request took too long. Please try again.';
-
-      case 'owner-id-missing':
-        return 'Owner ID could not be created.';
-
-      case 'owner-profile-not-found':
-        return 'Owner profile was not found.';
 
       default:
         final String message =
@@ -573,83 +477,8 @@ class _OtpVerificationScreenState
 
         return message.isNotEmpty
             ? message
-            : 'Unable to access your Owner account.';
+            : 'Unable to access your account.';
     }
-  }
-
-  // ============================================================
-  // INACTIVE OWNER
-  // ============================================================
-
-  void _showInactiveDialog(
-    String ownerId,
-  ) {
-    const Color primary =
-        AppColors.primary;
-
-    const Color textColor =
-        Color(0xFF263746);
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor:
-              Colors.white,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.block_rounded,
-                color: Colors.red,
-                size: 25,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Account Inactive',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight:
-                        FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'Your Owner ID $ownerId is currently inactive.\n\n'
-            'Please contact support to activate your account.',
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: primary,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   // ============================================================
@@ -707,19 +536,11 @@ class _OtpVerificationScreenState
       '',
     );
 
-    // ----------------------------------------------------------
-    // ONLY ACCEPT EXACTLY 10 DIGITS
-    // ----------------------------------------------------------
-
     if (clean.length == 10) {
       return '+91 '
           '${clean.substring(0, 5)} '
           '${clean.substring(5)}';
     }
-
-    // ----------------------------------------------------------
-    // DO NOT EXTRACT LAST 10 DIGITS
-    // ----------------------------------------------------------
 
     return raw.isEmpty
         ? 'Mobile number'
@@ -845,10 +666,6 @@ class _OtpVerificationScreenState
                   height: 26,
                 ),
 
-                // ==================================================
-                // TITLE
-                // ==================================================
-
                 const Text(
                   'Verify your number',
                   textAlign:
@@ -928,9 +745,9 @@ class _OtpVerificationScreenState
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors
-                            .black
-                            .withValues(
+                        color:
+                            Colors.black
+                                .withValues(
                           alpha: 0.045,
                         ),
                         blurRadius: 18,
@@ -961,10 +778,6 @@ class _OtpVerificationScreenState
                       const SizedBox(
                         height: 12,
                       ),
-
-                      // ==========================================
-                      // OTP INPUT
-                      // ==========================================
 
                       TextField(
                         controller:
@@ -1082,10 +895,6 @@ class _OtpVerificationScreenState
                         height: 18,
                       ),
 
-                      // ==========================================
-                      // VERIFY BUTTON
-                      // ==========================================
-
                       SizedBox(
                         width:
                             double.infinity,
@@ -1149,10 +958,6 @@ class _OtpVerificationScreenState
                         height: 16,
                       ),
 
-                      // ==========================================
-                      // RESEND OTP
-                      // ==========================================
-
                       Center(
                         child:
                             TextButton(
@@ -1179,8 +984,7 @@ class _OtpVerificationScreenState
                                         color:
                                             primary,
                                         fontWeight:
-                                            FontWeight
-                                                .w800,
+                                            FontWeight.w800,
                                       ),
                                     ),
                         ),
@@ -1192,10 +996,6 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 20,
                 ),
-
-                // ==================================================
-                // SECURITY
-                // ==================================================
 
                 const Row(
                   mainAxisAlignment:
