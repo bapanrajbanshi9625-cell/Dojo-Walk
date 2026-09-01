@@ -415,10 +415,10 @@ class _WalkerAcceptScreenState
           // ==================================================
 
           WalkerAcceptStatus(
-            status: data.status,
-            distanceMeters:
-                routeDistanceMeters.toInt(),
-          ),
+           status: data.status,
+           distanceMeters:
+              routeDistanceMeters,
+           ),
 
           const SizedBox(height: 16),
 
