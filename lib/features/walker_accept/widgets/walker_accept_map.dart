@@ -25,7 +25,7 @@ class WalkerAcceptMap extends StatefulWidget {
   /// Walker profile image.
   final String? walkerImageUrl;
 
-  /// Remaining route only.
+  /// Remaining route from Walker to Owner.
   final List<LatLng> routePoints;
 
   /// Walker heading in degrees.
@@ -43,16 +43,11 @@ class _WalkerAcceptMapState
     extends State<WalkerAcceptMap> {
   late final MapController _mapController;
 
-  LatLng? _previousWalkerLocation;
-
   @override
   void initState() {
     super.initState();
 
     _mapController = MapController();
-
-    _previousWalkerLocation =
-        widget.walkerLocation;
   }
 
   @override
@@ -61,10 +56,10 @@ class _WalkerAcceptMapState
   ) {
     super.didUpdateWidget(oldWidget);
 
-    final oldWalker =
+    final LatLng? oldWalker =
         oldWidget.walkerLocation;
 
-    final newWalker =
+    final LatLng? newWalker =
         widget.walkerLocation;
 
     if (newWalker == null) {
@@ -72,7 +67,7 @@ class _WalkerAcceptMapState
     }
 
     if (oldWalker == null) {
-      _previousWalkerLocation = newWalker;
+      _followWalker(newWalker);
       return;
     }
 
@@ -80,8 +75,6 @@ class _WalkerAcceptMapState
       oldWalker,
       newWalker,
     )) {
-      _previousWalkerLocation = newWalker;
-
       _followWalker(newWalker);
     }
   }
@@ -92,7 +85,7 @@ class _WalkerAcceptMapState
 
   @override
   Widget build(BuildContext context) {
-    final markers = <Marker>[
+    final List<Marker> markers = <Marker>[
       // ========================================================
       // OWNER SAVED LOCATION
       // ========================================================
@@ -147,7 +140,7 @@ class _WalkerAcceptMapState
           ),
           children: [
             // ==================================================
-            // OPEN STREET MAP TILES
+            // OPEN STREET MAP
             // ==================================================
 
             TileLayer(
@@ -158,7 +151,7 @@ class _WalkerAcceptMapState
             ),
 
             // ==================================================
-            // REMAINING ROUTE
+            // REMAINING WALKER ROUTE
             // ==================================================
 
             if (widget.routePoints.length >= 2)
@@ -179,7 +172,7 @@ class _WalkerAcceptMapState
               ),
 
             // ==================================================
-            // MARKERS
+            // OWNER + WALKER MARKERS
             // ==================================================
 
             MarkerLayer(
@@ -192,14 +185,14 @@ class _WalkerAcceptMapState
         // LIVE BADGE
         // ======================================================
 
-        Positioned(
+        const Positioned(
           left: 16,
           top: 16,
-          child: const _LiveMapBadge(),
+          child: _LiveMapBadge(),
         ),
 
         // ======================================================
-        // RECENTER BUTTON
+        // RECENTER OWNER BUTTON
         // ======================================================
 
         Positioned(
@@ -236,7 +229,7 @@ class _WalkerAcceptMapState
         _mapController.camera.zoom,
       );
     } catch (_) {
-      // Map controller may not be ready yet.
+      // Map controller may not be ready.
     }
   }
 
@@ -255,7 +248,7 @@ class _WalkerAcceptMapState
         15.5,
       );
     } catch (_) {
-      // Map controller may not be ready yet.
+      // Map controller may not be ready.
     }
   }
 
@@ -267,15 +260,21 @@ class _WalkerAcceptMapState
     LatLng oldLocation,
     LatLng newLocation,
   ) {
-    const threshold = 0.00001;
+    const double threshold = 0.00001;
 
-    return (oldLocation.latitude -
-                    newLocation.latitude)
-                .abs() >
-            threshold ||
+    final double latitudeDifference =
+        (oldLocation.latitude -
+                newLocation.latitude)
+            .abs();
+
+    final double longitudeDifference =
         (oldLocation.longitude -
-                    newLocation.longitude)
-                .abs() >
+                newLocation.longitude)
+            .abs();
+
+    return latitudeDifference >
+            threshold ||
+        longitudeDifference >
             threshold;
   }
 
@@ -284,16 +283,16 @@ class _WalkerAcceptMapState
   // ==========================================================
 
   double get _headingRadians {
-    final heading =
+    final double? heading =
         widget.walkerHeading;
 
     if (heading == null) {
-      return 0;
+      return 0.0;
     }
 
     return heading *
         3.141592653589793 /
-        180;
+        180.0;
   }
 }
 
@@ -307,7 +306,7 @@ class _LiveMapBadge
 
   @override
   Widget build(BuildContext context) {
-    final colors =
+    final ColorScheme colors =
         Theme.of(context).colorScheme;
 
     return Container(
