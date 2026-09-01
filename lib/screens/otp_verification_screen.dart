@@ -1,9 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/services/otp_service.dart';
 import 'splash_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -23,11 +23,19 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState
     extends State<OtpVerificationScreen> {
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
+
   final TextEditingController _otpController =
       TextEditingController();
 
   final FocusNode _otpFocusNode =
       FocusNode();
+
+  // ============================================================
+  // STATE
+  // ============================================================
 
   bool _isVerifying = false;
   bool _isResending = false;
@@ -50,7 +58,7 @@ class _OtpVerificationScreenState
   // ============================================================
 
   Future<void> _verifyOtp() async {
-    if (_isVerifying) {
+    if (_isVerifying || _isResending) {
       return;
     }
 
@@ -58,7 +66,7 @@ class _OtpVerificationScreenState
         _otpController.text.trim();
 
     // ==========================================================
-    // OTP VALIDATION
+    // VALIDATE OTP
     // ==========================================================
 
     if (otp.length != 6) {
@@ -73,6 +81,10 @@ class _OtpVerificationScreenState
       return;
     }
 
+    // ==========================================================
+    // VALIDATE REQUEST ID
+    // ==========================================================
+
     if (_reqId.isEmpty) {
       _showMessage(
         'OTP session is invalid. Please request a new OTP.',
@@ -82,7 +94,7 @@ class _OtpVerificationScreenState
     }
 
     // ==========================================================
-    // START VERIFYING
+    // START LOADING
     // ==========================================================
 
     setState(() {
@@ -91,65 +103,70 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // 1. VERIFY OTP WITH MSG91
+      // MSG91 VERIFICATION THROUGH OTP SERVICE
       // ========================================================
 
-      final dynamic response =
-          await OTPWidget.verifyOTP({
-        'reqId': _reqId,
-        'otp': otp,
-      });
-
-      debugPrint(
-        'MSG91 VERIFY RESPONSE: $response',
+      final String result =
+          await OtpService.instance.verifyOtp(
+        reqId: _reqId,
+        otp: otp,
       );
 
       // ========================================================
-      // 2. CHECK OTP RESULT
+      // NEVER LOG THE ACCESS TOKEN
       // ========================================================
 
-      final bool verified =
-          _isOtpVerified(response);
+      final bool isVerified =
+          result.trim().isNotEmpty;
 
-      if (!verified) {
+      if (!isVerified) {
         throw Exception(
-          'Invalid OTP. Please check the OTP and try again.',
+          'OTP verification failed. Please try again.',
         );
       }
 
-      debugPrint(
-        'MSG91 OTP VERIFIED SUCCESSFULLY',
-      );
+      // ========================================================
+      // IMPORTANT
+      // ========================================================
+      //
+      // OtpService currently returns:
+      //
+      // 1. MSG91 access token
+      //    OR
+      //
+      // 2. "verified"
+      //
+      // The Firebase Custom Token exchange will be added
+      // separately through Cloud Functions.
+      //
+      // Do NOT treat "verified" as a Firebase login.
+      //
+      // ========================================================
 
-      // ========================================================
-      // 3. IMPORTANT
-      // ========================================================
-      //
-      // OTP SCREEN DOES NOT:
-      //
-      // - create Firebase UID
-      // - create Anonymous Firebase session
-      // - create Owner ID
-      // - call OwnerAuthService
-      // - check profileCompleted
-      // - check isActive
-      // - open MainNavigationScreen
-      // - open ProfileSetupScreen
-      //
-      // OTP SCREEN ONLY VERIFIES OTP.
-      //
-      // AFTER SUCCESS:
-      // SplashScreen gets the verified phone number
-      // and makes the complete account decision.
-      //
-      // ========================================================
+      debugPrint(
+        'MSG91 OTP verification successful.',
+      );
 
       if (!mounted) {
         return;
       }
 
       // ========================================================
-      // 4. GO TO SPLASH
+      // MOVE TO SPLASH
+      // ========================================================
+      //
+      // Splash is responsible for:
+      //
+      // Firebase session
+      //       ↓
+      // phoneAccounts/{uid}
+      //       ↓
+      // owners/{ownerId}
+      //       ↓
+      // profileCompleted
+      //       ↓
+      // MainNavigationScreen / ProfileSetupScreen
+      //
       // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -189,10 +206,6 @@ class _OtpVerificationScreenState
         'OTP FIREBASE ERROR: ${e.code}',
       );
 
-      debugPrint(
-        'OTP FIREBASE MESSAGE: ${e.message}',
-      );
-
       if (!mounted) {
         return;
       }
@@ -228,11 +241,12 @@ class _OtpVerificationScreenState
         _showMessage(
           'This OTP session has expired. Please request a new OTP.',
         );
-      } else if (error.contains('permission-denied')) {
+      } else if (error.contains('too many')) {
         _showMessage(
-          'Firebase permission denied. Please check Firestore rules.',
+          'Too many attempts. Please try again later.',
         );
-      } else if (error.contains('network')) {
+      } else if (error.contains('network') ||
+          error.contains('internet')) {
         _showMessage(
           'Network error. Please check your internet connection.',
         );
@@ -257,85 +271,11 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // CHECK MSG91 OTP RESPONSE
-  // ============================================================
-
-  bool _isOtpVerified(
-    dynamic response,
-  ) {
-    if (response == null) {
-      return false;
-    }
-
-    // ==========================================================
-    // MAP RESPONSE
-    // ==========================================================
-
-    if (response is Map) {
-      final dynamic success =
-          response['success'];
-
-      final dynamic verified =
-          response['verified'];
-
-      if (success == true ||
-          verified == true) {
-        return true;
-      }
-
-      final dynamic type =
-          response['type'];
-
-      final dynamic status =
-          response['status'];
-
-      final dynamic message =
-          response['message'];
-
-      final String result =
-          <dynamic>[
-        type,
-        status,
-        message,
-      ]
-              .where(
-                (dynamic value) =>
-                    value != null,
-              )
-              .map(
-                (dynamic value) =>
-                    value
-                        .toString()
-                        .toLowerCase(),
-              )
-              .join(' ');
-
-      if (result.contains('success') ||
-          result.contains('verified')) {
-        return true;
-      }
-
-      return false;
-    }
-
-    // ==========================================================
-    // STRING / OTHER RESPONSE
-    // ==========================================================
-
-    final String responseText =
-        response.toString().toLowerCase();
-
-    return responseText.contains('success') ||
-        responseText.contains('verified');
-  }
-
-  // ============================================================
   // RESEND OTP
   // ============================================================
 
   Future<void> _resendOtp() async {
-    if (_isResending ||
-        _isVerifying) {
+    if (_isResending || _isVerifying) {
       return;
     }
 
@@ -353,46 +293,21 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // MSG91 RETRY
+      // RESEND THROUGH OTP SERVICE
       // ========================================================
 
-      final dynamic response =
-          await OTPWidget.retryOTP({
-        'reqId': _reqId,
-      });
-
-      debugPrint(
-        'MSG91 RETRY RESPONSE: $response',
+      final String? newReqId =
+          await OtpService.instance.resendOtp(
+        reqId: _reqId,
       );
-
-      // ========================================================
-      // GET NEW REQUEST ID
-      // ========================================================
-
-      String? newReqId;
-
-      if (response is Map) {
-        final dynamic value =
-            response['reqId'] ??
-                response['req_id'] ??
-                response['requestId'];
-
-        if (value != null) {
-          final String valueString =
-              value.toString().trim();
-
-          if (valueString.isNotEmpty) {
-            newReqId = valueString;
-          }
-        }
-      }
 
       // ========================================================
       // UPDATE REQUEST ID
       // ========================================================
 
-      if (newReqId != null) {
-        _reqId = newReqId;
+      if (newReqId != null &&
+          newReqId.trim().isNotEmpty) {
+        _reqId = newReqId.trim();
       }
 
       // ========================================================
@@ -410,7 +325,13 @@ class _OtpVerificationScreenState
       );
 
       _otpFocusNode.requestFocus();
-    } catch (e) {
+    }
+
+    // ==========================================================
+    // ERROR
+    // ==========================================================
+
+    catch (e) {
       debugPrint(
         'MSG91 RESEND ERROR: $e',
       );
@@ -425,18 +346,29 @@ class _OtpVerificationScreenState
       if (error.contains('expired') ||
           error.contains('session')) {
         _showMessage(
-          'OTP session has expired. Please request a new OTP.',
+          'OTP session has expired. Please request OTP again.',
         );
-      } else if (error.contains('network')) {
+      } else if (error.contains('network') ||
+          error.contains('internet')) {
         _showMessage(
           'Network error. Please check your internet connection.',
+        );
+      } else if (error.contains('too many')) {
+        _showMessage(
+          'Too many OTP requests. Please wait and try again.',
         );
       } else {
         _showMessage(
           'Unable to resend OTP. Please try again.',
         );
       }
-    } finally {
+    }
+
+    // ==========================================================
+    // STOP RESEND LOADING
+    // ==========================================================
+
+    finally {
       if (mounted) {
         setState(() {
           _isResending = false;
@@ -472,13 +404,11 @@ class _OtpVerificationScreenState
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
 
-      default:
-        final String message =
-            e.message?.trim() ?? '';
+      case 'invalid-credential':
+        return 'Authentication session is invalid. Please try again.';
 
-        return message.isNotEmpty
-            ? message
-            : 'Firebase authentication failed. Please try again.';
+      default:
+        return 'Firebase authentication failed. Please try again.';
     }
   }
 
@@ -491,7 +421,7 @@ class _OtpVerificationScreenState
   ) {
     switch (e.code) {
       case 'permission-denied':
-        return 'Firebase permission denied. Please check Firestore rules.';
+        return 'Firebase permission denied. Please check your account access.';
 
       case 'unavailable':
         return 'Firebase is temporarily unavailable. Please try again.';
@@ -499,13 +429,11 @@ class _OtpVerificationScreenState
       case 'deadline-exceeded':
         return 'The Firebase request took too long. Please try again.';
 
-      default:
-        final String message =
-            e.message?.trim() ?? '';
+      case 'not-found':
+        return 'Your account information was not found.';
 
-        return message.isNotEmpty
-            ? message
-            : 'Unable to access your account.';
+      default:
+        return 'Unable to access your account. Please try again.';
     }
   }
 
@@ -832,7 +760,8 @@ class _OtpVerificationScreenState
                             _otpFocusNode,
                         autofocus: true,
                         enabled:
-                            !_isVerifying,
+                            !_isVerifying &&
+                                !_isResending,
                         keyboardType:
                             TextInputType.number,
                         textInputAction:
@@ -848,7 +777,8 @@ class _OtpVerificationScreenState
                             (String value) {
                           if (value.length ==
                                   6 &&
-                              !_isVerifying) {
+                              !_isVerifying &&
+                              !_isResending) {
                             FocusScope.of(
                               context,
                             ).unfocus();
@@ -856,7 +786,8 @@ class _OtpVerificationScreenState
                         },
                         onSubmitted:
                             (_) {
-                          if (!_isVerifying) {
+                          if (!_isVerifying &&
+                              !_isResending) {
                             _verifyOtp();
                           }
                         },
@@ -934,6 +865,19 @@ class _OtpVerificationScreenState
                               width: 2,
                             ),
                           ),
+                          disabledBorder:
+                              OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            borderSide:
+                                const BorderSide(
+                              color:
+                                  borderColor,
+                            ),
+                          ),
                         ),
                       ),
 
@@ -952,7 +896,8 @@ class _OtpVerificationScreenState
                         child:
                             ElevatedButton(
                           onPressed:
-                              _isVerifying
+                              (_isVerifying ||
+                                      _isResending)
                                   ? null
                                   : _verifyOtp,
                           style:
