@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/constants/app_colors.dart';
-import '../core/services/otp_service.dart';
+import '../services/otp_service.dart';
 import 'splash_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
