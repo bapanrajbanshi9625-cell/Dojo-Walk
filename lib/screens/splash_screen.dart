@@ -7,8 +7,14 @@ import 'main_navigation_screen.dart';
 import 'profile_setup.dart';
 
 class SplashScreen extends StatefulWidget {
+  /// Phone number verified by MSG91 OTP.
+  ///
+  /// This is the PRIMARY identity check after OTP.
+  final String? phoneNumber;
+
   const SplashScreen({
     super.key,
+    this.phoneNumber,
   });
 
   @override
@@ -21,6 +27,18 @@ class _SplashScreenState
   bool _checking = true;
   bool _navigated = false;
 
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  static const String _ownersCollection =
+      'owners';
+
+  static const String _phoneAccountsCollection =
+      'phoneAccounts';
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +47,42 @@ class _SplashScreenState
         .addPostFrameCallback((_) {
       _checkLoginAndProfile();
     });
+  }
+
+  // ============================================================
+  // NORMALIZE PHONE
+  // ============================================================
+
+  String? _normalizePhone(
+    String? phoneNumber,
+  ) {
+    if (phoneNumber == null) {
+      return null;
+    }
+
+    String phone =
+        phoneNumber
+            .trim()
+            .replaceAll(
+              RegExp(r'[^0-9]'),
+              '',
+            );
+
+    if (phone.startsWith('91') &&
+        phone.length == 12) {
+      phone = phone.substring(2);
+    }
+
+    if (phone.length != 10) {
+      return null;
+    }
+
+    if (!RegExp(r'^[6-9][0-9]{9}$')
+        .hasMatch(phone)) {
+      return null;
+    }
+
+    return '+91$phone';
   }
 
   // ============================================================
@@ -41,12 +95,121 @@ class _SplashScreenState
     }
 
     try {
-      final User? user =
-          FirebaseAuth.instance.currentUser;
+      // ========================================================
+      // 1. GET VERIFIED PHONE
+      // ========================================================
+
+      final String? phone =
+          _normalizePhone(
+        widget.phoneNumber,
+      );
 
       // ========================================================
-      // NO FIREBASE SESSION
+      // 2. IF OTP JUST VERIFIED
+      //
+      // PRIMARY CHECK IS PHONE NUMBER.
       // ========================================================
+
+      if (phone != null) {
+        debugPrint(
+          'SPLASH: Checking existing account for $phone',
+        );
+
+        final Map<String, dynamic>?
+            phoneAccount =
+            await _findPhoneAccount(
+          phone,
+        );
+
+        // ------------------------------------------------------
+        // EXISTING ACCOUNT FOUND
+        // ------------------------------------------------------
+
+        if (phoneAccount != null) {
+          final String ownerId =
+              (phoneAccount['ownerId'] ?? '')
+                  .toString()
+                  .trim();
+
+          if (ownerId.isNotEmpty) {
+            debugPrint(
+              'SPLASH: Existing Owner ID = $ownerId',
+            );
+
+            await _openExistingOwner(
+              ownerId,
+            );
+
+            return;
+          }
+        }
+
+        // ------------------------------------------------------
+        // PHONE ACCOUNT NOT FOUND
+        //
+        // FALLBACK: SEARCH OWNER PROFILE BY PHONE
+        // ------------------------------------------------------
+
+        final Map<String, dynamic>?
+            owner =
+            await _findOwnerByPhone(
+          phone,
+        );
+
+        if (owner != null) {
+          final String ownerId =
+              (owner['ownerId'] ??
+                      owner['_documentId'] ??
+                      '')
+                  .toString()
+                  .trim();
+
+          if (ownerId.isNotEmpty) {
+            debugPrint(
+              'SPLASH: Existing Owner found by profile: '
+              '$ownerId',
+            );
+
+            await _openExistingOwner(
+              ownerId,
+            );
+
+            return;
+          }
+        }
+
+        // ------------------------------------------------------
+        // NO EXISTING ACCOUNT
+        // ------------------------------------------------------
+        //
+        // IMPORTANT:
+        // We DO NOT create an anonymous UID here.
+        //
+        // ProfileSetup will handle the new-account creation
+        // flow.
+        //
+        // ------------------------------------------------------
+
+        debugPrint(
+          'SPLASH: No existing account found.',
+        );
+
+        _goTo(
+          const ProfileSetupScreen(),
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 3. NORMAL APP START
+      //
+      // No phone was passed from OTP.
+      // Now check existing Firebase session.
+      // ========================================================
+
+      final User? user =
+          _auth.currentUser;
 
       if (user == null) {
         _goTo(
@@ -59,119 +222,57 @@ class _SplashScreenState
           user.uid.trim();
 
       if (uid.isEmpty) {
-        await FirebaseAuth.instance.signOut();
+        await _auth.signOut();
 
         _goTo(
           const LoginScreen(),
         );
+
         return;
       }
 
       // ========================================================
-      // PHONE ACCOUNT
+      // 4. NORMAL SESSION → PHONE ACCOUNT
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
+      final DocumentSnapshot<
+              Map<String, dynamic>>
           accountSnapshot =
-          await FirebaseFirestore.instance
-              .collection('phoneAccounts')
+          await _firestore
+              .collection(
+                _phoneAccountsCollection,
+              )
               .doc(uid)
               .get();
 
       if (!accountSnapshot.exists) {
-        // Authenticated user but account not created.
         _goTo(
           const ProfileSetupScreen(),
         );
+
         return;
       }
 
-      final Map<String, dynamic> accountData =
+      final Map<String, dynamic>
+          accountData =
           accountSnapshot.data() ??
               <String, dynamic>{};
 
-      // ========================================================
-      // OWNER ID
-      // ========================================================
-
-      final dynamic ownerIdValue =
-          accountData['ownerId'];
-
-      if (ownerIdValue == null) {
-        _goTo(
-          const ProfileSetupScreen(),
-        );
-        return;
-      }
-
       final String ownerId =
-          ownerIdValue.toString().trim();
+          (accountData['ownerId'] ?? '')
+              .toString()
+              .trim();
 
       if (ownerId.isEmpty) {
         _goTo(
           const ProfileSetupScreen(),
         );
+
         return;
       }
 
-      // ========================================================
-      // OWNER PROFILE
-      // ========================================================
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          ownerSnapshot =
-          await FirebaseFirestore.instance
-              .collection('owners')
-              .doc(ownerId)
-              .get();
-
-      if (!ownerSnapshot.exists) {
-        _goTo(
-          const ProfileSetupScreen(),
-        );
-        return;
-      }
-
-      final Map<String, dynamic> ownerData =
-          ownerSnapshot.data() ??
-              <String, dynamic>{};
-
-      // ========================================================
-      // ACTIVE
-      // ========================================================
-
-      final bool isActive =
-          ownerData['isActive'] != false;
-
-      if (!isActive) {
-        await FirebaseAuth.instance.signOut();
-
-        _goTo(
-          const LoginScreen(),
-        );
-        return;
-      }
-
-      // ========================================================
-      // PROFILE COMPLETED
-      // ========================================================
-
-      final bool profileCompleted =
-          ownerData['profileCompleted'] == true;
-
-      if (!profileCompleted) {
-        _goTo(
-          const ProfileSetupScreen(),
-        );
-        return;
-      }
-
-      // ========================================================
-      // MAIN APP
-      // ========================================================
-
-      _goTo(
-        const MainNavigationScreen(),
+      await _openExistingOwner(
+        ownerId,
       );
     }
 
@@ -221,6 +322,267 @@ class _SplashScreenState
         'Unable to load your account. Please try again.',
       );
     }
+  }
+
+  // ============================================================
+  // FIND PHONE ACCOUNT
+  // ============================================================
+
+  Future<Map<String, dynamic>?>
+      _findPhoneAccount(
+    String phone,
+  ) async {
+    // ----------------------------------------------------------
+    // phoneNumber
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        phoneNumberQuery =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
+            .where(
+              'phoneNumber',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (phoneNumberQuery.docs.isNotEmpty) {
+      final Map<String, dynamic> data =
+          phoneNumberQuery.docs.first.data();
+
+      data['_documentId'] =
+          phoneNumberQuery.docs.first.id;
+
+      return data;
+    }
+
+    // ----------------------------------------------------------
+    // phone
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        phoneQuery =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
+            .where(
+              'phone',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (phoneQuery.docs.isNotEmpty) {
+      final Map<String, dynamic> data =
+          phoneQuery.docs.first.data();
+
+      data['_documentId'] =
+          phoneQuery.docs.first.id;
+
+      return data;
+    }
+
+    // ----------------------------------------------------------
+    // mainPhone
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        mainPhoneQuery =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
+            .where(
+              'mainPhone',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (mainPhoneQuery.docs.isNotEmpty) {
+      final Map<String, dynamic> data =
+          mainPhoneQuery.docs.first.data();
+
+      data['_documentId'] =
+          mainPhoneQuery.docs.first.id;
+
+      return data;
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // FIND OWNER BY PHONE
+  // ============================================================
+
+  Future<Map<String, dynamic>?>
+      _findOwnerByPhone(
+    String phone,
+  ) async {
+    // ----------------------------------------------------------
+    // phoneNumber
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        phoneNumberQuery =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'phoneNumber',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (phoneNumberQuery.docs.isNotEmpty) {
+      final Map<String, dynamic> data =
+          phoneNumberQuery.docs.first.data();
+
+      data['_documentId'] =
+          phoneNumberQuery.docs.first.id;
+
+      return data;
+    }
+
+    // ----------------------------------------------------------
+    // phone
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        phoneQuery =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'phone',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (phoneQuery.docs.isNotEmpty) {
+      final Map<String, dynamic> data =
+          phoneQuery.docs.first.data();
+
+      data['_documentId'] =
+          phoneQuery.docs.first.id;
+
+      return data;
+    }
+
+    // ----------------------------------------------------------
+    // mainPhone
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        mainPhoneQuery =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'mainPhone',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (mainPhoneQuery.docs.isNotEmpty) {
+      final Map<String, dynamic> data =
+          mainPhoneQuery.docs.first.data();
+
+      data['_documentId'] =
+          mainPhoneQuery.docs.first.id;
+
+      return data;
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // OPEN EXISTING OWNER
+  // ============================================================
+
+  Future<void> _openExistingOwner(
+    String ownerId,
+  ) async {
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        ownerSnapshot =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .doc(ownerId)
+            .get();
+
+    if (!ownerSnapshot.exists) {
+      _goTo(
+        const ProfileSetupScreen(),
+      );
+
+      return;
+    }
+
+    final Map<String, dynamic>
+        ownerData =
+        ownerSnapshot.data() ??
+            <String, dynamic>{};
+
+    // ==========================================================
+    // ACTIVE
+    // ==========================================================
+
+    final bool isActive =
+        ownerData['isActive'] != false;
+
+    if (!isActive) {
+      await _auth.signOut();
+
+      _goTo(
+        const LoginScreen(),
+      );
+
+      return;
+    }
+
+    // ==========================================================
+    // PROFILE COMPLETED
+    // ==========================================================
+
+    final bool profileCompleted =
+        ownerData['profileCompleted'] == true;
+
+    if (!profileCompleted) {
+      _goTo(
+        const ProfileSetupScreen(),
+      );
+
+      return;
+    }
+
+    // ==========================================================
+    // MAIN APP
+    // ==========================================================
+
+    _goTo(
+      const MainNavigationScreen(),
+    );
   }
 
   // ============================================================
