@@ -16,36 +16,17 @@ import '../../../services/owner_id_service.dart';
 /// PROFILE SETUP SERVICE
 /// ============================================================
 ///
-/// Responsibility:
-/// - Save Owner profile
-/// - Upload Owner profile photo
-/// - Save pets
-/// - Save current location
-/// - Mark profileCompleted
-/// - Read Owner profile
-/// - Update current location
+/// Owner profile flow:
 ///
-/// NOT responsible for:
-/// - OTP verification
-/// - OTP resend
-/// - Login navigation
-/// - Creating OTP session
-///
-/// Authentication flow:
-///
-/// MSG91 OTP verified
-///        ↓
-/// OwnerAuthService
-///        ↓
-/// Firebase Anonymous User
-///        ↓
-/// Firebase UID
-///        ↓
+/// Firebase Auth UID
+///       ↓
 /// phoneAccounts/{uid}
-///        ↓
+///       ↓
+/// OwnerIdService
+///       ↓
 /// owners/{ownerId}
-///        ↓
-/// Profile Setup
+///       ↓
+/// profileCompleted = true
 ///
 /// ============================================================
 
@@ -78,7 +59,7 @@ class ProfileSetupService {
       'owner_profile_photos';
 
   // ============================================================
-  // PET LIMIT
+  // LIMITS
   // ============================================================
 
   static const int maximumPets = 3;
@@ -86,69 +67,33 @@ class ProfileSetupService {
   // ============================================================
   // NORMALIZE PHONE
   // ============================================================
-  //
-  // Accepted:
-  //
-  // 9625813987
-  // +919625813987
-  // 919625813987
-  // +91 9625813987
-  // +91-9625813987
-  //
-  // Internally saved as:
-  //
-  // +919625813987
-  //
-  // IMPORTANT:
-  // We do NOT blindly take the last 10 digits.
-  // ============================================================
 
   static String _normalizePhone(
     String phoneNumber,
   ) {
-    final String raw =
-        phoneNumber.trim();
+    final String raw = phoneNumber.trim();
 
     if (raw.isEmpty) {
       throw FirebaseException(
         plugin: 'firebase_auth',
         code: 'invalid-phone',
-        message:
-            'Mobile number is required.',
+        message: 'Mobile number is required.',
       );
     }
 
-    final String clean =
-        raw.replaceAll(
+    final String clean = raw.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
 
     String tenDigitNumber;
 
-    // ----------------------------------------------------------
-    // EXACT 10 DIGITS
-    // ----------------------------------------------------------
-
     if (clean.length == 10) {
       tenDigitNumber = clean;
-    }
-
-    // ----------------------------------------------------------
-    // 91 + 10 DIGITS
-    // ----------------------------------------------------------
-
-    else if (clean.length == 12 &&
+    } else if (clean.length == 12 &&
         clean.startsWith('91')) {
-      tenDigitNumber =
-          clean.substring(2);
-    }
-
-    // ----------------------------------------------------------
-    // INVALID
-    // ----------------------------------------------------------
-
-    else {
+      tenDigitNumber = clean.substring(2);
+    } else {
       throw FirebaseException(
         plugin: 'firebase_auth',
         code: 'invalid-phone',
@@ -156,10 +101,6 @@ class ProfileSetupService {
             'Please enter a valid 10-digit mobile number.',
       );
     }
-
-    // ----------------------------------------------------------
-    // INDIAN MOBILE VALIDATION
-    // ----------------------------------------------------------
 
     if (!RegExp(
       r'^[6-9][0-9]{9}$',
@@ -176,7 +117,7 @@ class ProfileSetupService {
   }
 
   // ============================================================
-  // CURRENT FIREBASE USER
+  // CURRENT USER
   // ============================================================
 
   static User _requireCurrentUser() {
@@ -188,12 +129,11 @@ class ProfileSetupService {
         plugin: 'firebase_auth',
         code: 'user-not-authenticated',
         message:
-            'User is not logged in.',
+            'User is not logged in. Please login again.',
       );
     }
 
-    final String uid =
-        user.uid.trim();
+    final String uid = user.uid.trim();
 
     if (uid.isEmpty) {
       throw FirebaseException(
@@ -208,47 +148,53 @@ class ProfileSetupService {
   }
 
   // ============================================================
-  // CURRENT LOCATION
+  // LOCATION
   // ============================================================
 
   static Future<Position?> _getCurrentLocation() async {
-  try {
-    final bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+    try {
+      final bool serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
 
-    if (!serviceEnabled) {
+      if (!serviceEnabled) {
+        return null;
+      }
+
+      LocationPermission permission =
+          await Geolocator.checkPermission();
+
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
+      }
+
+      if (permission ==
+              LocationPermission.denied ||
+          permission ==
+              LocationPermission.deniedForever) {
+        return null;
+      }
+
+      return await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(
+          accuracy:
+              LocationAccuracy.high,
+        ),
+      );
+    } catch (e) {
+      developer.log(
+        'Location error: $e',
+        name: 'ProfileSetupService',
+      );
+
       return null;
     }
-
-    LocationPermission permission =
-        await Geolocator.checkPermission();
-
-    if (permission ==
-        LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
-    }
-
-    if (permission ==
-            LocationPermission.denied ||
-        permission ==
-            LocationPermission.deniedForever) {
-      return null;
-    }
-
-    return await Geolocator.getCurrentPosition();
-  } catch (e) {
-    developer.log(
-      'Location error: $e',
-      name: 'ProfileSetupService',
-    );
-
-    return null;
   }
-}
 
   // ============================================================
-  // UPLOAD OWNER PROFILE PHOTO
+  // UPLOAD PROFILE PHOTO
   // ============================================================
 
   static Future<String> uploadOwnerProfilePhoto({
@@ -298,19 +244,28 @@ class ProfileSetupService {
       ),
     );
 
-    final String downloadUrl =
+    final String url =
         await storageRef.getDownloadURL();
 
-    return downloadUrl.trim();
+    return url.trim();
   }
 
   // ============================================================
-  // CONVERT PET DATA
+  // PET CONVERSION
   // ============================================================
 
   static List<Map<String, dynamic>> _convertPets(
     List<PetData> pets,
   ) {
+    if (pets.isEmpty) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'minimum-pet-required',
+        message:
+            'At least one pet is required.',
+      );
+    }
+
     if (pets.length > maximumPets) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
@@ -346,10 +301,10 @@ class ProfileSetupService {
     required String phoneNumber,
     required List<PetData> pets,
     File? profilePhoto,
-    bool requireLocation = true,
+    bool requireLocation = false,
   }) async {
     // ----------------------------------------------------------
-    // 1. REQUIRE FIREBASE SESSION
+    // 1. CURRENT AUTH USER
     // ----------------------------------------------------------
 
     final User user =
@@ -359,16 +314,14 @@ class ProfileSetupService {
         user.uid.trim();
 
     // ----------------------------------------------------------
-    // 2. NORMALIZE PHONE
+    // 2. PHONE
     // ----------------------------------------------------------
 
     final String fullPhoneNumber =
-        _normalizePhone(
-      phoneNumber,
-    );
+        _normalizePhone(phoneNumber);
 
     // ----------------------------------------------------------
-    // 3. CLEAN BASIC DATA
+    // 3. BASIC DATA
     // ----------------------------------------------------------
 
     final String cleanOwnerName =
@@ -376,10 +329,6 @@ class ProfileSetupService {
 
     final String cleanAddress =
         address.trim();
-
-    // ----------------------------------------------------------
-    // 4. BASIC VALIDATION
-    // ----------------------------------------------------------
 
     if (cleanOwnerName.isEmpty) {
       throw FirebaseException(
@@ -390,35 +339,32 @@ class ProfileSetupService {
       );
     }
 
-    if (cleanAddress.isEmpty) {
+    if (cleanOwnerName.length < 2) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
-        code: 'address-required',
+        code: 'invalid-owner-name',
         message:
-            'Address is required.',
-      );
-    }
-
-    if (pets.isEmpty) {
-      throw FirebaseException(
-        plugin: 'cloud_firestore',
-        code: 'minimum-pet-required',
-        message:
-            'At least one pet is required.',
-      );
-    }
-
-    if (pets.length > maximumPets) {
-      throw FirebaseException(
-        plugin: 'cloud_firestore',
-        code: 'maximum-pets-exceeded',
-        message:
-            'Maximum $maximumPets pets can be added.',
+            'Owner name must contain at least 2 characters.',
       );
     }
 
     // ----------------------------------------------------------
-    // 5. GET / CREATE OWNER ID
+    // ADDRESS IS OPTIONAL
+    // ----------------------------------------------------------
+
+    // Do NOT reject empty address.
+    //
+    // ProfileSetupScreen already treats address as optional.
+
+    // ----------------------------------------------------------
+    // 4. PETS
+    // ----------------------------------------------------------
+
+    final List<Map<String, dynamic>> petData =
+        _convertPets(pets);
+
+    // ----------------------------------------------------------
+    // 5. OWNER ID
     // ----------------------------------------------------------
 
     String? ownerId =
@@ -431,7 +377,8 @@ class ProfileSetupService {
         await OwnerIdService.instance
             .getOrCreateOwnerId(
       uid: uid,
-      phoneNumber: fullPhoneNumber,
+      phoneNumber:
+          fullPhoneNumber,
     );
 
     ownerId =
@@ -450,28 +397,28 @@ class ProfileSetupService {
     // 6. LOCATION
     // ----------------------------------------------------------
 
-    final Position? position =
-        await _getCurrentLocation();
+    Position? position;
 
-    if (requireLocation &&
-        position == null) {
-      throw FirebaseException(
-        plugin: 'cloud_firestore',
-        code: 'location-required',
-        message:
-            'Current location is required. Please enable location permission and try again.',
-      );
+    if (requireLocation) {
+      position =
+          await _getCurrentLocation();
+
+      if (position == null) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'location-required',
+          message:
+              'Current location is required. Please enable location permission and try again.',
+        );
+      }
+    } else {
+      // Location is optional during profile setup.
+      position =
+          await _getCurrentLocation();
     }
 
-    // ----------------------------------------------------------
-    // 7. PET DATA
-    // ----------------------------------------------------------
-
-    final List<Map<String, dynamic>> petData =
-        _convertPets(pets);
-
     // ==========================================================
-    // 8. PROFILE DATA
+    // 7. PROFILE DATA
     // ==========================================================
 
     final Map<String, dynamic> profileData =
@@ -520,14 +467,16 @@ class ProfileSetupService {
     };
 
     // ==========================================================
-    // 9. PROFILE PHOTO
+    // 8. PROFILE PHOTO
     // ==========================================================
 
     if (profilePhoto != null) {
       final String photoUrl =
           await uploadOwnerProfilePhoto(
-        ownerId: ownerId,
-        imageFile: profilePhoto,
+        ownerId:
+            ownerId,
+        imageFile:
+            profilePhoto,
       );
 
       if (photoUrl.isNotEmpty) {
@@ -542,7 +491,7 @@ class ProfileSetupService {
     }
 
     // ==========================================================
-    // 10. LOCATION DATA
+    // 9. LOCATION DATA
     // ==========================================================
 
     if (position != null) {
@@ -573,7 +522,7 @@ class ProfileSetupService {
     }
 
     // ==========================================================
-    // 11. SAVE OWNER PROFILE
+    // 10. SAVE OWNER
     // ==========================================================
 
     final DocumentReference<
@@ -592,7 +541,7 @@ class ProfileSetupService {
     );
 
     // ==========================================================
-    // 12. SAVE PHONE ACCOUNT
+    // 11. SAVE PHONE ACCOUNT
     // ==========================================================
 
     final DocumentReference<
@@ -636,17 +585,20 @@ class ProfileSetupService {
 
     developer.log(
       'Owner profile saved successfully.',
-      name: 'ProfileSetupService',
+      name:
+          'ProfileSetupService',
     );
 
     developer.log(
-      'UID: $uid',
-      name: 'ProfileSetupService',
+      'Firebase UID: $uid',
+      name:
+          'ProfileSetupService',
     );
 
     developer.log(
       'Owner ID: $ownerId',
-      name: 'ProfileSetupService',
+      name:
+          'ProfileSetupService',
     );
   }
 
@@ -742,27 +694,38 @@ class ProfileSetupService {
       return false;
     }
 
-    final DocumentSnapshot<
-        Map<String, dynamic>> snapshot =
-        await _firestore
-            .collection(
-              _ownersCollection,
-            )
-            .doc(
-              ownerId.trim(),
-            )
-            .get();
+    try {
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
+          await _firestore
+              .collection(
+                _ownersCollection,
+              )
+              .doc(
+                ownerId.trim(),
+              )
+              .get();
 
-    if (!snapshot.exists) {
+      if (!snapshot.exists) {
+        return false;
+      }
+
+      final Map<String, dynamic>? data =
+          snapshot.data();
+
+      return data?[
+              'profileCompleted'] ==
+          true;
+    } on FirebaseException catch (e) {
+      developer.log(
+        'Profile completion check failed: '
+        '${e.code} - ${e.message}',
+        name:
+            'ProfileSetupService',
+      );
+
       return false;
     }
-
-    final Map<String, dynamic>? data =
-        snapshot.data();
-
-    return data?[
-            'profileCompleted'] ==
-        true;
   }
 
   // ============================================================
@@ -843,7 +806,7 @@ class ProfileSetupService {
   }
 
   // ============================================================
-  // GET PROFILE PHOTO URL
+  // GET PROFILE PHOTO
   // ============================================================
 
   static Future<String?>
@@ -862,10 +825,8 @@ class ProfileSetupService {
         snapshot.data();
 
     final dynamic value =
-        data?[
-                'profilePhotoUrl'] ??
-            data?[
-                'profilePhoto'];
+        data?['profilePhotoUrl'] ??
+            data?['profilePhoto'];
 
     if (value == null) {
       return null;
