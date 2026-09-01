@@ -9,6 +9,14 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     InstaWalkAcceptedData accepted,
   ) async {
     // ==========================================================
+    // PREVENT DUPLICATE NAVIGATION
+    // ==========================================================
+
+    if (!mounted) {
+      return;
+    }
+
+    // ==========================================================
     // VALIDATE REQUEST
     // ==========================================================
 
@@ -52,22 +60,13 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _requestId = requestId;
 
     // ==========================================================
-    // STOP RADAR ONLY
-    //
-    // IMPORTANT:
-    // Do NOT pop the Insta Walk container.
-    //
-    // Do NOT use:
-    // Navigator.pop()
-    // Navigator.pushReplacement()
-    //
-    // The parent handles navigation through onAccepted.
+    // STOP RADAR
     // ==========================================================
 
     _stopRadar();
 
     // ==========================================================
-    // RESTORE OWNER SAVED LOCATION
+    // RESTORE OWNER LOCATION
     // ==========================================================
 
     final GeoPoint? acceptedOwnerLocation =
@@ -95,74 +94,22 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     // UPDATE LOCAL STATE
     // ==========================================================
 
-    if (!mounted) {
-      return;
-    }
-
     _updateState(() {
-      // --------------------------------------------------------
-      // SEARCH IS FINISHED
-      // --------------------------------------------------------
-
       _searching = false;
-
-      // --------------------------------------------------------
-      // NOT A FAILED SEARCH
-      // --------------------------------------------------------
-
       _searchFinished = false;
-
-      // --------------------------------------------------------
-      // CLEAR TEMPORARY STATES
-      // --------------------------------------------------------
-
       _recovering = false;
       _checkingAddress = false;
       _stopping = false;
     });
 
     // ==========================================================
-    // MARK ACCEPTED / ACTIVE
-    //
-    // IMPORTANT:
-    // _active does NOT exist in the current state.
-    //
-    // _setActive(true) is the correct method because it
-    // updates the existing _activeReported state and callback.
+    // MARK ACTIVE
     // ==========================================================
 
     _setActive(true);
 
     // ==========================================================
-    // ACCEPTED CALLBACK
-    //
-    // Parent should open WalkerAcceptScreen using:
-    //
-    // walk_request/{requestId}
-    //
-    // The same request continues:
-    //
-    // accepted → reached
-    //
-    // No active_walks collection is created here.
-    // ==========================================================
-
-    widget.onAccepted?.call(
-      accepted,
-    );
-
-    // ==========================================================
-    // EXISTING WALKER FOUND CALLBACK
-    //
-    // Keep this for existing parent logic.
-    //
-    // This callback must NOT pop this container.
-    // ==========================================================
-
-    widget.onWalkerFound?.call();
-
-    // ==========================================================
-    // DEBUG
+    // DEBUG BEFORE NAVIGATION
     // ==========================================================
 
     debugPrint(
@@ -190,14 +137,6 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     );
 
     debugPrint(
-      'request collection=walk_request',
-    );
-
-    debugPrint(
-      'status=accepted',
-    );
-
-    debugPrint(
       'Radar stopped=true',
     );
 
@@ -205,20 +144,52 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       'Search stopped=true',
     );
 
+    // ==========================================================
+    // IMMEDIATE NAVIGATION
+    //
+    // ACCEPTED
+    //    ↓
+    // STOP RADAR
+    //    ↓
+    // STOP SEARCH UI
+    //    ↓
+    // OPEN WALKER ACCEPT SCREEN
+    //
+    // SAME FIRESTORE REQUEST:
+    //
+    // walk_request/{requestId}
+    //
+    // NO active_walks COLLECTION
+    // ==========================================================
+
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return WalkerAcceptScreen(
+            requestId: requestId,
+          );
+        },
+      ),
+    );
+
+    // ==========================================================
+    // AFTER WALKER ACCEPT SCREEN RETURNS
+    // ==========================================================
+
+    if (!mounted) {
+      return;
+    }
+
     debugPrint(
-      'InstaWalkContainer closed=false',
+      'WalkerAcceptScreen closed.',
     );
 
     debugPrint(
-      'WalkerAcceptScreen callback=true',
-    );
-
-    debugPrint(
-      'Owner remains in flow=true',
-    );
-
-    debugPrint(
-      'Live Walk session created=false',
+      'requestId=$requestId',
     );
 
     debugPrint(
