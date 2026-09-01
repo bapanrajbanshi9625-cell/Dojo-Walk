@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/widgets/insta_walk_container.dart';
+import '../features/walker_accept/screens/walker_accept_screen.dart';
 
 class InstaWalkScreen extends StatelessWidget {
   const InstaWalkScreen({
@@ -23,14 +24,53 @@ class InstaWalkScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: const SafeArea(
+      body: SafeArea(
         child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(
             bottom: 30,
           ),
           child: InstaWalkContainer(
             fullScreen: true,
+
+            // ==================================================
+            // WALKER ACCEPTED
+            // ==================================================
+            //
+            // Insta Walk Container detects:
+            //
+            // status = accepted
+            //
+            // Then this callback immediately opens:
+            //
+            // WalkerAcceptScreen
+            //
+            // Same Firestore request:
+            //
+            // walk_request/{requestId}
+            //
+            // ==================================================
+
+            onAccepted: (accepted) {
+              final String requestId =
+                  accepted.requestId.trim();
+
+              if (requestId.isEmpty) {
+                debugPrint(
+                  'Cannot open WalkerAcceptScreen: '
+                  'requestId is empty.',
+                );
+                return;
+              }
+
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => WalkerAcceptScreen(
+                    requestId: requestId,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
