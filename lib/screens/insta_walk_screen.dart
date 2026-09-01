@@ -44,31 +44,24 @@ class InstaWalkScreen extends StatelessWidget {
             fullScreen: true,
 
             // ==================================================
-            // WALKER ACCEPTED
+            // ACCEPTED
             // ==================================================
             //
-            // Navigation is handled ONLY here.
+            // Container detects Firestore:
             //
-            // InstaWalkContainer:
-            //   Firestore accepted
-            //        ↓
-            //   stop radar
-            //        ↓
-            //   stop searching
-            //        ↓
-            //   onAccepted
+            // status = accepted
             //
-            // This screen:
-            //   onAccepted
-            //        ↓
-            //   WalkerAcceptScreen
+            // Then:
+            //
+            // _walkerAccepted()
+            //       ↓
+            // onAccepted()
+            //       ↓
+            // THIS SCREEN NAVIGATES
             //
             // ==================================================
 
             onAccepted: (accepted) {
-              final String requestId =
-                  accepted.requestId.trim();
-
               debugPrint('');
               debugPrint(
                 '==============================================',
@@ -77,41 +70,51 @@ class InstaWalkScreen extends StatelessWidget {
                 '🔥 INSTA WALK SCREEN RECEIVED ACCEPTED',
               );
               debugPrint(
-                'requestId = $requestId',
-              );
-              debugPrint(
                 '==============================================',
               );
 
+              final String requestId =
+                  accepted.requestId.trim();
+
+              debugPrint(
+                'requestId = $requestId',
+              );
+
+              // ----------------------------------------------
+              // REQUEST ID CHECK
+              // ----------------------------------------------
+
               if (requestId.isEmpty) {
                 debugPrint(
-                  '❌ Navigation cancelled: requestId is empty.',
+                  '❌ Navigation cancelled: requestId empty.',
                 );
                 return;
               }
 
               // ----------------------------------------------
-              // WAIT UNTIL CURRENT FRAME IS COMPLETE
+              // NAVIGATE AFTER CURRENT FRAME
               // ----------------------------------------------
 
               WidgetsBinding.instance.addPostFrameCallback(
                 (_) {
                   if (!context.mounted) {
                     debugPrint(
-                      '❌ Navigation cancelled: screen unmounted.',
+                      '❌ Navigation cancelled: context unmounted.',
                     );
                     return;
                   }
 
                   debugPrint(
-                    '🚀 Opening WalkerAcceptScreen...',
+                    '🚀🚀🚀 PUSHING WalkerAcceptScreen',
                   );
 
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => WalkerAcceptScreen(
-                        requestId: requestId,
-                      ),
+                      builder: (_) {
+                        return WalkerAcceptScreen(
+                          requestId: requestId,
+                        );
+                      },
                     ),
                   );
                 },
