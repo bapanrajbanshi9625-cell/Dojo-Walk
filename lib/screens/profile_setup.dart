@@ -31,12 +31,15 @@ class ProfileSetupScreen extends StatefulWidget {
       _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _ProfileSetupScreenState
+    extends State<ProfileSetupScreen> {
+
   // ============================================================
   // FIREBASE
   // ============================================================
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
@@ -55,7 +58,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // PETS
   // ============================================================
 
-  final List<PetData> pets = <PetData>[
+  final List<PetData> pets =
+      <PetData>[
     PetData(),
   ];
 
@@ -82,58 +86,92 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   // ============================================================
-  // FIREBASE SESSION
+  // GET CURRENT FIREBASE USER
   // ============================================================
 
-  Future<User?> _ensureFirebaseSession() async {
-    User? user = _auth.currentUser;
+  User? _getCurrentUser() {
+    final User? user =
+        _auth.currentUser;
 
-    if (user != null) {
-      final String uid = user.uid.trim();
-
-      if (uid.isNotEmpty) {
-        return user;
-      }
+    if (user == null) {
+      return null;
     }
 
-    try {
-      final UserCredential credential =
-          await _auth.signInAnonymously();
-
-      user = credential.user;
-
-      if (user == null) {
-        return null;
-      }
-
-      final String uid = user.uid.trim();
-
-      if (uid.isEmpty) {
-        return null;
-      }
-
-      debugPrint(
-        'PROFILE SETUP: Firebase session created: $uid',
-      );
-
-      return user;
-    } on FirebaseAuthException catch (e) {
-      debugPrint(
-        'PROFILE SETUP AUTH ERROR: '
-        '${e.code} - ${e.message}',
-      );
-
+    if (user.uid.trim().isEmpty) {
       return null;
+    }
+
+    return user;
+  }
+
+  // ============================================================
+  // GET PHONE NUMBER
+  // ============================================================
+
+  Future<String?> _getPhoneNumber(
+    User user,
+  ) async {
+
+    // ----------------------------------------------------------
+    // FIRST: FIREBASE AUTH PHONE
+    // ----------------------------------------------------------
+
+    String phone =
+        user.phoneNumber?.trim() ?? '';
+
+    if (phone.isNotEmpty) {
+      return phone;
+    }
+
+    // ----------------------------------------------------------
+    // FALLBACK: phoneAccounts/{uid}
+    // ----------------------------------------------------------
+
+    try {
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
+          await _firestore
+              .collection(
+                'phoneAccounts',
+              )
+              .doc(
+                user.uid,
+              )
+              .get();
+
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      final Map<String, dynamic> data =
+          snapshot.data() ??
+              <String, dynamic>{};
+
+      phone =
+          (data['phoneNumber'] ??
+                  data['phone'] ??
+                  data['mainPhone'] ??
+                  '')
+              .toString()
+              .trim();
+
+      if (phone.isEmpty) {
+        return null;
+      }
+
+      return phone;
     } on FirebaseException catch (e) {
+
       debugPrint(
-        'PROFILE SETUP FIREBASE ERROR: '
+        'PHONE ACCOUNT READ ERROR: '
         '${e.code} - ${e.message}',
       );
 
       return null;
     } catch (e) {
+
       debugPrint(
-        'PROFILE SETUP SESSION ERROR: $e',
+        'PHONE ACCOUNT READ ERROR: $e',
       );
 
       return null;
@@ -157,7 +195,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
 
     setState(() {
-      pets.add(PetData());
+      pets.add(
+        PetData(),
+      );
     });
   }
 
@@ -165,7 +205,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // REMOVE PET
   // ============================================================
 
-  void _removePet(int index) {
+  void _removePet(
+    int index,
+  ) {
     if (_isSaving) {
       return;
     }
@@ -177,11 +219,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    if (index < 0 || index >= pets.length) {
+    if (index < 0 ||
+        index >= pets.length) {
       return;
     }
 
-    final PetData pet = pets.removeAt(index);
+    final PetData pet =
+        pets.removeAt(index);
 
     pet.dispose();
 
@@ -189,10 +233,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   // ============================================================
-  // VALIDATE PROFILE
+  // VALIDATE
   // ============================================================
 
   bool _validateProfile() {
+
     final String ownerName =
         ownerController.text.trim();
 
@@ -217,9 +262,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return false;
     }
 
-    for (int i = 0; i < pets.length; i++) {
-      final PetData pet = pets[i];
-      final int number = i + 1;
+    for (int i = 0;
+        i < pets.length;
+        i++) {
+
+      final PetData pet =
+          pets[i];
+
+      final int number =
+          i + 1;
 
       final String petName =
           pet.nameController.text.trim();
@@ -260,99 +311,46 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   // ============================================================
-  // GET PHONE
-  // ============================================================
-
-  Future<String?> _getPhoneNumber(User user) async {
-    String phone =
-        user.phoneNumber?.trim() ?? '';
-
-    if (phone.isNotEmpty) {
-      return phone;
-    }
-
-    try {
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot =
-          await _firestore
-              .collection('phoneAccounts')
-              .doc(user.uid)
-              .get();
-
-      if (snapshot.exists) {
-        final Map<String, dynamic> data =
-            snapshot.data() ??
-                <String, dynamic>{};
-
-        phone =
-            (data['phoneNumber'] ??
-                    data['phone'] ??
-                    data['mainPhone'] ??
-                    '')
-                .toString()
-                .trim();
-      }
-    } on FirebaseException catch (e) {
-      debugPrint(
-        'PHONE ACCOUNT READ ERROR: '
-        '${e.code} - ${e.message}',
-      );
-    } catch (e) {
-      debugPrint(
-        'PHONE ACCOUNT READ UNKNOWN ERROR: $e',
-      );
-    }
-
-    if (phone.isEmpty) {
-      return null;
-    }
-
-    return phone;
-  }
-
-  // ============================================================
   // SAVE PROFILE
   // ============================================================
 
   Future<void> _saveProfile() async {
+
     if (_isSaving) {
       return;
     }
 
-    // ----------------------------------------------------------
-    // VALIDATE
-    // ----------------------------------------------------------
-
     if (!_validateProfile()) {
       return;
     }
-
-    // ----------------------------------------------------------
-    // START LOADING
-    // ----------------------------------------------------------
 
     setState(() {
       _isSaving = true;
     });
 
     try {
+
       // ========================================================
-      // 1. ENSURE FIREBASE SESSION
+      // 1. CURRENT AUTH USER
       // ========================================================
 
       final User? user =
-          await _ensureFirebaseSession();
+          _getCurrentUser();
 
       if (user == null) {
         _showError(
-          'Unable to create your Firebase session. '
-          'Please try again.',
+          'Your login session has expired. '
+          'Please login again.',
         );
         return;
       }
 
+      debugPrint(
+        'PROFILE SETUP UID: ${user.uid}',
+      );
+
       // ========================================================
-      // 2. GET VERIFIED PHONE
+      // 2. PHONE
       // ========================================================
 
       final String? phone =
@@ -362,29 +360,35 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           phone.trim().isEmpty) {
         _showError(
           'Verified mobile number was not found. '
-          'Please verify your mobile number again.',
+          'Please login again.',
         );
         return;
       }
 
       debugPrint(
-        'PROFILE SETUP: Saving profile for UID '
-        '${user.uid}',
-      );
-
-      debugPrint(
-        'PROFILE SETUP: Phone = $phone',
+        'PROFILE SETUP PHONE: $phone',
       );
 
       // ========================================================
-      // 3. SAVE PROFILE
+      // 3. SAVE
       // ========================================================
 
       await ProfileSetupService.saveProfile(
-        ownerName: ownerController.text.trim(),
-        address: addressController.text.trim(),
-        phoneNumber: phone,
-        pets: pets,
+        ownerName:
+            ownerController.text.trim(),
+
+        address:
+            addressController.text.trim(),
+
+        phoneNumber:
+            phone,
+
+        pets:
+            pets,
+
+        // Location is optional during setup.
+        requireLocation:
+            false,
       );
 
       if (!mounted) {
@@ -392,7 +396,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
 
       // ========================================================
-      // 4. SUCCESS MESSAGE
+      // 4. SUCCESS
       // ========================================================
 
       ScaffoldMessenger.of(context)
@@ -406,25 +410,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           behavior:
               SnackBarBehavior.floating,
           duration:
-              const Duration(seconds: 1),
+              const Duration(
+            seconds: 1,
+          ),
           content: Text(
             'Profile saved successfully with '
             '${pets.length} '
             '${pets.length == 1 ? 'pet' : 'pets'}.',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+            style:
+                const TextStyle(
+              color:
+                  Colors.white,
+              fontWeight:
+                  FontWeight.w600,
             ),
           ),
         ),
       );
 
       // ========================================================
-      // 5. SMALL DELAY
+      // 5. WAIT
       // ========================================================
 
       await Future.delayed(
-        const Duration(milliseconds: 500),
+        const Duration(
+          milliseconds: 500,
+        ),
       );
 
       if (!mounted) {
@@ -432,27 +443,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
 
       // ========================================================
-      // 6. OPEN MAIN APP
+      // 6. MAIN APP
       // ========================================================
 
-      Navigator.of(context).pushAndRemoveUntil(
+      Navigator.of(context)
+          .pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) =>
               const MainNavigationScreen(),
         ),
         (route) => false,
       );
-    }
 
-    // ==========================================================
-    // AUTH ERROR
-    //
-    // IMPORTANT:
-    // FirebaseAuthException MUST COME BEFORE
-    // FirebaseException.
-    // ==========================================================
+    } on FirebaseAuthException catch (e) {
 
-    on FirebaseAuthException catch (e) {
       debugPrint(
         'PROFILE AUTH ERROR: '
         '${e.code} - ${e.message}',
@@ -463,10 +467,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
 
       switch (e.code) {
+
         case 'operation-not-allowed':
           _showError(
-            'Anonymous Firebase authentication is not enabled. '
-            'Please enable it in Firebase Authentication.',
+            'Firebase authentication is not enabled.',
           );
           break;
 
@@ -489,22 +493,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           break;
 
         default:
-          final String message =
-              e.message?.trim() ?? '';
-
           _showError(
-            message.isNotEmpty
-                ? message
-                : 'Authentication failed. Please try again.',
+            e.message?.trim().isNotEmpty == true
+                ? e.message!.trim()
+                : 'Authentication failed. Please login again.',
           );
       }
-    }
 
-    // ==========================================================
-    // FIREBASE / FIRESTORE ERROR
-    // ==========================================================
+    } on FirebaseException catch (e) {
 
-    on FirebaseException catch (e) {
       debugPrint(
         'PROFILE FIREBASE ERROR: '
         '${e.code}',
@@ -522,50 +519,77 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       String message;
 
       switch (e.code) {
+
         case 'permission-denied':
           message =
               'Firebase permission denied. '
-              'Please check Firestore rules.';
+              'Please check the Firestore rules.';
+          break;
+
+        case 'location-required':
+          message =
+              'Location permission is required.';
+          break;
+
+        case 'location-unavailable':
+          message =
+              'Current location could not be obtained.';
+          break;
+
+        case 'invalid-phone':
+          message =
+              'Invalid mobile number.';
+          break;
+
+        case 'owner-id-missing':
+          message =
+              'Owner ID could not be created.';
+          break;
+
+        case 'owner-name-required':
+          message =
+              'Owner name is required.';
+          break;
+
+        case 'invalid-owner-name':
+          message =
+              'Owner name must contain at least 2 characters.';
+          break;
+
+        case 'minimum-pet-required':
+          message =
+              'At least one pet is required.';
+          break;
+
+        case 'maximum-pets-exceeded':
+          message =
+              'Maximum 3 pets can be added.';
           break;
 
         case 'unavailable':
           message =
-              'Firebase is temporarily unavailable. '
-              'Please try again.';
-          break;
-
-        case 'network-request-failed':
-          message =
-              'Network error. Please check your internet connection.';
+              'Firebase is temporarily unavailable.';
           break;
 
         case 'deadline-exceeded':
           message =
-              'Firebase request timed out. Please try again.';
-          break;
-
-        case 'not-found':
-          message =
-              'The requested Firebase data was not found.';
+              'Firebase request timed out.';
           break;
 
         default:
           final String firebaseMessage =
               e.message?.trim() ?? '';
 
-          message = firebaseMessage.isNotEmpty
-              ? firebaseMessage
-              : 'Could not save profile. Please try again.';
+          message =
+              firebaseMessage.isNotEmpty
+                  ? firebaseMessage
+                  : 'Could not save profile. Please try again.';
       }
 
       _showError(message);
-    }
 
-    // ==========================================================
-    // GENERAL ERROR
-    // ==========================================================
+    } catch (e) {
 
-    catch (e) {
       debugPrint(
         'PROFILE SAVE ERROR: $e',
       );
@@ -578,13 +602,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'Something went wrong while saving your profile. '
         'Please try again.',
       );
-    }
 
-    // ==========================================================
-    // STOP LOADING
-    // ==========================================================
+    } finally {
 
-    finally {
       if (mounted) {
         setState(() {
           _isSaving = false;
@@ -594,10 +614,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   // ============================================================
-  // ERROR MESSAGE
+  // ERROR
   // ============================================================
 
-  void _showError(String message) {
+  void _showError(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -614,11 +636,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             SnackBarBehavior.floating,
         margin:
             const EdgeInsets.all(16),
-        content: Text(
+        content:
+            Text(
           message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+          style:
+              const TextStyle(
+            color:
+                Colors.white,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ),
@@ -636,6 +662,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     required String? selected,
     required ValueChanged<String> onSelected,
   }) {
+
     if (!mounted) {
       return;
     }
@@ -644,7 +671,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       context: context,
       backgroundColor:
           DojoInputColors.lightBackground,
-      isScrollControlled: true,
+      isScrollControlled:
+          true,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
@@ -654,27 +682,40 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       ),
       builder: (_) {
         return CompactPickerSheet(
-          title: title,
-          icon: icon,
-          items: items,
-          selected: selected,
-          onSelected: onSelected,
+          title:
+              title,
+          icon:
+              icon,
+          items:
+              items,
+          selected:
+              selected,
+          onSelected:
+              onSelected,
         );
       },
     );
   }
 
   // ============================================================
-  // AGE PICKER
+  // AGE
   // ============================================================
 
-  void _showAgePicker(PetData pet) {
+  void _showAgePicker(
+    PetData pet,
+  ) {
     _openPicker(
-      title: 'Choose Pet Age',
-      icon: Icons.cake_outlined,
-      items: ProfileSetupData.ages,
-      selected: pet.age,
-      onSelected: (String value) {
+      title:
+          'Choose Pet Age',
+      icon:
+          Icons.cake_outlined,
+      items:
+          ProfileSetupData.ages,
+      selected:
+          pet.age,
+      onSelected:
+          (String value) {
+
         if (!mounted) {
           return;
         }
@@ -689,10 +730,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   // ============================================================
-  // BREED PICKER
+  // BREED
   // ============================================================
 
-  void _showBreedPicker(PetData pet) {
+  void _showBreedPicker(
+    PetData pet,
+  ) {
+
     if (!mounted) {
       return;
     }
@@ -701,7 +745,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       context: context,
       backgroundColor:
           DojoInputColors.lightBackground,
-      isScrollControlled: true,
+      isScrollControlled:
+          true,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
@@ -710,19 +755,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         ),
       ),
       builder: (_) {
+
         return BreedPicker(
-          breeds: ProfileSetupData.breeds,
-          selectedBreed: pet.breed,
-          onSelected: (String breed) {
+          breeds:
+              ProfileSetupData.breeds,
+          selectedBreed:
+              pet.breed,
+          onSelected:
+              (String breed) {
+
             if (!mounted) {
               return;
             }
 
             setState(() {
-              pet.breed = breed;
+              pet.breed =
+                  breed;
             });
 
-            Navigator.of(context).pop();
+            Navigator.of(context)
+                .pop();
           },
         );
       },
@@ -730,25 +782,36 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   // ============================================================
-  // BEHAVIOUR PICKER
+  // BEHAVIOUR
   // ============================================================
 
-  void _showBehaviourPicker(PetData pet) {
+  void _showBehaviourPicker(
+    PetData pet,
+  ) {
+
     _openPicker(
-      title: 'Choose Behaviour',
-      icon: Icons.favorite_border_rounded,
-      items: ProfileSetupData.behaviours,
-      selected: pet.behaviour,
-      onSelected: (String value) {
+      title:
+          'Choose Behaviour',
+      icon:
+          Icons.favorite_border_rounded,
+      items:
+          ProfileSetupData.behaviours,
+      selected:
+          pet.behaviour,
+      onSelected:
+          (String value) {
+
         if (!mounted) {
           return;
         }
 
         setState(() {
-          pet.behaviour = value;
+          pet.behaviour =
+              value;
         });
 
-        Navigator.of(context).pop();
+        Navigator.of(context)
+            .pop();
       },
     );
   }
@@ -758,8 +821,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
+
     return Scaffold(
+
       backgroundColor:
           DojoLightColors.background,
 
@@ -767,25 +834,36 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // APP BAR
       // ========================================================
 
-      appBar: AppBar(
+      appBar:
+          AppBar(
         backgroundColor:
             DojoBrandColors.orange,
         foregroundColor:
             Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Row(
+        elevation:
+            0,
+        automaticallyImplyLeading:
+            false,
+        title:
+            const Row(
           children: [
+
             Icon(
               Icons.person_add_alt_1_rounded,
               size: 26,
             ),
-            SizedBox(width: 10),
+
+            SizedBox(
+              width: 10,
+            ),
+
             Text(
               'Profile Setup',
-              style: TextStyle(
+              style:
+                  TextStyle(
                 fontSize: 22,
-                fontWeight: FontWeight.w700,
+                fontWeight:
+                    FontWeight.w700,
               ),
             ),
           ],
@@ -796,8 +874,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // BODY
       // ========================================================
 
-      body: SafeArea(
-        child: SingleChildScrollView(
+      body:
+          SafeArea(
+        child:
+            SingleChildScrollView(
           physics:
               const BouncingScrollPhysics(),
           padding:
@@ -807,21 +887,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             16,
             35,
           ),
-          child: Column(
+          child:
+              Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
+
               const ProfileWelcomeCard(),
 
-              const SizedBox(height: 24),
+              const SizedBox(
+                height: 24,
+              ),
 
               // ==================================================
-              // OWNER INFORMATION
+              // OWNER
               // ==================================================
 
               Text(
                 'Owner Information',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   fontSize: 22,
                   fontWeight:
                       FontWeight.bold,
@@ -830,10 +915,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(
+                height: 14,
+              ),
 
               ProfileSectionCard(
-                child: ProfileTextField(
+                child:
+                    ProfileTextField(
                   controller:
                       ownerController,
                   label:
@@ -845,18 +933,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(
+                height: 24,
+              ),
 
               // ==================================================
-              // PET INFORMATION
+              // PETS
               // ==================================================
 
               Row(
                 children: [
+
                   Expanded(
-                    child: Text(
+                    child:
+                        Text(
                       'Pet Information',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         fontSize: 22,
                         fontWeight:
                             FontWeight.bold,
@@ -865,6 +958,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ),
                   ),
+
                   Container(
                     padding:
                         const EdgeInsets.symmetric(
@@ -881,13 +975,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         20,
                       ),
                     ),
-                    child: Text(
+                    child:
+                        Text(
                       '${pets.length}/3 Pets',
                       style:
                           const TextStyle(
                         color:
                             DojoBrandColors.orange,
-                        fontSize: 12,
+                        fontSize:
+                            12,
                         fontWeight:
                             FontWeight.w700,
                       ),
@@ -896,7 +992,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ],
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(
+                height: 14,
+              ),
 
               // ==================================================
               // PET CARDS
@@ -905,30 +1003,40 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ...List.generate(
                 pets.length,
                 (int index) {
+
                   return Padding(
                     padding:
                         const EdgeInsets.only(
                       bottom: 16,
                     ),
-                    child: PetCard(
-                      pet: pets[index],
-                      index: index,
+                    child:
+                        PetCard(
+                      pet:
+                          pets[index],
+                      index:
+                          index,
                       totalPets:
                           pets.length,
-                      onRemove: () =>
-                          _removePet(index),
-                      onAgeTap: () =>
-                          _showAgePicker(
-                        pets[index],
-                      ),
-                      onBreedTap: () =>
-                          _showBreedPicker(
-                        pets[index],
-                      ),
-                      onBehaviourTap: () =>
-                          _showBehaviourPicker(
-                        pets[index],
-                      ),
+                      onRemove:
+                          () =>
+                              _removePet(
+                            index,
+                          ),
+                      onAgeTap:
+                          () =>
+                              _showAgePicker(
+                            pets[index],
+                          ),
+                      onBreedTap:
+                          () =>
+                              _showBreedPicker(
+                            pets[index],
+                          ),
+                      onBehaviourTap:
+                          () =>
+                              _showBehaviourPicker(
+                            pets[index],
+                          ),
                     ),
                   );
                 },
@@ -940,10 +1048,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
               if (pets.length < 3)
                 AddPetButton(
-                  onPressed: _addPet,
+                  onPressed:
+                      _addPet,
                 ),
 
-              const SizedBox(height: 24),
+              const SizedBox(
+                height: 24,
+              ),
 
               // ==================================================
               // ADDRESS
@@ -951,7 +1062,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
               Text(
                 'Address',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   fontSize: 22,
                   fontWeight:
                       FontWeight.bold,
@@ -960,54 +1072,66 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(
+                height: 5,
+              ),
 
               Text(
                 'Optional',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color:
                       DojoInputColors
                           .lightHint,
-                  fontSize: 13,
+                  fontSize:
+                      13,
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(
+                height: 14,
+              ),
 
               ProfileSectionCard(
-                child: AddressField(
+                child:
+                    AddressField(
                   controller:
                       addressController,
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(
+                height: 28,
+              ),
 
               // ==================================================
               // SAVE
               // ==================================================
 
               SaveProfileButton(
-                isSaving: _isSaving,
-                onPressed: _saveProfile,
+                isSaving:
+                    _isSaving,
+                onPressed:
+                    _saveProfile,
               ),
 
-              const SizedBox(height: 12),
-
-              // ==================================================
-              // SECURITY NOTE
-              // ==================================================
+              const SizedBox(
+                height: 12,
+              ),
 
               Center(
-                child: Text(
+                child:
+                    Text(
                   'Your profile information is securely stored.',
                   textAlign:
                       TextAlign.center,
-                  style: TextStyle(
+                  style:
+                      TextStyle(
                     color:
                         DojoInputColors
                             .lightHint,
-                    fontSize: 11,
+                    fontSize:
+                        11,
                   ),
                 ),
               ),
