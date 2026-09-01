@@ -9,14 +9,6 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     InstaWalkAcceptedData accepted,
   ) async {
     // ==========================================================
-    // PREVENT DUPLICATE NAVIGATION
-    // ==========================================================
-
-    if (!mounted) {
-      return;
-    }
-
-    // ==========================================================
     // VALIDATE REQUEST
     // ==========================================================
 
@@ -60,7 +52,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _requestId = requestId;
 
     // ==========================================================
-    // STOP RADAR
+    // STOP RADAR ONLY
     // ==========================================================
 
     _stopRadar();
@@ -94,6 +86,10 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     // UPDATE LOCAL STATE
     // ==========================================================
 
+    if (!mounted) {
+      return;
+    }
+
     _updateState(() {
       _searching = false;
       _searchFinished = false;
@@ -109,7 +105,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _setActive(true);
 
     // ==========================================================
-    // DEBUG BEFORE NAVIGATION
+    // DEBUG
     // ==========================================================
 
     debugPrint(
@@ -144,52 +140,42 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       'Search stopped=true',
     );
 
+    debugPrint(
+      'Calling parent onAccepted=true',
+    );
+
     // ==========================================================
-    // IMMEDIATE NAVIGATION
+    // IMPORTANT
+    //
+    // DO NOT NAVIGATE HERE.
+    //
+    // Parent owns navigation.
     //
     // ACCEPTED
-    //    ↓
-    // STOP RADAR
-    //    ↓
-    // STOP SEARCH UI
-    //    ↓
-    // OPEN WALKER ACCEPT SCREEN
+    //   ↓
+    // onAccepted
+    //   ↓
+    // Parent Navigator
+    //   ↓
+    // WalkerAcceptScreen
     //
-    // SAME FIRESTORE REQUEST:
+    // SAME REQUEST:
     //
     // walk_request/{requestId}
     //
-    // NO active_walks COLLECTION
+    // NO active_walks
     // ==========================================================
 
-    if (!mounted) {
-      return;
-    }
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          return WalkerAcceptScreen(
-            requestId: requestId,
-          );
-        },
-      ),
-    );
+    widget.onAccepted?.call(accepted);
 
     // ==========================================================
-    // AFTER WALKER ACCEPT SCREEN RETURNS
+    // EXISTING CALLBACK
     // ==========================================================
 
-    if (!mounted) {
-      return;
-    }
+    widget.onWalkerFound?.call();
 
     debugPrint(
-      'WalkerAcceptScreen closed.',
-    );
-
-    debugPrint(
-      'requestId=$requestId',
+      'Parent navigation callback completed.',
     );
 
     debugPrint(
