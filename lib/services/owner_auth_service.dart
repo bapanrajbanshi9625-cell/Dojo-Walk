@@ -3,45 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'owner_id_service.dart';
 
-/// ============================================================
-/// OWNER AUTH SERVICE
-/// ============================================================
-///
-/// Responsibility:
-/// - Firebase session create / restore
-/// - Firebase UID प्राप्त करना
-/// - Owner ID प्राप्त / create करना
-/// - phoneAccounts/{uid} save करना
-/// - owners/{ownerId} create / load करना
-/// - isActive check करना
-/// - profileCompleted check करना
-///
-/// NOT responsible for:
-/// - MSG91 OTP verification
-/// - OTP resend
-/// - Navigation
-/// - Profile setup UI
-///
-/// Flow:
-///
-/// MSG91 OTP verified
-///        ↓
-/// OwnerAuthService
-///        ↓
-/// Firebase session
-///        ↓
-/// Firebase UID
-///        ↓
-/// OwnerIdService
-///        ↓
-/// phoneAccounts/{uid}
-///        ↓
-/// owners/{ownerId}
-///        ↓
-/// profileCompleted
-///
-/// ============================================================
-
 class OwnerAuthService {
   OwnerAuthService._();
 
@@ -53,10 +14,6 @@ class OwnerAuthService {
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
-
-  // ============================================================
-  // COLLECTIONS
-  // ============================================================
 
   static const String _ownersCollection =
       'owners';
@@ -71,17 +28,9 @@ class OwnerAuthService {
   Future<User> createOrRestoreSession() async {
     User? user = _auth.currentUser;
 
-    // ----------------------------------------------------------
-    // EXISTING SESSION
-    // ----------------------------------------------------------
-
     if (user != null) {
       return user;
     }
-
-    // ----------------------------------------------------------
-    // CREATE FIREBASE ANONYMOUS SESSION
-    // ----------------------------------------------------------
 
     final UserCredential credential =
         await _auth.signInAnonymously();
@@ -122,51 +71,25 @@ class OwnerAuthService {
   }
 
   // ============================================================
-  // NORMALIZE PHONE NUMBER
-  // ============================================================
-  ///
-  /// Accepted:
-  ///
-  /// 9876543210
-  /// +919876543210
-  /// 919876543210
-  /// +91 9876543210
-  /// 91-9876543210
-  ///
-  /// Final returned value:
-  ///
-  /// 9876543210
-  ///
-  /// बाद में जहां phone save करना है वहां:
-  ///
-  /// +91$cleanPhone
-  ///
-  /// किया जाएगा.
-  ///
+  // NORMALIZE PHONE
   // ============================================================
 
   String _normalizePhoneNumber(
     String phoneNumber,
   ) {
     String cleanPhone =
-        phoneNumber.trim().replaceAll(
+        phoneNumber
+            .trim()
+            .replaceAll(
               RegExp(r'[^0-9]'),
               '',
             );
-
-    // ----------------------------------------------------------
-    // REMOVE INDIA COUNTRY CODE
-    // ----------------------------------------------------------
 
     if (cleanPhone.length == 12 &&
         cleanPhone.startsWith('91')) {
       cleanPhone =
           cleanPhone.substring(2);
     }
-
-    // ----------------------------------------------------------
-    // VALIDATE EXACTLY 10 DIGITS
-    // ----------------------------------------------------------
 
     if (cleanPhone.length != 10) {
       throw FirebaseAuthException(
@@ -175,10 +98,6 @@ class OwnerAuthService {
             'Please enter a valid 10-digit mobile number.',
       );
     }
-
-    // ----------------------------------------------------------
-    // VALIDATE INDIAN MOBILE NUMBER
-    // ----------------------------------------------------------
 
     if (!RegExp(r'^[6-9][0-9]{9}$')
         .hasMatch(cleanPhone)) {
@@ -210,10 +129,6 @@ class OwnerAuthService {
     final String fullPhoneNumber =
         '+91$cleanPhone';
 
-    // ----------------------------------------------------------
-    // OWNER ID SERVICE
-    // ----------------------------------------------------------
-
     final String ownerId =
         await OwnerIdService.instance
             .getOrCreateOwnerId(
@@ -238,12 +153,6 @@ class OwnerAuthService {
 
   // ============================================================
   // SAVE PHONE ACCOUNT
-  // ============================================================
-  ///
-  /// Firestore:
-  ///
-  /// phoneAccounts/{uid}
-  ///
   // ============================================================
 
   Future<void> savePhoneAccount({
@@ -282,8 +191,8 @@ class OwnerAuthService {
     final String fullPhoneNumber =
         '+91$cleanPhone';
 
-    final DocumentReference<
-        Map<String, dynamic>> accountRef =
+    final DocumentReference<Map<String, dynamic>>
+        accountRef =
         _firestore
             .collection(
               _phoneAccountsCollection,
@@ -294,18 +203,11 @@ class OwnerAuthService {
       <String, dynamic>{
         'uid': cleanUid,
         'authUid': cleanUid,
-
         'ownerId': cleanOwnerId,
-
-        // Final standard phone format.
         'phoneNumber': fullPhoneNumber,
-
         'phone': fullPhoneNumber,
-
         'mainPhone': fullPhoneNumber,
-
         'role': 'owner',
-
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -313,32 +215,10 @@ class OwnerAuthService {
         merge: true,
       ),
     );
-
-    print(
-      'OwnerAuthService: phone account saved.',
-    );
-
-    print(
-      'Firebase UID: $cleanUid',
-    );
-
-    print(
-      'Owner ID: $cleanOwnerId',
-    );
-
-    print(
-      'Phone: $fullPhoneNumber',
-    );
   }
 
   // ============================================================
   // CREATE OWNER IF MISSING
-  // ============================================================
-  ///
-  /// Firestore:
-  ///
-  /// owners/{ownerId}
-  ///
   // ============================================================
 
   Future<Map<String, dynamic>>
@@ -378,16 +258,14 @@ class OwnerAuthService {
     final String fullPhoneNumber =
         '+91$cleanPhone';
 
-    final DocumentReference<
-        Map<String, dynamic>> ownerRef =
+    final DocumentReference<Map<String, dynamic>>
+        ownerRef =
         _firestore
-            .collection(
-              _ownersCollection,
-            )
+            .collection(_ownersCollection)
             .doc(cleanOwnerId);
 
-    final DocumentSnapshot<
-        Map<String, dynamic>> snapshot =
+    final DocumentSnapshot<Map<String, dynamic>>
+        snapshot =
         await ownerRef.get();
 
     // ==========================================================
@@ -395,34 +273,15 @@ class OwnerAuthService {
     // ==========================================================
 
     if (snapshot.exists) {
-      final Map<String, dynamic>? existingData =
-          snapshot.data();
-
-      final Map<String, dynamic> data =
-          existingData ??
-              <String, dynamic>{};
-
-      // --------------------------------------------------------
-      // IMPORTANT:
-      // Existing profileCompleted value को overwrite नहीं करना.
-      // --------------------------------------------------------
-
       await ownerRef.set(
         <String, dynamic>{
           'ownerId': cleanOwnerId,
-
           'uid': cleanUid,
-
           'authUid': cleanUid,
-
           'phoneNumber': fullPhoneNumber,
-
           'phone': fullPhoneNumber,
-
           'mainPhone': fullPhoneNumber,
-
           'role': 'owner',
-
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -431,9 +290,13 @@ class OwnerAuthService {
         ),
       );
 
-      print(
-        'OwnerAuthService: existing owner updated.',
-      );
+      final Map<String, dynamic> data =
+          snapshot.data() ??
+              <String, dynamic>{};
+
+      // IMPORTANT:
+      // Existing profileCompleted / isActive
+      // values are NOT overwritten.
 
       return data;
     }
@@ -445,28 +308,17 @@ class OwnerAuthService {
     final Map<String, dynamic> newOwnerData =
         <String, dynamic>{
       'ownerId': cleanOwnerId,
-
       'uid': cleanUid,
-
       'authUid': cleanUid,
-
       'phoneNumber': fullPhoneNumber,
-
       'phone': fullPhoneNumber,
-
       'mainPhone': fullPhoneNumber,
-
       'role': 'owner',
-
-      // Profile setup अभी बाकी है.
       'profileCompleted': false,
-
-      // New account active रहेगा.
       'isActive': true,
-
+      'pets': <Map<String, dynamic>>[],
       'createdAt':
           FieldValue.serverTimestamp(),
-
       'updatedAt':
           FieldValue.serverTimestamp(),
     };
@@ -476,10 +328,6 @@ class OwnerAuthService {
       SetOptions(
         merge: true,
       ),
-    );
-
-    print(
-      'OwnerAuthService: new owner created.',
     );
 
     return newOwnerData;
@@ -505,12 +353,10 @@ class OwnerAuthService {
       );
     }
 
-    final DocumentSnapshot<
-        Map<String, dynamic>> snapshot =
+    final DocumentSnapshot<Map<String, dynamic>>
+        snapshot =
         await _firestore
-            .collection(
-              _ownersCollection,
-            )
+            .collection(_ownersCollection)
             .doc(cleanOwnerId)
             .get();
 
@@ -523,29 +369,21 @@ class OwnerAuthService {
       );
     }
 
-    final Map<String, dynamic>? data =
-        snapshot.data();
-
-    return data ??
+    return snapshot.data() ??
         <String, dynamic>{};
   }
 
   // ============================================================
   // AUTHENTICATE OWNER
   // ============================================================
-  ///
-  /// MSG91 OTP successfully verify होने के बाद
-  /// इस method को call करें.
-  ///
-  // ============================================================
 
   Future<OwnerAuthResult>
       authenticateOwner({
     required String phoneNumber,
   }) async {
-    // ==========================================================
-    // 1. VALIDATE PHONE
-    // ==========================================================
+    // ----------------------------------------------------------
+    // 1. PHONE
+    // ----------------------------------------------------------
 
     final String cleanPhone =
         _normalizePhoneNumber(
@@ -555,38 +393,25 @@ class OwnerAuthService {
     final String fullPhoneNumber =
         '+91$cleanPhone';
 
-    print(
-      'OwnerAuthService: Verified phone = '
-      '$fullPhoneNumber',
-    );
-
-    // ==========================================================
+    // ----------------------------------------------------------
     // 2. FIREBASE SESSION
-    // ==========================================================
+    // ----------------------------------------------------------
 
     final String uid =
         await getFirebaseUid();
 
-    print(
-      'OwnerAuthService: Firebase UID = $uid',
-    );
-
-    // ==========================================================
+    // ----------------------------------------------------------
     // 3. OWNER ID
-    // ==========================================================
+    // ----------------------------------------------------------
 
     final String ownerId =
         await getOwnerId(
       phoneNumber: cleanPhone,
     );
 
-    print(
-      'OwnerAuthService: Owner ID = $ownerId',
-    );
-
-    // ==========================================================
-    // 4. SAVE PHONE ACCOUNT
-    // ==========================================================
+    // ----------------------------------------------------------
+    // 4. PHONE ACCOUNT
+    // ----------------------------------------------------------
 
     await savePhoneAccount(
       uid: uid,
@@ -594,9 +419,9 @@ class OwnerAuthService {
       phoneNumber: cleanPhone,
     );
 
-    // ==========================================================
-    // 5. CREATE OWNER IF MISSING
-    // ==========================================================
+    // ----------------------------------------------------------
+    // 5. OWNER
+    // ----------------------------------------------------------
 
     await createOwnerIfMissing(
       ownerId: ownerId,
@@ -604,42 +429,24 @@ class OwnerAuthService {
       phoneNumber: cleanPhone,
     );
 
-    // ==========================================================
-    // 6. LOAD OWNER PROFILE
-    // ==========================================================
+    // ----------------------------------------------------------
+    // 6. LOAD FINAL OWNER PROFILE
+    // ----------------------------------------------------------
 
     final Map<String, dynamic> profileData =
         await getOwnerProfile(
       ownerId: ownerId,
     );
 
-    // ==========================================================
-    // 7. ACTIVE STATUS
-    // ==========================================================
+    // ----------------------------------------------------------
+    // 7. STATUS
+    // ----------------------------------------------------------
 
     final bool isActive =
         profileData['isActive'] != false;
 
-    // ==========================================================
-    // 8. PROFILE COMPLETED
-    // ==========================================================
-
     final bool profileCompleted =
         profileData['profileCompleted'] == true;
-
-    print(
-      'OwnerAuthService: isActive = '
-      '$isActive',
-    );
-
-    print(
-      'OwnerAuthService: profileCompleted = '
-      '$profileCompleted',
-    );
-
-    // ==========================================================
-    // 9. RETURN RESULT
-    // ==========================================================
 
     return OwnerAuthResult(
       uid: uid,
@@ -657,16 +464,12 @@ class OwnerAuthService {
 
   Future<void> signOut() async {
     await _auth.signOut();
-
-    print(
-      'OwnerAuthService: Firebase session signed out.',
-    );
   }
 }
 
-/// ============================================================
-/// OWNER AUTH RESULT
-/// ============================================================
+// ============================================================
+// OWNER AUTH RESULT
+// ============================================================
 
 class OwnerAuthResult {
   final String uid;
