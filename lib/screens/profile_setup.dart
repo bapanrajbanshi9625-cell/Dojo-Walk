@@ -537,9 +537,12 @@ class _ProfileSetupScreenState
           break;
 
         default:
+          final String message =
+              e.message?.trim() ?? '';
+
           _showError(
-            e.message?.trim().isNotEmpty == true
-                ? e.message!.trim()
+            message.isNotEmpty
+                ? message
                 : 'Authentication failed. Please try again.',
           );
       }
