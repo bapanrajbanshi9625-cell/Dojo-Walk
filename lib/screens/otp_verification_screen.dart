@@ -32,12 +32,11 @@ class _OtpVerificationScreenState
   bool _isVerifying = false;
   bool _isResending = false;
 
-  String _currentReqId = '';
+  late String _currentReqId;
 
   @override
   void initState() {
     super.initState();
-
     _currentReqId = widget.reqId.trim();
   }
 
@@ -48,17 +47,12 @@ class _OtpVerificationScreenState
     super.dispose();
   }
 
-  // ============================================================
-  // VERIFY OTP
-  // ============================================================
-
   Future<void> _verifyOtp() async {
-    if (_isVerifying) {
+    if (_isVerifying || _isResending) {
       return;
     }
 
-    final String otp =
-        _otpController.text.trim();
+    final String otp = _otpController.text.trim();
 
     if (!RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
       _showMessage(
@@ -80,65 +74,48 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // STEP 1
-      // MSG91 OTP VERIFY
+      // MSG91 OTP VERIFICATION
       // ========================================================
 
-      final String result =
+      final String msg91Result =
           await OtpService.instance.verifyOtp(
         reqId: _currentReqId,
         otp: otp,
       );
 
-      // ========================================================
-      // IMPORTANT
-      //
-      // 'verified' means OTP was verified but MSG91 did not
-      // return an access token.
-      //
-      // Without access token we cannot securely create the
-      // Firebase custom token.
-      // ========================================================
+      final String accessToken =
+          msg91Result.trim();
 
-      if (result.trim().isEmpty ||
-          result.trim().toLowerCase() == 'verified') {
+      // The OtpService returns "verified" when MSG91 did not
+      // provide an access token. Firebase authentication cannot
+      // continue without the access token.
+      if (accessToken.isEmpty ||
+          accessToken.toLowerCase() == 'verified') {
         throw Exception(
           'OTP verified, but MSG91 access token was not received. '
           'Please try again.',
         );
       }
 
-      final String msg91AccessToken =
-          result.trim();
-
       // ========================================================
-      // STEP 2
-      // CALL FIREBASE CLOUD FUNCTION
+      // FIREBASE CLOUD FUNCTION
       // ========================================================
 
-      final HttpsCallable callable =
+      final HttpsCallable function =
           FirebaseFunctions.instanceFor(
         region: 'us-central1',
       ).httpsCallable(
         'createFirebaseToken',
       );
 
-      final HttpsCallableResult<dynamic> response =
-          await callable.call(
+      final HttpsCallableResult<dynamic> result =
+          await function.call(
         <String, dynamic>{
-          'accessToken': msg91AccessToken,
+          'accessToken': accessToken,
         },
       );
 
-      // ========================================================
-      // STEP 3
-      // READ CUSTOM TOKEN
-      // ========================================================
-
-      final dynamic responseData =
-          response.data;
-
-      if (responseData is! Map) {
+      if (result.data is! Map) {
         throw Exception(
           'Invalid authentication response from server.',
         );
@@ -146,20 +123,20 @@ class _OtpVerificationScreenState
 
       final Map<String, dynamic> data =
           Map<String, dynamic>.from(
-        responseData,
+        result.data as Map,
       );
 
-      final dynamic customTokenValue =
+      final dynamic tokenValue =
           data['customToken'];
 
-      if (customTokenValue == null) {
+      if (tokenValue == null) {
         throw Exception(
           'Firebase authentication token was not received.',
         );
       }
 
       final String customToken =
-          customTokenValue.toString().trim();
+          tokenValue.toString().trim();
 
       if (customToken.isEmpty) {
         throw Exception(
@@ -168,16 +145,11 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // STEP 4
-      // FIREBASE AUTH
+      // FIREBASE AUTHENTICATION
       // ========================================================
 
       await FirebaseAuth.instance
           .signInWithCustomToken(customToken);
-
-      // ========================================================
-      // VERIFY FIREBASE SESSION
-      // ========================================================
 
       final User? user =
           FirebaseAuth.instance.currentUser;
@@ -189,16 +161,7 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // SUCCESS
-      //
-      // SplashScreen will now see:
-      //
-      // FirebaseAuth.currentUser != null
-      //
-      // and can safely read:
-      //
-      // phoneAccounts/{uid}
-      // owners/{ownerId}
+      // GO TO SPLASH
       // ========================================================
 
       if (!mounted) {
@@ -216,29 +179,21 @@ class _OtpVerificationScreenState
         return;
       }
 
-      String message =
-          'Unable to authenticate your account.';
-
-      if (e.message != null &&
-          e.message!.trim().isNotEmpty) {
-        message = e.message!.trim();
-      }
-
-      _showMessage(message);
+      _showMessage(
+        e.message?.trim().isNotEmpty == true
+            ? e.message!.trim()
+            : 'Unable to authenticate your account.',
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) {
         return;
       }
 
-      String message =
-          'Firebase authentication failed.';
-
-      if (e.message != null &&
-          e.message!.trim().isNotEmpty) {
-        message = e.message!.trim();
-      }
-
-      _showMessage(message);
+      _showMessage(
+        e.message?.trim().isNotEmpty == true
+            ? e.message!.trim()
+            : 'Firebase authentication failed.',
+      );
     } catch (e) {
       if (!mounted) {
         return;
@@ -246,9 +201,9 @@ class _OtpVerificationScreenState
 
       _showMessage(
         e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
+              'Exception: ',
+              '',
+            ),
       );
     } finally {
       if (mounted) {
@@ -258,10 +213,6 @@ class _OtpVerificationScreenState
       }
     }
   }
-
-  // ============================================================
-  // RESEND OTP
-  // ============================================================
 
   Future<void> _resendOtp() async {
     if (_isResending || _isVerifying) {
@@ -293,7 +244,6 @@ class _OtpVerificationScreenState
       }
 
       _currentReqId = newReqId.trim();
-
       _otpController.clear();
 
       if (!mounted) {
@@ -312,9 +262,9 @@ class _OtpVerificationScreenState
 
       _showMessage(
         e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
+              'Exception: ',
+              '',
+            ),
       );
     } finally {
       if (mounted) {
@@ -324,10 +274,6 @@ class _OtpVerificationScreenState
       }
     }
   }
-
-  // ============================================================
-  // MESSAGE
-  // ============================================================
 
   void _showMessage(String message) {
     if (!mounted) {
@@ -344,27 +290,22 @@ class _OtpVerificationScreenState
       );
   }
 
-  // ============================================================
-  // UI
-  // ============================================================
-
   @override
   Widget build(BuildContext context) {
-    final Color primary =
-        AppColors.primary;
+    final Color primary = AppColors.primary;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black87,
         title: const Text(
           'Verify OTP',
           style: TextStyle(
             fontWeight: FontWeight.w700,
           ),
         ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF263746),
+        elevation: 0,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -373,11 +314,7 @@ class _OtpVerificationScreenState
             crossAxisAlignment:
                 CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 30),
-
-              // ==================================================
-              // TITLE
-              // ==================================================
+              const SizedBox(height: 32),
 
               const Text(
                 'Enter OTP',
@@ -392,7 +329,7 @@ class _OtpVerificationScreenState
               const SizedBox(height: 12),
 
               Text(
-                'We sent a 6-digit verification code to',
+                'Enter the 6-digit OTP sent to',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -414,70 +351,47 @@ class _OtpVerificationScreenState
 
               const SizedBox(height: 40),
 
-              // ==================================================
-              // OTP FIELD
-              // ==================================================
-
               TextField(
                 controller: _otpController,
                 focusNode: _otpFocusNode,
+                enabled:
+                    !_isVerifying &&
+                    !_isResending,
                 keyboardType:
                     TextInputType.number,
                 textAlign: TextAlign.center,
                 maxLength: 6,
-                enabled:
-                    !_isVerifying &&
-                    !_isResending,
-                obscureText: false,
                 inputFormatters: [
                   FilteringTextInputFormatter
                       .digitsOnly,
                 ],
                 style: const TextStyle(
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 10,
+                  letterSpacing: 8,
                 ),
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: '------',
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade300,
-                    letterSpacing: 8,
-                  ),
                   filled: true,
-                  fillColor:
-                      Colors.grey.shade50,
-                  contentPadding:
-                      const EdgeInsets.symmetric(
-                    vertical: 20,
-                    horizontal: 16,
-                  ),
+                  fillColor: Colors.grey.shade50,
                   border: OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(14),
-                    borderSide:
-                        BorderSide(
-                      color:
-                          Colors.grey.shade300,
-                    ),
                   ),
                   enabledBorder:
                       OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(14),
-                    borderSide:
-                        BorderSide(
-                      color:
-                          Colors.grey.shade300,
+                    borderSide: BorderSide(
+                      color: Colors.grey.shade300,
                     ),
                   ),
                   focusedBorder:
                       OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(14),
-                    borderSide:
-                        BorderSide(
+                    borderSide: BorderSide(
                       color: primary,
                       width: 2,
                     ),
@@ -490,10 +404,6 @@ class _OtpVerificationScreenState
 
               const SizedBox(height: 24),
 
-              // ==================================================
-              // VERIFY BUTTON
-              // ==================================================
-
               SizedBox(
                 height: 54,
                 child: ElevatedButton(
@@ -502,21 +412,16 @@ class _OtpVerificationScreenState
                               _isResending
                           ? null
                           : _verifyOtp,
-                  style:
-                      ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
-                    foregroundColor:
-                        Colors.white,
+                    foregroundColor: Colors.white,
                     disabledBackgroundColor:
                         Colors.grey.shade300,
                     shape:
                         RoundedRectangleBorder(
                       borderRadius:
-                          BorderRadius.circular(
-                        14,
-                      ),
+                          BorderRadius.circular(14),
                     ),
-                    elevation: 0,
                   ),
                   child: _isVerifying
                       ? const SizedBox(
@@ -545,19 +450,14 @@ class _OtpVerificationScreenState
 
               const SizedBox(height: 22),
 
-              // ==================================================
-              // RESEND
-              // ==================================================
-
               Row(
                 mainAxisAlignment:
                     MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Didn't receive the OTP?',
+                    "Didn't receive the OTP?",
                     style: TextStyle(
-                      color:
-                          Colors.grey.shade600,
+                      color: Colors.grey.shade600,
                     ),
                   ),
                   TextButton(
@@ -577,8 +477,7 @@ class _OtpVerificationScreenState
                           )
                         : Text(
                             'Resend',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               color: primary,
                               fontWeight:
                                   FontWeight.w700,
@@ -590,22 +489,15 @@ class _OtpVerificationScreenState
 
               const SizedBox(height: 30),
 
-              // ==================================================
-              // SECURITY MESSAGE
-              // ==================================================
-
               Container(
                 padding:
                     const EdgeInsets.all(16),
-                decoration:
-                    BoxDecoration(
-                  color:
-                      Colors.grey.shade50,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
                   borderRadius:
                       BorderRadius.circular(14),
                   border: Border.all(
-                    color:
-                        Colors.grey.shade200,
+                    color: Colors.grey.shade200,
                   ),
                 ),
                 child: Row(
@@ -613,8 +505,7 @@ class _OtpVerificationScreenState
                       CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      Icons
-                          .verified_user_outlined,
+                      Icons.verified_user_outlined,
                       color: primary,
                       size: 22,
                     ),
@@ -625,14 +516,15 @@ class _OtpVerificationScreenState
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.4,
-                          color: Colors
-                              .grey.shade700,
+                          color: Colors.grey.shade700,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(height: 20),
             ],
           ),
         ),
