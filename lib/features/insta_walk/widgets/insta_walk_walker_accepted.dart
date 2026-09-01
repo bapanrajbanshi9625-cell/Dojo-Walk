@@ -8,8 +8,18 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
   Future<void> _walkerAccepted(
     InstaWalkAcceptedData accepted,
   ) async {
+    debugPrint('');
+    debugPrint('==============================================');
+    debugPrint('🔥 _WALKER ACCEPTED METHOD CALLED');
+    debugPrint('==============================================');
+
+    if (!mounted) {
+      debugPrint('❌ Widget is not mounted.');
+      return;
+    }
+
     // ==========================================================
-    // VALIDATE REQUEST
+    // REQUEST ID
     // ==========================================================
 
     final String requestId =
@@ -17,15 +27,15 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
             ? accepted.requestId.trim()
             : (_requestId ?? '').trim();
 
+    debugPrint('requestId = $requestId');
+
     if (requestId.isEmpty) {
-      debugPrint(
-        'Insta Walk accepted but requestId is missing.',
-      );
+      debugPrint('❌ requestId is empty.');
       return;
     }
 
     // ==========================================================
-    // VALIDATE WALKER
+    // WALKER VALIDATION
     // ==========================================================
 
     final String walkerId =
@@ -34,14 +44,12 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     final String walkerUid =
         accepted.walkerUid.trim();
 
-    final String walkerName =
-        accepted.walkerName.trim();
+    debugPrint('walkerId = $walkerId');
+    debugPrint('walkerUid = $walkerUid');
 
     if (walkerId.isEmpty &&
         walkerUid.isEmpty) {
-      debugPrint(
-        'Insta Walk accepted but walker identity is missing.',
-      );
+      debugPrint('❌ Walker identity missing.');
       return;
     }
 
@@ -52,43 +60,14 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _requestId = requestId;
 
     // ==========================================================
-    // STOP RADAR ONLY
+    // STOP RADAR
     // ==========================================================
 
     _stopRadar();
 
     // ==========================================================
-    // RESTORE OWNER LOCATION
+    // UPDATE UI
     // ==========================================================
-
-    final GeoPoint? acceptedOwnerLocation =
-        accepted.ownerLocation;
-
-    if (acceptedOwnerLocation != null) {
-      final GeoPoint location =
-          acceptedOwnerLocation;
-
-      _ownerPosition = Position(
-        longitude: location.longitude,
-        latitude: location.latitude,
-        timestamp: DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
-      );
-    }
-
-    // ==========================================================
-    // UPDATE LOCAL STATE
-    // ==========================================================
-
-    if (!mounted) {
-      return;
-    }
 
     _updateState(() {
       _searching = false;
@@ -98,88 +77,35 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       _stopping = false;
     });
 
-    // ==========================================================
-    // MARK ACTIVE
-    // ==========================================================
-
     _setActive(true);
 
     // ==========================================================
-    // DEBUG
+    // FIRE CALLBACK
+    //
+    // Navigation will be handled by InstaWalkScreen.
     // ==========================================================
 
-    debugPrint(
-      '==================================================',
+    debugPrint('🚀 CALLING onAccepted CALLBACK');
+
+    widget.onAccepted?.call(
+      InstaWalkAcceptedData(
+        requestId: requestId,
+        ownerId: accepted.ownerId,
+        ownerName: accepted.ownerName,
+        address: accepted.address,
+        dogName: accepted.dogName,
+        dogBreed: accepted.dogBreed,
+        walkerId: accepted.walkerId,
+        walkerUid: accepted.walkerUid,
+        walkerName: accepted.walkerName,
+        walkerPhone: accepted.walkerPhone,
+        ownerLocation: accepted.ownerLocation,
+        acceptedAt: accepted.acceptedAt,
+      ),
     );
 
-    debugPrint(
-      'INSTA WALK ACCEPTED',
-    );
+    debugPrint('🚀 onAccepted CALLBACK FINISHED');
 
-    debugPrint(
-      'requestId=$requestId',
-    );
-
-    debugPrint(
-      'walkerId=$walkerId',
-    );
-
-    debugPrint(
-      'walkerUid=$walkerUid',
-    );
-
-    debugPrint(
-      'walkerName=$walkerName',
-    );
-
-    debugPrint(
-      'Radar stopped=true',
-    );
-
-    debugPrint(
-      'Search stopped=true',
-    );
-
-    debugPrint(
-      'Calling parent onAccepted=true',
-    );
-
-    // ==========================================================
-    // IMPORTANT
-    //
-    // DO NOT NAVIGATE HERE.
-    //
-    // Parent owns navigation.
-    //
-    // ACCEPTED
-    //   ↓
-    // onAccepted
-    //   ↓
-    // Parent Navigator
-    //   ↓
-    // WalkerAcceptScreen
-    //
-    // SAME REQUEST:
-    //
-    // walk_request/{requestId}
-    //
-    // NO active_walks
-    // ==========================================================
-
-    widget.onAccepted?.call(accepted);
-
-    // ==========================================================
-    // EXISTING CALLBACK
-    // ==========================================================
-
-    widget.onWalkerFound?.call();
-
-    debugPrint(
-      'Parent navigation callback completed.',
-    );
-
-    debugPrint(
-      '==================================================',
-    );
+    debugPrint('==============================================');
   }
 }
