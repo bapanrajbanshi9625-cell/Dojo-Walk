@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
 import '../core/theme/dojo_colors.dart';
 
@@ -21,10 +21,6 @@ import '../features/profile_setup/widgets/save_profile_button.dart';
 import '../features/profile_setup/pickers/compact_picker_sheet.dart';
 import '../features/profile_setup/pickers/breed_picker.dart';
 
-// ============================================================
-// DOJO THEME COLORS
-// ============================================================
-
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({
     super.key,
@@ -37,6 +33,16 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState
     extends State<ProfileSetupScreen> {
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
   // ============================================================
   // CONTROLLERS
   // ============================================================
@@ -51,7 +57,7 @@ class _ProfileSetupScreenState
   // PETS
   // ============================================================
 
-  final List<PetData> pets = [
+  final List<PetData> pets = <PetData>[
     PetData(),
   ];
 
@@ -70,7 +76,7 @@ class _ProfileSetupScreenState
     ownerController.dispose();
     addressController.dispose();
 
-    for (final pet in pets) {
+    for (final PetData pet in pets) {
       pet.dispose();
     }
 
@@ -78,10 +84,60 @@ class _ProfileSetupScreenState
   }
 
   // ============================================================
+  // FIREBASE SESSION
+  // ============================================================
+
+  Future<User?> _ensureFirebaseSession() async {
+    User? user = _auth.currentUser;
+
+    if (user != null) {
+      final String uid = user.uid.trim();
+
+      if (uid.isNotEmpty) {
+        return user;
+      }
+    }
+
+    try {
+      final UserCredential credential =
+          await _auth.signInAnonymously();
+
+      user = credential.user;
+
+      if (user == null) {
+        return null;
+      }
+
+      final String uid = user.uid.trim();
+
+      if (uid.isEmpty) {
+        return null;
+      }
+
+      debugPrint(
+        'PROFILE SETUP: Firebase session created: $uid',
+      );
+
+      return user;
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'PROFILE SETUP AUTH ERROR: '
+        '${e.code} - ${e.message}',
+      );
+
+      return null;
+    }
+  }
+
+  // ============================================================
   // ADD PET
   // ============================================================
 
   void _addPet() {
+    if (_isSaving) {
+      return;
+    }
+
     if (pets.length >= 3) {
       _showError(
         'Maximum 3 pets can be added.',
@@ -98,11 +154,22 @@ class _ProfileSetupScreenState
   // REMOVE PET
   // ============================================================
 
-  void _removePet(int index) {
+  void _removePet(
+    int index,
+  ) {
+    if (_isSaving) {
+      return;
+    }
+
     if (pets.length <= 1) {
       _showError(
         'At least one pet is required.',
       );
+      return;
+    }
+
+    if (index < 0 ||
+        index >= pets.length) {
       return;
     }
 
@@ -115,57 +182,66 @@ class _ProfileSetupScreenState
   }
 
   // ============================================================
-  // VALIDATION
+  // VALIDATE PROFILE
   // ============================================================
 
   bool _validateProfile() {
-    // ----------------------------------------------------------
-    // OWNER NAME
-    // ----------------------------------------------------------
+    final String ownerName =
+        ownerController.text.trim();
 
-    if (ownerController.text.trim().isEmpty) {
+    if (ownerName.isEmpty) {
       _showError(
         'Please enter owner name.',
       );
       return false;
     }
 
-    // ----------------------------------------------------------
-    // PET VALIDATION
-    // ----------------------------------------------------------
+    if (ownerName.length < 2) {
+      _showError(
+        'Owner name must contain at least 2 characters.',
+      );
+      return false;
+    }
+
+    if (pets.isEmpty) {
+      _showError(
+        'Please add at least one pet.',
+      );
+      return false;
+    }
 
     for (int i = 0; i < pets.length; i++) {
       final PetData pet = pets[i];
       final int number = i + 1;
 
-      // Pet name
-      if (pet.nameController.text
-          .trim()
-          .isEmpty) {
+      final String petName =
+          pet.nameController.text.trim();
+
+      if (petName.isEmpty) {
         _showError(
           'Please enter Pet $number name.',
         );
         return false;
       }
 
-      // Pet age
-      if (pet.age == null) {
+      if (pet.age == null ||
+          pet.age!.trim().isEmpty) {
         _showError(
           'Please choose Pet $number age.',
         );
         return false;
       }
 
-      // Pet breed
-      if (pet.breed == null) {
+      if (pet.breed == null ||
+          pet.breed!.trim().isEmpty) {
         _showError(
           'Please choose Pet $number breed.',
         );
         return false;
       }
 
-      // Pet behaviour
-      if (pet.behaviour == null) {
+      if (pet.behaviour == null ||
+          pet.behaviour!.trim().isEmpty) {
         _showError(
           'Please choose Pet $number behaviour.',
         );
@@ -177,7 +253,56 @@ class _ProfileSetupScreenState
   }
 
   // ============================================================
-  // SAVE PROFILE + CONTINUE
+  // GET PHONE
+  // ============================================================
+
+  Future<String?> _getPhoneNumber(
+    User user,
+  ) async {
+    String phone =
+        user.phoneNumber?.trim() ?? '';
+
+    if (phone.isNotEmpty) {
+      return phone;
+    }
+
+    try {
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
+          await _firestore
+              .collection('phoneAccounts')
+              .doc(user.uid)
+              .get();
+
+      if (snapshot.exists) {
+        final Map<String, dynamic> data =
+            snapshot.data() ??
+                <String, dynamic>{};
+
+        phone =
+            (data['phoneNumber'] ??
+                    data['phone'] ??
+                    data['mainPhone'] ??
+                    '')
+                .toString()
+                .trim();
+      }
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'PHONE ACCOUNT READ ERROR: '
+        '${e.code} - ${e.message}',
+      );
+    }
+
+    if (phone.isEmpty) {
+      return null;
+    }
+
+    return phone;
+  }
+
+  // ============================================================
+  // SAVE PROFILE
   // ============================================================
 
   Future<void> _saveProfile() async {
@@ -194,80 +319,69 @@ class _ProfileSetupScreenState
     }
 
     // ----------------------------------------------------------
-    // CURRENT USER
+    // START LOADING
     // ----------------------------------------------------------
 
-    final User? user =
-        FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      _showError(
-        'User is not logged in. Please verify your mobile number first.',
-      );
-      return;
+    if (mounted) {
+      setState(() {
+        _isSaving = true;
+      });
     }
-
-    // ----------------------------------------------------------
-    // VERIFIED PHONE
-    // ----------------------------------------------------------
-
-    String phone =
-    user.phoneNumber?.trim() ?? '';
-
-if (phone.isEmpty) {
-  try {
-    final DocumentSnapshot<
-        Map<String, dynamic>> accountSnapshot =
-        await FirebaseFirestore.instance
-            .collection('phoneAccounts')
-            .doc(user.uid)
-            .get();
-
-    if (accountSnapshot.exists) {
-      final Map<String, dynamic>? accountData =
-          accountSnapshot.data();
-
-      phone =
-          (accountData?['phoneNumber'] ??
-                  accountData?['phone'] ??
-                  accountData?['mainPhone'] ??
-                  '')
-              .toString()
-              .trim();
-    }
-  } on FirebaseException catch (e) {
-    debugPrint(
-      'Phone account read error: '
-      '${e.code} - ${e.message}',
-    );
-  }
-}
-
-if (phone.isEmpty) {
-  _showError(
-    'Verified mobile number was not found. Please verify your mobile number again.',
-  );
-  return;
-}
-
-    // ----------------------------------------------------------
-    // START SAVING
-    // ----------------------------------------------------------
-
-    setState(() {
-      _isSaving = true;
-    });
 
     try {
       // ========================================================
-      // SAVE TO FIRESTORE
+      // 1. ENSURE FIREBASE SESSION
+      // ========================================================
+
+      final User? user =
+          await _ensureFirebaseSession();
+
+      if (user == null) {
+        _showError(
+          'Unable to create your Firebase session. '
+          'Please try again.',
+        );
+        return;
+      }
+
+      // ========================================================
+      // 2. GET VERIFIED PHONE
+      // ========================================================
+
+      final String? phone =
+          await _getPhoneNumber(user);
+
+      if (phone == null ||
+          phone.trim().isEmpty) {
+        _showError(
+          'Verified mobile number was not found. '
+          'Please verify your mobile number again.',
+        );
+        return;
+      }
+
+      debugPrint(
+        'PROFILE SETUP: Saving profile for UID '
+        '${user.uid}',
+      );
+
+      debugPrint(
+        'PROFILE SETUP: Phone = $phone',
+      );
+
+      // ========================================================
+      // 3. SAVE PROFILE
       // ========================================================
 
       await ProfileSetupService.saveProfile(
-       ownerName: ownerController.text.trim(),
-       address: addressController.text.trim(),
-       phoneNumber: phone,
-       pets: pets,
+        ownerName:
+            ownerController.text.trim(),
+        address:
+            addressController.text.trim(),
+        phoneNumber:
+            phone,
+        pets:
+            pets,
       );
 
       if (!mounted) {
@@ -275,14 +389,19 @@ if (phone.isEmpty) {
       }
 
       // ========================================================
-      // SUCCESS MESSAGE
+      // 4. SUCCESS
       // ========================================================
+
+      ScaffoldMessenger.of(context)
+          .hideCurrentSnackBar();
 
       ScaffoldMessenger.of(context)
           .showSnackBar(
         SnackBar(
           backgroundColor:
               DojoBrandColors.mint,
+          behavior:
+              SnackBarBehavior.floating,
           duration:
               const Duration(
             seconds: 1,
@@ -291,15 +410,18 @@ if (phone.isEmpty) {
             'Profile saved successfully with '
             '${pets.length} '
             '${pets.length == 1 ? 'pet' : 'pets'}.',
-            style: const TextStyle(
+            style:
+                const TextStyle(
               color: Colors.white,
+              fontWeight:
+                  FontWeight.w600,
             ),
           ),
         ),
       );
 
       // ========================================================
-      // SMALL DELAY
+      // 5. SMALL DELAY
       // ========================================================
 
       await Future.delayed(
@@ -313,7 +435,7 @@ if (phone.isEmpty) {
       }
 
       // ========================================================
-      // GO TO MAIN NAVIGATION
+      // 6. OPEN MAIN APP
       // ========================================================
 
       Navigator.of(context)
@@ -324,18 +446,112 @@ if (phone.isEmpty) {
         ),
         (route) => false,
       );
-    } on FirebaseException catch (e) {
-      if (!mounted) {
-        return;
-      }
+    }
 
-      _showError(
-        e.message ??
-            'Could not save profile. Please try again.',
-      );
-    } catch (e) {
+    // ==========================================================
+    // FIREBASE ERROR
+    // ==========================================================
+
+    on FirebaseException catch (e) {
       debugPrint(
-        'Profile Save Error: $e',
+        'PROFILE FIREBASE ERROR: '
+        '${e.code}',
+      );
+
+      debugPrint(
+        'PROFILE FIREBASE MESSAGE: '
+        '${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      String message;
+
+      switch (e.code) {
+        case 'permission-denied':
+          message =
+              'Firebase permission denied. '
+              'Please check Firestore rules.';
+          break;
+
+        case 'unavailable':
+          message =
+              'Firebase is temporarily unavailable. '
+              'Please try again.';
+          break;
+
+        case 'network-request-failed':
+          message =
+              'Network error. Please check your internet connection.';
+          break;
+
+        case 'deadline-exceeded':
+          message =
+              'Firebase request timed out. Please try again.';
+          break;
+
+        default:
+          message =
+              e.message?.trim().isNotEmpty == true
+                  ? e.message!.trim()
+                  : 'Could not save profile. Please try again.';
+      }
+
+      _showError(message);
+    }
+
+    // ==========================================================
+    // AUTH ERROR
+    // ==========================================================
+
+    on FirebaseAuthException catch (e) {
+      debugPrint(
+        'PROFILE AUTH ERROR: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      switch (e.code) {
+        case 'operation-not-allowed':
+          _showError(
+            'Anonymous Firebase authentication is not enabled. '
+            'Please enable it in Firebase Authentication.',
+          );
+          break;
+
+        case 'network-request-failed':
+          _showError(
+            'Network error. Please check your internet connection.',
+          );
+          break;
+
+        case 'too-many-requests':
+          _showError(
+            'Too many attempts. Please try again later.',
+          );
+          break;
+
+        default:
+          _showError(
+            e.message?.trim().isNotEmpty == true
+                ? e.message!.trim()
+                : 'Authentication failed. Please try again.',
+          );
+      }
+    }
+
+    // ==========================================================
+    // GENERAL ERROR
+    // ==========================================================
+
+    catch (e) {
+      debugPrint(
+        'PROFILE SAVE ERROR: $e',
       );
 
       if (!mounted) {
@@ -343,9 +559,16 @@ if (phone.isEmpty) {
       }
 
       _showError(
-        'Something went wrong. Please try again.',
+        'Something went wrong while saving your profile. '
+        'Please try again.',
       );
-    } finally {
+    }
+
+    // ==========================================================
+    // STOP LOADING
+    // ==========================================================
+
+    finally {
       if (mounted) {
         setState(() {
           _isSaving = false;
@@ -375,10 +598,15 @@ if (phone.isEmpty) {
             DojoBrandColors.orangeDark,
         behavior:
             SnackBarBehavior.floating,
+        margin:
+            const EdgeInsets.all(16),
         content: Text(
           message,
-          style: const TextStyle(
+          style:
+              const TextStyle(
             color: Colors.white,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ),
@@ -396,6 +624,10 @@ if (phone.isEmpty) {
     required String? selected,
     required ValueChanged<String> onSelected,
   }) {
+    if (!mounted) {
+      return;
+    }
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
@@ -436,14 +668,16 @@ if (phone.isEmpty) {
       selected:
           pet.age,
       onSelected:
-          (value) {
+          (String value) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
           pet.age = value;
         });
 
-        Navigator.pop(
-          context,
-        );
+        Navigator.of(context).pop();
       },
     );
   }
@@ -455,6 +689,10 @@ if (phone.isEmpty) {
   void _showBreedPicker(
     PetData pet,
   ) {
+    if (!mounted) {
+      return;
+    }
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
@@ -474,14 +712,16 @@ if (phone.isEmpty) {
           selectedBreed:
               pet.breed,
           onSelected:
-              (breed) {
+              (String breed) {
+            if (!mounted) {
+              return;
+            }
+
             setState(() {
               pet.breed = breed;
             });
 
-            Navigator.pop(
-              context,
-            );
+            Navigator.of(context).pop();
           },
         );
       },
@@ -505,14 +745,16 @@ if (phone.isEmpty) {
       selected:
           pet.behaviour,
       onSelected:
-          (value) {
+          (String value) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
           pet.behaviour = value;
         });
 
-        Navigator.pop(
-          context,
-        );
+        Navigator.of(context).pop();
       },
     );
   }
@@ -526,10 +768,6 @@ if (phone.isEmpty) {
     BuildContext context,
   ) {
     return Scaffold(
-      // ========================================================
-      // BACKGROUND FROM DOJO COLOR PACKAGE
-      // ========================================================
-
       backgroundColor:
           DojoLightColors.background,
 
@@ -549,8 +787,7 @@ if (phone.isEmpty) {
             const Row(
           children: [
             Icon(
-              Icons
-                  .person_add_alt_1_rounded,
+              Icons.person_add_alt_1_rounded,
               size: 26,
             ),
             SizedBox(
@@ -590,10 +827,6 @@ if (phone.isEmpty) {
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              // ==================================================
-              // WELCOME
-              // ==================================================
-
               const ProfileWelcomeCard(),
 
               const SizedBox(
@@ -630,8 +863,7 @@ if (phone.isEmpty) {
                   hint:
                       'Enter owner name',
                   icon:
-                      Icons
-                          .person_outline_rounded,
+                      Icons.person_outline_rounded,
                 ),
               ),
 
@@ -662,19 +894,16 @@ if (phone.isEmpty) {
 
                   Container(
                     padding:
-                        const EdgeInsets
-                            .symmetric(
+                        const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 5,
                     ),
                     decoration:
                         BoxDecoration(
                       color:
-                          DojoBrandColors
-                              .orangeLight,
+                          DojoBrandColors.orangeLight,
                       borderRadius:
-                          BorderRadius
-                              .circular(
+                          BorderRadius.circular(
                         20,
                       ),
                     ),
@@ -684,13 +913,11 @@ if (phone.isEmpty) {
                       style:
                           const TextStyle(
                         color:
-                            DojoBrandColors
-                                .orange,
+                            DojoBrandColors.orange,
                         fontSize:
                             12,
                         fontWeight:
-                            FontWeight
-                                .w700,
+                            FontWeight.w700,
                       ),
                     ),
                   ),
@@ -707,11 +934,10 @@ if (phone.isEmpty) {
 
               ...List.generate(
                 pets.length,
-                (index) {
+                (int index) {
                   return Padding(
                     padding:
-                        const EdgeInsets
-                            .only(
+                        const EdgeInsets.only(
                       bottom: 16,
                     ),
                     child:
@@ -786,10 +1012,8 @@ if (phone.isEmpty) {
                 style:
                     TextStyle(
                   color:
-                      DojoInputColors
-                          .lightHint,
-                  fontSize:
-                      13,
+                      DojoInputColors.lightHint,
+                  fontSize: 13,
                 ),
               ),
 
@@ -810,7 +1034,7 @@ if (phone.isEmpty) {
               ),
 
               // ==================================================
-              // SAVE & CONTINUE
+              // SAVE
               // ==================================================
 
               SaveProfileButton(
@@ -824,10 +1048,6 @@ if (phone.isEmpty) {
                 height: 12,
               ),
 
-              // ==================================================
-              // SECURITY NOTE
-              // ==================================================
-
               Center(
                 child:
                     Text(
@@ -837,8 +1057,7 @@ if (phone.isEmpty) {
                   style:
                       TextStyle(
                     color:
-                        DojoInputColors
-                            .lightHint,
+                        DojoInputColors.lightHint,
                     fontSize:
                         11,
                   ),
