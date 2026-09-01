@@ -31,14 +31,12 @@ class ProfileSetupScreen extends StatefulWidget {
       _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState
-    extends State<ProfileSetupScreen> {
+class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // ============================================================
   // FIREBASE
   // ============================================================
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
@@ -126,6 +124,19 @@ class _ProfileSetupScreenState
       );
 
       return null;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'PROFILE SETUP FIREBASE ERROR: '
+        '${e.code} - ${e.message}',
+      );
+
+      return null;
+    } catch (e) {
+      debugPrint(
+        'PROFILE SETUP SESSION ERROR: $e',
+      );
+
+      return null;
     }
   }
 
@@ -154,9 +165,7 @@ class _ProfileSetupScreenState
   // REMOVE PET
   // ============================================================
 
-  void _removePet(
-    int index,
-  ) {
+  void _removePet(int index) {
     if (_isSaving) {
       return;
     }
@@ -168,13 +177,11 @@ class _ProfileSetupScreenState
       return;
     }
 
-    if (index < 0 ||
-        index >= pets.length) {
+    if (index < 0 || index >= pets.length) {
       return;
     }
 
-    final PetData pet =
-        pets.removeAt(index);
+    final PetData pet = pets.removeAt(index);
 
     pet.dispose();
 
@@ -256,9 +263,7 @@ class _ProfileSetupScreenState
   // GET PHONE
   // ============================================================
 
-  Future<String?> _getPhoneNumber(
-    User user,
-  ) async {
+  Future<String?> _getPhoneNumber(User user) async {
     String phone =
         user.phoneNumber?.trim() ?? '';
 
@@ -267,8 +272,8 @@ class _ProfileSetupScreenState
     }
 
     try {
-      final DocumentSnapshot<
-          Map<String, dynamic>> snapshot =
+      final DocumentSnapshot<Map<String, dynamic>>
+          snapshot =
           await _firestore
               .collection('phoneAccounts')
               .doc(user.uid)
@@ -291,6 +296,10 @@ class _ProfileSetupScreenState
       debugPrint(
         'PHONE ACCOUNT READ ERROR: '
         '${e.code} - ${e.message}',
+      );
+    } catch (e) {
+      debugPrint(
+        'PHONE ACCOUNT READ UNKNOWN ERROR: $e',
       );
     }
 
@@ -322,11 +331,9 @@ class _ProfileSetupScreenState
     // START LOADING
     // ----------------------------------------------------------
 
-    if (mounted) {
-      setState(() {
-        _isSaving = true;
-      });
-    }
+    setState(() {
+      _isSaving = true;
+    });
 
     try {
       // ========================================================
@@ -374,14 +381,10 @@ class _ProfileSetupScreenState
       // ========================================================
 
       await ProfileSetupService.saveProfile(
-        ownerName:
-            ownerController.text.trim(),
-        address:
-            addressController.text.trim(),
-        phoneNumber:
-            phone,
-        pets:
-            pets,
+        ownerName: ownerController.text.trim(),
+        address: addressController.text.trim(),
+        phoneNumber: phone,
+        pets: pets,
       );
 
       if (!mounted) {
@@ -389,7 +392,7 @@ class _ProfileSetupScreenState
       }
 
       // ========================================================
-      // 4. SUCCESS
+      // 4. SUCCESS MESSAGE
       // ========================================================
 
       ScaffoldMessenger.of(context)
@@ -403,18 +406,14 @@ class _ProfileSetupScreenState
           behavior:
               SnackBarBehavior.floating,
           duration:
-              const Duration(
-            seconds: 1,
-          ),
+              const Duration(seconds: 1),
           content: Text(
             'Profile saved successfully with '
             '${pets.length} '
             '${pets.length == 1 ? 'pet' : 'pets'}.',
-            style:
-                const TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontWeight:
-                  FontWeight.w600,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -425,9 +424,7 @@ class _ProfileSetupScreenState
       // ========================================================
 
       await Future.delayed(
-        const Duration(
-          milliseconds: 500,
-        ),
+        const Duration(milliseconds: 500),
       );
 
       if (!mounted) {
@@ -438,8 +435,7 @@ class _ProfileSetupScreenState
       // 6. OPEN MAIN APP
       // ========================================================
 
-      Navigator.of(context)
-          .pushAndRemoveUntil(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) =>
               const MainNavigationScreen(),
@@ -449,7 +445,63 @@ class _ProfileSetupScreenState
     }
 
     // ==========================================================
-    // FIREBASE ERROR
+    // AUTH ERROR
+    //
+    // IMPORTANT:
+    // FirebaseAuthException MUST COME BEFORE
+    // FirebaseException.
+    // ==========================================================
+
+    on FirebaseAuthException catch (e) {
+      debugPrint(
+        'PROFILE AUTH ERROR: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      switch (e.code) {
+        case 'operation-not-allowed':
+          _showError(
+            'Anonymous Firebase authentication is not enabled. '
+            'Please enable it in Firebase Authentication.',
+          );
+          break;
+
+        case 'network-request-failed':
+          _showError(
+            'Network error. Please check your internet connection.',
+          );
+          break;
+
+        case 'too-many-requests':
+          _showError(
+            'Too many attempts. Please try again later.',
+          );
+          break;
+
+        case 'user-disabled':
+          _showError(
+            'This account has been disabled.',
+          );
+          break;
+
+        default:
+          final String message =
+              e.message?.trim() ?? '';
+
+          _showError(
+            message.isNotEmpty
+                ? message
+                : 'Authentication failed. Please try again.',
+          );
+      }
+    }
+
+    // ==========================================================
+    // FIREBASE / FIRESTORE ERROR
     // ==========================================================
 
     on FirebaseException catch (e) {
@@ -492,60 +544,21 @@ class _ProfileSetupScreenState
               'Firebase request timed out. Please try again.';
           break;
 
-        default:
+        case 'not-found':
           message =
-              e.message?.trim().isNotEmpty == true
-                  ? e.message!.trim()
-                  : 'Could not save profile. Please try again.';
+              'The requested Firebase data was not found.';
+          break;
+
+        default:
+          final String firebaseMessage =
+              e.message?.trim() ?? '';
+
+          message = firebaseMessage.isNotEmpty
+              ? firebaseMessage
+              : 'Could not save profile. Please try again.';
       }
 
       _showError(message);
-    }
-
-    // ==========================================================
-    // AUTH ERROR
-    // ==========================================================
-
-    on FirebaseAuthException catch (e) {
-      debugPrint(
-        'PROFILE AUTH ERROR: '
-        '${e.code} - ${e.message}',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      switch (e.code) {
-        case 'operation-not-allowed':
-          _showError(
-            'Anonymous Firebase authentication is not enabled. '
-            'Please enable it in Firebase Authentication.',
-          );
-          break;
-
-        case 'network-request-failed':
-          _showError(
-            'Network error. Please check your internet connection.',
-          );
-          break;
-
-        case 'too-many-requests':
-          _showError(
-            'Too many attempts. Please try again later.',
-          );
-          break;
-
-        default:
-          final String message =
-              e.message?.trim() ?? '';
-
-          _showError(
-            message.isNotEmpty
-                ? message
-                : 'Authentication failed. Please try again.',
-          );
-      }
     }
 
     // ==========================================================
@@ -584,9 +597,7 @@ class _ProfileSetupScreenState
   // ERROR MESSAGE
   // ============================================================
 
-  void _showError(
-    String message,
-  ) {
+  void _showError(String message) {
     if (!mounted) {
       return;
     }
@@ -605,11 +616,9 @@ class _ProfileSetupScreenState
             const EdgeInsets.all(16),
         content: Text(
           message,
-          style:
-              const TextStyle(
+          style: const TextStyle(
             color: Colors.white,
-            fontWeight:
-                FontWeight.w600,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -659,19 +668,13 @@ class _ProfileSetupScreenState
   // AGE PICKER
   // ============================================================
 
-  void _showAgePicker(
-    PetData pet,
-  ) {
+  void _showAgePicker(PetData pet) {
     _openPicker(
       title: 'Choose Pet Age',
-      icon:
-          Icons.cake_outlined,
-      items:
-          ProfileSetupData.ages,
-      selected:
-          pet.age,
-      onSelected:
-          (String value) {
+      icon: Icons.cake_outlined,
+      items: ProfileSetupData.ages,
+      selected: pet.age,
+      onSelected: (String value) {
         if (!mounted) {
           return;
         }
@@ -689,9 +692,7 @@ class _ProfileSetupScreenState
   // BREED PICKER
   // ============================================================
 
-  void _showBreedPicker(
-    PetData pet,
-  ) {
+  void _showBreedPicker(PetData pet) {
     if (!mounted) {
       return;
     }
@@ -710,12 +711,9 @@ class _ProfileSetupScreenState
       ),
       builder: (_) {
         return BreedPicker(
-          breeds:
-              ProfileSetupData.breeds,
-          selectedBreed:
-              pet.breed,
-          onSelected:
-              (String breed) {
+          breeds: ProfileSetupData.breeds,
+          selectedBreed: pet.breed,
+          onSelected: (String breed) {
             if (!mounted) {
               return;
             }
@@ -735,20 +733,13 @@ class _ProfileSetupScreenState
   // BEHAVIOUR PICKER
   // ============================================================
 
-  void _showBehaviourPicker(
-    PetData pet,
-  ) {
+  void _showBehaviourPicker(PetData pet) {
     _openPicker(
-      title:
-          'Choose Behaviour',
-      icon:
-          Icons.favorite_border_rounded,
-      items:
-          ProfileSetupData.behaviours,
-      selected:
-          pet.behaviour,
-      onSelected:
-          (String value) {
+      title: 'Choose Behaviour',
+      icon: Icons.favorite_border_rounded,
+      items: ProfileSetupData.behaviours,
+      selected: pet.behaviour,
+      onSelected: (String value) {
         if (!mounted) {
           return;
         }
@@ -767,9 +758,7 @@ class _ProfileSetupScreenState
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
           DojoLightColors.background,
@@ -784,25 +773,19 @@ class _ProfileSetupScreenState
         foregroundColor:
             Colors.white,
         elevation: 0,
-        automaticallyImplyLeading:
-            false,
-        title:
-            const Row(
+        automaticallyImplyLeading: false,
+        title: const Row(
           children: [
             Icon(
               Icons.person_add_alt_1_rounded,
               size: 26,
             ),
-            SizedBox(
-              width: 10,
-            ),
+            SizedBox(width: 10),
             Text(
               'Profile Setup',
-              style:
-                  TextStyle(
+              style: TextStyle(
                 fontSize: 22,
-                fontWeight:
-                    FontWeight.w700,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -814,8 +797,7 @@ class _ProfileSetupScreenState
       // ========================================================
 
       body: SafeArea(
-        child:
-            SingleChildScrollView(
+        child: SingleChildScrollView(
           physics:
               const BouncingScrollPhysics(),
           padding:
@@ -825,16 +807,13 @@ class _ProfileSetupScreenState
             16,
             35,
           ),
-          child:
-              Column(
+          child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
               const ProfileWelcomeCard(),
 
-              const SizedBox(
-                height: 24,
-              ),
+              const SizedBox(height: 24),
 
               // ==================================================
               // OWNER INFORMATION
@@ -842,8 +821,7 @@ class _ProfileSetupScreenState
 
               Text(
                 'Owner Information',
-                style:
-                    TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight:
                       FontWeight.bold,
@@ -852,13 +830,10 @@ class _ProfileSetupScreenState
                 ),
               ),
 
-              const SizedBox(
-                height: 14,
-              ),
+              const SizedBox(height: 14),
 
               ProfileSectionCard(
-                child:
-                    ProfileTextField(
+                child: ProfileTextField(
                   controller:
                       ownerController,
                   label:
@@ -870,9 +845,7 @@ class _ProfileSetupScreenState
                 ),
               ),
 
-              const SizedBox(
-                height: 24,
-              ),
+              const SizedBox(height: 24),
 
               // ==================================================
               // PET INFORMATION
@@ -881,11 +854,9 @@ class _ProfileSetupScreenState
               Row(
                 children: [
                   Expanded(
-                    child:
-                        Text(
+                    child: Text(
                       'Pet Information',
-                      style:
-                          TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight:
                             FontWeight.bold,
@@ -894,7 +865,6 @@ class _ProfileSetupScreenState
                       ),
                     ),
                   ),
-
                   Container(
                     padding:
                         const EdgeInsets.symmetric(
@@ -904,21 +874,20 @@ class _ProfileSetupScreenState
                     decoration:
                         BoxDecoration(
                       color:
-                          DojoBrandColors.orangeLight,
+                          DojoBrandColors
+                              .orangeLight,
                       borderRadius:
                           BorderRadius.circular(
                         20,
                       ),
                     ),
-                    child:
-                        Text(
+                    child: Text(
                       '${pets.length}/3 Pets',
                       style:
                           const TextStyle(
                         color:
                             DojoBrandColors.orange,
-                        fontSize:
-                            12,
+                        fontSize: 12,
                         fontWeight:
                             FontWeight.w700,
                       ),
@@ -927,9 +896,7 @@ class _ProfileSetupScreenState
                 ],
               ),
 
-              const SizedBox(
-                height: 14,
-              ),
+              const SizedBox(height: 14),
 
               // ==================================================
               // PET CARDS
@@ -943,34 +910,25 @@ class _ProfileSetupScreenState
                         const EdgeInsets.only(
                       bottom: 16,
                     ),
-                    child:
-                        PetCard(
-                      pet:
-                          pets[index],
-                      index:
-                          index,
+                    child: PetCard(
+                      pet: pets[index],
+                      index: index,
                       totalPets:
                           pets.length,
-                      onRemove:
-                          () =>
-                              _removePet(
-                            index,
-                          ),
-                      onAgeTap:
-                          () =>
-                              _showAgePicker(
-                            pets[index],
-                          ),
-                      onBreedTap:
-                          () =>
-                              _showBreedPicker(
-                            pets[index],
-                          ),
-                      onBehaviourTap:
-                          () =>
-                              _showBehaviourPicker(
-                            pets[index],
-                          ),
+                      onRemove: () =>
+                          _removePet(index),
+                      onAgeTap: () =>
+                          _showAgePicker(
+                        pets[index],
+                      ),
+                      onBreedTap: () =>
+                          _showBreedPicker(
+                        pets[index],
+                      ),
+                      onBehaviourTap: () =>
+                          _showBehaviourPicker(
+                        pets[index],
+                      ),
                     ),
                   );
                 },
@@ -982,13 +940,10 @@ class _ProfileSetupScreenState
 
               if (pets.length < 3)
                 AddPetButton(
-                  onPressed:
-                      _addPet,
+                  onPressed: _addPet,
                 ),
 
-              const SizedBox(
-                height: 24,
-              ),
+              const SizedBox(height: 24),
 
               // ==================================================
               // ADDRESS
@@ -996,8 +951,7 @@ class _ProfileSetupScreenState
 
               Text(
                 'Address',
-                style:
-                    TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight:
                       FontWeight.bold,
@@ -1006,63 +960,54 @@ class _ProfileSetupScreenState
                 ),
               ),
 
-              const SizedBox(
-                height: 5,
-              ),
+              const SizedBox(height: 5),
 
               Text(
                 'Optional',
-                style:
-                    TextStyle(
+                style: TextStyle(
                   color:
-                      DojoInputColors.lightHint,
+                      DojoInputColors
+                          .lightHint,
                   fontSize: 13,
                 ),
               ),
 
-              const SizedBox(
-                height: 14,
-              ),
+              const SizedBox(height: 14),
 
               ProfileSectionCard(
-                child:
-                    AddressField(
+                child: AddressField(
                   controller:
                       addressController,
                 ),
               ),
 
-              const SizedBox(
-                height: 28,
-              ),
+              const SizedBox(height: 28),
 
               // ==================================================
               // SAVE
               // ==================================================
 
               SaveProfileButton(
-                isSaving:
-                    _isSaving,
-                onPressed:
-                    _saveProfile,
+                isSaving: _isSaving,
+                onPressed: _saveProfile,
               ),
 
-              const SizedBox(
-                height: 12,
-              ),
+              const SizedBox(height: 12),
+
+              // ==================================================
+              // SECURITY NOTE
+              // ==================================================
 
               Center(
-                child:
-                    Text(
+                child: Text(
                   'Your profile information is securely stored.',
                   textAlign:
                       TextAlign.center,
-                  style:
-                      TextStyle(
+                  style: TextStyle(
                     color:
-                        DojoInputColors.lightHint,
-                    fontSize:
-                        11,
+                        DojoInputColors
+                            .lightHint,
+                    fontSize: 11,
                   ),
                 ),
               ),
