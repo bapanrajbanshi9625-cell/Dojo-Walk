@@ -21,7 +21,6 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       debugPrint(
         'Insta Walk accepted but requestId is missing.',
       );
-
       return;
     }
 
@@ -29,21 +28,14 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     // VALIDATE WALKER
     // ==========================================================
 
-    final String walkerId =
-        accepted.walkerId.trim();
+    final String walkerId = accepted.walkerId.trim();
+    final String walkerUid = accepted.walkerUid.trim();
+    final String walkerName = accepted.walkerName.trim();
 
-    final String walkerUid =
-        accepted.walkerUid.trim();
-
-    final String walkerName =
-        accepted.walkerName.trim();
-
-    if (walkerId.isEmpty &&
-        walkerUid.isEmpty) {
+    if (walkerId.isEmpty && walkerUid.isEmpty) {
       debugPrint(
         'Insta Walk accepted but walker identity is missing.',
       );
-
       return;
     }
 
@@ -54,7 +46,12 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _requestId = requestId;
 
     // ==========================================================
-    // STOP RADAR
+    // STOP RADAR ONLY
+    //
+    // IMPORTANT:
+    // Do NOT close/pop the Insta Walk screen here.
+    // The Owner must remain in the flow and move to
+    // the accepted-walker / active-walk screen.
     // ==========================================================
 
     _stopRadar();
@@ -64,8 +61,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     // ==========================================================
 
     if (accepted.ownerLocation != null) {
-      final GeoPoint location =
-          accepted.ownerLocation!;
+      final GeoPoint location = accepted.ownerLocation!;
 
       _ownerPosition = Position(
         longitude: location.longitude,
@@ -90,50 +86,70 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     }
 
     _updateState(() {
-      _recovering = false;
-      _checkingAddress = false;
-
-      // Search is finished because walker accepted.
+      // Radar/search is finished.
       _searching = false;
 
-      // Do not show "search finished" state.
-      // Instead the accepted-walker UI takes over.
+      // This is NOT a failed/finished search.
       _searchFinished = false;
 
+      _recovering = false;
+      _checkingAddress = false;
       _stopping = false;
+
+      // Accepted walker is now active.
+      _active = true;
     });
 
     // ==========================================================
-    // SEARCH IS NO LONGER ACTIVE
-    //
-    // The request itself is now in:
-    //
-    // status = accepted
-    //
+    // ACTIVE STATE
     // ==========================================================
 
     _setActive(true);
 
     // ==========================================================
-    // CALLBACK
+    // CALLBACKS
+    //
+    // Parent screen MUST use onAccepted to open the
+    // accepted-walker / active-walk screen.
     // ==========================================================
 
     widget.onWalkerFound?.call();
 
-    widget.onAccepted?.call(
-      accepted,
-    );
+    widget.onAccepted?.call(accepted);
 
     // ==========================================================
     // DEBUG
     // ==========================================================
 
     debugPrint(
-      'Insta Walk accepted: '
-      'requestId=$requestId, '
-      'walkerId=$walkerId, '
-      'walkerUid=$walkerUid, '
+      '==================================================',
+    );
+    debugPrint(
+      'INSTA WALK ACCEPTED',
+    );
+    debugPrint(
+      'requestId=$requestId',
+    );
+    debugPrint(
+      'walkerId=$walkerId',
+    );
+    debugPrint(
+      'walkerUid=$walkerUid',
+    );
+    debugPrint(
       'walkerName=$walkerName',
+    );
+    debugPrint(
+      'Radar stopped: true',
+    );
+    debugPrint(
+      'Search stopped: true',
+    );
+    debugPrint(
+      'Owner should remain in flow: true',
+    );
+    debugPrint(
+      '==================================================',
     );
   }
 }
