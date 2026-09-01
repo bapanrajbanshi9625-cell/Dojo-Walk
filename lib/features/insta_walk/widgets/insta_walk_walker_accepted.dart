@@ -55,13 +55,13 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     // STOP RADAR ONLY
     //
     // IMPORTANT:
-    // DO NOT:
-    //   Navigator.pop()
-    //   Navigator.pushReplacement()
-    //   close the container
+    // Do NOT pop the Insta Walk container.
     //
-    // Owner stays inside the current flow.
-    // Parent will open WalkerAcceptScreen through onAccepted.
+    // Do NOT use:
+    // Navigator.pop()
+    // Navigator.pushReplacement()
+    //
+    // The parent handles navigation through onAccepted.
     // ==========================================================
 
     _stopRadar();
@@ -101,50 +101,50 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
 
     _updateState(() {
       // --------------------------------------------------------
-      // SEARCH IS OVER
+      // SEARCH IS FINISHED
       // --------------------------------------------------------
 
       _searching = false;
 
       // --------------------------------------------------------
-      // THIS IS NOT A FAILED SEARCH
+      // NOT A FAILED SEARCH
       // --------------------------------------------------------
 
       _searchFinished = false;
 
       // --------------------------------------------------------
-      // CLEAR TEMPORARY SEARCH STATES
+      // CLEAR TEMPORARY STATES
       // --------------------------------------------------------
 
       _recovering = false;
       _checkingAddress = false;
       _stopping = false;
-
-      // --------------------------------------------------------
-      // WALKER ACCEPTED
-      // --------------------------------------------------------
-
-      _active = true;
     });
 
     // ==========================================================
-    // MARK ACTIVE LOCALLY
+    // MARK ACCEPTED / ACTIVE
+    //
+    // IMPORTANT:
+    // _active does NOT exist in the current state.
+    //
+    // _setActive(true) is the correct method because it
+    // updates the existing _activeReported state and callback.
     // ==========================================================
 
     _setActive(true);
 
     // ==========================================================
-    // IMPORTANT CALLBACK
+    // ACCEPTED CALLBACK
     //
-    // Parent should now open:
+    // Parent should open WalkerAcceptScreen using:
     //
-    // WalkerAcceptScreen
+    // walk_request/{requestId}
     //
-    // using the SAME walk_request document.
+    // The same request continues:
     //
-    // requestId = walk_request/{requestId}
+    // accepted → reached
     //
-    // There is NO active_walks collection.
+    // No active_walks collection is created here.
     // ==========================================================
 
     widget.onAccepted?.call(
@@ -152,10 +152,11 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     );
 
     // ==========================================================
-    // OPTIONAL EXISTING CALLBACK
+    // EXISTING WALKER FOUND CALLBACK
     //
-    // Keep this only if existing parent logic depends on it.
-    // It must NOT navigate/pop the current screen.
+    // Keep this for existing parent logic.
+    //
+    // This callback must NOT pop this container.
     // ==========================================================
 
     widget.onWalkerFound?.call();
@@ -209,11 +210,15 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     );
 
     debugPrint(
+      'WalkerAcceptScreen callback=true',
+    );
+
+    debugPrint(
       'Owner remains in flow=true',
     );
 
     debugPrint(
-      'WalkerAcceptScreen should open=true',
+      'Live Walk session created=false',
     );
 
     debugPrint(
