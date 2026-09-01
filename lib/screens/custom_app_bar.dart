@@ -15,28 +15,41 @@ class CustomAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      // =========================================
-      // APP BAR + STATUS BAR
-      // =========================================
+    // =========================================================
+    // FORCE STATUS BAR TO SAME ORANGE
+    // =========================================================
 
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: orange,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemStatusBarContrastEnforced: false,
+      ),
+    );
+
+    return AppBar(
       backgroundColor: orange,
       foregroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      titleSpacing: 14,
 
-      // Android status bar will use the same orange.
+      // =======================================================
+      // STATUS BAR
+      // =======================================================
+
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: orange,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemStatusBarContrastEnforced: false,
       ),
 
-      elevation: 0,
-      centerTitle: false,
-      titleSpacing: 14,
-
-      // =========================================
+      // =======================================================
       // LEFT — DOJO WALK
-      // =========================================
+      // =======================================================
 
       title: Row(
         mainAxisSize: MainAxisSize.min,
@@ -45,14 +58,10 @@ class CustomAppBar extends StatelessWidget
             height: 42,
             width: 42,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(
-                alpha: 0.18,
-              ),
+              color: Colors.white.withValues(alpha: 0.18),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(
-                  alpha: 0.35,
-                ),
+                color: Colors.white.withValues(alpha: 0.35),
               ),
             ),
             child: const Icon(
@@ -75,9 +84,9 @@ class CustomAppBar extends StatelessWidget
         ],
       ),
 
-      // =========================================
-      // RIGHT — NOTIFICATIONS + HELP
-      // =========================================
+      // =======================================================
+      // RIGHT
+      // =======================================================
 
       actions: [
         _appBarButton(
@@ -85,21 +94,15 @@ class CustomAppBar extends StatelessWidget
           Icons.notifications_outlined,
           'Notifications',
         ),
-
         _appBarButton(
           context,
           Icons.support_agent,
           'Help & Support',
         ),
-
         const SizedBox(width: 7),
       ],
     );
   }
-
-  // =========================================
-  // APP BAR BUTTON
-  // =========================================
 
   Widget _appBarButton(
     BuildContext context,
@@ -112,14 +115,10 @@ class CustomAppBar extends StatelessWidget
         horizontal: 3,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(
-          alpha: 0.17,
-        ),
+        color: Colors.white.withValues(alpha: 0.17),
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withValues(
-            alpha: 0.30,
-          ),
+          color: Colors.white.withValues(alpha: 0.30),
         ),
       ),
       child: IconButton(
@@ -140,26 +139,19 @@ class CustomAppBar extends StatelessWidget
     );
   }
 
-  // =========================================
-  // DIALOG
-  // =========================================
-
   void _showDialog(
     BuildContext context,
     String title,
     String content,
   ) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor:
-              const Color(0xFFF7F8FA),
-
+          backgroundColor: const Color(0xFFF7F8FA),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-
           title: Text(
             title,
             style: const TextStyle(
@@ -167,7 +159,6 @@ class CustomAppBar extends StatelessWidget
               fontWeight: FontWeight.w900,
             ),
           ),
-
           content: Text(
             content,
             style: const TextStyle(
@@ -175,7 +166,6 @@ class CustomAppBar extends StatelessWidget
               height: 1.5,
             ),
           ),
-
           actions: [
             TextButton(
               onPressed: () {
