@@ -12,18 +12,28 @@ class InstaWalkScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F8),
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+
       appBar: AppBar(
         backgroundColor: const Color(0xFF243746),
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         title: const Text(
           'Insta Walk',
           style: TextStyle(
             fontWeight: FontWeight.w900,
           ),
         ),
-        centerTitle: true,
       ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -33,35 +43,78 @@ class InstaWalkScreen extends StatelessWidget {
           child: InstaWalkContainer(
             fullScreen: true,
 
+            // ==================================================
+            // WALKER ACCEPTED
+            // ==================================================
+            //
+            // Navigation is handled ONLY here.
+            //
+            // InstaWalkContainer:
+            //   Firestore accepted
+            //        ↓
+            //   stop radar
+            //        ↓
+            //   stop searching
+            //        ↓
+            //   onAccepted
+            //
+            // This screen:
+            //   onAccepted
+            //        ↓
+            //   WalkerAcceptScreen
+            //
+            // ==================================================
+
             onAccepted: (accepted) {
               final String requestId =
                   accepted.requestId.trim();
 
               debugPrint('');
-              debugPrint('==============================================');
-              debugPrint('🔥 INSTA WALK SCREEN RECEIVED ACCEPTED');
-              debugPrint('requestId = $requestId');
-              debugPrint('==============================================');
+              debugPrint(
+                '==============================================',
+              );
+              debugPrint(
+                '🔥 INSTA WALK SCREEN RECEIVED ACCEPTED',
+              );
+              debugPrint(
+                'requestId = $requestId',
+              );
+              debugPrint(
+                '==============================================',
+              );
 
               if (requestId.isEmpty) {
                 debugPrint(
-                  '❌ Navigation cancelled: requestId empty.',
+                  '❌ Navigation cancelled: requestId is empty.',
                 );
                 return;
               }
 
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (BuildContext context) {
-                    return WalkerAcceptScreen(
-                      requestId: requestId,
-                    );
-                  },
-                ),
-              );
+              // ----------------------------------------------
+              // WAIT UNTIL CURRENT FRAME IS COMPLETE
+              // ----------------------------------------------
 
-              debugPrint(
-                '🚀 Navigation command executed.',
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) {
+                  if (!context.mounted) {
+                    debugPrint(
+                      '❌ Navigation cancelled: screen unmounted.',
+                    );
+                    return;
+                  }
+
+                  debugPrint(
+                    '🚀 Opening WalkerAcceptScreen...',
+                  );
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => WalkerAcceptScreen(
+                        requestId: requestId,
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),
