@@ -24,9 +24,6 @@ class WalkerAcceptScreen extends StatefulWidget {
 
   final String requestId;
 
-  /// Called when the Walker reaches the Owner.
-  ///
-  /// Parent should create/open the Live Walk flow here.
   final ValueChanged<WalkerAcceptData>? onReached;
 
   final VoidCallback? onCall;
@@ -151,13 +148,10 @@ class _WalkerAcceptScreenState
       return;
     }
 
-    final GeoPointLike? walker =
-        _locationFromWalker(data);
+    final location = data.walkerLocation;
+    final owner = data.ownerLocation;
 
-    final GeoPointLike? owner =
-        _locationFromOwner(data);
-
-    if (walker == null || owner == null) {
+    if (location == null || owner == null) {
       return;
     }
 
@@ -167,12 +161,12 @@ class _WalkerAcceptScreenState
       final WalkerRouteResult? result =
           await _routeService.getRoute(
         walkerLocation: LatLng(
-          walker.latitude,
-          walker.longitude,
+          location.latitude.toDouble(),
+          location.longitude.toDouble(),
         ),
         ownerLocation: LatLng(
-          owner.latitude,
-          owner.longitude,
+          owner.latitude.toDouble(),
+          owner.longitude.toDouble(),
         ),
       );
 
@@ -193,66 +187,38 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
-  // LOCATION HELPERS
-  // ==========================================================
-
-  GeoPointLike? _locationFromOwner(
-    WalkerAcceptData data,
-  ) {
-    final location = data.ownerLocation;
-
-    if (location == null) {
-      return null;
-    }
-
-    return GeoPointLike(
-      latitude: location.latitude,
-      longitude: location.longitude,
-    );
-  }
-
-  GeoPointLike? _locationFromWalker(
-    WalkerAcceptData data,
-  ) {
-    final location = data.walkerLocation;
-
-    if (location == null) {
-      return null;
-    }
-
-    return GeoPointLike(
-      latitude: location.latitude,
-      longitude: location.longitude,
-    );
-  }
-
-  // ==========================================================
-  // MAP LOCATIONS
+  // OWNER LOCATION
   // ==========================================================
 
   LatLng? get _ownerLatLng {
-    final location = _data?.ownerLocation;
+    final location =
+        _data?.ownerLocation;
 
     if (location == null) {
       return null;
     }
 
     return LatLng(
-      location.latitude,
-      location.longitude,
+      location.latitude.toDouble(),
+      location.longitude.toDouble(),
     );
   }
 
+  // ==========================================================
+  // WALKER LOCATION
+  // ==========================================================
+
   LatLng? get _walkerLatLng {
-    final location = _data?.walkerLocation;
+    final location =
+        _data?.walkerLocation;
 
     if (location == null) {
       return null;
     }
 
     return LatLng(
-      location.latitude,
-      location.longitude,
+      location.latitude.toDouble(),
+      location.longitude.toDouble(),
     );
   }
 
@@ -299,8 +265,10 @@ class _WalkerAcceptScreenState
 
           Positioned.fill(
             child: WalkerAcceptMap(
-              ownerLocation: ownerLocation,
-              walkerLocation: _walkerLatLng,
+              ownerLocation:
+                  ownerLocation,
+              walkerLocation:
+                  _walkerLatLng,
               walkerImageUrl:
                   data.walkerProfileImage,
               routePoints:
@@ -314,7 +282,7 @@ class _WalkerAcceptScreenState
           ),
 
           // ====================================================
-          // BOTTOM TRACKING CARD
+          // BOTTOM CARD
           // ====================================================
 
           Positioned(
@@ -347,7 +315,8 @@ class _WalkerAcceptScreenState
     return AppBar(
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor: colors.surface,
+      backgroundColor:
+          colors.surface,
       titleSpacing: 0,
       title: const Column(
         crossAxisAlignment:
@@ -425,10 +394,6 @@ class _WalkerAcceptScreenState
         mainAxisSize:
             MainAxisSize.min,
         children: [
-          // ====================================================
-          // STATUS
-          // ====================================================
-
           WalkerAcceptStatus(
             status: data.status,
             distanceMeters:
@@ -436,10 +401,6 @@ class _WalkerAcceptScreenState
           ),
 
           const SizedBox(height: 16),
-
-          // ====================================================
-          // WALKER DETAILS
-          // ====================================================
 
           WalkerInfoCard(
             walkerName:
@@ -462,10 +423,6 @@ class _WalkerAcceptScreenState
 
           const SizedBox(height: 10),
 
-          // ====================================================
-          // ETA + DISTANCE
-          // ====================================================
-
           WalkerEtaDistance(
             distanceMeters:
                 routeDistanceMeters,
@@ -474,10 +431,6 @@ class _WalkerAcceptScreenState
           ),
 
           const SizedBox(height: 14),
-
-          // ====================================================
-          // CALL / CHAT
-          // ====================================================
 
           WalkerContactButtons(
             onCall:
@@ -506,10 +459,6 @@ class _WalkerAcceptScreenState
     debugPrint(
       'WalkerAcceptScreen: recenter owner.',
     );
-
-    // WalkerAcceptMap owns the MapController,
-    // so this callback is intentionally kept here
-    // for future parent-level location actions.
   }
 
   // ==========================================================
@@ -523,22 +472,4 @@ class _WalkerAcceptScreenState
 
     super.dispose();
   }
-}
-
-// ============================================================
-// SIMPLE LOCATION VALUE
-// ============================================================
-//
-// Keeps the screen independent from a specific location model.
-// Firestore GeoPoint is converted before route calculation.
-//
-
-class GeoPointLike {
-  const GeoPointLike({
-    required this.latitude,
-    required this.longitude,
-  });
-
-  final double latitude;
-  final double longitude;
 }
