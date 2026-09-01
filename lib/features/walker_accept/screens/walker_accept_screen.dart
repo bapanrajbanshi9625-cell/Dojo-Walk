@@ -315,8 +315,7 @@ class _WalkerAcceptScreenState
     return AppBar(
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor:
-          colors.surface,
+      backgroundColor: colors.surface,
       titleSpacing: 0,
       title: const Column(
         crossAxisAlignment:
@@ -358,13 +357,30 @@ class _WalkerAcceptScreenState
     BuildContext context,
     WalkerAcceptData data,
   ) {
-    final int routeDistanceMeters =
-        _route?.distanceMeters ??
-            data.distanceMeters;
+    // --------------------------------------------------------
+    // DISTANCE
+    //
+    // Route distance may be num/double.
+    // Convert it to double because WalkerEtaDistance
+    // expects double.
+    // --------------------------------------------------------
+
+    final double routeDistanceMeters =
+        (_route?.distanceMeters ??
+                data.distanceMeters)
+            .toDouble();
+
+    // --------------------------------------------------------
+    // ETA
+    //
+    // Route duration may be num.
+    // Convert it safely to int.
+    // --------------------------------------------------------
 
     final int routeEtaMinutes =
-        _route?.durationMinutes ??
-            data.etaMinutes;
+        (_route?.durationMinutes ??
+                data.etaMinutes)
+            .toInt();
 
     return Container(
       decoration: BoxDecoration(
@@ -394,13 +410,21 @@ class _WalkerAcceptScreenState
         mainAxisSize:
             MainAxisSize.min,
         children: [
+          // ==================================================
+          // STATUS
+          // ==================================================
+
           WalkerAcceptStatus(
             status: data.status,
             distanceMeters:
-                routeDistanceMeters,
+                routeDistanceMeters.toInt(),
           ),
 
           const SizedBox(height: 16),
+
+          // ==================================================
+          // WALKER INFORMATION
+          // ==================================================
 
           WalkerInfoCard(
             walkerName:
@@ -423,6 +447,10 @@ class _WalkerAcceptScreenState
 
           const SizedBox(height: 10),
 
+          // ==================================================
+          // ETA + DISTANCE
+          // ==================================================
+
           WalkerEtaDistance(
             distanceMeters:
                 routeDistanceMeters,
@@ -431,6 +459,10 @@ class _WalkerAcceptScreenState
           ),
 
           const SizedBox(height: 14),
+
+          // ==================================================
+          // CALL + CHAT
+          // ==================================================
 
           WalkerContactButtons(
             onCall:
@@ -450,6 +482,7 @@ class _WalkerAcceptScreenState
       ),
     );
   }
+
 
   // ==========================================================
   // RECENTER OWNER
