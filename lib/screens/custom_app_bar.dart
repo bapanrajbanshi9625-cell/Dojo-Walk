@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -15,8 +16,20 @@ class CustomAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      // =========================================
+      // APP BAR + STATUS BAR
+      // =========================================
+
       backgroundColor: orange,
       foregroundColor: Colors.white,
+
+      // Android status bar will use the same orange.
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: orange,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+
       elevation: 0,
       centerTitle: false,
       titleSpacing: 14,
@@ -32,10 +45,14 @@ class CustomAppBar extends StatelessWidget
             height: 42,
             width: 42,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withValues(
+                alpha: 0.18,
+              ),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withOpacity(0.35),
+                color: Colors.white.withValues(
+                  alpha: 0.35,
+                ),
               ),
             ),
             child: const Icon(
@@ -95,10 +112,14 @@ class CustomAppBar extends StatelessWidget
         horizontal: 3,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.17),
+        color: Colors.white.withValues(
+          alpha: 0.17,
+        ),
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withOpacity(0.30),
+          color: Colors.white.withValues(
+            alpha: 0.30,
+          ),
         ),
       ),
       child: IconButton(
