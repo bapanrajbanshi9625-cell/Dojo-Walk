@@ -40,8 +40,7 @@ class ProfileTextField extends StatelessWidget {
               TextCapitalization.words,
 
           // ====================================================
-          // IMPORTANT:
-          // Typed text must always remain visible.
+          // TYPED TEXT
           // ====================================================
 
           style: const TextStyle(
@@ -53,9 +52,30 @@ class ProfileTextField extends StatelessWidget {
           cursorColor: AppColors.primary,
 
           decoration: InputDecoration(
-            prefixIcon: Icon(
-              icon,
-              color: AppColors.primary,
+            // ==================================================
+            // ORANGE ICON BACKGROUND + WHITE ICON
+            // ==================================================
+
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(
+                left: 8,
+                top: 7,
+                bottom: 7,
+                right: 8,
+              ),
+              child: Container(
+                width: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius:
+                      BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
             ),
 
             hintText: hint,
