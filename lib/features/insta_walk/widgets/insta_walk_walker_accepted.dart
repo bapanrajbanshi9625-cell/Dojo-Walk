@@ -7,29 +7,14 @@ part of 'insta_walk_container.dart';
 // Responsibility:
 //   • Validate accepted request
 //   • Stop radar
-//   • Stop searching UI
-//   • Mark Insta Walk active
-//   • Notify parent through onAccepted
+//   • Stop searching
+//   • Mark walk active
+//   • Notify parent
 //
-// Navigation:
-//   • NOT handled here
-//   • InstaWalkScreen handles navigation
+// Navigation is NOT handled here.
 //
-// Flow:
-//
-// Firestore status = accepted
-//          ↓
-// _walkerAccepted()
-//          ↓
-// Radar OFF
-//          ↓
-// Searching OFF
-//          ↓
-// onAccepted(accepted)
-//          ↓
-// InstaWalkScreen
-//          ↓
-// WalkerAcceptScreen
+// Navigation is handled by:
+//   InstaWalkScreen
 //
 // ============================================================
 
@@ -39,7 +24,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
   ) async {
     debugPrint('');
     debugPrint('==============================================');
-    debugPrint('🔥 INSTA WALK ACCEPTED');
+    debugPrint('🔥 _WALKER ACCEPTED METHOD CALLED');
     debugPrint('==============================================');
 
     // ==========================================================
@@ -48,7 +33,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
 
     if (!mounted) {
       debugPrint(
-        '❌ InstaWalkContainer is no longer mounted.',
+        '❌ InstaWalkContainer is not mounted.',
       );
       return;
     }
@@ -68,7 +53,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
 
     if (requestId.isEmpty) {
       debugPrint(
-        '❌ Accepted requestId is missing.',
+        '❌ requestId is empty.',
       );
       return;
     }
@@ -83,12 +68,19 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     final String walkerUid =
         accepted.walkerUid.trim();
 
+    final String walkerName =
+        accepted.walkerName.trim();
+
     debugPrint(
       'walkerId = $walkerId',
     );
 
     debugPrint(
       'walkerUid = $walkerUid',
+    );
+
+    debugPrint(
+      'walkerName = $walkerName',
     );
 
     if (walkerId.isEmpty &&
@@ -116,7 +108,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     );
 
     // ==========================================================
-    // UPDATE LOCAL UI STATE
+    // STOP SEARCH UI
     // ==========================================================
 
     _updateState(() {
@@ -128,7 +120,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     });
 
     debugPrint(
-      '✅ Searching UI stopped.',
+      '✅ Searching stopped.',
     );
 
     // ==========================================================
@@ -137,35 +129,51 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
 
     _setActive(true);
 
+    debugPrint(
+      '✅ Active state = true.',
+    );
+
     // ==========================================================
-    // NOTIFY PARENT
+    // CALLBACK
+    // ==========================================================
     //
     // IMPORTANT:
     //
-    // No Navigator here.
+    // DO NOT Navigator.push() HERE.
     //
-    // InstaWalkScreen is responsible for opening:
-    //
-    // WalkerAcceptScreen(requestId: requestId)
+    // Parent screen handles navigation.
     //
     // ==========================================================
 
+    final ValueChanged<InstaWalkAcceptedData>? callback =
+        widget.onAccepted;
+
+    if (callback == null) {
+      debugPrint(
+        '❌ onAccepted callback is NULL.',
+      );
+      debugPrint(
+        '❌ WalkerAcceptScreen cannot be opened from here.',
+      );
+      return;
+    }
+
     debugPrint(
-      '🚀 Calling onAccepted callback...',
+      '🚀 BEFORE onAccepted CALLBACK',
     );
 
-    widget.onAccepted?.call(
+    callback(
       accepted,
     );
 
     debugPrint(
-      '✅ onAccepted callback completed.',
+      '🚀 AFTER onAccepted CALLBACK',
     );
 
+    debugPrint('');
     debugPrint('==============================================');
-    debugPrint(
-      'INSTA WALK ACCEPTED FLOW COMPLETE',
-    );
+    debugPrint('✅ ACCEPTED FLOW SENT TO PARENT');
+    debugPrint('requestId = $requestId');
     debugPrint('==============================================');
   }
 }
