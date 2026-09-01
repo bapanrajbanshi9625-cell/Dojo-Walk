@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'owner_home_marker.dart';
 import 'walker_location_marker.dart';
 
-class WalkerAcceptMap extends StatelessWidget {
+class WalkerAcceptMap extends StatefulWidget {
   const WalkerAcceptMap({
     super.key,
     required this.ownerLocation,
@@ -16,36 +16,89 @@ class WalkerAcceptMap extends StatelessWidget {
     this.onMyLocationPressed,
   });
 
-  /// Owner's saved Firestore location.
+  /// Owner's saved location.
   final LatLng ownerLocation;
 
-  /// Walker's current live Firestore location.
+  /// Walker's current live location.
   final LatLng? walkerLocation;
 
   /// Walker profile image.
   final String? walkerImageUrl;
 
   /// Remaining route only.
-  ///
-  /// The route service will provide only the portion
-  /// of the route that is still left for the Walker.
   final List<LatLng> routePoints;
 
-  /// Walker's current heading in degrees.
+  /// Walker heading in degrees.
   final double? walkerHeading;
 
-  /// Re-centers the map on the Owner's saved location.
+  /// Recenter button callback.
   final VoidCallback? onMyLocationPressed;
+
+  @override
+  State<WalkerAcceptMap> createState() =>
+      _WalkerAcceptMapState();
+}
+
+class _WalkerAcceptMapState
+    extends State<WalkerAcceptMap> {
+  late final MapController _mapController;
+
+  LatLng? _previousWalkerLocation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _mapController = MapController();
+
+    _previousWalkerLocation =
+        widget.walkerLocation;
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant WalkerAcceptMap oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldWalker =
+        oldWidget.walkerLocation;
+
+    final newWalker =
+        widget.walkerLocation;
+
+    if (newWalker == null) {
+      return;
+    }
+
+    if (oldWalker == null) {
+      _previousWalkerLocation = newWalker;
+      return;
+    }
+
+    if (_hasLocationChanged(
+      oldWalker,
+      newWalker,
+    )) {
+      _previousWalkerLocation = newWalker;
+
+      _followWalker(newWalker);
+    }
+  }
+
+  // ==========================================================
+  // BUILD
+  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
     final markers = <Marker>[
       // ========================================================
-      // OWNER — SAVED LOCATION
+      // OWNER SAVED LOCATION
       // ========================================================
 
       Marker(
-        point: ownerLocation,
+        point: widget.ownerLocation,
         width: 70,
         height: 70,
         alignment: Alignment.center,
@@ -53,19 +106,20 @@ class WalkerAcceptMap extends StatelessWidget {
       ),
 
       // ========================================================
-      // WALKER — LIVE LOCATION
+      // WALKER LIVE LOCATION
       // ========================================================
 
-      if (walkerLocation != null)
+      if (widget.walkerLocation != null)
         Marker(
-          point: walkerLocation!,
+          point: widget.walkerLocation!,
           width: 78,
           height: 78,
           alignment: Alignment.center,
           child: Transform.rotate(
             angle: _headingRadians,
             child: WalkerLocationMarker(
-              imageUrl: walkerImageUrl,
+              imageUrl:
+                  widget.walkerImageUrl,
               isLive: true,
             ),
           ),
@@ -75,18 +129,27 @@ class WalkerAcceptMap extends StatelessWidget {
     return Stack(
       children: [
         // ======================================================
-        // OPEN STREET MAP
+        // OSM MAP
         // ======================================================
 
         FlutterMap(
+          mapController: _mapController,
           options: MapOptions(
-            initialCenter: ownerLocation,
+            initialCenter:
+                widget.ownerLocation,
             initialZoom: 14.5,
-            interactionOptions: const InteractionOptions(
+            minZoom: 5,
+            maxZoom: 19,
+            interactionOptions:
+                const InteractionOptions(
               flags: InteractiveFlag.all,
             ),
           ),
           children: [
+            // ==================================================
+            // OPEN STREET MAP TILES
+            // ==================================================
+
             TileLayer(
               urlTemplate:
                   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -98,17 +161,19 @@ class WalkerAcceptMap extends StatelessWidget {
             // REMAINING ROUTE
             // ==================================================
 
-            if (routePoints.length >= 2)
+            if (widget.routePoints.length >= 2)
               PolylineLayer(
                 polylines: [
                   Polyline(
-                    points: routePoints,
+                    points:
+                        widget.routePoints,
                     strokeWidth: 5,
                     color: Theme.of(context)
                         .colorScheme
                         .primary,
                     borderStrokeWidth: 2,
-                    borderColor: Colors.white,
+                    borderColor:
+                        Colors.white,
                   ),
                 ],
               ),
@@ -124,36 +189,111 @@ class WalkerAcceptMap extends StatelessWidget {
         ),
 
         // ======================================================
-        // MAP CONTROL
-        // ======================================================
-
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: _MapLocationButton(
-            onPressed: onMyLocationPressed,
-          ),
-        ),
-
-        // ======================================================
         // LIVE BADGE
         // ======================================================
 
         Positioned(
           left: 16,
           top: 16,
-          child: _LiveMapBadge(),
+          child: const _LiveMapBadge(),
+        ),
+
+        // ======================================================
+        // RECENTER BUTTON
+        // ======================================================
+
+        Positioned(
+          right: 16,
+          bottom: 180,
+          child: _MapLocationButton(
+            onPressed: () {
+              _recenterOwner();
+
+              widget
+                  .onMyLocationPressed
+                  ?.call();
+            },
+          ),
         ),
       ],
     );
   }
 
+  // ==========================================================
+  // FOLLOW WALKER
+  // ==========================================================
+
+  void _followWalker(
+    LatLng walkerLocation,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      _mapController.move(
+        walkerLocation,
+        _mapController.camera.zoom,
+      );
+    } catch (_) {
+      // Map controller may not be ready yet.
+    }
+  }
+
+  // ==========================================================
+  // RECENTER OWNER
+  // ==========================================================
+
+  void _recenterOwner() {
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      _mapController.move(
+        widget.ownerLocation,
+        15.5,
+      );
+    } catch (_) {
+      // Map controller may not be ready yet.
+    }
+  }
+
+  // ==========================================================
+  // LOCATION CHANGE CHECK
+  // ==========================================================
+
+  bool _hasLocationChanged(
+    LatLng oldLocation,
+    LatLng newLocation,
+  ) {
+    const threshold = 0.00001;
+
+    return (oldLocation.latitude -
+                    newLocation.latitude)
+                .abs() >
+            threshold ||
+        (oldLocation.longitude -
+                    newLocation.longitude)
+                .abs() >
+            threshold;
+  }
+
+  // ==========================================================
+  // WALKER HEADING
+  // ==========================================================
+
   double get _headingRadians {
-    if (walkerHeading == null) {
+    final heading =
+        widget.walkerHeading;
+
+    if (heading == null) {
       return 0;
     }
 
-    return walkerHeading! * 3.141592653589793 / 180;
+    return heading *
+        3.141592653589793 /
+        180;
   }
 }
 
@@ -161,19 +301,25 @@ class WalkerAcceptMap extends StatelessWidget {
 // LIVE BADGE
 // ============================================================
 
-class _LiveMapBadge extends StatelessWidget {
+class _LiveMapBadge
+    extends StatelessWidget {
+  const _LiveMapBadge();
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors =
+        Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 11,
         vertical: 7,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
             blurRadius: 12,
@@ -183,7 +329,8 @@ class _LiveMapBadge extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
           Container(
             width: 8,
@@ -200,7 +347,8 @@ class _LiveMapBadge extends StatelessWidget {
                 .textTheme
                 .labelSmall
                 ?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                   letterSpacing: 0.6,
                 ),
           ),
@@ -214,7 +362,8 @@ class _LiveMapBadge extends StatelessWidget {
 // MAP LOCATION BUTTON
 // ============================================================
 
-class _MapLocationButton extends StatelessWidget {
+class _MapLocationButton
+    extends StatelessWidget {
   const _MapLocationButton({
     required this.onPressed,
   });
@@ -225,11 +374,13 @@ class _MapLocationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       elevation: 4,
-      shape: const CircleBorder(),
+      shape:
+          const CircleBorder(),
       color: Colors.white,
       child: InkWell(
         onTap: onPressed,
-        customBorder: const CircleBorder(),
+        customBorder:
+            const CircleBorder(),
         child: const SizedBox(
           width: 50,
           height: 50,
