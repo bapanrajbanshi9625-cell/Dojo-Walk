@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -27,8 +26,7 @@ class WalkerAcceptScreen extends StatefulWidget {
 
   /// Called when the Walker reaches the Owner.
   ///
-  /// Existing Live Walk screen should be opened
-  /// by the parent using this callback.
+  /// Parent should create/open the Live Walk flow here.
   final ValueChanged<WalkerAcceptData>? onReached;
 
   final VoidCallback? onCall;
@@ -55,8 +53,6 @@ class _WalkerAcceptScreenState
   bool _loadingRoute = false;
   bool _reachedHandled = false;
 
-  Timer? _routeTimer;
-
   @override
   void initState() {
     super.initState();
@@ -72,16 +68,20 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   void _listenToRequest() {
-    final requestId = widget.requestId.trim();
+    final String requestId =
+        widget.requestId.trim();
 
     if (requestId.isEmpty) {
+      debugPrint(
+        'WalkerAcceptScreen: requestId is empty.',
+      );
       return;
     }
 
     _requestSubscription = _acceptService
         .watchRequest(requestId)
         .listen(
-      (data) {
+      (WalkerAcceptData? data) {
         if (!mounted || data == null) {
           return;
         }
@@ -92,6 +92,11 @@ class _WalkerAcceptScreenState
 
         _checkReached(data);
         _refreshRoute(data);
+      },
+      onError: (Object error) {
+        debugPrint(
+          'WalkerAcceptScreen Firestore error: $error',
+        );
       },
     );
   }
@@ -113,11 +118,15 @@ class _WalkerAcceptScreenState
 
     _reachedHandled = true;
 
+    debugPrint(
+      'WalkerAcceptScreen: Walker reached Owner.',
+    );
+
     widget.onReached?.call(data);
   }
 
   // ==========================================================
-  // ROUTE
+  // ROUTE REFRESH
   // ==========================================================
 
   void _refreshRoute(
@@ -142,8 +151,11 @@ class _WalkerAcceptScreenState
       return;
     }
 
-    final walker = data.walkerLocation;
-    final owner = data.ownerLocation;
+    final GeoPointLike? walker =
+        _locationFromWalker(data);
+
+    final GeoPointLike? owner =
+        _locationFromOwner(data);
 
     if (walker == null || owner == null) {
       return;
@@ -152,7 +164,7 @@ class _WalkerAcceptScreenState
     _loadingRoute = true;
 
     try {
-      final result =
+      final WalkerRouteResult? result =
           await _routeService.getRoute(
         walkerLocation: LatLng(
           walker.latitude,
@@ -171,13 +183,51 @@ class _WalkerAcceptScreenState
       setState(() {
         _route = result;
       });
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptScreen route error: $error',
+      );
     } finally {
       _loadingRoute = false;
     }
   }
 
   // ==========================================================
-  // MAP CENTER
+  // LOCATION HELPERS
+  // ==========================================================
+
+  GeoPointLike? _locationFromOwner(
+    WalkerAcceptData data,
+  ) {
+    final location = data.ownerLocation;
+
+    if (location == null) {
+      return null;
+    }
+
+    return GeoPointLike(
+      latitude: location.latitude,
+      longitude: location.longitude,
+    );
+  }
+
+  GeoPointLike? _locationFromWalker(
+    WalkerAcceptData data,
+  ) {
+    final location = data.walkerLocation;
+
+    if (location == null) {
+      return null;
+    }
+
+    return GeoPointLike(
+      latitude: location.latitude,
+      longitude: location.longitude,
+    );
+  }
+
+  // ==========================================================
+  // MAP LOCATIONS
   // ==========================================================
 
   LatLng? get _ownerLatLng {
@@ -212,7 +262,7 @@ class _WalkerAcceptScreenState
 
   @override
   Widget build(BuildContext context) {
-    final data = _data;
+    final WalkerAcceptData? data = _data;
 
     if (data == null) {
       return const Scaffold(
@@ -222,7 +272,8 @@ class _WalkerAcceptScreenState
       );
     }
 
-    final ownerLocation = _ownerLatLng;
+    final LatLng? ownerLocation =
+        _ownerLatLng;
 
     if (ownerLocation == null) {
       return const Scaffold(
@@ -236,12 +287,14 @@ class _WalkerAcceptScreenState
 
     return Scaffold(
       backgroundColor:
-          Theme.of(context).colorScheme.surface,
+          Theme.of(context)
+              .colorScheme
+              .surface,
       appBar: _buildAppBar(context),
       body: Stack(
         children: [
           // ====================================================
-          // MAP
+          // OSM MAP
           // ====================================================
 
           Positioned.fill(
@@ -251,7 +304,8 @@ class _WalkerAcceptScreenState
               walkerImageUrl:
                   data.walkerProfileImage,
               routePoints:
-                  _route?.points ?? const [],
+                  _route?.points ??
+                      const <LatLng>[],
               walkerHeading:
                   data.walkerHeading,
               onMyLocationPressed:
@@ -287,7 +341,7 @@ class _WalkerAcceptScreenState
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
   ) {
-    final colors =
+    final ColorScheme colors =
         Theme.of(context).colorScheme;
 
     return AppBar(
@@ -335,6 +389,14 @@ class _WalkerAcceptScreenState
     BuildContext context,
     WalkerAcceptData data,
   ) {
+    final int routeDistanceMeters =
+        _route?.distanceMeters ??
+            data.distanceMeters;
+
+    final int routeEtaMinutes =
+        _route?.durationMinutes ??
+            data.etaMinutes;
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context)
@@ -352,29 +414,40 @@ class _WalkerAcceptScreenState
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(
+      padding:
+          const EdgeInsets.fromLTRB(
         18,
         16,
         18,
         14,
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
+          // ====================================================
+          // STATUS
+          // ====================================================
+
           WalkerAcceptStatus(
             status: data.status,
             distanceMeters:
-                _route?.distanceMeters ??
-                    data.distanceMeters,
+                routeDistanceMeters,
           ),
 
           const SizedBox(height: 16),
 
+          // ====================================================
+          // WALKER DETAILS
+          // ====================================================
+
           WalkerInfoCard(
-            walkerName: data.walkerName,
+            walkerName:
+                data.walkerName,
             profileImageUrl:
                 data.walkerProfileImage,
-            rating: data.walkerRating,
+            rating:
+                data.walkerRating,
             distanceLabel:
                 _route?.distanceLabel ??
                     data.distanceLabel,
@@ -389,16 +462,22 @@ class _WalkerAcceptScreenState
 
           const SizedBox(height: 10),
 
+          // ====================================================
+          // ETA + DISTANCE
+          // ====================================================
+
           WalkerEtaDistance(
             distanceMeters:
-                _route?.distanceMeters ??
-                    data.distanceMeters,
+                routeDistanceMeters,
             etaMinutes:
-                _route?.durationMinutes ??
-                    data.etaSeconds ~/ 60,
+                routeEtaMinutes,
           ),
 
           const SizedBox(height: 14),
+
+          // ====================================================
+          // CALL / CHAT
+          // ====================================================
 
           WalkerContactButtons(
             onCall:
@@ -406,7 +485,11 @@ class _WalkerAcceptScreenState
             onChat:
                 widget.onChat ?? () {},
             callEnabled:
-                widget.onCall != null,
+                widget.onCall != null &&
+                data.walkerPhone != null &&
+                data.walkerPhone!
+                    .trim()
+                    .isNotEmpty,
             chatEnabled:
                 widget.onChat != null,
           ),
@@ -420,8 +503,13 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   void _recenterOwner() {
-    // Map controller integration will be added
-    // when the map controller is centralized.
+    debugPrint(
+      'WalkerAcceptScreen: recenter owner.',
+    );
+
+    // WalkerAcceptMap owns the MapController,
+    // so this callback is intentionally kept here
+    // for future parent-level location actions.
   }
 
   // ==========================================================
@@ -430,10 +518,27 @@ class _WalkerAcceptScreenState
 
   @override
   void dispose() {
-    _routeTimer?.cancel();
     _requestSubscription?.cancel();
     _routeService.dispose();
 
     super.dispose();
   }
+}
+
+// ============================================================
+// SIMPLE LOCATION VALUE
+// ============================================================
+//
+// Keeps the screen independent from a specific location model.
+// Firestore GeoPoint is converted before route calculation.
+//
+
+class GeoPointLike {
+  const GeoPointLike({
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final double latitude;
+  final double longitude;
 }
