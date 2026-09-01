@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login_screen.dart';
 import 'main_navigation_screen.dart';
@@ -15,12 +16,29 @@ class SplashScreen extends StatefulWidget {
   });
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() =>
+      _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
   bool _checking = true;
   bool _navigated = false;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  // ==========================================================
+  // COLLECTIONS
+  // ==========================================================
+
+  static const String _phoneAccountsCollection =
+      'phoneAccounts';
+
+  static const String _ownersCollection =
+      'owners';
 
   // ==========================================================
   // INIT
@@ -36,6 +54,485 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   // ==========================================================
+  // NORMALIZE PHONE
+  // ==========================================================
+
+  String? _normalizePhone(
+    String? phoneNumber,
+  ) {
+    if (phoneNumber == null) {
+      return null;
+    }
+
+    String clean =
+        phoneNumber
+            .trim()
+            .replaceAll(
+              RegExp(r'[^0-9]'),
+              '',
+            );
+
+    if (clean.startsWith('91') &&
+        clean.length == 12) {
+      clean = clean.substring(2);
+    }
+
+    if (clean.length != 10) {
+      return null;
+    }
+
+    if (!RegExp(
+      r'^[6-9][0-9]{9}$',
+    ).hasMatch(clean)) {
+      return null;
+    }
+
+    return clean;
+  }
+
+  // ==========================================================
+  // GET SAVED PHONE
+  // ==========================================================
+  //
+  // Login screen should save the verified phone number locally.
+  //
+  // This allows Splash to recover an existing Owner even when
+  // Firebase Anonymous UID changes after reinstall.
+  //
+  // ==========================================================
+
+  Future<String?> _getSavedPhone() async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      final String? phone =
+          prefs.getString(
+        'owner_phone_number',
+      );
+
+      return _normalizePhone(phone);
+    } catch (e) {
+      debugPrint(
+        'Splash: Unable to read saved phone: $e',
+      );
+
+      return null;
+    }
+  }
+
+  // ==========================================================
+  // SAVE CURRENT PHONE
+  // ==========================================================
+
+  Future<void> _savePhone(
+    String phone,
+  ) async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setString(
+        'owner_phone_number',
+        phone,
+      );
+    } catch (e) {
+      debugPrint(
+        'Splash: Unable to save phone: $e',
+      );
+    }
+  }
+
+  // ==========================================================
+  // FIND OWNER BY PHONE
+  // ==========================================================
+
+  Future<String?> _findOwnerIdByPhone(
+    String phone,
+  ) async {
+    final String cleanPhone =
+        _normalizePhone(phone) ?? '';
+
+    if (cleanPhone.isEmpty) {
+      return null;
+    }
+
+    final String fullPhone =
+        '+91$cleanPhone';
+
+    // ========================================================
+    // 1. phoneAccounts.phone = 10 DIGITS
+    // ========================================================
+
+    QuerySnapshot<Map<String, dynamic>>
+        query =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
+            .where(
+              'phone',
+              isEqualTo: cleanPhone,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      final String? ownerId =
+          _extractOwnerId(
+        query.docs.first.data(),
+      );
+
+      if (ownerId != null) {
+        return ownerId;
+      }
+    }
+
+    // ========================================================
+    // 2. phoneAccounts.phone = +91XXXXXXXXXX
+    // ========================================================
+
+    query =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
+            .where(
+              'phone',
+              isEqualTo: fullPhone,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      final String? ownerId =
+          _extractOwnerId(
+        query.docs.first.data(),
+      );
+
+      if (ownerId != null) {
+        return ownerId;
+      }
+    }
+
+    // ========================================================
+    // 3. phoneAccounts.phoneNumber
+    // ========================================================
+
+    query =
+        await _firestore
+            .collection(
+              _phoneAccountsCollection,
+            )
+            .where(
+              'phoneNumber',
+              isEqualTo: fullPhone,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      final String? ownerId =
+          _extractOwnerId(
+        query.docs.first.data(),
+      );
+
+      if (ownerId != null) {
+        return ownerId;
+      }
+    }
+
+    // ========================================================
+    // 4. owners.phone
+    // ========================================================
+
+    query =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'phone',
+              isEqualTo: cleanPhone,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      return _extractOwnerId(
+        query.docs.first.data(),
+        fallbackId: query.docs.first.id,
+      );
+    }
+
+    // ========================================================
+    // 5. owners.phone = +91XXXXXXXXXX
+    // ========================================================
+
+    query =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'phone',
+              isEqualTo: fullPhone,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      return _extractOwnerId(
+        query.docs.first.data(),
+        fallbackId: query.docs.first.id,
+      );
+    }
+
+    // ========================================================
+    // 6. owners.phoneNumber
+    // ========================================================
+
+    query =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .where(
+              'phoneNumber',
+              isEqualTo: fullPhone,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      return _extractOwnerId(
+        query.docs.first.data(),
+        fallbackId: query.docs.first.id,
+      );
+    }
+
+    return null;
+  }
+
+  // ==========================================================
+  // EXTRACT OWNER ID
+  // ==========================================================
+
+  String? _extractOwnerId(
+    Map<String, dynamic> data, {
+    String? fallbackId,
+  }) {
+    final dynamic value =
+        data['ownerId'];
+
+    if (value != null) {
+      final String ownerId =
+          value.toString().trim();
+
+      if (ownerId.isNotEmpty) {
+        return ownerId;
+      }
+    }
+
+    if (fallbackId != null &&
+        fallbackId.trim().isNotEmpty) {
+      return fallbackId.trim();
+    }
+
+    return null;
+  }
+
+  // ==========================================================
+  // RECONNECT CURRENT UID
+  // ==========================================================
+
+  Future<void> _reconnectCurrentUid({
+    required String uid,
+    required String ownerId,
+    required String phone,
+  }) async {
+    final String cleanPhone =
+        _normalizePhone(phone) ?? '';
+
+    if (cleanPhone.isEmpty) {
+      return;
+    }
+
+    final String fullPhone =
+        '+91$cleanPhone';
+
+    // ========================================================
+    // phoneAccounts/{CURRENT UID}
+    // ========================================================
+
+    await _firestore
+        .collection(
+          _phoneAccountsCollection,
+        )
+        .doc(uid)
+        .set(
+      <String, dynamic>{
+        'uid': uid,
+        'authUid': uid,
+        'ownerId': ownerId,
+        'phone': cleanPhone,
+        'phoneNumber': fullPhone,
+        'mainPhone': fullPhone,
+        'role': 'owner',
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ========================================================
+    // owners/{OWNER ID}
+    // ========================================================
+    //
+    // IMPORTANT:
+    // profileCompleted is NOT touched here.
+    //
+    // Existing profile remains exactly as it is.
+    //
+    // ========================================================
+
+    await _firestore
+        .collection(
+          _ownersCollection,
+        )
+        .doc(ownerId)
+        .set(
+      <String, dynamic>{
+        'ownerId': ownerId,
+        'uid': uid,
+        'authUid': uid,
+        'phone': cleanPhone,
+        'phoneNumber': fullPhone,
+        'mainPhone': fullPhone,
+        'role': 'owner',
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    debugPrint(
+      'Splash: Existing Owner reconnected.',
+    );
+
+    debugPrint(
+      'Splash: Owner ID = $ownerId',
+    );
+
+    debugPrint(
+      'Splash: New Firebase UID = $uid',
+    );
+  }
+
+  // ==========================================================
+  // LOAD OWNER AND NAVIGATE
+  // ==========================================================
+
+  Future<void> _loadOwnerAndNavigate({
+    required String ownerId,
+    required String uid,
+  }) async {
+    final DocumentSnapshot<Map<String, dynamic>>
+        ownerSnapshot =
+        await _firestore
+            .collection(
+              _ownersCollection,
+            )
+            .doc(ownerId)
+            .get();
+
+    if (!ownerSnapshot.exists) {
+      debugPrint(
+        'Splash: owners/$ownerId does not exist.',
+      );
+
+      _goTo(
+        const ProfileSetupScreen(),
+      );
+
+      return;
+    }
+
+    final Map<String, dynamic> ownerData =
+        ownerSnapshot.data() ??
+            <String, dynamic>{};
+
+    // ========================================================
+    // ACTIVE
+    // ========================================================
+
+    final bool isActive =
+        ownerData['isActive'] != false;
+
+    debugPrint(
+      'Splash: isActive = $isActive',
+    );
+
+    if (!isActive) {
+      debugPrint(
+        'Splash: Owner account inactive.',
+      );
+
+      await _auth.signOut();
+
+      _goTo(
+        const LoginScreen(),
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // PROFILE COMPLETED
+    // ========================================================
+
+    final bool profileCompleted =
+        ownerData['profileCompleted'] == true;
+
+    debugPrint(
+      'Splash: profileCompleted = '
+      '$profileCompleted',
+    );
+
+    // ========================================================
+    // COMPLETE
+    // ========================================================
+
+    if (profileCompleted) {
+      debugPrint(
+        'Splash: Existing completed Owner.',
+      );
+
+      _goTo(
+        const MainNavigationScreen(),
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // INCOMPLETE
+    // ========================================================
+
+    debugPrint(
+      'Splash: Owner profile incomplete.',
+    );
+
+    _goTo(
+      const ProfileSetupScreen(),
+    );
+  }
+
+  // ==========================================================
   // CHECK LOGIN + PROFILE
   // ==========================================================
 
@@ -45,20 +542,28 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     try {
-      debugPrint('==========================================');
-      debugPrint('SPLASH: CHECKING LOGIN');
-      debugPrint('==========================================');
+      debugPrint(
+        '==========================================',
+      );
+
+      debugPrint(
+        'SPLASH: CHECKING LOGIN',
+      );
+
+      debugPrint(
+        '==========================================',
+      );
 
       // ========================================================
-      // 1. FIREBASE AUTH USER
+      // 1. FIREBASE USER
       // ========================================================
 
       final User? user =
-          FirebaseAuth.instance.currentUser;
+          _auth.currentUser;
 
       if (user == null) {
         debugPrint(
-          'Splash: No Firebase user found.',
+          'Splash: No Firebase session.',
         );
 
         _goTo(
@@ -68,14 +573,11 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      final String uid = user.uid.trim();
+      final String uid =
+          user.uid.trim();
 
       if (uid.isEmpty) {
-        debugPrint(
-          'Splash: Firebase UID is empty.',
-        );
-
-        await FirebaseAuth.instance.signOut();
+        await _auth.signOut();
 
         _goTo(
           const LoginScreen(),
@@ -89,60 +591,93 @@ class _SplashScreenState extends State<SplashScreen> {
       );
 
       // ========================================================
-      // 2. PHONE ACCOUNT
-      //
-      // phoneAccounts/{firebaseUid}
+      // 2. FIRST CHECK UID ACCOUNT
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
           accountSnapshot =
-          await FirebaseFirestore.instance
-              .collection('phoneAccounts')
+          await _firestore
+              .collection(
+                _phoneAccountsCollection,
+              )
               .doc(uid)
               .get();
 
+      if (accountSnapshot.exists) {
+        final Map<String, dynamic> accountData =
+            accountSnapshot.data() ??
+                <String, dynamic>{};
+
+        final dynamic ownerIdValue =
+            accountData['ownerId'];
+
+        if (ownerIdValue != null) {
+          final String ownerId =
+              ownerIdValue.toString().trim();
+
+          if (ownerId.isNotEmpty) {
+            debugPrint(
+              'Splash: Owner ID found by UID = $ownerId',
+            );
+
+            await _loadOwnerAndNavigate(
+              ownerId: ownerId,
+              uid: uid,
+            );
+
+            return;
+          }
+        }
+      }
+
       // ========================================================
-      // PHONE ACCOUNT DOES NOT EXIST
+      // 3. UID NOT FOUND
+      //
+      // This can happen after reinstall because Anonymous UID
+      // can be different.
+      //
       // ========================================================
 
-      if (!accountSnapshot.exists) {
+      debugPrint(
+        'Splash: Current UID has no phone account.',
+      );
+
+      // ========================================================
+      // 4. RECOVER PHONE
+      // ========================================================
+
+      final String? savedPhone =
+          await _getSavedPhone();
+
+      if (savedPhone == null) {
         debugPrint(
-          'Splash: phoneAccounts/$uid does not exist.',
+          'Splash: No saved phone available.',
         );
 
-        // ------------------------------------------------------
-        // IMPORTANT:
-        // Do NOT sign out here.
-        //
-        // User is authenticated, but account/profile setup
-        // has not been completed yet.
-        // ------------------------------------------------------
-
         _goTo(
-          const ProfileSetupScreen(),
+          const LoginScreen(),
         );
 
         return;
       }
 
-      final Map<String, dynamic> accountData =
-          accountSnapshot.data() ??
-              <String, dynamic>{};
-
       debugPrint(
-        'Splash: phoneAccounts data loaded.',
+        'Splash: Saved phone found.',
       );
 
       // ========================================================
-      // 3. OWNER ID
+      // 5. FIND OLD OWNER BY PHONE
       // ========================================================
 
-      final dynamic ownerIdValue =
-          accountData['ownerId'];
+      final String? existingOwnerId =
+          await _findOwnerIdByPhone(
+        savedPhone,
+      );
 
-      if (ownerIdValue == null) {
+      if (existingOwnerId == null ||
+          existingOwnerId.trim().isEmpty) {
         debugPrint(
-          'Splash: ownerId is missing.',
+          'Splash: No existing Owner found for phone.',
         );
 
         _goTo(
@@ -153,132 +688,33 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       final String ownerId =
-          ownerIdValue.toString().trim();
-
-      if (ownerId.isEmpty) {
-        debugPrint(
-          'Splash: ownerId is empty.',
-        );
-
-        _goTo(
-          const ProfileSetupScreen(),
-        );
-
-        return;
-      }
+          existingOwnerId.trim();
 
       debugPrint(
-        'Splash: ownerId = $ownerId',
+        'Splash: Existing Owner found by phone.',
+      );
+
+      debugPrint(
+        'Splash: Owner ID = $ownerId',
       );
 
       // ========================================================
-      // 4. OWNER PROFILE
-      //
-      // owners/{ownerId}
+      // 6. RECONNECT NEW UID TO OLD OWNER
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
-          ownerSnapshot =
-          await FirebaseFirestore.instance
-              .collection('owners')
-              .doc(ownerId)
-              .get();
-
-      // ========================================================
-      // OWNER PROFILE DOES NOT EXIST
-      // ========================================================
-
-      if (!ownerSnapshot.exists) {
-        debugPrint(
-          'Splash: owners/$ownerId does not exist.',
-        );
-
-        _goTo(
-          const ProfileSetupScreen(),
-        );
-
-        return;
-      }
-
-      final Map<String, dynamic> ownerData =
-          ownerSnapshot.data() ??
-              <String, dynamic>{};
-
-      debugPrint(
-        'Splash: owner profile loaded.',
+      await _reconnectCurrentUid(
+        uid: uid,
+        ownerId: ownerId,
+        phone: savedPhone,
       );
 
       // ========================================================
-      // 5. CHECK ACCOUNT ACTIVE
+      // 7. LOAD OLD OWNER PROFILE
       // ========================================================
 
-      final dynamic activeValue =
-          ownerData['isActive'];
-
-      final bool isActive =
-          activeValue == null ||
-          activeValue == true;
-
-      debugPrint(
-        'Splash: isActive = $isActive',
-      );
-
-      if (!isActive) {
-        debugPrint(
-          'Splash: owner account is inactive.',
-        );
-
-        await FirebaseAuth.instance.signOut();
-
-        _goTo(
-          const LoginScreen(),
-        );
-
-        return;
-      }
-
-      // ========================================================
-      // 6. CHECK PROFILE COMPLETED
-      // ========================================================
-
-      final bool profileCompleted =
-          ownerData['profileCompleted'] == true;
-
-      debugPrint(
-        'Splash: profileCompleted = '
-        '$profileCompleted',
-      );
-
-      // ========================================================
-      // 7. PROFILE COMPLETE
-      // ========================================================
-
-      if (profileCompleted) {
-        debugPrint(
-          'Splash: Profile complete.',
-        );
-
-        debugPrint(
-          'Splash: Opening MainNavigationScreen.',
-        );
-
-        _goTo(
-          const MainNavigationScreen(),
-        );
-
-        return;
-      }
-
-      // ========================================================
-      // 8. PROFILE INCOMPLETE
-      // ========================================================
-
-      debugPrint(
-        'Splash: Profile incomplete.',
-      );
-
-      _goTo(
-        const ProfileSetupScreen(),
+      await _loadOwnerAndNavigate(
+        ownerId: ownerId,
+        uid: uid,
       );
     }
 
@@ -341,7 +777,7 @@ class _SplashScreenState extends State<SplashScreen> {
       );
 
       debugPrint(
-        '==========================================',
+        '$e',
       );
 
       if (!mounted || _navigated) {
@@ -379,7 +815,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   // ==========================================================
-  // ERROR MESSAGE
+  // ERROR
   // ==========================================================
 
   void _showFirebaseError(
@@ -394,10 +830,10 @@ class _SplashScreenState extends State<SplashScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(
-            seconds: 5,
-          ),
+          behavior:
+              SnackBarBehavior.floating,
+          duration:
+              const Duration(seconds: 5),
         ),
       );
   }
@@ -429,19 +865,13 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor:
           const Color(0xFFF4511E),
-
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ====================================================
-          // SPLASH IMAGE
-          // ====================================================
-
           Image.asset(
             'assets/dojo_splash.png',
             fit: BoxFit.cover,
-            errorBuilder:
-                (
+            errorBuilder: (
               BuildContext context,
               Object error,
               StackTrace? stackTrace,
@@ -452,10 +882,6 @@ class _SplashScreenState extends State<SplashScreen> {
               );
             },
           ),
-
-          // ====================================================
-          // LOADING / ERROR
-          // ====================================================
 
           Positioned(
             left: 20,
@@ -477,11 +903,9 @@ class _SplashScreenState extends State<SplashScreen> {
                           FontWeight.w500,
                     ),
                   ),
-
                   const SizedBox(
                     height: 18,
                   ),
-
                   const SizedBox(
                     width: 30,
                     height: 30,
@@ -507,11 +931,9 @@ class _SplashScreenState extends State<SplashScreen> {
                           FontWeight.w700,
                     ),
                   ),
-
                   const SizedBox(
                     height: 14,
                   ),
-
                   SizedBox(
                     height: 44,
                     child: ElevatedButton(
