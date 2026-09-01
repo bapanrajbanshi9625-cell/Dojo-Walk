@@ -60,12 +60,12 @@ class PetCard extends StatelessWidget {
                 width: 43,
                 height: 43,
                 decoration: const BoxDecoration(
-                  color: AppColors.orangeLight,
+                  color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: AppColors.primary,
+                  color: Colors.white,
                   size: 23,
                 ),
               ),
