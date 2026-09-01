@@ -315,6 +315,42 @@ class _OtpVerificationScreenState
     }
 
     // ==========================================================
+    // FIREBASE AUTH ERROR
+    // ==========================================================
+
+    on FirebaseAuthException catch (e) {
+      debugPrint(
+        'FIREBASE AUTH ERROR: ${e.code}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        _firebaseAuthErrorMessage(e),
+      );
+    }
+
+    // ==========================================================
+    // FIREBASE ERROR
+    // ==========================================================
+
+    on FirebaseException catch (e) {
+      debugPrint(
+        'FIREBASE ERROR: ${e.code}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        _firebaseErrorMessage(e),
+      );
+    }
+
+    // ==========================================================
     // GENERAL ERROR
     // ==========================================================
 
@@ -327,33 +363,9 @@ class _OtpVerificationScreenState
         return;
       }
 
-      final String error =
-          e.toString().toLowerCase();
-
-      if (error.contains('invalid') &&
-          error.contains('otp')) {
-        _showMessage(
-          'Invalid OTP. Please check the code and try again.',
-        );
-      } else if (error.contains('expired') ||
-          error.contains('session')) {
-        _showMessage(
-          'This OTP session has expired. Please request a new OTP.',
-        );
-      } else if (error.contains('access token')) {
-        _showMessage(
-          'OTP verified, but authentication could not be completed. Please try again.',
-        );
-      } else if (error.contains('network') ||
-          error.contains('internet')) {
-        _showMessage(
-          'Network error. Please check your internet connection.',
-        );
-      } else {
-        _showMessage(
-          'Unable to complete login. Please try again.',
-        );
-      }
+      _showMessage(
+        'Unable to complete login. Please try again.',
+      );
     }
 
     // ==========================================================
@@ -367,8 +379,6 @@ class _OtpVerificationScreenState
         });
       }
     }
-  }
-
   // ============================================================
   // RESEND OTP
   // ============================================================
