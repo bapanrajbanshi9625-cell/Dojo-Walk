@@ -17,7 +17,9 @@ class ProfileWelcomeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(
+              alpha: 0.12,
+            ),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
@@ -25,11 +27,16 @@ class ProfileWelcomeCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // ====================================================
+          // PAW ICON
+          // ORANGE BACKGROUND + WHITE PAW
+          // ====================================================
+
           Container(
             width: 57,
             height: 57,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: DojoBrandColors.orangeDark,
               borderRadius: BorderRadius.circular(17),
             ),
             child: const Icon(
@@ -43,7 +50,8 @@ class ProfileWelcomeCard extends StatelessWidget {
 
           const Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   'Complete Your Profile',
@@ -53,7 +61,9 @@ class ProfileWelcomeCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+
                 SizedBox(height: 5),
+
                 Text(
                   'Add your details and your pets.',
                   style: TextStyle(
