@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -101,50 +102,124 @@ class _OtpVerificationScreenState
       _isVerifying = true;
     });
 
+    FocusScope.of(context).unfocus();
+
     try {
       // ========================================================
-      // MSG91 VERIFICATION THROUGH OTP SERVICE
+      // STEP 1
+      // MSG91 OTP VERIFICATION
       // ========================================================
 
-      final String result =
+      final String accessToken =
           await OtpService.instance.verifyOtp(
         reqId: _reqId,
         otp: otp,
       );
 
       // ========================================================
-      // NEVER LOG THE ACCESS TOKEN
+      // ACCESS TOKEN IS REQUIRED
+      // ========================================================
+      //
+      // "verified" only means OTP was verified.
+      // It is NOT a Firebase authentication session.
+      //
       // ========================================================
 
-      final bool isVerified =
-          result.trim().isNotEmpty;
-
-      if (!isVerified) {
+      if (accessToken.trim().isEmpty ||
+          accessToken.trim() == 'verified') {
         throw Exception(
-          'OTP verification failed. Please try again.',
+          'MSG91 access token was not returned.',
         );
       }
 
       // ========================================================
-      // IMPORTANT
+      // STEP 2
+      // CALL FIREBASE CLOUD FUNCTION
+      // ========================================================
+
+      final HttpsCallable callable =
+          FirebaseFunctions.instance
+              .httpsCallable(
+        'createFirebaseToken',
+      );
+
+      final HttpsCallableResult<dynamic>
+          functionResult =
+          await callable.call(
+        <String, dynamic>{
+          'accessToken':
+              accessToken.trim(),
+        },
+      );
+
+      // ========================================================
+      // STEP 3
+      // READ FUNCTION RESPONSE
+      // ========================================================
+
+      if (functionResult.data == null) {
+        throw Exception(
+          'Firebase authentication response is empty.',
+        );
+      }
+
+      final Map<String, dynamic> data =
+          Map<String, dynamic>.from(
+        functionResult.data as Map,
+      );
+
+      final bool success =
+          data['success'] == true;
+
+      final String customToken =
+          data['customToken']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (!success ||
+          customToken.isEmpty) {
+        throw Exception(
+          'Firebase authentication token was not returned.',
+        );
+      }
+
+      // ========================================================
+      // STEP 4
+      // FIREBASE AUTHENTICATION
       // ========================================================
       //
-      // OtpService currently returns:
+      // This creates the real Firebase Auth session.
       //
-      // 1. MSG91 access token
-      //    OR
+      // SplashScreen can now safely read:
       //
-      // 2. "verified"
-      //
-      // The Firebase Custom Token exchange will be added
-      // separately through Cloud Functions.
-      //
-      // Do NOT treat "verified" as a Firebase login.
+      // phoneAccounts/{uid}
       //
       // ========================================================
 
+      final UserCredential
+          credential =
+          await FirebaseAuth.instance
+              .signInWithCustomToken(
+        customToken,
+      );
+
+      final User? firebaseUser =
+          credential.user;
+
+      if (firebaseUser == null) {
+        throw Exception(
+          'Firebase user session could not be created.',
+        );
+      }
+
+      // ========================================================
+      // STEP 5
+      // SUCCESS
+      // ========================================================
+
       debugPrint(
-        'MSG91 OTP verification successful.',
+        'Firebase authentication successful.',
       );
 
       if (!mounted) {
@@ -152,27 +227,33 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // MOVE TO SPLASH
+      // STEP 6
+      // SPLASH
       // ========================================================
       //
-      // Splash is responsible for:
+      // Splash now runs with an authenticated Firebase user.
       //
-      // Firebase session
+      // Expected flow:
+      //
+      // FirebaseAuth.currentUser
       //       ↓
       // phoneAccounts/{uid}
+      //       ↓
+      // ownerId
       //       ↓
       // owners/{ownerId}
       //       ↓
       // profileCompleted
       //       ↓
-      // MainNavigationScreen / ProfileSetupScreen
+      // ProfileSetupScreen / MainNavigationScreen
       //
       // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => SplashScreen(
-            phoneNumber: widget.phoneNumber,
+            phoneNumber:
+                widget.phoneNumber,
           ),
         ),
         (route) => false,
@@ -185,7 +266,7 @@ class _OtpVerificationScreenState
 
     on FirebaseAuthException catch (e) {
       debugPrint(
-        'OTP FIREBASE AUTH ERROR: ${e.code}',
+        'FIREBASE AUTH ERROR: ${e.code}',
       );
 
       if (!mounted) {
@@ -203,7 +284,7 @@ class _OtpVerificationScreenState
 
     on FirebaseException catch (e) {
       debugPrint(
-        'OTP FIREBASE ERROR: ${e.code}',
+        'FIREBASE ERROR: ${e.code}',
       );
 
       if (!mounted) {
@@ -212,6 +293,24 @@ class _OtpVerificationScreenState
 
       _showMessage(
         _firebaseErrorMessage(e),
+      );
+    }
+
+    // ==========================================================
+    // CLOUD FUNCTION ERROR
+    // ==========================================================
+
+    on FirebaseFunctionsException catch (e) {
+      debugPrint(
+        'CLOUD FUNCTION ERROR: ${e.code}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        _cloudFunctionErrorMessage(e),
       );
     }
 
@@ -241,9 +340,9 @@ class _OtpVerificationScreenState
         _showMessage(
           'This OTP session has expired. Please request a new OTP.',
         );
-      } else if (error.contains('too many')) {
+      } else if (error.contains('access token')) {
         _showMessage(
-          'Too many attempts. Please try again later.',
+          'OTP verified, but authentication could not be completed. Please try again.',
         );
       } else if (error.contains('network') ||
           error.contains('internet')) {
@@ -252,7 +351,7 @@ class _OtpVerificationScreenState
         );
       } else {
         _showMessage(
-          'OTP verification failed. Please try again.',
+          'Unable to complete login. Please try again.',
         );
       }
     }
@@ -292,10 +391,6 @@ class _OtpVerificationScreenState
     });
 
     try {
-      // ========================================================
-      // RESEND THROUGH OTP SERVICE
-      // ========================================================
-
       final String? newReqId =
           await OtpService.instance.resendOtp(
         reqId: _reqId,
@@ -391,10 +486,6 @@ class _OtpVerificationScreenState
       case 'user-not-found':
         return 'Account not found. Please complete profile setup.';
 
-      case 'invalid-phone-number':
-      case 'invalid-phone':
-        return 'Please enter a valid 10-digit mobile number.';
-
       case 'operation-not-allowed':
         return 'Firebase Authentication is not enabled.';
 
@@ -434,6 +525,41 @@ class _OtpVerificationScreenState
 
       default:
         return 'Unable to access your account. Please try again.';
+    }
+  }
+
+  // ============================================================
+  // CLOUD FUNCTION ERROR MESSAGE
+  // ============================================================
+
+  String _cloudFunctionErrorMessage(
+    FirebaseFunctionsException e,
+  ) {
+    switch (e.code) {
+      case 'unauthenticated':
+        return 'MSG91 verification failed. Please verify the OTP again.';
+
+      case 'permission-denied':
+        return 'This mobile number is not linked to the correct Dojo account.';
+
+      case 'not-found':
+        return 'No Dojo owner account is linked to this mobile number.';
+
+      case 'failed-precondition':
+        return 'Your Dojo account is not configured correctly.';
+
+      case 'invalid-argument':
+        return 'Invalid authentication information. Please try again.';
+
+      case 'unavailable':
+        return 'Authentication service is temporarily unavailable.';
+
+      case 'deadline-exceeded':
+        return 'Authentication request timed out. Please try again.';
+
+      default:
+        return e.message ??
+            'Unable to complete Firebase authentication.';
     }
   }
 
