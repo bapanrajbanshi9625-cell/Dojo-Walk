@@ -14,8 +14,7 @@ class HomePastWalkService {
   final HomeOwnerService _ownerService =
       HomeOwnerService.instance;
 
-  static const String collection =
-      'walk_history';
+  static const String collection = 'walk_history';
 
   // ============================================================
   // GET PAST WALKS
@@ -31,8 +30,7 @@ class HomePastWalkService {
       return <Map<String, dynamic>>[];
     }
 
-    final List<Map<String, dynamic>> result =
-        <Map<String, dynamic>>[];
+    final int safeLimit = limit > 0 ? limit : 20;
 
     try {
       final QuerySnapshot<Map<String, dynamic>> snapshot =
@@ -42,34 +40,33 @@ class HomePastWalkService {
                 'ownerId',
                 isEqualTo: ownerId,
               )
-              .limit(limit)
+              .limit(safeLimit)
               .get();
 
-      for (
-        final QueryDocumentSnapshot<
-            Map<String, dynamic>> doc
-        in snapshot.docs
-      ) {
-        final Map<String, dynamic> data =
-            Map<String, dynamic>.from(
-          doc.data(),
-        );
+      final List<Map<String, dynamic>> result =
+          snapshot.docs.map(
+        (
+          QueryDocumentSnapshot<Map<String, dynamic>> doc,
+        ) {
+          final Map<String, dynamic> data =
+              Map<String, dynamic>.from(doc.data());
 
-        data['documentId'] = doc.id;
+          data['documentId'] = doc.id;
 
-        result.add(data);
+          return data;
+        },
+      ).toList();
+
+      result.sort(_compareDates);
+
+      if (result.length > safeLimit) {
+        return result.take(safeLimit).toList();
       }
-    } catch (_) {
+
+      return result;
+    } catch (error) {
       return <Map<String, dynamic>>[];
     }
-
-    result.sort(_compareDates);
-
-    if (result.length > limit) {
-      return result.take(limit).toList();
-    }
-
-    return result;
   }
 
   // ============================================================
@@ -87,6 +84,8 @@ class HomePastWalkService {
       return;
     }
 
+    final int safeLimit = limit > 0 ? limit : 20;
+
     yield* _firestore
         .collection(collection)
         .where(
@@ -95,31 +94,33 @@ class HomePastWalkService {
         )
         .snapshots()
         .map(
+      (
+        QuerySnapshot<Map<String, dynamic>> snapshot,
+      ) {
+        final List<Map<String, dynamic>> walks =
+            snapshot.docs.map(
           (
-            QuerySnapshot<Map<String, dynamic>> snapshot,
+            QueryDocumentSnapshot<
+                Map<String, dynamic>> doc,
           ) {
-            final List<Map<String, dynamic>> walks =
-                snapshot.docs.map(
-              (
-                QueryDocumentSnapshot<
-                    Map<String, dynamic>> doc,
-              ) {
-                final Map<String, dynamic> data =
-                    Map<String, dynamic>.from(
-                  doc.data(),
-                );
+            final Map<String, dynamic> data =
+                Map<String, dynamic>.from(doc.data());
 
-                data['documentId'] = doc.id;
+            data['documentId'] = doc.id;
 
-                return data;
-              },
-            ).toList();
-
-            walks.sort(_compareDates);
-
-            return walks.take(limit).toList();
+            return data;
           },
-        );
+        ).toList();
+
+        walks.sort(_compareDates);
+
+        if (walks.length > safeLimit) {
+          return walks.take(safeLimit).toList();
+        }
+
+        return walks;
+      },
+    );
   }
 
   // ============================================================
@@ -127,49 +128,55 @@ class HomePastWalkService {
   // ============================================================
 
   Future<Map<String, dynamic>?> getWalkById(
-  String walkId,
-) async {
-  final String? ownerId =
-      await _ownerService.getOwnerId();
+    String walkId,
+  ) async {
+    final String? ownerId =
+        await _ownerService.getOwnerId();
 
-  if (ownerId == null || ownerId.isEmpty) {
-    return null;
-  }
+    if (ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
 
-  try {
-    final QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _firestore
-            .collection(collection)
-            .where(
-              'ownerId',
-              isEqualTo: ownerId,
-            )
-            .where(
-              'walkId',
-              isEqualTo: walkId,
-            )
-            .limit(1)
-            .get();
+    final String cleanWalkId = walkId.trim();
 
-    if (snapshot.docs.isNotEmpty) {
+    if (cleanWalkId.isEmpty) {
+      return null;
+    }
+
+    try {
+      final QuerySnapshot<Map<String, dynamic>> snapshot =
+          await _firestore
+              .collection(collection)
+              .where(
+                'ownerId',
+                isEqualTo: ownerId,
+              )
+              .where(
+                'walkId',
+                isEqualTo: cleanWalkId,
+              )
+              .limit(1)
+              .get();
+
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
       final QueryDocumentSnapshot<
           Map<String, dynamic>> doc =
           snapshot.docs.first;
 
       final Map<String, dynamic> data =
-          Map<String, dynamic>.from(
-        doc.data(),
-      );
+          Map<String, dynamic>.from(doc.data());
 
       data['documentId'] = doc.id;
 
       return data;
+    } catch (error) {
+      return null;
     }
-  } catch (_) {}
-
-  return null;
   }
-  
+
   // ============================================================
   // DATE SORT
   // ============================================================
@@ -178,25 +185,27 @@ class HomePastWalkService {
     Map<String, dynamic> a,
     Map<String, dynamic> b,
   ) {
-    final DateTime dateA =
-        _dateFromMap(a);
+    final DateTime dateA = _dateFromMap(a);
+    final DateTime dateB = _dateFromMap(b);
 
-    final DateTime dateB =
-        _dateFromMap(b);
-
+    // Newest first.
     return dateB.compareTo(dateA);
   }
+
+  // ============================================================
+  // DATE PARSER
+  // ============================================================
 
   static DateTime _dateFromMap(
     Map<String, dynamic> data,
   ) {
     final dynamic value =
+        data['completedAt'] ??
+        data['endedAt'] ??
         data['date'] ??
-            data['createdAt'] ??
-            data['completedAt'] ??
-            data['endedAt'] ??
-            data['startTime'] ??
-            data['timestamp'];
+        data['createdAt'] ??
+        data['startTime'] ??
+        data['timestamp'];
 
     if (value is Timestamp) {
       return value.toDate();
@@ -206,13 +215,15 @@ class HomePastWalkService {
       return value;
     }
 
-    if (value is String) {
-      final DateTime? parsed =
-          DateTime.tryParse(value);
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        value,
+      );
+    }
 
-      if (parsed != null) {
-        return parsed;
-      }
+    if (value is String) {
+      return DateTime.tryParse(value) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
     }
 
     return DateTime.fromMillisecondsSinceEpoch(0);
