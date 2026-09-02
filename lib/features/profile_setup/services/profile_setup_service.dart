@@ -18,6 +18,10 @@ class ProfileSetupService {
   static final ProfileSetupService instance =
       ProfileSetupService._();
 
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
   static final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
@@ -53,21 +57,24 @@ class ProfileSetupService {
   static String _normalizePhone(String phoneNumber) {
     String phone = phoneNumber.trim();
 
-    // Remove spaces, brackets and hyphens.
-    phone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    phone = phone.replaceAll(
+      RegExp(r'[\s\-\(\)]'),
+      '',
+    );
 
     // Already international format.
     if (phone.startsWith('+')) {
       return phone;
     }
 
-    // India local 10 digit number.
+    // Indian 10-digit number.
     if (phone.length == 10) {
       return '+91$phone';
     }
 
-    // 91XXXXXXXXXX without +
-    if (phone.length == 12 && phone.startsWith('91')) {
+    // 91XXXXXXXXXX without +.
+    if (phone.length == 12 &&
+        phone.startsWith('91')) {
       return '+$phone';
     }
 
@@ -99,7 +106,7 @@ class ProfileSetupService {
   // IMPORTANT:
   // This method is NOT called from saveProfile().
   //
-  // It remains available for later app features such as
+  // It remains available for later features such as
   // live location / walk tracking.
   // ============================================================
 
@@ -151,17 +158,20 @@ class ProfileSetupService {
       throw FirebaseException(
         plugin: 'firebase_storage',
         code: 'file-not-found',
-        message: 'Profile photo file was not found.',
+        message:
+            'Profile photo file was not found.',
       );
     }
 
-    final String cleanUid = uid.trim();
+    final String cleanUid =
+        uid.trim();
 
     if (cleanUid.isEmpty) {
       throw FirebaseException(
         plugin: 'firebase_storage',
         code: 'invalid-uid',
-        message: 'Invalid Firebase UID.',
+        message:
+            'Invalid Firebase UID.',
       );
     }
 
@@ -171,7 +181,9 @@ class ProfileSetupService {
     final Reference storageReference =
         _storage
             .ref()
-            .child(_ownerProfilePhotosFolder)
+            .child(
+              _ownerProfilePhotosFolder,
+            )
             .child(cleanUid)
             .child(fileName);
 
@@ -187,7 +199,8 @@ class ProfileSetupService {
       final TaskSnapshot snapshot =
           await uploadTask;
 
-      return await snapshot.ref.getDownloadURL();
+      return await snapshot.ref
+          .getDownloadURL();
     } catch (e) {
       developer.log(
         'Profile photo upload failed: $e',
@@ -200,21 +213,27 @@ class ProfileSetupService {
 
   // ============================================================
   // PET CONVERSION
+  //
+  // PetData contains only:
+  // name
+  // age
+  // breed
+  // behaviour
   // ============================================================
 
   static List<Map<String, dynamic>> _convertPets(
     List<PetData> pets,
   ) {
-    final List<Map<String, dynamic>> result = [];
+    final List<Map<String, dynamic>> result =
+        <Map<String, dynamic>>[];
 
-    for (final PetData pet in pets.take(maximumPets)) {
+    for (final PetData pet
+        in pets.take(maximumPets)) {
       result.add({
         'name': pet.name.trim(),
-        'breed': pet.breed.trim(),
-        'age': pet.age,
-        'gender': pet.gender,
-        'weight': pet.weight,
-        'photoUrl': pet.photoUrl,
+        'age': pet.age?.trim(),
+        'breed': pet.breed?.trim(),
+        'behaviour': pet.behaviour?.trim(),
       });
     }
 
@@ -225,10 +244,10 @@ class ProfileSetupService {
   // SAVE PROFILE
   //
   // IMPORTANT:
-  // Profile Setup DOES NOT request or save current location.
+  // Profile Setup DOES NOT request location.
   //
-  // requireLocation is intentionally kept for compatibility
-  // with the existing ProfileSetupScreen.
+  // requireLocation is retained for compatibility with the
+  // existing ProfileSetupScreen.
   // ============================================================
 
   static Future<void> saveProfile({
@@ -239,14 +258,26 @@ class ProfileSetupService {
     File? profilePhoto,
     bool requireLocation = false,
   }) async {
-    final User user = _requireCurrentUser();
+    // Kept intentionally for compatibility.
+    // Location is disabled during Profile Setup.
+    if (requireLocation) {
+      developer.log(
+        'Location requirement ignored during profile setup.',
+        name: 'ProfileSetupService',
+      );
+    }
 
-    final String uid = user.uid.trim();
+    final User user =
+        _requireCurrentUser();
+
+    final String uid =
+        user.uid.trim();
 
     if (uid.isEmpty) {
       throw FirebaseAuthException(
         code: 'invalid-uid',
-        message: 'Invalid Firebase user.',
+        message:
+            'Invalid Firebase user.',
       );
     }
 
@@ -267,7 +298,8 @@ class ProfileSetupService {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'owner-name-required',
-        message: 'Owner name is required.',
+        message:
+            'Owner name is required.',
       );
     }
 
@@ -275,7 +307,8 @@ class ProfileSetupService {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'phone-required',
-        message: 'Verified mobile number is required.',
+        message:
+            'Verified mobile number is required.',
       );
     }
 
@@ -288,47 +321,49 @@ class ProfileSetupService {
 
     // ==========================================================
     // OWNER ID
-    //
-    // Existing Owner ID is reused if available.
-    // Otherwise a new Owner ID is generated.
     // ==========================================================
 
     String? ownerId =
-        await OwnerIdService.instance.getExistingOwnerId(
+        await OwnerIdService.instance
+            .getExistingOwnerId(
       uid: uid,
     );
 
     ownerId ??=
-        await OwnerIdService.instance.getOrCreateOwnerId(
+        await OwnerIdService.instance
+            .getOrCreateOwnerId(
       uid: uid,
       phoneNumber: fullPhoneNumber,
     );
 
-    ownerId = ownerId.trim();
+    ownerId =
+        ownerId.trim();
 
     if (ownerId.isEmpty) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'owner-id-failed',
-        message: 'Unable to create Owner ID.',
+        message:
+            'Unable to create Owner ID.',
       );
     }
 
     // ==========================================================
     // PROFILE DATA
     //
-    // NO LOCATION IS COLLECTED HERE.
+    // NO LOCATION IS ADDED HERE.
     // ==========================================================
 
     final Map<String, dynamic> profileData =
         <String, dynamic>{
+      // Owner identity.
       'ownerId': ownerId,
 
-      // Firebase Authentication UID.
+      // Firebase identity.
       'authUid': uid,
       'uid': uid,
 
-      // Phone information.
+      // Phone.
       'phone': fullPhoneNumber,
       'mainPhone': fullPhoneNumber,
       'phoneNumber': fullPhoneNumber,
@@ -337,8 +372,8 @@ class ProfileSetupService {
       'ownerName': cleanOwnerName,
       'fullName': cleanOwnerName,
 
-      // Address is kept as an empty field for compatibility.
-      // Profile Setup UI no longer asks for address.
+      // Address kept only for schema compatibility.
+      // Profile Setup UI no longer collects it.
       'address': cleanAddress,
 
       // Pets.
@@ -348,10 +383,11 @@ class ProfileSetupService {
       'role': 'owner',
       'isActive': true,
 
-      // Profile completion.
+      // Completion.
       'profileCompleted': true,
 
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt':
+          FieldValue.serverTimestamp(),
 
       'profileCompletedAt':
           FieldValue.serverTimestamp(),
@@ -390,14 +426,15 @@ class ProfileSetupService {
     // ==========================================================
     // SAVE PHONE ACCOUNT
     //
-    // IMPORTANT:
     // Document ID = Firebase UID.
-    // Phone number is only stored as a field.
+    // Phone number is stored as a field.
     // ==========================================================
 
-    final Map<String, dynamic> phoneAccountData =
+    final Map<String, dynamic>
+        phoneAccountData =
         <String, dynamic>{
       'uid': uid,
+
       'ownerId': ownerId,
 
       'phone': fullPhoneNumber,
@@ -417,7 +454,9 @@ class ProfileSetupService {
     };
 
     await _firestore
-        .collection(_phoneAccountsCollection)
+        .collection(
+          _phoneAccountsCollection,
+        )
         .doc(uid)
         .set(
           phoneAccountData,
@@ -438,9 +477,11 @@ class ProfileSetupService {
   static Future<String> updateProfilePhoto(
     File imageFile,
   ) async {
-    final User user = _requireCurrentUser();
+    final User user =
+        _requireCurrentUser();
 
-    final String uid = user.uid.trim();
+    final String uid =
+        user.uid.trim();
 
     final String photoUrl =
         await uploadOwnerProfilePhoto(
@@ -481,7 +522,7 @@ class ProfileSetupService {
   }
 
   // ============================================================
-  // CHECK PROFILE COMPLETION
+  // CHECK PROFILE COMPLETED
   // ============================================================
 
   static Future<bool> isProfileCompleted() async {
@@ -507,7 +548,9 @@ class ProfileSetupService {
       final DocumentSnapshot<
           Map<String, dynamic>> snapshot =
           await _firestore
-              .collection(_ownersCollection)
+              .collection(
+                _ownersCollection,
+              )
               .doc(ownerId)
               .get();
 
@@ -539,7 +582,8 @@ class ProfileSetupService {
   // ============================================================
 
   static Future<
-      DocumentSnapshot<Map<String, dynamic>>?>
+      DocumentSnapshot<
+          Map<String, dynamic>>?>
       getOwnerProfile() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
@@ -561,7 +605,9 @@ class ProfileSetupService {
       }
 
       return await _firestore
-          .collection(_ownersCollection)
+          .collection(
+            _ownersCollection,
+          )
           .doc(ownerId)
           .get();
     } catch (e) {
@@ -605,7 +651,8 @@ class ProfileSetupService {
   // GET PROFILE PHOTO URL
   // ============================================================
 
-  static Future<String?> getProfilePhotoUrl() async {
+  static Future<String?>
+      getProfilePhotoUrl() async {
     final DocumentSnapshot<
         Map<String, dynamic>>? snapshot =
         await getOwnerProfile();
@@ -633,19 +680,21 @@ class ProfileSetupService {
     final String url =
         value.toString().trim();
 
-    return url.isEmpty ? null : url;
+    return url.isEmpty
+        ? null
+        : url;
   }
 
   // ============================================================
   // UPDATE CURRENT LOCATION
   //
-  // IMPORTANT:
-  // This is kept separately for later app functionality.
+  // This is separate from Profile Setup.
   //
-  // Profile Setup does NOT call this method.
+  // Profile Setup NEVER calls this method.
   // ============================================================
 
-  static Future<void> updateCurrentLocation() async {
+  static Future<void>
+      updateCurrentLocation() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
 
@@ -657,12 +706,14 @@ class ProfileSetupService {
       );
     }
 
-    final String uid = user.uid.trim();
+    final String uid =
+        user.uid.trim();
 
     if (uid.isEmpty) {
       throw FirebaseAuthException(
         code: 'invalid-uid',
-        message: 'Invalid Firebase UID.',
+        message:
+            'Invalid Firebase UID.',
       );
     }
 
@@ -699,12 +750,17 @@ class ProfileSetupService {
         .doc(ownerId)
         .set(
       {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
+        'latitude':
+            position.latitude,
+
+        'longitude':
+            position.longitude,
 
         'location': {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
+          'latitude':
+              position.latitude,
+          'longitude':
+              position.longitude,
         },
 
         'locationAccuracy':
