@@ -330,21 +330,20 @@ class _ActiveLiveWalkStripState
     // ========================================================
 
     setState(() {
-      _loading = false;
+  _loading = false;
 
-      // Firestore document ID = request ID
-      _requestId =
-          selectedDocument.id;
+  // Firestore document ID = request ID
+  _requestId =
+      selectedDocument!.id;
 
-      _status = status;
+  _status = status;
 
-      _dogName = dogName;
+  _dogName = dogName;
 
-      _dogBreed = dogBreed;
+  _dogBreed = dogBreed;
 
-      _walkerName = walkerName;
-    });
-  }
+  _walkerName = walkerName;
+});
 
   // ==========================================================
   // ERROR
