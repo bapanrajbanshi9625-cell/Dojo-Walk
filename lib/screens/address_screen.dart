@@ -13,12 +13,10 @@ class AddressScreen extends StatefulWidget {
   const AddressScreen({super.key});
 
   @override
-  State<AddressScreen> createState() =>
-      _AddressScreenState();
+  State<AddressScreen> createState() => _AddressScreenState();
 }
 
-class _AddressScreenState
-    extends State<AddressScreen> {
+class _AddressScreenState extends State<AddressScreen> {
   // =========================================================
   // CONTROLLERS
   // =========================================================
@@ -26,12 +24,10 @@ class _AddressScreenState
   final TextEditingController _flatController =
       TextEditingController();
 
-  final TextEditingController
-      _addressLine1Controller =
+  final TextEditingController _addressLine1Controller =
       TextEditingController();
 
-  final TextEditingController
-      _addressLine2Controller =
+  final TextEditingController _addressLine2Controller =
       TextEditingController();
 
   final TextEditingController _areaController =
@@ -43,8 +39,7 @@ class _AddressScreenState
   final TextEditingController _stateController =
       TextEditingController();
 
-  final TextEditingController
-      _pinCodeController =
+  final TextEditingController _pinCodeController =
       TextEditingController();
 
   // =========================================================
@@ -58,8 +53,7 @@ class _AddressScreenState
   // LOCATION
   // =========================================================
 
-  final AddressLocationService
-      _locationService =
+  final AddressLocationService _locationService =
       AddressLocationService();
 
   // =========================================================
@@ -71,7 +65,7 @@ class _AddressScreenState
   bool _gettingLocation = false;
 
   // =========================================================
-  // SELECTED GPS LOCATION
+  // SELECTED GPS
   // =========================================================
 
   double? _selectedLatitude;
@@ -88,8 +82,7 @@ class _AddressScreenState
   // SAVED ADDRESSES
   // =========================================================
 
-  final List<Map<String, dynamic>>
-      _savedAddresses =
+  final List<Map<String, dynamic>> _savedAddresses =
       <Map<String, dynamic>>[];
 
   // =========================================================
@@ -104,40 +97,120 @@ class _AddressScreenState
 
   // =========================================================
   // FIND OWNER PROFILE
+  //
+  // IMPORTANT:
+  // 1. Search authUid
+  // 2. Search ownerAuthUid
+  // 3. Check document ID == Firebase UID
   // =========================================================
 
-  Future<
-      DocumentReference<Map<String, dynamic>>?>
+  Future<DocumentReference<Map<String, dynamic>>?>
       _findOwnerProfile() async {
     final User? user =
         FirebaseAuth.instance.currentUser;
 
     if (user == null) {
+      debugPrint(
+        '❌ FIND OWNER PROFILE: Firebase user is null.',
+      );
       return null;
     }
 
+    final String uid = user.uid;
+
+    debugPrint(
+      '🔎 Finding owner profile for UID: $uid',
+    );
+
     try {
-      final QuerySnapshot<
-          Map<String, dynamic>> query =
-          await _firestore
+      // =======================================================
+      // METHOD 1
+      // authUid == Firebase UID
+      // =======================================================
+
+      final QuerySnapshot<Map<String, dynamic>>
+          authUidQuery = await _firestore
               .collection('ownerProfiles')
               .where(
                 'authUid',
-                isEqualTo: user.uid,
+                isEqualTo: uid,
               )
               .limit(1)
               .get();
 
-      if (query.docs.isEmpty) {
-        return null;
+      if (authUidQuery.docs.isNotEmpty) {
+        debugPrint(
+          '✅ Owner profile found using authUid.',
+        );
+
+        return authUidQuery.docs.first.reference;
       }
 
-      return query.docs.first.reference;
+      // =======================================================
+      // METHOD 2
+      // ownerAuthUid == Firebase UID
+      // =======================================================
+
+      final QuerySnapshot<Map<String, dynamic>>
+          ownerAuthUidQuery = await _firestore
+              .collection('ownerProfiles')
+              .where(
+                'ownerAuthUid',
+                isEqualTo: uid,
+              )
+              .limit(1)
+              .get();
+
+      if (ownerAuthUidQuery.docs.isNotEmpty) {
+        debugPrint(
+          '✅ Owner profile found using ownerAuthUid.',
+        );
+
+        return ownerAuthUidQuery.docs.first.reference;
+      }
+
+      // =======================================================
+      // METHOD 3
+      // DOCUMENT ID == FIREBASE UID
+      // =======================================================
+
+      final DocumentReference<Map<String, dynamic>>
+          uidDocument =
+          _firestore.collection('ownerProfiles').doc(uid);
+
+      final DocumentSnapshot<Map<String, dynamic>>
+          uidSnapshot =
+          await uidDocument.get();
+
+      if (uidSnapshot.exists) {
+        debugPrint(
+          '✅ Owner profile found using document ID.',
+        );
+
+        return uidDocument;
+      }
+
+      // =======================================================
+      // NOTHING FOUND
+      // =======================================================
+
+      debugPrint(
+        '❌ Owner profile not found for UID: $uid',
+      );
+
+      return null;
     } on FirebaseException catch (e) {
       debugPrint(
-        'FIND OWNER PROFILE ERROR: '
+        '❌ FIND OWNER PROFILE ERROR: '
         '${e.code} - ${e.message}',
       );
+
+      rethrow;
+    } catch (e) {
+      debugPrint(
+        '❌ FIND OWNER PROFILE UNKNOWN ERROR: $e',
+      );
+
       rethrow;
     }
   }
@@ -156,12 +229,17 @@ class _AddressScreenState
           _loading = false;
         });
       }
+
+      _showMessage(
+        'Please login first.',
+      );
+
       return;
     }
 
     try {
-      final DocumentReference<
-          Map<String, dynamic>>? ownerRef =
+      final DocumentReference<Map<String, dynamic>>?
+          ownerRef =
           await _findOwnerProfile();
 
       if (ownerRef == null) {
@@ -174,13 +252,18 @@ class _AddressScreenState
         _showMessage(
           'Owner profile not found.',
         );
+
         return;
       }
 
       _ownerProfileRef = ownerRef;
 
-      final DocumentSnapshot<
-          Map<String, dynamic>> snapshot =
+      debugPrint(
+        '✅ Owner profile path: ${ownerRef.path}',
+      );
+
+      final DocumentSnapshot<Map<String, dynamic>>
+          snapshot =
           await ownerRef.get();
 
       if (!snapshot.exists) {
@@ -193,112 +276,74 @@ class _AddressScreenState
         _showMessage(
           'Owner profile not found.',
         );
+
         return;
       }
 
       final Map<String, dynamic> data =
-          snapshot.data() ??
-              <String, dynamic>{};
+          snapshot.data() ?? <String, dynamic>{};
 
-      // =====================================================
+      // =======================================================
       // STRUCTURED ADDRESS
-      // =====================================================
+      // =======================================================
 
       _flatController.text =
-          _readString(
-        data,
-        'flatNumber',
-      );
+          _readString(data, 'flatNumber');
 
       _addressLine1Controller.text =
-          _readString(
-        data,
-        'addressLine1',
-      );
+          _readString(data, 'addressLine1');
 
       _addressLine2Controller.text =
-          _readString(
-        data,
-        'addressLine2',
-      );
+          _readString(data, 'addressLine2');
 
       _areaController.text =
-          _readString(
-        data,
-        'area',
-      );
+          _readString(data, 'area');
 
       _cityController.text =
-          _readString(
-        data,
-        'city',
-      );
+          _readString(data, 'city');
 
       _stateController.text =
-          _readString(
-        data,
-        'state',
-      );
+          _readString(data, 'state');
 
-      final String newPin =
-          _readString(
-        data,
-        'pincode',
-      );
+      final String pincode =
+          _readString(data, 'pincode');
 
       _pinCodeController.text =
-          newPin.isNotEmpty
-              ? newPin
-              : _readString(
-                  data,
-                  'Pincode',
-                );
+          pincode.isNotEmpty
+              ? pincode
+              : _readString(data, 'Pincode');
 
-      // =====================================================
-      // LOAD GPS COORDINATES
-      // =====================================================
+      // =======================================================
+      // GPS
+      // =======================================================
 
       _selectedLatitude =
-          _readDouble(
-        data,
-        'latitude',
-      );
+          _readDouble(data, 'latitude');
 
       _selectedLongitude =
-          _readDouble(
-        data,
-        'longitude',
-      );
+          _readDouble(data, 'longitude');
 
-      // =====================================================
-      // OLD ADDRESS COMPATIBILITY
-      // =====================================================
+      // =======================================================
+      // OLD ADDRESS FALLBACK
+      // =======================================================
 
       String oldAddress =
-          _readString(
-        data,
-        'address',
-      ).trim();
+          _readString(data, 'address');
 
       if (oldAddress.isEmpty) {
         oldAddress =
-            _readString(
-          data,
-          'Adress',
-        ).trim();
+            _readString(data, 'Adress');
       }
 
-      if (_addressLine1Controller.text
-              .trim()
-              .isEmpty &&
+      if (_addressLine1Controller.text.trim().isEmpty &&
           oldAddress.isNotEmpty) {
         _addressLine1Controller.text =
             oldAddress;
       }
 
-      // =====================================================
+      // =======================================================
       // SAVED ADDRESSES
-      // =====================================================
+      // =======================================================
 
       _savedAddresses.clear();
 
@@ -310,17 +355,15 @@ class _AddressScreenState
             in firebaseAddresses) {
           if (item is Map) {
             _savedAddresses.add(
-              Map<String, dynamic>.from(
-                item,
-              ),
+              Map<String, dynamic>.from(item),
             );
           }
         }
       }
 
-      // =====================================================
-      // OLD DATA FALLBACK
-      // =====================================================
+      // =======================================================
+      // OLD ADDRESS -> SAVED ADDRESS
+      // =======================================================
 
       if (_savedAddresses.isEmpty &&
           oldAddress.isNotEmpty) {
@@ -330,38 +373,20 @@ class _AddressScreenState
             'title': 'Home',
             'address': oldAddress,
             'flatNumber':
-                _readString(
-              data,
-              'flatNumber',
-            ),
+                _readString(data, 'flatNumber'),
             'addressLine1':
-                _readString(
-              data,
-              'addressLine1',
-            ),
+                _readString(data, 'addressLine1'),
             'addressLine2':
-                _readString(
-              data,
-              'addressLine2',
-            ),
+                _readString(data, 'addressLine2'),
             'area':
-                _readString(
-              data,
-              'area',
-            ),
+                _readString(data, 'area'),
             'city':
-                _readString(
-              data,
-              'city',
-            ),
+                _readString(data, 'city'),
             'state':
-                _readString(
-              data,
-              'state',
-            ),
+                _readString(data, 'state'),
             'pincode':
-                newPin.isNotEmpty
-                    ? newPin
+                pincode.isNotEmpty
+                    ? pincode
                     : _readString(
                         data,
                         'Pincode',
@@ -381,7 +406,7 @@ class _AddressScreenState
       }
     } on FirebaseException catch (e) {
       debugPrint(
-        'ADDRESS LOAD FIREBASE ERROR: '
+        '❌ ADDRESS LOAD FIREBASE ERROR: '
         '${e.code} - ${e.message}',
       );
 
@@ -400,7 +425,7 @@ class _AddressScreenState
       );
     } catch (e) {
       debugPrint(
-        'ADDRESS LOAD ERROR: $e',
+        '❌ ADDRESS LOAD ERROR: $e',
       );
 
       if (!mounted) {
@@ -418,7 +443,7 @@ class _AddressScreenState
   }
 
   // =========================================================
-  // SAFE FIRESTORE STRING
+  // SAFE STRING
   // =========================================================
 
   String _readString(
@@ -435,7 +460,7 @@ class _AddressScreenState
   }
 
   // =========================================================
-  // SAFE FIRESTORE DOUBLE
+  // SAFE DOUBLE
   // =========================================================
 
   double? _readDouble(
@@ -471,8 +496,7 @@ class _AddressScreenState
     });
 
     try {
-      final Map<String, dynamic>?
-          result =
+      final Map<String, dynamic>? result =
           await Navigator.of(context).push<
               Map<String, dynamic>>(
         MaterialPageRoute(
@@ -498,6 +522,7 @@ class _AddressScreenState
         setState(() {
           _gettingLocation = false;
         });
+
         return;
       }
 
@@ -522,15 +547,16 @@ class _AddressScreenState
         _showMessage(
           'Location could not be selected.',
         );
+
         return;
       }
 
       _selectedLatitude = latitude;
       _selectedLongitude = longitude;
 
-      // =====================================================
-      // ADDRESS FROM MAP PICKER
-      // =====================================================
+      // =======================================================
+      // ADDRESS FROM MAP
+      // =======================================================
 
       final String fullAddress =
           result['address']
@@ -541,6 +567,83 @@ class _AddressScreenState
       if (fullAddress.isNotEmpty) {
         _addressLine1Controller.text =
             fullAddress;
+      }
+
+      // =======================================================
+      // STRUCTURED RESULT SUPPORT
+      // =======================================================
+
+      final String resultFlat =
+          result['flatNumber']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String resultLine1 =
+          result['addressLine1']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String resultLine2 =
+          result['addressLine2']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String resultArea =
+          result['area']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String resultCity =
+          result['city']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String resultState =
+          result['state']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String resultPincode =
+          result['pincode']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (resultFlat.isNotEmpty) {
+        _flatController.text = resultFlat;
+      }
+
+      if (resultLine1.isNotEmpty) {
+        _addressLine1Controller.text =
+            resultLine1;
+      }
+
+      if (resultLine2.isNotEmpty) {
+        _addressLine2Controller.text =
+            resultLine2;
+      }
+
+      if (resultArea.isNotEmpty) {
+        _areaController.text = resultArea;
+      }
+
+      if (resultCity.isNotEmpty) {
+        _cityController.text = resultCity;
+      }
+
+      if (resultState.isNotEmpty) {
+        _stateController.text = resultState;
+      }
+
+      if (resultPincode.isNotEmpty) {
+        _pinCodeController.text =
+            resultPincode;
       }
 
       setState(() {
@@ -596,7 +699,7 @@ class _AddressScreenState
       );
     } catch (e) {
       debugPrint(
-        'LOCATION PICKER ERROR: $e',
+        '❌ LOCATION PICKER ERROR: $e',
       );
 
       if (!mounted) {
@@ -643,11 +746,9 @@ class _AddressScreenState
   void _showLocationServiceDialog() {
     showDialog<void>(
       context: context,
-      builder:
-          (BuildContext dialogContext) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape:
-              RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(20),
           ),
@@ -667,8 +768,9 @@ class _AddressScreenState
                   dialogContext,
                 );
               },
-              child:
-                  const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -703,11 +805,9 @@ class _AddressScreenState
   void _showLocationPermissionDialog() {
     showDialog<void>(
       context: context,
-      builder:
-          (BuildContext dialogContext) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape:
-              RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(20),
           ),
@@ -727,8 +827,9 @@ class _AddressScreenState
                   dialogContext,
                 );
               },
-              child:
-                  const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -833,9 +934,9 @@ class _AddressScreenState
     final String pin =
         _pinCodeController.text.trim();
 
-    // =====================================================
-    // ADDRESS VALIDATION
-    // =====================================================
+    // =======================================================
+    // VALIDATION
+    // =======================================================
 
     if (line1.isEmpty) {
       _showMessage(
@@ -887,35 +988,40 @@ class _AddressScreenState
     });
 
     try {
-      // =====================================================
-      // OWNER PROFILE
-      // =====================================================
+      // =======================================================
+      // FIND OWNER PROFILE
+      // =======================================================
 
-      DocumentReference<
-          Map<String, dynamic>>? ownerRef =
+      DocumentReference<Map<String, dynamic>>?
+          ownerRef =
           _ownerProfileRef;
 
       ownerRef ??=
           await _findOwnerProfile();
 
-      if (ownerRef == null) {
-        if (mounted) {
-          setState(() {
-            _saving = false;
-          });
-        }
+      // =======================================================
+      // IMPORTANT:
+      // If no existing owner profile is found,
+      // use ownerProfiles/{Firebase UID}.
+      //
+      // This fixes "Owner profile not found" when
+      // profile document uses Firebase UID as document ID.
+      // =======================================================
 
-        _showMessage(
-          'Owner profile not found.',
-        );
-        return;
-      }
+      ownerRef ??=
+          _firestore
+              .collection('ownerProfiles')
+              .doc(user.uid);
 
       _ownerProfileRef = ownerRef;
 
-      // =====================================================
+      debugPrint(
+        '💾 Saving owner profile: ${ownerRef.path}',
+      );
+
+      // =======================================================
       // FULL ADDRESS
-      // =====================================================
+      // =======================================================
 
       final String fullAddress =
           _buildFullAddress(
@@ -928,9 +1034,9 @@ class _AddressScreenState
         pin: pin,
       );
 
-      // =====================================================
-      // NEW ADDRESS OBJECT
-      // =====================================================
+      // =======================================================
+      // NEW ADDRESS
+      // =======================================================
 
       final Map<String, dynamic>
           newAddress =
@@ -953,18 +1059,13 @@ class _AddressScreenState
         'city': city,
         'state': state,
         'pincode': pin,
-
-        // =================================================
-        // GPS LOCATION
-        // =================================================
-
         'latitude': _selectedLatitude,
         'longitude': _selectedLongitude,
       };
 
-      // =====================================================
+      // =======================================================
       // SAVED ADDRESSES
-      // =====================================================
+      // =======================================================
 
       final List<Map<String, dynamic>>
           addresses =
@@ -986,13 +1087,17 @@ class _AddressScreenState
             newAddress;
       }
 
-      // =====================================================
-      // OWNER PROFILE UPDATE
-      // =====================================================
+      // =======================================================
+      // OWNER PROFILE
+      // =======================================================
 
       await ownerRef.set(
         <String, dynamic>{
+          // Firebase identity
           'authUid': user.uid,
+          'ownerAuthUid': user.uid,
+
+          // Address
           'address': fullAddress,
           'flatNumber': flat,
           'addressLine1': line1,
@@ -1002,18 +1107,14 @@ class _AddressScreenState
           'state': state,
           'pincode': pin,
 
-          // =================================================
           // GPS
-          // =================================================
+          'latitude': _selectedLatitude,
+          'longitude': _selectedLongitude,
 
-          'latitude':
-              _selectedLatitude,
-          'longitude':
-              _selectedLongitude,
+          // Saved addresses
+          'savedAddresses': addresses,
 
-          'savedAddresses':
-              addresses,
-
+          // Timestamp
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -1022,15 +1123,22 @@ class _AddressScreenState
         ),
       );
 
-      // =====================================================
+      debugPrint(
+        '✅ Owner profile address saved.',
+      );
+
+      // =======================================================
       // USERS SYNC
-      // =====================================================
+      // =======================================================
 
       await _firestore
           .collection('users')
           .doc(user.uid)
           .set(
         <String, dynamic>{
+          'uid': user.uid,
+          'authUid': user.uid,
+
           'address': fullAddress,
           'flatNumber': flat,
           'addressLine1': line1,
@@ -1040,14 +1148,8 @@ class _AddressScreenState
           'state': state,
           'pincode': pin,
 
-          // =================================================
-          // GPS
-          // =================================================
-
-          'latitude':
-              _selectedLatitude,
-          'longitude':
-              _selectedLongitude,
+          'latitude': _selectedLatitude,
+          'longitude': _selectedLongitude,
 
           'updatedAt':
               FieldValue.serverTimestamp(),
@@ -1057,9 +1159,13 @@ class _AddressScreenState
         ),
       );
 
-      // =====================================================
+      debugPrint(
+        '✅ Users address synced.',
+      );
+
+      // =======================================================
       // LOCAL UPDATE
-      // =====================================================
+      // =======================================================
 
       if (!mounted) {
         return;
@@ -1078,7 +1184,7 @@ class _AddressScreenState
       );
     } on FirebaseException catch (e) {
       debugPrint(
-        'ADDRESS SAVE FIREBASE ERROR: '
+        '❌ ADDRESS SAVE FIREBASE ERROR: '
         '${e.code} - ${e.message}',
       );
 
@@ -1097,7 +1203,7 @@ class _AddressScreenState
       );
     } catch (e) {
       debugPrint(
-        'ADDRESS SAVE ERROR: $e',
+        '❌ ADDRESS SAVE ERROR: $e',
       );
 
       if (!mounted) {
@@ -1241,7 +1347,7 @@ class _AddressScreenState
       );
     } on FirebaseException catch (e) {
       debugPrint(
-        'DELETE ADDRESS FIREBASE ERROR: '
+        '❌ DELETE ADDRESS FIREBASE ERROR: '
         '${e.code} - ${e.message}',
       );
 
@@ -1254,7 +1360,7 @@ class _AddressScreenState
       }
     } catch (e) {
       debugPrint(
-        'DELETE ADDRESS ERROR: $e',
+        '❌ DELETE ADDRESS ERROR: $e',
       );
 
       if (mounted) {
@@ -1380,6 +1486,10 @@ class _AddressScreenState
       backgroundColor:
           AppColors.background,
 
+      // =======================================================
+      // APP BAR
+      // =======================================================
+
       appBar: AppBar(
         backgroundColor:
             AppColors.primary,
@@ -1395,6 +1505,10 @@ class _AddressScreenState
           ),
         ),
       ),
+
+      // =======================================================
+      // BODY
+      // =======================================================
 
       body: _loading
           ? const Center(
@@ -1418,12 +1532,20 @@ class _AddressScreenState
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
+                  // =================================================
+                  // HEADER
+                  // =================================================
+
                   AddressScreenWidgets
                       .bookingHeader(),
 
                   const SizedBox(
                     height: 18,
                   ),
+
+                  // =================================================
+                  // CURRENT LOCATION
+                  // =================================================
 
                   AddressScreenWidgets
                       .currentLocationCard(
@@ -1439,6 +1561,10 @@ class _AddressScreenState
                   const SizedBox(
                     height: 24,
                   ),
+
+                  // =================================================
+                  // SAVED ADDRESSES
+                  // =================================================
 
                   if (_savedAddresses
                       .isNotEmpty) ...[
@@ -1498,8 +1624,9 @@ class _AddressScreenState
                     Text(
                       'Tap an address to use it for your booking.',
                       style: TextStyle(
-                        color: AppColors.slate
-                            .withValues(
+                        color:
+                            AppColors.slate
+                                .withValues(
                           alpha: .75,
                         ),
                         fontSize: 12,
@@ -1515,7 +1642,8 @@ class _AddressScreenState
                       (int index) {
                         return Padding(
                           padding:
-                              const EdgeInsets.only(
+                              const EdgeInsets
+                                  .only(
                             bottom: 12,
                           ),
                           child:
@@ -1549,6 +1677,10 @@ class _AddressScreenState
                     ),
                   ],
 
+                  // =================================================
+                  // ADD NEW ADDRESS
+                  // =================================================
+
                   AddressScreenWidgets
                       .sectionTitle(
                     'Add New Address',
@@ -1558,6 +1690,10 @@ class _AddressScreenState
                   const SizedBox(
                     height: 16,
                   ),
+
+                  // =================================================
+                  // FLAT
+                  // =================================================
 
                   AddressScreenWidgets.field(
                     controller:
@@ -1576,6 +1712,10 @@ class _AddressScreenState
                     height: 13,
                   ),
 
+                  // =================================================
+                  // ADDRESS LINE 1
+                  // =================================================
+
                   AddressScreenWidgets.field(
                     controller:
                         _addressLine1Controller,
@@ -1592,6 +1732,10 @@ class _AddressScreenState
                   const SizedBox(
                     height: 13,
                   ),
+
+                  // =================================================
+                  // ADDRESS LINE 2
+                  // =================================================
 
                   AddressScreenWidgets.field(
                     controller:
@@ -1612,6 +1756,10 @@ class _AddressScreenState
                     height: 13,
                   ),
 
+                  // =================================================
+                  // AREA
+                  // =================================================
+
                   AddressScreenWidgets.field(
                     controller:
                         _areaController,
@@ -1626,6 +1774,10 @@ class _AddressScreenState
                   const SizedBox(
                     height: 13,
                   ),
+
+                  // =================================================
+                  // CITY + STATE
+                  // =================================================
 
                   Row(
                     crossAxisAlignment:
@@ -1666,6 +1818,10 @@ class _AddressScreenState
                     height: 13,
                   ),
 
+                  // =================================================
+                  // PIN
+                  // =================================================
+
                   AddressScreenWidgets.field(
                     controller:
                         _pinCodeController,
@@ -1684,6 +1840,10 @@ class _AddressScreenState
                   const SizedBox(
                     height: 16,
                   ),
+
+                  // =================================================
+                  // SAVE BUTTON
+                  // =================================================
 
                   SizedBox(
                     width:
@@ -1704,7 +1864,7 @@ class _AddressScreenState
                                 strokeWidth:
                                     2.2,
                                 color:
-                                    Colors.white,
+                                    AppColors.white,
                               ),
                             )
                           : const Icon(
@@ -1729,6 +1889,13 @@ class _AddressScreenState
                         foregroundColor:
                             AppColors.white,
                         elevation: 0,
+                        disabledBackgroundColor:
+                            AppColors.primary
+                                .withValues(
+                          alpha: .55,
+                        ),
+                        disabledForegroundColor:
+                            AppColors.white,
                         shape:
                             RoundedRectangleBorder(
                           borderRadius:
