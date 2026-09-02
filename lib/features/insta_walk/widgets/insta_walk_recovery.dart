@@ -1,4 +1,4 @@
-part of 'insta_walk_container.dart';
+part of '../controllers/insta_walk_container.dart';
 
 // ============================================================
 // SEARCH RECOVERY
