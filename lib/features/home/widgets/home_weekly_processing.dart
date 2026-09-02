@@ -50,7 +50,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
-          .collection('walkHistory')
+          .collection('walk_history')
           .where('ownerId', isEqualTo: uid)
           .snapshots(),
       builder: (context, snapshot) {
@@ -259,9 +259,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
               },
             ),
           ),
-
           _divider(),
-
           Expanded(
             child: _compactItem(
               title: 'Distance',
@@ -282,9 +280,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
               },
             ),
           ),
-
           _divider(),
-
           Expanded(
             child: _compactItem(
               title: 'Duration',
@@ -306,22 +302,16 @@ class HomeWeeklyProcessing extends StatelessWidget {
               },
             ),
           ),
-
           _divider(),
-
           Expanded(
             child: _compactItem(
               title: 'Report',
-              value: totalWalks > 0
-                  ? 'Active'
-                  : 'None',
+              value: totalWalks > 0 ? 'Active' : 'None',
               icon: Icons.assessment_outlined,
               iconColor: AppColors.orange,
               onTap: () {
                 final reportStatus =
-                    totalWalks > 0
-                        ? 'Active'
-                        : 'No Walks';
+                    totalWalks > 0 ? 'Active' : 'No Walks';
 
                 onDetails(
                   'Weekly Report',
@@ -378,20 +368,17 @@ class HomeWeeklyProcessing extends StatelessWidget {
                   size: 18,
                 ),
               ),
-
               const SizedBox(height: 5),
-
               Text(
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-
               if (unit.isNotEmpty)
                 Text(
                   unit,
@@ -403,9 +390,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
               const SizedBox(height: 1),
-
               Text(
                 title,
                 maxLines: 1,
@@ -467,9 +452,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
     }
 
     if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(
-        value,
-      );
+      return DateTime.fromMillisecondsSinceEpoch(value);
     }
 
     if (value is String) {
@@ -607,9 +590,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
     return '${hours}h';
   }
 
-  static String _averageWalksPerDay(
-    int totalWalks,
-  ) {
+  static String _averageWalksPerDay(int totalWalks) {
     if (totalWalks == 0) {
       return '0';
     }
@@ -621,9 +602,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
     return average.toStringAsFixed(1);
   }
 
-  static String _walkStatus(
-    int totalWalks,
-  ) {
+  static String _walkStatus(int totalWalks) {
     if (totalWalks == 0) {
       return 'No Walks';
     }
@@ -631,9 +610,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
     return 'On Track';
   }
 
-  static String _paceStatus(
-    int averageDurationMinutes,
-  ) {
+  static String _paceStatus(int averageDurationMinutes) {
     if (averageDurationMinutes <= 0) {
       return 'No Data';
     }
