@@ -8,13 +8,12 @@ part of '../controllers/insta_walk_container.dart';
 //   • Validate accepted request
 //   • Stop radar
 //   • Stop searching
-//   • Mark walk active
-//   • Notify parent
+//   • Store request ID
+//   • Mark walk state
+//   • Open Owner WalkerAcceptScreen through controller
 //
-// Navigation is NOT handled here.
-//
-// Navigation is handled by:
-//   InstaWalkScreen
+// Navigation itself is implemented by:
+//   _InstaWalkContainerState._handleAccepted()
 //
 // ============================================================
 
@@ -23,9 +22,15 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     InstaWalkAcceptedData accepted,
   ) async {
     debugPrint('');
-    debugPrint('==============================================');
-    debugPrint('🔥 _WALKER ACCEPTED METHOD CALLED');
-    debugPrint('==============================================');
+    debugPrint(
+      '==============================================',
+    );
+    debugPrint(
+      '🔥 _WALKER ACCEPTED METHOD CALLED',
+    );
+    debugPrint(
+      '==============================================',
+    );
 
     // ==========================================================
     // MOUNT CHECK
@@ -134,46 +139,45 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     );
 
     // ==========================================================
-    // CALLBACK
+    // INTERNAL ACCEPTED HANDLER
     // ==========================================================
     //
     // IMPORTANT:
     //
-    // DO NOT Navigator.push() HERE.
+    // Previously this file called:
     //
-    // Parent screen handles navigation.
+    // widget.onAccepted?.call(accepted);
+    //
+    // That depended on the old InstaWalkScreen.
+    //
+    // Now the Container itself owns the screen/navigation flow.
+    //
+    // Therefore call the State handler directly.
     //
     // ==========================================================
 
-    final ValueChanged<InstaWalkAcceptedData>? callback =
-        widget.onAccepted;
-
-    if (callback == null) {
-      debugPrint(
-        '❌ onAccepted callback is NULL.',
-      );
-      debugPrint(
-        '❌ WalkerAcceptScreen cannot be opened from here.',
-      );
-      return;
-    }
-
     debugPrint(
-      '🚀 BEFORE onAccepted CALLBACK',
+      '🚀 Sending accepted request to Container handler...',
     );
 
-    callback(
-      accepted,
-    );
+    _handleAccepted(accepted);
 
     debugPrint(
-      '🚀 AFTER onAccepted CALLBACK',
+      '🚀 Accepted request sent to Container handler.',
     );
 
     debugPrint('');
-    debugPrint('==============================================');
-    debugPrint('✅ ACCEPTED FLOW SENT TO PARENT');
-    debugPrint('requestId = $requestId');
-    debugPrint('==============================================');
+    debugPrint(
+      '==============================================',
+    );
+    debugPrint(
+      '✅ OWNER ACCEPTED FLOW STARTED',
+    );
+    debugPrint(
+      'requestId = $requestId',
+    );
+    debugPrint(
+      '==============================================',
+    );
   }
 }
