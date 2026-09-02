@@ -50,11 +50,11 @@ class _InstaWalkMapRadarState
   // ==========================================================
 
   void _goToMyLocation() {
-    _mapController.move(
-      widget.ownerPoint,
-      14.5,
-    );
-  }
+  _mapController.move(
+    widget.ownerPoint,
+    14.5,
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -67,9 +67,6 @@ class _InstaWalkMapRadarState
     final Color surface =
         colors.surface;
 
-    final Color onSurface =
-        colors.onSurface;
-
     return ClipRRect(
       borderRadius:
           BorderRadius.circular(20),
@@ -78,6 +75,7 @@ class _InstaWalkMapRadarState
         width: double.infinity,
         child: Stack(
           children: [
+            //
             // ==================================================
             // MAP
             // ==================================================
