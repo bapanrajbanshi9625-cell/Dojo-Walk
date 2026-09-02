@@ -36,6 +36,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _ownerGender = '';
   String _memberSince = '';
 
+  // ============================================================
+  // ADDRESS
+  // ============================================================
+
   String _addressLine1 = '';
   String _streetRoad = '';
   String _area = '';
@@ -78,8 +82,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final String uid = user.uid.trim();
 
-      QuerySnapshot<Map<String, dynamic>> query =
-          await FirebaseFirestore.instance
+      final FirebaseFirestore firestore =
+          FirebaseFirestore.instance;
+
+      // ========================================================
+      // FIRST: SEARCH BY authUid
+      // ========================================================
+
+      final QuerySnapshot<Map<String, dynamic>> query =
+          await firestore
               .collection('owners')
               .where(
                 'authUid',
@@ -91,10 +102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc;
 
-      // ========================================================
-      // FIRST: authUid QUERY
-      // ========================================================
-
       if (query.docs.isNotEmpty) {
         ownerDoc = query.docs.first;
       } else {
@@ -102,9 +109,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // SECOND: owners/{uid}
         // ======================================================
 
-        final DocumentSnapshot<
-            Map<String, dynamic>> directDoc =
-            await FirebaseFirestore.instance
+        final DocumentSnapshot<Map<String, dynamic>>
+            directDoc =
+            await firestore
                 .collection('owners')
                 .doc(uid)
                 .get();
@@ -125,6 +132,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         setState(() {
+          _ownerId = uid;
+
           _ownerName =
               _firebaseName(user);
 
@@ -138,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // ========================================================
-      // DATA
+      // FIRESTORE DATA
       // ========================================================
 
       final Map<String, dynamic> data =
@@ -152,7 +161,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String ownerId =
           _firstNonEmpty([
         data['ownerId'],
+        data['id'],
         ownerDoc.id,
+        uid,
       ]);
 
       // ========================================================
@@ -163,6 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _firstNonEmpty([
         data['ownerName'],
         data['name'],
+        data['fullName'],
         user.displayName,
       ]);
 
@@ -174,6 +186,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _firstNonEmpty([
         data['mainPhone'],
         data['phone'],
+        data['mobileNumber'],
+        data['mobile'],
         user.phoneNumber,
       ]);
 
@@ -208,12 +222,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       // ========================================================
-      // FLAT / HOUSE
+      // FLAT / HOUSE NO.
+      //
+      // AddressScreen saves:
+      // flatNumber
       // ========================================================
 
       final String addressLine1 =
           _firstNonEmpty([
-        data['addressLine1'],
+        data['flatNumber'],
         data['flatHouseNo'],
         data['flat'],
         data['houseNo'],
@@ -221,25 +238,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]);
 
       // ========================================================
-      // STREET / ROAD
+      // STREET / ROAD / BUILDING
+      //
+      // AddressScreen saves:
+      // addressLine1
       // ========================================================
 
       final String streetRoad =
           _firstNonEmpty([
+        data['addressLine1'],
         data['streetRoad'],
         data['street'],
         data['road'],
-        data['addressLine2'],
       ]);
 
       // ========================================================
-      // AREA
+      // AREA / LOCALITY
       // ========================================================
 
       final String area =
           _firstNonEmpty([
         data['area'],
         data['subLocality'],
+        data['locality'],
       ]);
 
       // ========================================================
@@ -249,7 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String city =
           _firstNonEmpty([
         data['city'],
-        data['locality'],
+        data['town'],
       ]);
 
       // ========================================================
@@ -269,11 +290,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String pincode =
           _firstNonEmpty([
         data['pincode'],
+        data['Pincode'],
         data['postalCode'],
       ]);
 
       // ========================================================
-      // ACTIVE
+      // ACTIVE STATUS
       // ========================================================
 
       final bool active =
@@ -304,17 +326,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : 'Not available';
 
         _ownerDob = dob;
+
         _ownerGender = gender;
-        _memberSince = memberSince;
 
-        _addressLine1 = addressLine1;
-        _streetRoad = streetRoad;
-        _area = area;
-        _city = city;
-        _state = state;
-        _pincode = pincode;
+        _memberSince =
+            memberSince;
 
-        _isActive = active;
+        // ======================================================
+        // ADDRESS
+        // ======================================================
+
+        _addressLine1 =
+            addressLine1;
+
+        _streetRoad =
+            streetRoad;
+
+        _area =
+            area;
+
+        _city =
+            city;
+
+        _state =
+            state;
+
+        _pincode =
+            pincode;
+
+        _isActive =
+            active;
+
         _isLoading = false;
       });
     } catch (e) {
@@ -330,11 +372,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FirebaseAuth.instance.currentUser;
 
       setState(() {
+        _ownerId =
+            currentUser?.uid ?? '';
+
         _ownerName =
-            _firebaseName(currentUser);
+            _firebaseName(
+          currentUser,
+        );
 
         _mobileNumber =
-            _firebasePhone(currentUser);
+            _firebasePhone(
+          currentUser,
+        );
 
         _isLoading = false;
       });
@@ -346,21 +395,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // STRING HELPERS
+  // STRING VALUE
   // ============================================================
 
-  String _stringValue(dynamic value) {
+  String _stringValue(
+    dynamic value,
+  ) {
     if (value == null) {
       return '';
     }
 
-    return value.toString().trim();
+    return value
+        .toString()
+        .trim();
   }
+
+  // ============================================================
+  // FIRST NON EMPTY
+  // ============================================================
 
   String _firstNonEmpty(
     List<dynamic> values,
   ) {
-    for (final dynamic value in values) {
+    for (final dynamic value
+        in values) {
       final String text =
           _stringValue(value);
 
@@ -373,21 +431,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // FIREBASE USER FALLBACK
+  // FIREBASE USER NAME
   // ============================================================
 
-  String _firebaseName(User? user) {
+  String _firebaseName(
+    User? user,
+  ) {
     final String name =
-        user?.displayName?.trim() ?? '';
+        user?.displayName
+                ?.trim() ??
+            '';
 
     return name.isNotEmpty
         ? name
         : 'Owner';
   }
 
-  String _firebasePhone(User? user) {
+  // ============================================================
+  // FIREBASE PHONE
+  // ============================================================
+
+  String _firebasePhone(
+    User? user,
+  ) {
     final String phone =
-        user?.phoneNumber?.trim() ?? '';
+        user?.phoneNumber
+                ?.trim() ??
+            '';
 
     return phone.isNotEmpty
         ? phone
@@ -395,7 +465,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // BOOL HELPER
+  // BOOL VALUE
   // ============================================================
 
   bool _boolValue(
@@ -427,7 +497,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else if (value is DateTime) {
       date = value;
     } else if (value is String) {
-      date = DateTime.tryParse(value);
+      date =
+          DateTime.tryParse(
+        value,
+      );
     }
 
     if (date == null) {
@@ -437,7 +510,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${_monthName(date.month)} ${date.year}';
   }
 
-  String _monthName(int month) {
+  // ============================================================
+  // MONTH NAME
+  // ============================================================
+
+  String _monthName(
+    int month,
+  ) {
     const List<String> months = [
       'January',
       'February',
@@ -466,13 +545,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   void _copyOwnerId() {
-    if (_ownerId.trim().isEmpty) {
+    if (_ownerId
+        .trim()
+        .isEmpty) {
       return;
     }
 
     Clipboard.setData(
       ClipboardData(
-        text: _ownerId.trim(),
+        text:
+            _ownerId.trim(),
       ),
     );
 
@@ -491,7 +573,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (number.isEmpty ||
         number == '-' ||
-        number == 'Not available') {
+        number ==
+            'Not available') {
       _showMessage(
         'Current mobile number was not found.',
       );
@@ -502,18 +585,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.white,
+      backgroundColor:
+          AppColors.white,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(
-          top: Radius.circular(24),
+          top:
+              Radius.circular(24),
         ),
       ),
-      builder: (BuildContext context) {
+      builder:
+          (BuildContext context) {
         return ChangeMobileFlow(
-          currentNumber: number,
-          onChanged: (_) {},
+          currentNumber:
+              number,
+          onChanged:
+              (_) {},
         );
       },
     );
@@ -529,7 +617,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _editAddress() async {
-    await Navigator.of(context).push(
+    await Navigator.of(context)
+        .push(
       MaterialPageRoute<void>(
         builder: (_) =>
             const AddressScreen(),
@@ -573,7 +662,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(14),
+                BorderRadius.circular(
+              14,
+            ),
           ),
         ),
       );
@@ -587,6 +678,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(
     BuildContext context,
   ) {
+    // ==========================================================
+    // LOADING
+    // ==========================================================
+
     if (_isLoading) {
       return const Scaffold(
         backgroundColor:
@@ -594,11 +689,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: Center(
           child:
               CircularProgressIndicator(
-            color: AppColors.orange,
+            color:
+                AppColors.orange,
           ),
         ),
       );
     }
+
+    // ==========================================================
+    // SCREEN
+    // ==========================================================
 
     return Scaffold(
       backgroundColor:
@@ -619,9 +719,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text(
           'My Profile',
           style: TextStyle(
-            color: AppColors.navy,
+            color:
+                AppColors.navy,
             fontSize: 21,
-            fontWeight: FontWeight.w900,
+            fontWeight:
+                FontWeight.w900,
           ),
         ),
       ),
@@ -631,25 +733,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.orange,
-          onRefresh: _loadProfile,
-          child: SingleChildScrollView(
+        child:
+            RefreshIndicator(
+          color:
+              AppColors.orange,
+          onRefresh:
+              _loadProfile,
+          child:
+              SingleChildScrollView(
             physics:
                 const AlwaysScrollableScrollPhysics(
               parent:
                   BouncingScrollPhysics(),
             ),
             padding:
-                const EdgeInsets.fromLTRB(
+                const EdgeInsets
+                    .fromLTRB(
               16,
               16,
               16,
               30,
             ),
-            child: Column(
+            child:
+                Column(
               crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                  CrossAxisAlignment
+                      .start,
               children: [
                 // ==================================================
                 // PROFILE CARD
