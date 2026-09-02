@@ -5,8 +5,7 @@ import 'home_past_walk_service.dart';
 class HomeStatsService {
   HomeStatsService._();
 
-  static final HomeStatsService instance =
-      HomeStatsService._();
+  static final HomeStatsService instance = HomeStatsService._();
 
   final HomePastWalkService _pastWalkService =
       HomePastWalkService.instance;
@@ -23,46 +22,39 @@ class HomeStatsService {
 
     final DateTime now = DateTime.now();
 
-    final DateTime startOfWeek =
-        DateTime(
+    // Monday 00:00:00 of the current week.
+    final DateTime startOfWeek = DateTime(
       now.year,
       now.month,
       now.day,
     ).subtract(
-      Duration(
-        days: now.weekday - 1,
-      ),
+      Duration(days: now.weekday - 1),
+    );
+
+    // Sunday 23:59:59.999...
+    final DateTime endOfWeek = startOfWeek.add(
+      const Duration(days: 7),
     );
 
     final List<Map<String, dynamic>> weeklyWalks =
-        walks.where(
-      (Map<String, dynamic> walk) {
-        final DateTime date =
-            _dateFromMap(walk);
+        walks.where((Map<String, dynamic> walk) {
+      final DateTime date = _dateFromMap(walk);
 
-        return !date.isBefore(
-          startOfWeek,
-        );
-      },
-    ).toList();
+      return !date.isBefore(startOfWeek) &&
+          date.isBefore(endOfWeek);
+    }).toList();
 
     double totalDistance = 0;
-
     int totalDuration = 0;
 
-    for (
-      final Map<String, dynamic> walk
-          in weeklyWalks
-    ) {
-      totalDistance +=
-          _distanceKm(
+    for (final Map<String, dynamic> walk in weeklyWalks) {
+      totalDistance += _distanceKm(
         walk['distance'] ??
             walk['distanceKm'] ??
             walk['totalDistance'],
       );
 
-      totalDuration +=
-          _durationMinutes(
+      totalDuration += _durationMinutes(
         walk['duration'] ??
             walk['durationMinutes'] ??
             walk['totalDuration'],
@@ -81,9 +73,7 @@ class HomeStatsService {
   // DISTANCE
   // ============================================================
 
-  static double _distanceKm(
-    dynamic value,
-  ) {
+  static double _distanceKm(dynamic value) {
     if (value == null) {
       return 0;
     }
@@ -92,8 +82,7 @@ class HomeStatsService {
       return value.toDouble();
     }
 
-    String text =
-        value.toString().trim().toLowerCase();
+    String text = value.toString().trim().toLowerCase();
 
     if (text.isEmpty) {
       return 0;
@@ -101,9 +90,9 @@ class HomeStatsService {
 
     text = text.replaceAll(',', '');
 
-    final bool meters =
+    final bool isMeters =
         text.contains('meter') ||
-        text.contains(' m');
+        text.endsWith(' m');
 
     text = text
         .replaceAll('kilometers', '')
@@ -112,13 +101,12 @@ class HomeStatsService {
         .replaceAll('km', '')
         .replaceAll('meters', '')
         .replaceAll('meter', '')
-        .replaceAll('m', '')
+        .replaceAll(' m', '')
         .trim();
 
-    final double parsed =
-        double.tryParse(text) ?? 0;
+    final double parsed = double.tryParse(text) ?? 0;
 
-    if (meters) {
+    if (isMeters) {
       return parsed / 1000;
     }
 
@@ -129,9 +117,7 @@ class HomeStatsService {
   // DURATION
   // ============================================================
 
-  static int _durationMinutes(
-    dynamic value,
-  ) {
+  static int _durationMinutes(dynamic value) {
     if (value == null) {
       return 0;
     }
@@ -140,22 +126,47 @@ class HomeStatsService {
       return value.toInt();
     }
 
-    String text =
-        value.toString().trim().toLowerCase();
+    final String text = value.toString().trim().toLowerCase();
 
     if (text.isEmpty) {
       return 0;
     }
 
     // ----------------------------------------------------------
-    // "45 mins"
+    // "1 hr 20 mins"
     // ----------------------------------------------------------
 
-    final RegExp minsRegex =
-        RegExp(r'(\d+)\s*(min|mins|minute|minutes)');
+    final RegExp hoursRegex = RegExp(
+      r'(\d+)\s*(hr|hrs|hour|hours)',
+    );
+
+    final RegExp minsRegex = RegExp(
+      r'(\d+)\s*(min|mins|minute|minutes)',
+    );
+
+    final RegExpMatch? hoursMatch =
+        hoursRegex.firstMatch(text);
 
     final RegExpMatch? minsMatch =
         minsRegex.firstMatch(text);
+
+    if (hoursMatch != null) {
+      final int hours =
+          int.tryParse(hoursMatch.group(1) ?? '') ?? 0;
+
+      final int minutes = minsMatch == null
+          ? 0
+          : int.tryParse(
+                minsMatch.group(1) ?? '',
+              ) ??
+              0;
+
+      return (hours * 60) + minutes;
+    }
+
+    // ----------------------------------------------------------
+    // "45 mins"
+    // ----------------------------------------------------------
 
     if (minsMatch != null) {
       return int.tryParse(
@@ -165,35 +176,8 @@ class HomeStatsService {
     }
 
     // ----------------------------------------------------------
-    // "1 hr 20 mins"
+    // Plain numeric string
     // ----------------------------------------------------------
-
-    final RegExp hoursRegex =
-        RegExp(r'(\d+)\s*(hr|hrs|hour|hours)');
-
-    final RegExpMatch? hoursMatch =
-        hoursRegex.firstMatch(text);
-
-    if (hoursMatch != null) {
-      final int hours =
-          int.tryParse(
-                hoursMatch.group(1) ?? '',
-              ) ??
-              0;
-
-      final RegExpMatch? minuteMatch =
-          minsRegex.firstMatch(text);
-
-      final int minutes =
-          minuteMatch == null
-              ? 0
-              : int.tryParse(
-                    minuteMatch.group(1) ?? '',
-                  ) ??
-                  0;
-
-      return hours * 60 + minutes;
-    }
 
     return int.tryParse(text) ?? 0;
   }
@@ -206,12 +190,12 @@ class HomeStatsService {
     Map<String, dynamic> data,
   ) {
     final dynamic value =
+        data['completedAt'] ??
+        data['endedAt'] ??
         data['date'] ??
-            data['createdAt'] ??
-            data['completedAt'] ??
-            data['endedAt'] ??
-            data['startTime'] ??
-            data['timestamp'];
+        data['createdAt'] ??
+        data['startTime'] ??
+        data['timestamp'];
 
     if (value is Timestamp) {
       return value.toDate();
@@ -224,6 +208,10 @@ class HomeStatsService {
     if (value is String) {
       return DateTime.tryParse(value) ??
           DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
     }
 
     return DateTime.fromMillisecondsSinceEpoch(0);
@@ -247,6 +235,10 @@ class HomeWeeklyStats {
     required this.walks,
   });
 
+  // ============================================================
+  // FORMATTED DISTANCE
+  // ============================================================
+
   String get formattedDistance {
     if (totalDistanceKm <= 0) {
       return '0.0 km';
@@ -255,16 +247,17 @@ class HomeWeeklyStats {
     return '${totalDistanceKm.toStringAsFixed(1)} km';
   }
 
+  // ============================================================
+  // FORMATTED DURATION
+  // ============================================================
+
   String get formattedDuration {
     if (totalDurationMinutes <= 0) {
       return '0 mins';
     }
 
-    final int hours =
-        totalDurationMinutes ~/ 60;
-
-    final int minutes =
-        totalDurationMinutes % 60;
+    final int hours = totalDurationMinutes ~/ 60;
+    final int minutes = totalDurationMinutes % 60;
 
     if (hours > 0 && minutes > 0) {
       return '$hours hrs $minutes mins';
@@ -277,6 +270,10 @@ class HomeWeeklyStats {
     return '$minutes mins';
   }
 
+  // ============================================================
+  // AVERAGE DISTANCE
+  // ============================================================
+
   double get averageDistance {
     if (totalWalks == 0) {
       return 0;
@@ -284,6 +281,10 @@ class HomeWeeklyStats {
 
     return totalDistanceKm / totalWalks;
   }
+
+  // ============================================================
+  // AVERAGE DURATION
+  // ============================================================
 
   int get averageDuration {
     if (totalWalks == 0) {
