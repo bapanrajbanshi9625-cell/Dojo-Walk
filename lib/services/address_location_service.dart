@@ -20,13 +20,21 @@ class AddressLocationResult {
 class AddressLocationService {
   AddressLocationService();
 
+  // ==========================================================
+  // GEOCODING
+  // ==========================================================
+
   final geocoding.Geocoding _geocoding =
       geocoding.Geocoding();
 
+  // ==========================================================
+  // GET CURRENT ADDRESS
+  // ==========================================================
+
   Future<AddressLocationResult> getCurrentAddress() async {
-    // =======================================================
-    // LOCATION SERVICE
-    // =======================================================
+    // ========================================================
+    // 1. CHECK LOCATION SERVICE
+    // ========================================================
 
     final bool serviceEnabled =
         await Geolocator.isLocationServiceEnabled();
@@ -35,9 +43,9 @@ class AddressLocationService {
       throw const LocationServiceDisabledException();
     }
 
-    // =======================================================
-    // PERMISSION
-    // =======================================================
+    // ========================================================
+    // 2. CHECK / REQUEST PERMISSION
+    // ========================================================
 
     LocationPermission permission =
         await Geolocator.checkPermission();
@@ -55,23 +63,24 @@ class AddressLocationService {
       throw const LocationPermissionDeniedForeverException();
     }
 
-    // =======================================================
-    // CURRENT LOCATION
+    // ========================================================
+    // 3. GET CURRENT GPS LOCATION
     //
-    // geolocator ^12.0.0 compatible
-    // =======================================================
+    // geolocator ^12 compatible
+    // ========================================================
 
     final Position position =
         await Geolocator.getCurrentPosition(
-      desiredAccuracy:
-          LocationAccuracy.high,
+      desiredAccuracy: LocationAccuracy.high,
     );
 
-    // =======================================================
-    // REVERSE GEOCODING
+    // ========================================================
+    // 4. REVERSE GEOCODING
     //
-    // geocoding ^5.0.0 compatible
-    // =======================================================
+    // IMPORTANT:
+    // Use Geocoding instance instead of calling
+    // placemarkFromCoordinates() directly.
+    // ========================================================
 
     final List<geocoding.Placemark> placemarks =
         await _geocoding.placemarkFromCoordinates(
@@ -79,16 +88,24 @@ class AddressLocationService {
       position.longitude,
     );
 
+    // ========================================================
+    // 5. ADDRESS NOT FOUND
+    // ========================================================
+
     if (placemarks.isEmpty) {
       throw const AddressNotFoundException();
     }
 
+    // ========================================================
+    // 6. FIRST RESULT
+    // ========================================================
+
     final geocoding.Placemark place =
         placemarks.first;
 
-    // =======================================================
-    // ADDRESS COMPONENTS
-    // =======================================================
+    // ========================================================
+    // 7. ADDRESS COMPONENTS
+    // ========================================================
 
     final String street =
         place.street?.trim() ?? '';
@@ -108,9 +125,9 @@ class AddressLocationService {
     final String subAdministrativeArea =
         place.subAdministrativeArea?.trim() ?? '';
 
-    // =======================================================
-    // AREA
-    // =======================================================
+    // ========================================================
+    // 8. AREA
+    // ========================================================
 
     String area = '';
 
@@ -120,9 +137,9 @@ class AddressLocationService {
       area = locality;
     }
 
-    // =======================================================
-    // CITY
-    // =======================================================
+    // ========================================================
+    // 9. CITY
+    // ========================================================
 
     String city = '';
 
@@ -132,16 +149,16 @@ class AddressLocationService {
       city = subAdministrativeArea;
     }
 
-    // =======================================================
-    // STATE
-    // =======================================================
+    // ========================================================
+    // 10. STATE
+    // ========================================================
 
     final String state =
         administrativeArea;
 
-    // =======================================================
-    // RETURN
-    // =======================================================
+    // ========================================================
+    // 11. RETURN RESULT
+    // ========================================================
 
     return AddressLocationResult(
       addressLine1: street,
@@ -152,18 +169,26 @@ class AddressLocationService {
     );
   }
 
+  // ==========================================================
+  // OPEN LOCATION SETTINGS
+  // ==========================================================
+
   Future<void> openLocationSettings() async {
     await Geolocator.openLocationSettings();
   }
+
+  // ==========================================================
+  // OPEN APP SETTINGS
+  // ==========================================================
 
   Future<void> openAppSettings() async {
     await Geolocator.openAppSettings();
   }
 }
 
-// ===========================================================
+// ============================================================
 // CUSTOM EXCEPTIONS
-// ===========================================================
+// ============================================================
 
 class LocationPermissionDeniedException
     implements Exception {
