@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
-class HomeWelcomeCard extends StatelessWidget {
-  const HomeWelcomeCard({super.key});
+import '../../../core/constants/app_colors.dart';
 
-  static const Color orange = Color(0xFFF4511E);
+class HomeWelcomeCard extends StatelessWidget {
+  const HomeWelcomeCard({
+    super.key,
+  });
+
   static const String dogAsset = 'assets/dog_welcome.png';
 
   @override
@@ -12,24 +15,26 @@ class HomeWelcomeCard extends StatelessWidget {
       width: double.infinity,
       height: 88,
       padding: const EdgeInsets.only(
-        left: 15,
-        right: 8,
-        top: 10,
-        bottom: 10,
+        left: 14,
+        right: 5,
+        top: 8,
+        bottom: 8,
       ),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF34495E),
-            Color(0xFF263746),
+            AppColors.slate,
+            AppColors.navy,
           ],
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.10),
+            color: AppColors.black.withValues(
+              alpha: 0.10,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 5),
           ),
@@ -42,26 +47,30 @@ class HomeWelcomeCard extends StatelessWidget {
           // =================================================
 
           Container(
-            height: 46,
-            width: 46,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: orange.withOpacity(0.16),
-              borderRadius: BorderRadius.circular(13),
+              color: AppColors.orange.withValues(
+                alpha: 0.15,
+              ),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: orange.withOpacity(0.40),
+                color: AppColors.orange.withValues(
+                  alpha: 0.38,
+                ),
               ),
             ),
             child: const Icon(
-              Icons.pets,
-              color: orange,
-              size: 24,
+              Icons.pets_rounded,
+              color: AppColors.orange,
+              size: 23,
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // =================================================
-          // WELCOME OFFER MESSAGE
+          // WELCOME MESSAGE
           // =================================================
 
           const Expanded(
@@ -74,22 +83,24 @@ class HomeWelcomeCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
+                    color: AppColors.white,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
+                    height: 1.1,
                   ),
                 ),
 
-                SizedBox(height: 4),
+                SizedBox(height: 5),
 
                 Text(
                   'Enjoy 30% OFF on your first week! 🎉',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10.5,
+                    color: AppColors.white,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
+                    height: 1.25,
                   ),
                 ),
               ],
@@ -98,14 +109,11 @@ class HomeWelcomeCard extends StatelessWidget {
 
           // =================================================
           // DOG
-          //
-          // Transparent PNG.
-          // Keep the dog inside THIS file as requested.
           // =================================================
 
           SizedBox(
-            width: 82,
-            height: 82,
+            width: 76,
+            height: 76,
             child: Image.asset(
               dogAsset,
               fit: BoxFit.contain,
