@@ -9,26 +9,28 @@ extension _InstaWalkView on _InstaWalkContainerState {
     final Widget patti = Container(
       width: double.infinity,
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 13),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 13,
+      ),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFF243746),
-            Color(0xFF304E5A),
-            Color(0xFF376A70),
+            AppColors.navy,
+            AppColors.deepTeal,
+            AppColors.slate,
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(17),
         border: Border.all(
-          color: const Color(0xFF65D6C8).withValues(
+          color: AppColors.mint.withValues(
             alpha: 0.20,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
+            color: AppColors.black.withValues(
               alpha: 0.08,
             ),
             blurRadius: 12,
@@ -42,19 +44,19 @@ extension _InstaWalkView on _InstaWalkContainerState {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF65D6C8).withValues(
+              color: AppColors.mint.withValues(
                 alpha: 0.14,
               ),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFF65D6C8).withValues(
+                color: AppColors.mint.withValues(
                   alpha: 0.20,
                 ),
               ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.flash_on_rounded,
-              color: Color(0xFF8FFFEF),
+              color: AppColors.mintTint,
               size: 19,
             ),
           ),
@@ -63,30 +65,39 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
           Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Insta Walk',
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontWeight:
+                        FontWeight.w900,
                   ),
                 ),
+
                 const SizedBox(height: 2),
+
                 Text(
                   _searching
                       ? 'Finding walker for $_petName'
                       : 'Walker is active',
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.white
+                        .withValues(alpha: 0.70),
                     fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    fontWeight:
+                        FontWeight.w600,
                   ),
                 ),
               ],
@@ -96,31 +107,36 @@ extension _InstaWalkView on _InstaWalkContainerState {
           const SizedBox(width: 7),
 
           Container(
-            padding: const EdgeInsets.symmetric(
+            padding:
+                const EdgeInsets.symmetric(
               horizontal: 7,
               vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF65D6C8).withValues(
+              color: AppColors.mint.withValues(
                 alpha: 0.14,
               ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius:
+                  BorderRadius.circular(20),
             ),
             child: Text(
               _searching ? 'LIVE' : 'ACTIVE',
-              style: const TextStyle(
-                color: Color(0xFF8FFFEF),
+              style: TextStyle(
+                color: AppColors.mintTint,
                 fontSize: 7,
-                fontWeight: FontWeight.w900,
+                fontWeight:
+                    FontWeight.w900,
               ),
             ),
           ),
 
           const SizedBox(width: 2),
 
-          const Icon(
+          Icon(
             Icons.chevron_right_rounded,
-            color: Colors.white70,
+            color: AppColors.white.withValues(
+              alpha: 0.70,
+            ),
             size: 21,
           ),
         ],
@@ -154,24 +170,25 @@ extension _InstaWalkView on _InstaWalkContainerState {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [
-              Color(0xFF243746),
-              Color(0xFF304E5A),
-              Color(0xFF376A70),
+              AppColors.navy,
+              AppColors.deepTeal,
+              AppColors.slate,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(21),
+          borderRadius:
+              BorderRadius.circular(21),
           border: Border.all(
-            color: const Color(0xFF65D6C8).withValues(
+            color: AppColors.mint.withValues(
               alpha: 0.18,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(
+              color: AppColors.black.withValues(
                 alpha: 0.08,
               ),
               blurRadius: 16,
@@ -190,19 +207,20 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
   Widget _buildFullScreenContent() {
     if (_recovering) {
-      return const SizedBox(
+      return SizedBox(
         height: 150,
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
-            color: Color(0xFF65D6C8),
+            color: AppColors.mint,
           ),
         ),
       );
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         _header(),
 
@@ -212,8 +230,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
           _searching
               ? 'Searching available walkers near your current location.'
               : 'Find an available walker nearby instantly.',
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: AppColors.white.withValues(
+              alpha: 0.70,
+            ),
             fontSize: 12,
             height: 1.35,
           ),
@@ -221,7 +241,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         const SizedBox(height: 12),
 
-        if (!_searching && !_searchFinished)
+        if (!_searching &&
+            !_searchFinished)
           InstaWalkSearchButton(
             loading: _checkingAddress,
             text: _checkingAddress
@@ -232,7 +253,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 : _findWalker,
           ),
 
-        if (_searching) _buildSearching(),
+        if (_searching)
+          _buildSearching(),
 
         // ======================================================
         // SEARCH FINISHED / RETRY
@@ -263,8 +285,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 _ownerPosition!.longitude,
               ),
               searchRadiusKm:
-                  InstaWalkSearchService.searchRadiusKm,
-              radarAnimation: _radarController,
+                  InstaWalkSearchService
+                      .searchRadiusKm,
+              radarAnimation:
+                  _radarController,
             ),
           ),
 
@@ -279,44 +303,50 @@ extension _InstaWalkView on _InstaWalkContainerState {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding:
+              const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(
+            color: AppColors.black.withValues(
               alpha: 0.12,
             ),
-            borderRadius: BorderRadius.circular(15),
+            borderRadius:
+                BorderRadius.circular(15),
           ),
-          child: const Column(
+          child: Column(
             children: [
               SizedBox(
                 width: 42,
                 height: 42,
-                child: CircularProgressIndicator(
+                child:
+                    CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Color(0xFF65D6C8),
+                  color: AppColors.mint,
                 ),
               ),
 
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
 
               Text(
                 'Searching nearby walkers',
-                textAlign: TextAlign.center,
+                textAlign:
+                    TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
 
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
 
               Text(
                 'Searching',
                 style: TextStyle(
-                  color: Color(0xFF8FFFEF),
+                  color: AppColors.mintTint,
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
             ],
@@ -339,49 +369,68 @@ extension _InstaWalkView on _InstaWalkContainerState {
       width: double.infinity,
       height: 46,
       child: ElevatedButton(
-        onPressed: _stopping ? null : _stopSearch,
+        onPressed:
+            _stopping ? null : _stopSearch,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF243746),
-          disabledBackgroundColor: const Color(0xFF243746),
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white70,
+          backgroundColor:
+              AppColors.navy,
+          disabledBackgroundColor:
+              AppColors.navy,
+          foregroundColor:
+              AppColors.white,
+          disabledForegroundColor:
+              AppColors.white.withValues(
+            alpha: 0.70,
+          ),
           elevation: 0,
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 14,
           ),
           side: BorderSide(
-            color: const Color(0xFFFF8A80).withValues(
+            color: AppColors.error.withValues(
               alpha: 0.40,
             ),
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(13),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(13),
           ),
         ),
         child: _stopping
-            ? const SizedBox(
+            ? SizedBox(
                 width: 19,
                 height: 19,
-                child: CircularProgressIndicator(
+                child:
+                    CircularProgressIndicator(
                   strokeWidth: 2.3,
-                  color: Color(0xFF8FFFEF),
+                  color:
+                      AppColors.mintTint,
                 ),
               )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            : Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.stop_circle_outlined,
+                    Icons
+                        .stop_circle_outlined,
                     size: 20,
-                    color: Color(0xFFFF8A80),
+                    color:
+                        AppColors.error,
                   ),
-                  SizedBox(width: 7),
+
+                  const SizedBox(width: 7),
+
                   Text(
                     'Stop Search',
                     style: TextStyle(
-                      color: Colors.white,
+                      color:
+                          AppColors.white,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      fontWeight:
+                          FontWeight.w800,
                     ),
                   ),
                 ],
@@ -403,25 +452,27 @@ extension _InstaWalkView on _InstaWalkContainerState {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [
-                Color(0xFF65D6C8),
-                Color(0xFF8FFFEF),
+                AppColors.mint,
+                AppColors.mintTint,
               ],
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius:
+                BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF65D6C8).withValues(
+                color:
+                    AppColors.mint.withValues(
                   alpha: 0.20,
                 ),
                 blurRadius: 9,
               ),
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.flash_on_rounded,
-            color: Color(0xFF243746),
+            color: AppColors.navy,
             size: 25,
           ),
         ),
@@ -430,14 +481,16 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Insta Walk',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 19,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
 
@@ -448,11 +501,16 @@ extension _InstaWalkView on _InstaWalkContainerState {
                     ? 'Finding a walker for $_petName'
                     : 'Walker is active',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white60,
+                overflow:
+                    TextOverflow.ellipsis,
+                style: TextStyle(
+                  color:
+                      AppColors.white.withValues(
+                    alpha: 0.60,
+                  ),
                   fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  fontWeight:
+                      FontWeight.w500,
                 ),
               ),
             ],
@@ -462,30 +520,36 @@ extension _InstaWalkView on _InstaWalkContainerState {
         const SizedBox(width: 7),
 
         Container(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 8,
             vertical: 5,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF65D6C8).withValues(
+            color: AppColors.mint.withValues(
               alpha: 0.12,
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius:
+                BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF65D6C8).withValues(
+              color:
+                  AppColors.mint.withValues(
                 alpha: 0.25,
               ),
             ),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize:
+                MainAxisSize.min,
             children: [
               Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF65D6C8),
-                  shape: BoxShape.circle,
+                decoration:
+                    BoxDecoration(
+                  color: AppColors.mint,
+                  shape:
+                      BoxShape.circle,
                 ),
               ),
 
@@ -493,10 +557,12 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
               Text(
                 isLive ? 'LIVE' : 'ACTIVE',
-                style: const TextStyle(
-                  color: Color(0xFF8FFFEF),
+                style: TextStyle(
+                  color:
+                      AppColors.mintTint,
                   fontSize: 8,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
             ],
