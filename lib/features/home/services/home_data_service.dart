@@ -1,5 +1,3 @@
-import '../models/home_live_walk.dart';
-
 import 'home_owner_service.dart';
 import 'home_past_walk_service.dart';
 import 'home_stats_service.dart';
@@ -33,6 +31,10 @@ class HomeDataService {
 
   Future<String> getOwnerName() {
     return ownerService.getOwnerName();
+  }
+
+  Future<List<Map<String, dynamic>>> getPets() {
+    return ownerService.getPets();
   }
 
   // ============================================================
@@ -78,7 +80,7 @@ class HomeDataService {
   static String formatDistance(
     dynamic value,
   ) {
-    final double km = _readDouble(value);
+    final double km = _readDistanceKm(value);
 
     return '${km.toStringAsFixed(1)} km';
   }
@@ -90,7 +92,7 @@ class HomeDataService {
   static String formatDuration(
     dynamic value,
   ) {
-    final int minutes = _readInt(value);
+    final int minutes = _readDurationMinutes(value);
 
     if (minutes <= 0) {
       return '0 mins';
@@ -99,22 +101,22 @@ class HomeDataService {
     final int hours = minutes ~/ 60;
     final int remainingMinutes = minutes % 60;
 
-    if (hours > 0) {
-      if (remainingMinutes == 0) {
-        return '$hours hrs';
-      }
-
+    if (hours > 0 && remainingMinutes > 0) {
       return '$hours hrs $remainingMinutes mins';
+    }
+
+    if (hours > 0) {
+      return '$hours hrs';
     }
 
     return '$minutes mins';
   }
 
   // ============================================================
-  // SAFE DOUBLE
+  // SAFE DISTANCE
   // ============================================================
 
-  static double _readDouble(
+  static double _readDistanceKm(
     dynamic value,
   ) {
     if (value == null) {
@@ -125,14 +127,19 @@ class HomeDataService {
       return value.toDouble();
     }
 
-    final String text = value
+    String text = value
         .toString()
         .trim()
+        .toLowerCase()
         .replaceAll(',', '');
 
     if (text.isEmpty) {
       return 0.0;
     }
+
+    final bool isMeters =
+        text.contains('meter') ||
+        RegExp(r'\bm\b').hasMatch(text);
 
     final Match? match = RegExp(
       r'-?\d+(?:\.\d+)?',
@@ -142,17 +149,21 @@ class HomeDataService {
       return 0.0;
     }
 
-    return double.tryParse(
-          match.group(0)!,
-        ) ??
-        0.0;
+    final double parsed =
+        double.tryParse(match.group(0) ?? '') ?? 0.0;
+
+    if (isMeters) {
+      return parsed / 1000;
+    }
+
+    return parsed;
   }
 
   // ============================================================
-  // SAFE INTEGER
+  // SAFE DURATION
   // ============================================================
 
-  static int _readInt(
+  static int _readDurationMinutes(
     dynamic value,
   ) {
     if (value == null) {
@@ -167,22 +178,67 @@ class HomeDataService {
       return value.round();
     }
 
-    final String text = value.toString().trim();
+    final String text =
+        value.toString().trim().toLowerCase();
 
     if (text.isEmpty) {
       return 0;
     }
 
-    final Match? match = RegExp(
+    // ----------------------------------------------------------
+    // HOURS
+    // ----------------------------------------------------------
+
+    final RegExpMatch? hoursMatch = RegExp(
+      r'(\d+(?:\.\d+)?)\s*(hr|hrs|hour|hours)',
+    ).firstMatch(text);
+
+    final RegExpMatch? minutesMatch = RegExp(
+      r'(\d+)\s*(min|mins|minute|minutes)',
+    ).firstMatch(text);
+
+    if (hoursMatch != null) {
+      final double hours =
+          double.tryParse(
+                hoursMatch.group(1) ?? '',
+              ) ??
+              0.0;
+
+      final int minutes = minutesMatch == null
+          ? 0
+          : int.tryParse(
+                minutesMatch.group(1) ?? '',
+              ) ??
+              0;
+
+      return (hours * 60).round() + minutes;
+    }
+
+    // ----------------------------------------------------------
+    // MINUTES
+    // ----------------------------------------------------------
+
+    if (minutesMatch != null) {
+      return int.tryParse(
+            minutesMatch.group(1) ?? '',
+          ) ??
+          0;
+    }
+
+    // ----------------------------------------------------------
+    // PLAIN NUMBER
+    // ----------------------------------------------------------
+
+    final Match? numberMatch = RegExp(
       r'-?\d+(?:\.\d+)?',
     ).firstMatch(text);
 
-    if (match == null) {
+    if (numberMatch == null) {
       return 0;
     }
 
     return double.tryParse(
-          match.group(0)!,
+          numberMatch.group(0) ?? '',
         )?.round() ??
         0;
   }
