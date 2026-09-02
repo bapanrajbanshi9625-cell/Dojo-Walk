@@ -1,6 +1,5 @@
 import '../models/home_live_walk.dart';
 
-import 'home_live_walk_service.dart';
 import 'home_owner_service.dart';
 import 'home_past_walk_service.dart';
 import 'home_stats_service.dart';
@@ -14,29 +13,11 @@ class HomeDataService {
   final HomeOwnerService ownerService =
       HomeOwnerService.instance;
 
-  final HomeLiveWalkService liveWalkService =
-      HomeLiveWalkService.instance;
-
   final HomePastWalkService pastWalkService =
       HomePastWalkService.instance;
 
   final HomeStatsService statsService =
       HomeStatsService.instance;
-
-  // ============================================================
-  // STATUS
-  // ============================================================
-
-  static const Set<String> inactiveStatuses = {
-    'completed',
-    'complete',
-    'cancelled',
-    'canceled',
-    'ended',
-    'finished',
-    'rejected',
-    'declined',
-  };
 
   // ============================================================
   // OWNER
@@ -52,50 +33,6 @@ class HomeDataService {
 
   Future<String> getOwnerName() {
     return ownerService.getOwnerName();
-  }
-
-  // ============================================================
-  // LIVE WALK
-  // ============================================================
-
-  /// Converts the raw Firestore stream from
-  /// HomeLiveWalkService into a typed HomeLiveWalk stream.
-  ///
-  /// Completed/cancelled/ended walks are ignored.
-  Stream<HomeLiveWalk?> liveWalkStream() async* {
-    await for (final snapshot in liveWalkService.stream()) {
-      HomeLiveWalk? liveWalk;
-
-      for (final doc in snapshot.docs) {
-        final Map<String, dynamic> data =
-            Map<String, dynamic>.from(
-          doc.data(),
-        );
-
-        final String status = _readStatus(data);
-
-        if (inactiveStatuses.contains(status)) {
-          continue;
-        }
-
-        liveWalk = HomeLiveWalk.fromFirestore(
-          doc.id,
-          data,
-        );
-
-        break;
-      }
-
-      yield liveWalk;
-    }
-  }
-
-  // ============================================================
-  // CURRENT LIVE WALK
-  // ============================================================
-
-  Future<HomeLiveWalk?> getCurrentLiveWalk() {
-    return liveWalkService.getCurrentWalk();
   }
 
   // ============================================================
@@ -174,29 +111,7 @@ class HomeDataService {
   }
 
   // ============================================================
-  // PRIVATE STATUS READER
-  // ============================================================
-
-  static String _readStatus(
-    Map<String, dynamic> data,
-  ) {
-    final dynamic value =
-        data['status'] ??
-        data['walkStatus'] ??
-        data['currentStatus'];
-
-    if (value == null) {
-      return '';
-    }
-
-    return value
-        .toString()
-        .trim()
-        .toLowerCase();
-  }
-
-  // ============================================================
-  // SAFE DOUBLE PARSER
+  // SAFE DOUBLE
   // ============================================================
 
   static double _readDouble(
@@ -234,7 +149,7 @@ class HomeDataService {
   }
 
   // ============================================================
-  // SAFE INTEGER PARSER
+  // SAFE INTEGER
   // ============================================================
 
   static int _readInt(
