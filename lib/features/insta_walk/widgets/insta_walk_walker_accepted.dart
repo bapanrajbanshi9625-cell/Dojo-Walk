@@ -4,16 +4,10 @@ part of '../controllers/insta_walk_container.dart';
 // WALKER ACCEPTED
 // ============================================================
 //
-// Responsibility:
-//   • Validate accepted request
-//   • Stop radar
-//   • Stop searching
-//   • Store request ID
-//   • Mark walk state
-//   • Open Owner WalkerAcceptScreen through controller
+// Owner-side accepted flow.
 //
-// Navigation itself is implemented by:
-//   _InstaWalkContainerState._handleAccepted()
+// Navigation is handled ONLY by:
+// _InstaWalkContainerState._handleAccepted()
 //
 // ============================================================
 
@@ -103,57 +97,24 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _requestId = requestId;
 
     // ==========================================================
-    // STOP RADAR
+    // IMPORTANT
     // ==========================================================
-
-    _stopRadar();
-
-    debugPrint(
-      '✅ Radar stopped.',
-    );
-
+    //
+    // Do NOT call:
+    //
+    // _setActive(true)
+    //
+    // here.
+    //
+    // The accepted flow is already transitioning away from
+    // the search screen. Changing active state here can trigger
+    // the parent to rebuild/dispose this container before the
+    // navigation frame executes.
+    //
     // ==========================================================
-    // STOP SEARCH UI
-    // ==========================================================
-
-    _updateState(() {
-      _searching = false;
-      _searchFinished = false;
-      _recovering = false;
-      _checkingAddress = false;
-      _stopping = false;
-    });
-
-    debugPrint(
-      '✅ Searching stopped.',
-    );
-
-    // ==========================================================
-    // MARK ACTIVE
-    // ==========================================================
-
-    _setActive(true);
-
-    debugPrint(
-      '✅ Active state = true.',
-    );
 
     // ==========================================================
     // INTERNAL ACCEPTED HANDLER
-    // ==========================================================
-    //
-    // IMPORTANT:
-    //
-    // Previously this file called:
-    //
-    // widget.onAccepted?.call(accepted);
-    //
-    // That depended on the old InstaWalkScreen.
-    //
-    // Now the Container itself owns the screen/navigation flow.
-    //
-    // Therefore call the State handler directly.
-    //
     // ==========================================================
 
     debugPrint(
