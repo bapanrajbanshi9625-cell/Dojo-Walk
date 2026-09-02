@@ -125,21 +125,28 @@ class _AddressLocationPickerScreenState
   // ============================================================
 
   Future<void> _reverseGeocode(
-    LatLng location,
-  ) async {
-    try {
-      final List<geocoding.Placemark> places =
-          await geocoding.placemarkFromCoordinates(
-        location.latitude,
-        location.longitude,
-      );
+  LatLng location,
+) async {
+  try {
+    final geocoding.Geocoding geocoder =
+        geocoding.Geocoding();
 
-      if (places.isEmpty) {
-        _selectedAddress =
-            'Location selected';
-        return;
-      }
+    final List<geocoding.Placemark> places =
+        await geocoder.placemarkFromCoordinates(
+      location.latitude,
+      location.longitude,
+    );
 
+    if (places.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAddress = 'Location selected';
+      });
+
+      return;
+    }
+    
       final geocoding.Placemark place =
           places.first;
 
