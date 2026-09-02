@@ -26,24 +26,17 @@ class HomeOwnerService {
 
     final String uid = user.uid.trim();
 
-    if (uid.isEmpty) {
-      return null;
-    }
-
-    return uid;
+    return uid.isEmpty ? null : uid;
   }
 
   // ============================================================
   // OWNER ID
   //
-  // Firebase Auth UID:
-  // XDYijQj3wzfJj3PAETlP9L59Z3e2
+  // auth UID -> ownerProfiles -> ownerId
   //
-  // ownerProfiles:
-  // authUid -> ownerId
-  //
-  // Example:
-  // OWN26GH0002
+  // Supports both:
+  // 1. ownerProfiles where authUid == Firebase Auth UID
+  // 2. ownerProfiles document ID == Firebase Auth UID
   // ============================================================
 
   Future<String?> getOwnerId() async {
@@ -53,65 +46,17 @@ class HomeOwnerService {
       return null;
     }
 
-    // ----------------------------------------------------------
-    // First: authUid
-    // ----------------------------------------------------------
+    final Map<String, dynamic>? profile =
+        await getOwnerProfile();
 
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _firestore
-              .collection('ownerProfiles')
-              .where(
-                'authUid',
-                isEqualTo: uid,
-              )
-              .limit(1)
-              .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        final Map<String, dynamic> data =
-            snapshot.docs.first.data();
-
-        final String ownerId =
-            _string(data['ownerId']);
-
-        if (ownerId.isNotEmpty) {
-          return ownerId;
-        }
-      }
-    } catch (_) {
-      // Continue to fallback.
+    if (profile == null) {
+      return null;
     }
 
-    // ----------------------------------------------------------
-    // Second: document ID == auth UID
-    // ----------------------------------------------------------
+    final String ownerId =
+        _string(profile['ownerId']);
 
-    try {
-      final DocumentSnapshot<Map<String, dynamic>> doc =
-          await _firestore
-              .collection('ownerProfiles')
-              .doc(uid)
-              .get();
-
-      if (doc.exists) {
-        final Map<String, dynamic>? data =
-            doc.data();
-
-        if (data != null) {
-          final String ownerId =
-              _string(data['ownerId']);
-
-          if (ownerId.isNotEmpty) {
-            return ownerId;
-          }
-        }
-      }
-    } catch (_) {
-      // Safe fallback.
-    }
-
-    return null;
+    return ownerId.isEmpty ? null : ownerId;
   }
 
   // ============================================================
@@ -125,6 +70,10 @@ class HomeOwnerService {
       return null;
     }
 
+    // ----------------------------------------------------------
+    // FIRST: QUERY BY authUid
+    // ----------------------------------------------------------
+
     try {
       final QuerySnapshot<Map<String, dynamic>> snapshot =
           await _firestore
@@ -137,9 +86,17 @@ class HomeOwnerService {
               .get();
 
       if (snapshot.docs.isNotEmpty) {
-        return snapshot.docs.first.data();
+        return Map<String, dynamic>.from(
+          snapshot.docs.first.data(),
+        );
       }
-    } catch (_) {}
+    } catch (_) {
+      // Continue with document-ID fallback.
+    }
+
+    // ----------------------------------------------------------
+    // SECOND: DOCUMENT ID == AUTH UID
+    // ----------------------------------------------------------
 
     try {
       final DocumentSnapshot<Map<String, dynamic>> doc =
@@ -148,12 +105,21 @@ class HomeOwnerService {
               .doc(uid)
               .get();
 
-      if (doc.exists) {
-        return doc.data();
+      if (!doc.exists) {
+        return null;
       }
-    } catch (_) {}
 
-    return null;
+      final Map<String, dynamic>? data =
+          doc.data();
+
+      if (data == null) {
+        return null;
+      }
+
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ============================================================
@@ -169,7 +135,10 @@ class HomeOwnerService {
     }
 
     final String name =
-        _string(profile['ownerName']);
+        _string(
+          profile['ownerName'] ??
+              profile['name'],
+        );
 
     return name.isEmpty ? 'Owner' : name;
   }
@@ -192,13 +161,23 @@ class HomeOwnerService {
       return <Map<String, dynamic>>[];
     }
 
-    return pets
-        .whereType<Map>()
-        .map(
-          (Map pet) => Map<String, dynamic>.from(pet),
-        )
-        .toList();
+    final List<Map<String, dynamic>> result =
+        <Map<String, dynamic>>[];
+
+    for (final dynamic pet in pets) {
+      if (pet is Map) {
+        result.add(
+          Map<String, dynamic>.from(pet),
+        );
+      }
+    }
+
+    return result;
   }
+
+  // ============================================================
+  // SAFE STRING
+  // ============================================================
 
   static String _string(dynamic value) {
     if (value == null) {
