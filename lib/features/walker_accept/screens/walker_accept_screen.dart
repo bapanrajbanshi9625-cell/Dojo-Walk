@@ -25,7 +25,6 @@ class WalkerAcceptScreen extends StatefulWidget {
   final String requestId;
 
   final ValueChanged<WalkerAcceptData>? onReached;
-
   final VoidCallback? onCall;
   final VoidCallback? onChat;
   final VoidCallback? onHelp;
@@ -44,11 +43,11 @@ class _WalkerAcceptScreenState
       _requestSubscription;
 
   WalkerAcceptData? _data;
-
   WalkerRouteResult? _route;
 
   bool _loadingRoute = false;
   bool _reachedHandled = false;
+  bool _routeRequestedOnce = false;
 
   @override
   void initState() {
@@ -105,11 +104,8 @@ class _WalkerAcceptScreenState
   void _checkReached(
     WalkerAcceptData data,
   ) {
-    if (_reachedHandled) {
-      return;
-    }
-
-    if (!data.isReached) {
+    if (_reachedHandled ||
+        !data.isReached) {
       return;
     }
 
@@ -123,35 +119,44 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
-  // ROUTE REFRESH
+  // ROUTE
   // ==========================================================
 
   void _refreshRoute(
     WalkerAcceptData data,
   ) {
     if (!data.hasWalkerLocation ||
-        !data.hasOwnerLocation) {
+        !data.hasOwnerLocation ||
+        _loadingRoute) {
       return;
     }
 
-    if (_loadingRoute) {
+    // First route immediately.
+    if (!_routeRequestedOnce) {
+      _routeRequestedOnce = true;
+      _loadRoute(data);
       return;
     }
 
+    // Refresh only when the route becomes
+    // meaningfully stale.
     _loadRoute(data);
   }
 
   Future<void> _loadRoute(
     WalkerAcceptData data,
   ) async {
-    if (!mounted) {
+    if (!mounted || _loadingRoute) {
       return;
     }
 
-    final location = data.walkerLocation;
-    final owner = data.ownerLocation;
+    final location =
+        data.walkerLocation;
+    final owner =
+        data.ownerLocation;
 
-    if (location == null || owner == null) {
+    if (location == null ||
+        owner == null) {
       return;
     }
 
@@ -170,7 +175,8 @@ class _WalkerAcceptScreenState
         ),
       );
 
-      if (!mounted || result == null) {
+      if (!mounted ||
+          result == null) {
         return;
       }
 
@@ -231,24 +237,14 @@ class _WalkerAcceptScreenState
     final WalkerAcceptData? data = _data;
 
     if (data == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return _buildLoadingScreen(context);
     }
 
     final LatLng? ownerLocation =
         _ownerLatLng;
 
     if (ownerLocation == null) {
-      return const Scaffold(
-        body: Center(
-          child: Text(
-            'Owner location is unavailable.',
-          ),
-        ),
-      );
+      return _buildLocationUnavailable(context);
     }
 
     return Scaffold(
@@ -256,13 +252,10 @@ class _WalkerAcceptScreenState
           Theme.of(context)
               .colorScheme
               .surface,
-      appBar: _buildAppBar(context),
+      appBar:
+          _buildAppBar(context, data),
       body: Stack(
         children: [
-          // ====================================================
-          // OSM MAP
-          // ====================================================
-
           Positioned.fill(
             child: WalkerAcceptMap(
               ownerLocation:
@@ -280,10 +273,6 @@ class _WalkerAcceptScreenState
                   _recenterOwner,
             ),
           ),
-
-          // ====================================================
-          // BOTTOM CARD
-          // ====================================================
 
           Positioned(
             left: 0,
@@ -303,11 +292,115 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
+  // LOADING
+  // ==========================================================
+
+  Widget _buildLoadingScreen(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: colors.surface,
+      body: Center(
+        child: Column(
+          mainAxisSize:
+              MainAxisSize.min,
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: colors.primary
+                    .withValues(alpha: .10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons
+                    .directions_walk_rounded,
+                size: 34,
+                color: colors.primary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Connecting to your Walker',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              'Starting live tracking…',
+              style: TextStyle(
+                fontSize: 13,
+                color:
+                    colors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child:
+                  CircularProgressIndicator(
+                strokeWidth: 2.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // LOCATION UNAVAILABLE
+  // ==========================================================
+
+  Widget _buildLocationUnavailable(
+    BuildContext context,
+  ) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Walker is on the way',
+        ),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.location_off_rounded,
+                size: 46,
+              ),
+              SizedBox(height: 14),
+              Text(
+                'Owner location is unavailable.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
   // APP BAR
   // ==========================================================
 
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
+    WalkerAcceptData data,
   ) {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
@@ -316,24 +409,54 @@ class _WalkerAcceptScreenState
       elevation: 0,
       scrolledUnderElevation: 0,
       backgroundColor: colors.surface,
-      titleSpacing: 0,
-      title: const Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      titleSpacing: 4,
+      title: Row(
         children: [
-          Text(
-            'Walker is on the way',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: colors.primary
+                  .withValues(alpha: .10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              data.isReached
+                  ? Icons.check_rounded
+                  : Icons
+                      .directions_walk_rounded,
+              color: colors.primary,
+              size: 21,
             ),
           ),
-          SizedBox(height: 2),
-          Text(
-            'Live tracking',
-            style: TextStyle(
-              fontSize: 12,
-            ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.isReached
+                    ? 'Walker has arrived'
+                    : 'Walker is on the way',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                data.isReached
+                    ? 'Your Walker is here'
+                    : 'Live tracking',
+                style: TextStyle(
+                  fontSize: 11,
+                  color:
+                      colors.onSurfaceVariant,
+                  fontWeight:
+                      FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -357,25 +480,13 @@ class _WalkerAcceptScreenState
     BuildContext context,
     WalkerAcceptData data,
   ) {
-    // --------------------------------------------------------
-    // DISTANCE
-    //
-    // Route distance may be num/double.
-    // Convert it to double because WalkerEtaDistance
-    // expects double.
-    // --------------------------------------------------------
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
 
     final double routeDistanceMeters =
         (_route?.distanceMeters ??
                 data.distanceMeters)
             .toDouble();
-
-    // --------------------------------------------------------
-    // ETA
-    //
-    // Route duration may be num.
-    // Convert it safely to int.
-    // --------------------------------------------------------
 
     final int routeEtaMinutes =
         (_route?.durationMinutes ??
@@ -384,25 +495,23 @@ class _WalkerAcceptScreenState
 
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surface,
+        color: colors.surface,
         borderRadius:
             const BorderRadius.vertical(
           top: Radius.circular(28),
         ),
         boxShadow: const [
           BoxShadow(
-            blurRadius: 24,
-            offset: Offset(0, -6),
-            color: Color(0x22000000),
+            blurRadius: 28,
+            offset: Offset(0, -7),
+            color: Color(0x26000000),
           ),
         ],
       ),
       padding:
           const EdgeInsets.fromLTRB(
         18,
-        16,
+        10,
         18,
         14,
       ),
@@ -411,19 +520,36 @@ class _WalkerAcceptScreenState
             MainAxisSize.min,
         children: [
           // ==================================================
-          // STATUS
+          // DRAG HANDLE
+          // ==================================================
+
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color:
+                  colors.outlineVariant,
+              borderRadius:
+                  BorderRadius.circular(20),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ==================================================
+          // ARRIVAL / STATUS
           // ==================================================
 
           WalkerAcceptStatus(
-           status: data.status,
-           distanceMeters:
-              routeDistanceMeters,
-           ),
+            status: data.status,
+            distanceMeters:
+                routeDistanceMeters,
+          ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // ==================================================
-          // WALKER INFORMATION
+          // WALKER
           // ==================================================
 
           WalkerInfoCard(
@@ -458,10 +584,44 @@ class _WalkerAcceptScreenState
                 routeEtaMinutes,
           ),
 
-          const SizedBox(height: 14),
+          if (_loadingRoute)
+            Padding(
+              padding:
+                  const EdgeInsets.only(
+                top: 8,
+              ),
+              child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 13,
+                    height: 13,
+                    child:
+                        CircularProgressIndicator(
+                      strokeWidth: 1.8,
+                      color: colors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    'Updating route…',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color:
+                          colors.onSurfaceVariant,
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 12),
 
           // ==================================================
-          // CALL + CHAT
+          // CONTACT
           // ==================================================
 
           WalkerContactButtons(
@@ -483,14 +643,13 @@ class _WalkerAcceptScreenState
     );
   }
 
-
   // ==========================================================
-  // RECENTER OWNER
+  // RECENTER
   // ==========================================================
 
   void _recenterOwner() {
     debugPrint(
-      'WalkerAcceptScreen: recenter owner.',
+      'WalkerAcceptScreen: map recenter requested.',
     );
   }
 
