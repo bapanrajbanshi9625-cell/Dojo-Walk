@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
@@ -48,8 +49,7 @@ class _OtpVerificationScreenState
       return;
     }
 
-    final String otp =
-        _otpController.text.trim();
+    final String otp = _otpController.text.trim();
 
     if (otp.length != 6) {
       _showMessage(
@@ -89,10 +89,6 @@ class _OtpVerificationScreenState
         'MSG91 VERIFY RESPONSE: $response',
       );
 
-      // ========================================================
-      // 2. CHECK OTP RESULT
-      // ========================================================
-
       final bool verified =
           _isOtpVerified(response);
 
@@ -107,7 +103,7 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 3. NORMALIZE MOBILE NUMBER
+      // 2. NORMALIZE PHONE
       // ========================================================
 
       final String? phone =
@@ -126,21 +122,57 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 4. FIND ACCOUNT IN FIRESTORE
+      // 3. TEMPORARY FIREBASE AUTH SESSION
       // ========================================================
       //
-      // IMPORTANT:
+      // Cloud Function is not available yet.
       //
-      // phoneAccounts document ID = Firebase UID
+      // So for temporary testing we create an anonymous
+      // Firebase Auth session.
       //
-      // Example:
+      // This is NOT the permanent UID.
       //
-      // phoneAccounts
-      //   └── FirebaseUID
-      //        ├── phone
-      //        ├── phoneNumber
-      //        ├── ownerId
-      //        └── profileCompleted
+      // Cloud Functions will later replace this with the
+      // real Firebase UID authentication.
+      //
+      // ========================================================
+
+      final FirebaseAuth auth =
+          FirebaseAuth.instance;
+
+      User? firebaseUser =
+          auth.currentUser;
+
+      if (firebaseUser == null ||
+          !firebaseUser.isAnonymous) {
+        final UserCredential credential =
+            await auth.signInAnonymously();
+
+        firebaseUser =
+            credential.user;
+      }
+
+      if (firebaseUser == null) {
+        throw Exception(
+          'Unable to create temporary Firebase session.',
+        );
+      }
+
+      debugPrint(
+        'TEMP FIREBASE UID: ${firebaseUser.uid}',
+      );
+
+      debugPrint(
+        'TEMP SESSION ANONYMOUS: ${firebaseUser.isAnonymous}',
+      );
+
+      // ========================================================
+      // 4. FIND EXISTING ACCOUNT
+      // ========================================================
+      //
+      // phoneAccounts document ID remains Firebase UID.
+      //
+      // Mobile number is only stored in the phone field.
       //
       // ========================================================
 
@@ -184,33 +216,17 @@ class _OtpVerificationScreenState
           );
         }
 
-        if (ownerId.isEmpty) {
-          throw Exception(
-            'Owner account is not linked correctly.',
-          );
-        }
-
         debugPrint(
           'EXISTING ACCOUNT FOUND',
         );
 
         debugPrint(
-          'FIREBASE UID: $uid',
+          'PERMANENT FIREBASE UID: $uid',
         );
 
         debugPrint(
           'OWNER ID: $ownerId',
         );
-
-        // ------------------------------------------------------
-        // Existing account
-        //
-        // IMPORTANT:
-        // Without Firebase Auth / Cloud Function, we cannot
-        // create a Firebase Auth session for this UID.
-        //
-        // We only verify OTP and find the existing account.
-        // ------------------------------------------------------
 
         if (!mounted) {
           return;
@@ -241,18 +257,6 @@ class _OtpVerificationScreenState
 
       // ========================================================
       // 6. NEW ACCOUNT
-      // ========================================================
-      //
-      // No phoneAccounts document exists.
-      //
-      // We cannot create a Firebase UID from the client
-      // just by knowing the mobile number.
-      //
-      // Therefore we send the user to profile setup.
-      //
-      // The profile setup must create/link the account
-      // using your existing app architecture.
-      //
       // ========================================================
 
       debugPrint(
@@ -285,16 +289,16 @@ class _OtpVerificationScreenState
     }
 
     // ==========================================================
-    // FIRESTORE ERROR
+    // FIREBASE ERROR
     // ==========================================================
 
     on FirebaseException catch (e) {
       debugPrint(
-        'OWNER FIRESTORE ERROR: ${e.code}',
+        'OWNER FIREBASE ERROR: ${e.code}',
       );
 
       debugPrint(
-        'OWNER FIRESTORE MESSAGE: ${e.message}',
+        'OWNER FIREBASE MESSAGE: ${e.message}',
       );
 
       if (!mounted) {
@@ -334,7 +338,7 @@ class _OtpVerificationScreenState
         );
       } else if (error.contains('permission-denied')) {
         _showMessage(
-          'Firebase permission denied. Please check Firestore rules.',
+          'Firebase permission denied.',
         );
       } else if (error.contains('network')) {
         _showMessage(
@@ -568,10 +572,10 @@ class _OtpVerificationScreenState
   ) {
     switch (e.code) {
       case 'permission-denied':
-        return 'Firebase permission denied. Please check Firestore rules.';
+        return 'Firebase permission denied.';
 
       case 'unauthenticated':
-        return 'Firebase authentication is required. Please try again.';
+        return 'Firebase authentication is required.';
 
       case 'unavailable':
         return 'Firebase is temporarily unavailable. Please try again.';
@@ -734,7 +738,6 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 12,
                 ),
-
                 Container(
                   height: 78,
                   width: 78,
@@ -768,11 +771,9 @@ class _OtpVerificationScreenState
                     size: 38,
                   ),
                 ),
-
                 const SizedBox(
                   height: 26,
                 ),
-
                 const Text(
                   'Verify your number',
                   textAlign:
@@ -784,11 +785,9 @@ class _OtpVerificationScreenState
                         FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(
                   height: 9,
                 ),
-
                 const Text(
                   'Enter the 6-digit OTP sent to',
                   textAlign:
@@ -801,11 +800,9 @@ class _OtpVerificationScreenState
                         FontWeight.w500,
                   ),
                 ),
-
                 const SizedBox(
                   height: 5,
                 ),
-
                 Text(
                   _displayPhoneNumber(),
                   textAlign:
@@ -818,11 +815,9 @@ class _OtpVerificationScreenState
                         FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(
                   height: 30,
                 ),
-
                 Container(
                   width:
                       double.infinity,
@@ -877,11 +872,9 @@ class _OtpVerificationScreenState
                               FontWeight.w800,
                         ),
                       ),
-
                       const SizedBox(
                         height: 12,
                       ),
-
                       TextField(
                         controller:
                             _otpController,
@@ -993,11 +986,9 @@ class _OtpVerificationScreenState
                           ),
                         ),
                       ),
-
                       const SizedBox(
                         height: 18,
                       ),
-
                       SizedBox(
                         width:
                             double.infinity,
@@ -1056,11 +1047,9 @@ class _OtpVerificationScreenState
                                     ),
                         ),
                       ),
-
                       const SizedBox(
                         height: 16,
                       ),
-
                       Center(
                         child:
                             TextButton(
@@ -1095,11 +1084,9 @@ class _OtpVerificationScreenState
                     ],
                   ),
                 ),
-
                 const SizedBox(
                   height: 20,
                 ),
-
                 const Row(
                   mainAxisAlignment:
                       MainAxisAlignment
@@ -1128,11 +1115,9 @@ class _OtpVerificationScreenState
                     ),
                   ],
                 ),
-
                 const SizedBox(
                   height: 8,
                 ),
-
                 const Text(
                   'Dojo Platform',
                   textAlign:
