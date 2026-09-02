@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/constants/app_colors.dart';
 
 class AddressCard extends StatelessWidget {
   final String flatHouseNo;
   final String streetRoad;
-  final String landmark;
-  final bool isConnecting;
-  final VoidCallback onConnectLocation;
+  final String area;
+  final String city;
+  final String state;
+  final String pincode;
+  final VoidCallback onEditAddress;
 
   const AddressCard({
     super.key,
     required this.flatHouseNo,
     required this.streetRoad,
-    required this.landmark,
-    required this.isConnecting,
-    required this.onConnectLocation,
+    required this.area,
+    required this.city,
+    required this.state,
+    required this.pincode,
+    required this.onEditAddress,
   });
 
   @override
@@ -23,17 +27,20 @@ class AddressCard extends StatelessWidget {
     final bool hasAddress =
         flatHouseNo.trim().isNotEmpty ||
         streetRoad.trim().isNotEmpty ||
-        landmark.trim().isNotEmpty;
+        area.trim().isNotEmpty ||
+        city.trim().isNotEmpty ||
+        state.trim().isNotEmpty ||
+        pincode.trim().isNotEmpty;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
       decoration: BoxDecoration(
-        color: DojoColors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: DojoColors.black.withValues(alpha: 0.05),
+            color: AppColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -42,129 +49,110 @@ class AddressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!hasAddress)
-            const Text(
-              'No address added yet.',
-              style: TextStyle(
-                color: DojoColors.grey,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else ...[
-            if (flatHouseNo.trim().isNotEmpty)
-              _AddressRow(
-                icon: Icons.home_outlined,
-                label: 'Flat / House No.',
-                value: flatHouseNo,
-              ),
-
-            if (streetRoad.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _AddressRow(
-                icon: Icons.signpost_outlined,
-                label: 'Street / Road',
-                value: streetRoad,
-              ),
-            ],
-
-            if (landmark.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _AddressRow(
-                icon: Icons.place_outlined,
-                label: 'Landmark',
-                value: landmark,
-              ),
-            ],
-          ],
-
-          const SizedBox(height: 15),
-
           // ========================================================
-          // LOCATION STATUS
+          // HEADER
           // ========================================================
 
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: DojoColors.lightOrange,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  color: DojoColors.orange,
-                  size: 18,
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'My Address',
+                      style: TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasAddress
+                          ? 'Your saved address'
+                          : 'No saved address',
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Location dena mandatory hai.',
-                    style: TextStyle(
-                      color: DojoColors.navy,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+              ),
+
+              // ====================================================
+              // EDIT BUTTON
+              // ====================================================
+
+              Material(
+                color: AppColors.orange.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: onEditAddress,
+                  borderRadius: BorderRadius.circular(10),
+                  child: const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(
+                      Icons.edit_outlined,
+                      color: AppColors.orange,
+                      size: 19,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 12),
 
           // ========================================================
-          // CONNECT CURRENT LOCATION
+          // ADDRESS CONTENT
           // ========================================================
 
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: OutlinedButton.icon(
-              onPressed:
-                  isConnecting ? null : onConnectLocation,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: DojoColors.orange,
-                disabledForegroundColor:
-                    DojoColors.orange.withValues(alpha: 0.55),
-                side: const BorderSide(
-                  color: DojoColors.orange,
-                  width: 1.2,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          if (!hasAddress)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 11,
+                vertical: 11,
               ),
-              icon: isConnecting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: DojoColors.orange,
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.location_off_outlined,
+                    color: AppColors.grey,
+                    size: 18,
+                  ),
+                  SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      'No address added yet.',
+                      style: TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
                       ),
-                    )
-                  : const Icon(
-                      Icons.my_location_rounded,
-                      size: 19,
                     ),
-              label: Text(
-                isConnecting
-                    ? 'Connecting...'
-                    : 'Connect Current Location',
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                ),
+                  ),
+                ],
               ),
+            )
+          else
+            _AddressContent(
+              flatHouseNo: flatHouseNo,
+              streetRoad: streetRoad,
+              area: area,
+              city: city,
+              state: state,
+              pincode: pincode,
             ),
-          ),
         ],
       ),
     );
@@ -172,59 +160,173 @@ class AddressCard extends StatelessWidget {
 }
 
 // ================================================================
-// ADDRESS ROW
+// COMPACT ADDRESS CONTENT
 // ================================================================
 
-class _AddressRow extends StatelessWidget {
+class _AddressContent extends StatelessWidget {
+  final String flatHouseNo;
+  final String streetRoad;
+  final String area;
+  final String city;
+  final String state;
+  final String pincode;
+
+  const _AddressContent({
+    required this.flatHouseNo,
+    required this.streetRoad,
+    required this.area,
+    required this.city,
+    required this.state,
+    required this.pincode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final List<_AddressItem> items = [];
+
+    if (flatHouseNo.trim().isNotEmpty) {
+      items.add(
+        _AddressItem(
+          icon: Icons.home_outlined,
+          label: 'Flat / House',
+          value: flatHouseNo.trim(),
+        ),
+      );
+    }
+
+    if (streetRoad.trim().isNotEmpty) {
+      items.add(
+        _AddressItem(
+          icon: Icons.signpost_outlined,
+          label: 'Street / Road',
+          value: streetRoad.trim(),
+        ),
+      );
+    }
+
+    if (area.trim().isNotEmpty) {
+      items.add(
+        _AddressItem(
+          icon: Icons.location_on_outlined,
+          label: 'Area',
+          value: area.trim(),
+        ),
+      );
+    }
+
+    if (city.trim().isNotEmpty) {
+      items.add(
+        _AddressItem(
+          icon: Icons.location_city_outlined,
+          label: 'City',
+          value: city.trim(),
+        ),
+      );
+    }
+
+    if (state.trim().isNotEmpty) {
+      items.add(
+        _AddressItem(
+          icon: Icons.map_outlined,
+          label: 'State',
+          value: state.trim(),
+        ),
+      );
+    }
+
+    if (pincode.trim().isNotEmpty) {
+      items.add(
+        _AddressItem(
+          icon: Icons.markunread_mailbox_outlined,
+          label: 'Pincode',
+          value: pincode.trim(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 7),
+          _AddressRow(
+            item: items[i],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ================================================================
+// ADDRESS ITEM
+// ================================================================
+
+class _AddressItem {
   final IconData icon;
   final String label;
   final String value;
 
-  const _AddressRow({
+  const _AddressItem({
     required this.icon,
     required this.label,
     required this.value,
+  });
+}
+
+// ================================================================
+// ADDRESS ROW
+// ================================================================
+
+class _AddressRow extends StatelessWidget {
+  final _AddressItem item;
+
+  const _AddressRow({
+    required this.item,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(width: 1),
-
-        Icon(
-          icon,
-          size: 19,
-          color: DojoColors.orange,
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: AppColors.orange.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(
+            item.icon,
+            color: AppColors.orange,
+            size: 17,
+          ),
         ),
-
-        const SizedBox(width: 10),
-
+        const SizedBox(width: 9),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: DojoColors.grey,
-                  fontWeight: FontWeight.w600,
+          child: RichText(
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '${item.label}  ',
+                  style: const TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 2),
-
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  color: DojoColors.navy,
-                  fontWeight: FontWeight.w700,
+                TextSpan(
+                  text: item.value,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
