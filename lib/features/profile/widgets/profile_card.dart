@@ -1,103 +1,262 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/constants/app_colors.dart';
 
-class ProfileCard extends StatelessWidget {
-  final String ownerName;
+class PetDetailsCard extends StatelessWidget {
+  final Map<String, dynamic> pet;
+  final int index;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const ProfileCard({
+  const PetDetailsCard({
     super.key,
-    required this.ownerName,
+    required this.pet,
+    required this.index,
+    required this.onEdit,
+    required this.onDelete,
   });
+
+  String _value(List<String> keys) {
+    for (final String key in keys) {
+      final dynamic value = pet[key];
+
+      if (value != null &&
+          value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
+      }
+    }
+
+    return '-';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final String displayName =
-        ownerName.trim().isEmpty ? 'Owner' : ownerName.trim();
+    final String petName = _value([
+      'name',
+      'petName',
+      'pet_name',
+    ]);
+
+    final String age = _value([
+      'age',
+      'petAge',
+    ]);
+
+    final String breed = _value([
+      'breed',
+      'petBreed',
+    ]);
+
+    final String behaviour = _value([
+      'behaviour',
+      'behavior',
+      'petBehaviour',
+    ]);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DojoBrandColors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: DojoBrandColors.black.withValues(alpha: 0.05),
+            color: AppColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: DojoBrandColors.mintTint,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: DojoBrandColors.orange,
-              size: 34,
-            ),
-          ),
+          // ======================================================
+          // PET HEADER
+          // ======================================================
 
-          const SizedBox(width: 15),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Welcome back',
-                  style: TextStyle(
-                    color: DojoBrandColors.slate,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.orangeLight,
+                  borderRadius:
+                      BorderRadius.circular(14),
                 ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: DojoBrandColors.navy,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
+                child: const Icon(
+                  Icons.pets_rounded,
+                  color: AppColors.orange,
+                  size: 25,
                 ),
+              ),
 
-                const SizedBox(height: 5),
+              const SizedBox(width: 12),
 
-                const Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.verified_rounded,
-                      color: DojoBrandColors.mint,
-                      size: 15,
-                    ),
-                    SizedBox(width: 5),
                     Text(
-                      'Owner Profile',
-                      style: TextStyle(
-                        color: DojoBrandColors.slate,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
+                      'Pet ${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.grey,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+
+                    const SizedBox(height: 3),
+
+                    Text(
+                      petName == '-'
+                          ? 'Pet Name'
+                          : petName,
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        color: AppColors.navy,
+                        fontWeight:
+                            FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // ==================================================
+              // EDIT
+              // ==================================================
+
+              IconButton(
+                tooltip: 'Edit Pet',
+                onPressed: onEdit,
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.orange,
+                ),
+              ),
+
+              // ==================================================
+              // DELETE
+              // ==================================================
+
+              IconButton(
+                tooltip: 'Delete Pet',
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          const Divider(height: 1),
+
+          const SizedBox(height: 13),
+
+          // ======================================================
+          // AGE
+          // ======================================================
+
+          _PetRow(
+            icon: Icons.cake_outlined,
+            label: 'Age',
+            value: age,
+          ),
+
+          const SizedBox(height: 12),
+
+          // ======================================================
+          // BREED
+          // ======================================================
+
+          _PetRow(
+            icon: Icons.pets_outlined,
+            label: 'Breed',
+            value: breed,
+          ),
+
+          const SizedBox(height: 12),
+
+          // ======================================================
+          // BEHAVIOUR
+          // ======================================================
+
+          _PetRow(
+            icon: Icons.favorite_border_rounded,
+            label: 'Behaviour',
+            value: behaviour,
           ),
         ],
       ),
+    );
+  }
+}
+
+// ================================================================
+// PET ROW
+// ================================================================
+
+class _PetRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _PetRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: AppColors.orange,
+        ),
+
+        const SizedBox(width: 10),
+
+        SizedBox(
+          width: 75,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.grey,
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+        ),
+
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 2,
+            overflow:
+                TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.navy,
+              fontWeight:
+                  FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
