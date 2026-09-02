@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import '../core/constants/app_colors.dart';
 import '../services/address_location_service.dart';
 import '../widgets/address_screen_widgets.dart';
+import 'address_location_picker_screen.dart';
 
 class AddressScreen extends StatefulWidget {
   const AddressScreen({super.key});
@@ -68,8 +69,23 @@ class _AddressScreenState
   bool _saving = false;
   bool _gettingLocation = false;
 
+  // =========================================================
+  // SELECTED GPS LOCATION
+  // =========================================================
+
+  double? _selectedLatitude;
+  double? _selectedLongitude;
+
+  // =========================================================
+  // OWNER PROFILE
+  // =========================================================
+
   DocumentReference<Map<String, dynamic>>?
       _ownerProfileRef;
+
+  // =========================================================
+  // SAVED ADDRESSES
+  // =========================================================
 
   final List<Map<String, dynamic>>
       _savedAddresses =
@@ -188,41 +204,87 @@ class _AddressScreenState
       // =====================================================
 
       _flatController.text =
-          _readString(data, 'flatNumber');
+          _readString(
+        data,
+        'flatNumber',
+      );
 
       _addressLine1Controller.text =
-          _readString(data, 'addressLine1');
+          _readString(
+        data,
+        'addressLine1',
+      );
 
       _addressLine2Controller.text =
-          _readString(data, 'addressLine2');
+          _readString(
+        data,
+        'addressLine2',
+      );
 
       _areaController.text =
-          _readString(data, 'area');
+          _readString(
+        data,
+        'area',
+      );
 
       _cityController.text =
-          _readString(data, 'city');
+          _readString(
+        data,
+        'city',
+      );
 
       _stateController.text =
-          _readString(data, 'state');
+          _readString(
+        data,
+        'state',
+      );
 
       final String newPin =
-          _readString(data, 'pincode');
+          _readString(
+        data,
+        'pincode',
+      );
 
       _pinCodeController.text =
           newPin.isNotEmpty
               ? newPin
-              : _readString(data, 'Pincode');
+              : _readString(
+                  data,
+                  'Pincode',
+                );
+
+      // =====================================================
+      // LOAD GPS COORDINATES
+      // =====================================================
+
+      _selectedLatitude =
+          _readDouble(
+        data,
+        'latitude',
+      );
+
+      _selectedLongitude =
+          _readDouble(
+        data,
+        'longitude',
+      );
 
       // =====================================================
       // OLD ADDRESS COMPATIBILITY
       // =====================================================
 
       String oldAddress =
-          _readString(data, 'address').trim();
+          _readString(
+        data,
+        'address',
+      ).trim();
 
       if (oldAddress.isEmpty) {
         oldAddress =
-            _readString(data, 'Adress').trim();
+            _readString(
+          data,
+          'Adress',
+        ).trim();
       }
 
       if (_addressLine1Controller.text
@@ -247,7 +309,9 @@ class _AddressScreenState
             in firebaseAddresses) {
           if (item is Map) {
             _savedAddresses.add(
-              Map<String, dynamic>.from(item),
+              Map<String, dynamic>.from(
+                item,
+              ),
             );
           }
         }
@@ -301,6 +365,10 @@ class _AddressScreenState
                         data,
                         'Pincode',
                       ),
+            'latitude':
+                _selectedLatitude,
+            'longitude':
+                _selectedLongitude,
           },
         );
       }
@@ -366,7 +434,30 @@ class _AddressScreenState
   }
 
   // =========================================================
-  // CURRENT LOCATION
+  // SAFE FIRESTORE DOUBLE
+  // =========================================================
+
+  double? _readDouble(
+    Map<String, dynamic> data,
+    String key,
+  ) {
+    final dynamic value = data[key];
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value is String) {
+      return double.tryParse(
+        value.trim(),
+      );
+    }
+
+    return null;
+  }
+
+  // =========================================================
+  // CURRENT LOCATION / MAP PICKER
   // =========================================================
 
   Future<void> _useCurrentLocation() async {
@@ -379,95 +470,169 @@ class _AddressScreenState
     });
 
     try {
-      final AddressLocationResult result =
-          await _locationService
-              .getCurrentAddress();
+      final Map<String, dynamic>?
+          result =
+          await Navigator.of(context).push<
+              Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) =>
+              AddressLocationPickerScreen(
+            initialLocation:
+                _selectedLatitude != null &&
+                        _selectedLongitude != null
+                    ? LatLng(
+                        _selectedLatitude!,
+                        _selectedLongitude!,
+                      )
+                    : null,
+          ),
+        ),
+      );
 
-      if (result.addressLine1.isNotEmpty) {
-        _addressLine1Controller.text =
-            result.addressLine1;
+      if (!mounted) {
+        return;
       }
 
-      if (result.area.isNotEmpty) {
-        _areaController.text =
-            result.area;
-      }
-
-      if (result.city.isNotEmpty) {
-        _cityController.text =
-            result.city;
-      }
-
-      if (result.state.isNotEmpty) {
-        _stateController.text =
-            result.state;
-      }
-
-      if (result.pincode.isNotEmpty) {
-        _pinCodeController.text =
-            result.pincode;
-      }
-
-      if (mounted) {
+      if (result == null) {
         setState(() {
           _gettingLocation = false;
         });
+        return;
       }
+
+      final double? latitude =
+          _readResultDouble(
+        result,
+        'latitude',
+      );
+
+      final double? longitude =
+          _readResultDouble(
+        result,
+        'longitude',
+      );
+
+      if (latitude == null ||
+          longitude == null) {
+        setState(() {
+          _gettingLocation = false;
+        });
+
+        _showMessage(
+          'Location could not be selected.',
+        );
+        return;
+      }
+
+      _selectedLatitude = latitude;
+      _selectedLongitude = longitude;
+
+      // =====================================================
+      // ADDRESS FROM MAP PICKER
+      // =====================================================
+
+      final String fullAddress =
+          result['address']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (fullAddress.isNotEmpty) {
+        _addressLine1Controller.text =
+            fullAddress;
+      }
+
+      setState(() {
+        _gettingLocation = false;
+      });
 
       _showMessage(
-        'Current location detected. Please verify the address and save.',
+        'Location selected. Please verify the address and save.',
       );
     } on LocationServiceDisabledException {
-      if (mounted) {
-        setState(() {
-          _gettingLocation = false;
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _gettingLocation = false;
+      });
 
       _showLocationServiceDialog();
     } on LocationPermissionDeniedException {
-      if (mounted) {
-        setState(() {
-          _gettingLocation = false;
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _gettingLocation = false;
+      });
 
       _showMessage(
         'Location permission is required.',
       );
     } on LocationPermissionDeniedForeverException {
-      if (mounted) {
-        setState(() {
-          _gettingLocation = false;
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _gettingLocation = false;
+      });
 
       _showLocationPermissionDialog();
     } on AddressNotFoundException {
-      if (mounted) {
-        setState(() {
-          _gettingLocation = false;
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _gettingLocation = false;
+      });
 
       _showMessage(
         'Location detected, but address details could not be found.',
       );
     } catch (e) {
       debugPrint(
-        'CURRENT LOCATION ERROR: $e',
+        'LOCATION PICKER ERROR: $e',
       );
 
-      if (mounted) {
-        setState(() {
-          _gettingLocation = false;
-        });
+      if (!mounted) {
+        return;
       }
 
+      setState(() {
+        _gettingLocation = false;
+      });
+
       _showMessage(
-        'Unable to detect current location.',
+        'Unable to select location.',
       );
     }
+  }
+
+  // =========================================================
+  // READ RESULT DOUBLE
+  // =========================================================
+
+  double? _readResultDouble(
+    Map<String, dynamic> data,
+    String key,
+  ) {
+    final dynamic value = data[key];
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value is String) {
+      return double.tryParse(
+        value.trim(),
+      );
+    }
+
+    return null;
   }
 
   // =========================================================
@@ -518,7 +683,7 @@ class _AddressScreenState
                 backgroundColor:
                     AppColors.primary,
                 foregroundColor:
-                    Colors.white,
+                    AppColors.white,
               ),
               child: const Text(
                 'Turn On',
@@ -578,7 +743,7 @@ class _AddressScreenState
                 backgroundColor:
                     AppColors.primary,
                 foregroundColor:
-                    Colors.white,
+                    AppColors.white,
               ),
               child: const Text(
                 'Open Settings',
@@ -668,7 +833,7 @@ class _AddressScreenState
         _pinCodeController.text.trim();
 
     // =====================================================
-    // VALIDATION
+    // ADDRESS VALIDATION
     // =====================================================
 
     if (line1.isEmpty) {
@@ -787,6 +952,13 @@ class _AddressScreenState
         'city': city,
         'state': state,
         'pincode': pin,
+
+        // =================================================
+        // GPS LOCATION
+        // =================================================
+
+        'latitude': _selectedLatitude,
+        'longitude': _selectedLongitude,
       };
 
       // =====================================================
@@ -805,9 +977,12 @@ class _AddressScreenState
               .toList();
 
       if (addresses.isEmpty) {
-        addresses.add(newAddress);
+        addresses.add(
+          newAddress,
+        );
       } else {
-        addresses[0] = newAddress;
+        addresses[0] =
+            newAddress;
       }
 
       // =====================================================
@@ -825,11 +1000,25 @@ class _AddressScreenState
           'city': city,
           'state': state,
           'pincode': pin,
-          'savedAddresses': addresses,
+
+          // =================================================
+          // GPS
+          // =================================================
+
+          'latitude':
+              _selectedLatitude,
+          'longitude':
+              _selectedLongitude,
+
+          'savedAddresses':
+              addresses,
+
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
-        SetOptions(merge: true),
+        SetOptions(
+          merge: true,
+        ),
       );
 
       // =====================================================
@@ -849,10 +1038,22 @@ class _AddressScreenState
           'city': city,
           'state': state,
           'pincode': pin,
+
+          // =================================================
+          // GPS
+          // =================================================
+
+          'latitude':
+              _selectedLatitude,
+          'longitude':
+              _selectedLongitude,
+
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
-        SetOptions(merge: true),
+        SetOptions(
+          merge: true,
+        ),
       );
 
       // =====================================================
@@ -872,7 +1073,7 @@ class _AddressScreenState
       });
 
       _showMessage(
-        'Address saved successfully.',
+        'Address and location saved successfully.',
       );
     } on FirebaseException catch (e) {
       debugPrint(
@@ -982,7 +1183,8 @@ class _AddressScreenState
                 'Delete',
                 style: TextStyle(
                   color: Colors.red,
-                  fontWeight: FontWeight.bold,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
@@ -1012,11 +1214,14 @@ class _AddressScreenState
       if (_ownerProfileRef != null) {
         await _ownerProfileRef!.set(
           <String, dynamic>{
-            'savedAddresses': addresses,
+            'savedAddresses':
+                addresses,
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
-          SetOptions(merge: true),
+          SetOptions(
+            merge: true,
+          ),
         );
       }
 
@@ -1067,31 +1272,53 @@ class _AddressScreenState
     Map<String, dynamic> address,
   ) {
     _flatController.text =
-        address['flatNumber']?.toString() ?? '';
+        address['flatNumber']?.toString() ??
+            '';
 
     _addressLine1Controller.text =
-        address['addressLine1']?.toString() ?? '';
+        address['addressLine1']?.toString() ??
+            '';
 
     _addressLine2Controller.text =
-        address['addressLine2']?.toString() ?? '';
+        address['addressLine2']?.toString() ??
+            '';
 
     _areaController.text =
-        address['area']?.toString() ?? '';
+        address['area']?.toString() ??
+            '';
 
     _cityController.text =
-        address['city']?.toString() ?? '';
+        address['city']?.toString() ??
+            '';
 
     _stateController.text =
-        address['state']?.toString() ?? '';
+        address['state']?.toString() ??
+            '';
 
     _pinCodeController.text =
         address['pincode']?.toString() ??
             address['Pincode']?.toString() ??
             '';
 
+    _selectedLatitude =
+        _readResultDouble(
+      address,
+      'latitude',
+    );
+
+    _selectedLongitude =
+        _readResultDouble(
+      address,
+      'longitude',
+    );
+
     _showMessage(
       'Address loaded. Update the details and save.',
     );
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   // =========================================================
@@ -1151,10 +1378,12 @@ class _AddressScreenState
     return Scaffold(
       backgroundColor:
           AppColors.background,
+
       appBar: AppBar(
         backgroundColor:
             AppColors.primary,
-        foregroundColor: Colors.white,
+        foregroundColor:
+            AppColors.white,
         elevation: 0,
         centerTitle: false,
         title: const Text(
@@ -1165,10 +1394,13 @@ class _AddressScreenState
           ),
         ),
       ),
+
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
+              child:
+                  CircularProgressIndicator(
+                color:
+                    AppColors.primary,
               ),
             )
           : SingleChildScrollView(
@@ -1188,7 +1420,9 @@ class _AddressScreenState
                   AddressScreenWidgets
                       .bookingHeader(),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(
+                    height: 18,
+                  ),
 
                   AddressScreenWidgets
                       .currentLocationCard(
@@ -1201,7 +1435,9 @@ class _AddressScreenState
                         _useCurrentLocation,
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(
+                    height: 24,
+                  ),
 
                   if (_savedAddresses
                       .isNotEmpty) ...[
@@ -1235,7 +1471,9 @@ class _AddressScreenState
                             ),
                             borderRadius:
                                 BorderRadius
-                                    .circular(20),
+                                    .circular(
+                              20,
+                            ),
                           ),
                           child: Text(
                             '${_savedAddresses.length}',
@@ -1252,7 +1490,9 @@ class _AddressScreenState
                       ],
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(
+                      height: 5,
+                    ),
 
                     Text(
                       'Tap an address to use it for your booking.',
@@ -1265,7 +1505,9 @@ class _AddressScreenState
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(
+                      height: 14,
+                    ),
 
                     ...List.generate(
                       _savedAddresses.length,
@@ -1301,7 +1543,9 @@ class _AddressScreenState
                       },
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(
+                      height: 12,
+                    ),
                   ],
 
                   AddressScreenWidgets
@@ -1310,7 +1554,9 @@ class _AddressScreenState
                     'Enter your walking location.',
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(
+                    height: 16,
+                  ),
 
                   AddressScreenWidgets.field(
                     controller:
@@ -1321,10 +1567,13 @@ class _AddressScreenState
                         'Flat 204 / House No. 12',
                     icon:
                         Icons.home_outlined,
-                    requiredField: false,
+                    requiredField:
+                        false,
                   ),
 
-                  const SizedBox(height: 13),
+                  const SizedBox(
+                    height: 13,
+                  ),
 
                   AddressScreenWidgets.field(
                     controller:
@@ -1334,11 +1583,14 @@ class _AddressScreenState
                     hint:
                         'Street / Road / Building',
                     icon:
-                        Icons.location_on_outlined,
+                        Icons
+                            .location_on_outlined,
                     maxLines: 2,
                   ),
 
-                  const SizedBox(height: 13),
+                  const SizedBox(
+                    height: 13,
+                  ),
 
                   AddressScreenWidgets.field(
                     controller:
@@ -1348,12 +1600,16 @@ class _AddressScreenState
                     hint:
                         'Nearby place / landmark',
                     icon:
-                        Icons.signpost_outlined,
-                    requiredField: false,
+                        Icons
+                            .signpost_outlined,
+                    requiredField:
+                        false,
                     maxLines: 2,
                   ),
 
-                  const SizedBox(height: 13),
+                  const SizedBox(
+                    height: 13,
+                  ),
 
                   AddressScreenWidgets.field(
                     controller:
@@ -1366,11 +1622,14 @@ class _AddressScreenState
                         Icons.map_outlined,
                   ),
 
-                  const SizedBox(height: 13),
+                  const SizedBox(
+                    height: 13,
+                  ),
 
                   Row(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       Expanded(
                         child:
@@ -1384,7 +1643,9 @@ class _AddressScreenState
                               .location_city_outlined,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(
+                        width: 10,
+                      ),
                       Expanded(
                         child:
                             AddressScreenWidgets
@@ -1400,37 +1661,47 @@ class _AddressScreenState
                     ],
                   ),
 
-                  const SizedBox(height: 13),
+                  const SizedBox(
+                    height: 13,
+                  ),
 
                   AddressScreenWidgets.field(
                     controller:
                         _pinCodeController,
-                    label: 'PIN Code',
-                    hint: '6-digit PIN code',
+                    label:
+                        'PIN Code',
+                    hint:
+                        '6-digit PIN code',
                     icon:
-                        Icons.pin_drop_outlined,
+                        Icons
+                            .pin_drop_outlined,
                     keyboardType:
                         TextInputType.number,
                     maxLength: 6,
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(
+                    height: 16,
+                  ),
 
                   SizedBox(
-                    width: double.infinity,
+                    width:
+                        double.infinity,
                     height: 54,
                     child:
                         ElevatedButton.icon(
-                      onPressed: _saving
-                          ? null
-                          : _saveAddress,
+                      onPressed:
+                          _saving
+                              ? null
+                              : _saveAddress,
                       icon: _saving
                           ? const SizedBox(
                               height: 20,
                               width: 20,
                               child:
                                   CircularProgressIndicator(
-                                strokeWidth: 2.2,
+                                strokeWidth:
+                                    2.2,
                                 color:
                                     Colors.white,
                               ),
@@ -1455,12 +1726,13 @@ class _AddressScreenState
                         backgroundColor:
                             AppColors.primary,
                         foregroundColor:
-                            Colors.white,
+                            AppColors.white,
                         elevation: 0,
                         shape:
                             RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius.circular(
+                              BorderRadius
+                                  .circular(
                             16,
                           ),
                         ),
