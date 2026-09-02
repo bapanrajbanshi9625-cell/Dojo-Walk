@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 class HomeSectionTitle extends StatelessWidget {
   const HomeSectionTitle({
     super.key,
@@ -7,9 +9,6 @@ class HomeSectionTitle extends StatelessWidget {
   });
 
   final String title;
-
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
 
   @override
   Widget build(BuildContext context) {
@@ -19,19 +18,23 @@ class HomeSectionTitle extends StatelessWidget {
           height: 19,
           width: 4,
           decoration: BoxDecoration(
-            color: orange,
+            color: AppColors.orange,
             borderRadius: BorderRadius.circular(5),
           ),
         ),
 
         const SizedBox(width: 8),
 
-        Text(
-          title,
-          style: const TextStyle(
-            color: navy,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.navy,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ],
