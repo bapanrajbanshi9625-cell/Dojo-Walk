@@ -32,20 +32,18 @@ class HomeOwnerService {
   // ============================================================
   // OWNER ID
   //
-  // auth UID -> ownerProfiles -> ownerId
+  // Firebase Auth UID
+  //       ↓
+  // ownerProfiles
+  //       ↓
+  // ownerId
   //
-  // Supports both:
+  // Supports:
   // 1. ownerProfiles where authUid == Firebase Auth UID
   // 2. ownerProfiles document ID == Firebase Auth UID
   // ============================================================
 
   Future<String?> getOwnerId() async {
-    final String? uid = authUid;
-
-    if (uid == null) {
-      return null;
-    }
-
     final Map<String, dynamic>? profile =
         await getOwnerProfile();
 
@@ -56,7 +54,14 @@ class HomeOwnerService {
     final String ownerId =
         _string(profile['ownerId']);
 
-    return ownerId.isEmpty ? null : ownerId;
+    if (ownerId.isNotEmpty) {
+      return ownerId;
+    }
+
+    // Safe fallback when ownerId is not stored.
+    final String? uid = authUid;
+
+    return uid;
   }
 
   // ============================================================
@@ -86,9 +91,14 @@ class HomeOwnerService {
               .get();
 
       if (snapshot.docs.isNotEmpty) {
-        return Map<String, dynamic>.from(
+        final Map<String, dynamic> data =
+            Map<String, dynamic>.from(
           snapshot.docs.first.data(),
         );
+
+        data['documentId'] = snapshot.docs.first.id;
+
+        return data;
       }
     } catch (_) {
       // Continue with document-ID fallback.
@@ -116,7 +126,12 @@ class HomeOwnerService {
         return null;
       }
 
-      return Map<String, dynamic>.from(data);
+      final Map<String, dynamic> result =
+          Map<String, dynamic>.from(data);
+
+      result['documentId'] = doc.id;
+
+      return result;
     } catch (_) {
       return null;
     }
@@ -134,11 +149,10 @@ class HomeOwnerService {
       return 'Owner';
     }
 
-    final String name =
-        _string(
-          profile['ownerName'] ??
-              profile['name'],
-        );
+    final String name = _string(
+      profile['ownerName'] ??
+          profile['name'],
+    );
 
     return name.isEmpty ? 'Owner' : name;
   }
