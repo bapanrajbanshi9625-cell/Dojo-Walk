@@ -158,7 +158,7 @@ class _ActiveLiveWalkStripState
 
       if (candidateTime != null &&
           (newestTime == null ||
-              candidateTime.isAfter(newestTime!))) {
+              candidateTime.isAfter(newestTime))) {
         selectedDocument = document;
         newestTime = candidateTime;
       }
@@ -331,7 +331,8 @@ class _ActiveLiveWalkStripState
                   color: statusColor.withValues(
                     alpha: 0.10,
                   ),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius:
+                      BorderRadius.circular(11),
                 ),
                 child: Icon(
                   Icons.directions_walk_rounded,
