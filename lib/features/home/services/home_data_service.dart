@@ -8,7 +8,8 @@ import 'home_stats_service.dart';
 class HomeDataService {
   HomeDataService._();
 
-  static final HomeDataService instance = HomeDataService._();
+  static final HomeDataService instance =
+      HomeDataService._();
 
   final HomeOwnerService ownerService =
       HomeOwnerService.instance;
@@ -21,6 +22,21 @@ class HomeDataService {
 
   final HomeStatsService statsService =
       HomeStatsService.instance;
+
+  // ============================================================
+  // STATUS
+  // ============================================================
+
+  static const Set<String> inactiveStatuses = {
+    'completed',
+    'complete',
+    'cancelled',
+    'canceled',
+    'ended',
+    'finished',
+    'rejected',
+    'declined',
+  };
 
   // ============================================================
   // OWNER
@@ -42,15 +58,12 @@ class HomeDataService {
   // LIVE WALK
   // ============================================================
 
-  /// Typed live-walk stream.
+  /// Converts the raw Firestore stream from
+  /// HomeLiveWalkService into a typed HomeLiveWalk stream.
   ///
-  /// HomeLiveWalkService.stream() returns the raw Firestore
-  /// QuerySnapshot. This method converts that snapshot into
-  /// HomeLiveWalk so callers receive the correct type.
+  /// Completed/cancelled/ended walks are ignored.
   Stream<HomeLiveWalk?> liveWalkStream() async* {
-    await for (
-      final snapshot in liveWalkService.stream()
-    ) {
+    await for (final snapshot in liveWalkService.stream()) {
       HomeLiveWalk? liveWalk;
 
       for (final doc in snapshot.docs) {
@@ -59,27 +72,7 @@ class HomeDataService {
           doc.data(),
         );
 
-        final String status =
-            (
-              data['status'] ??
-              data['walkStatus'] ??
-              data['currentStatus'] ??
-              ''
-            )
-                .toString()
-                .trim()
-                .toLowerCase();
-
-        const Set<String> inactiveStatuses = {
-          'completed',
-          'complete',
-          'cancelled',
-          'canceled',
-          'ended',
-          'finished',
-          'rejected',
-          'declined',
-        };
+        final String status = _readStatus(data);
 
         if (inactiveStatuses.contains(status)) {
           continue;
@@ -134,7 +127,7 @@ class HomeDataService {
   }
 
   // ============================================================
-  // WEEKLY
+  // WEEKLY STATS
   // ============================================================
 
   Future<HomeWeeklyStats> getWeeklyStats() {
@@ -148,26 +141,7 @@ class HomeDataService {
   static String formatDistance(
     dynamic value,
   ) {
-    if (value == null) {
-      return '0.0 km';
-    }
-
-    double km;
-
-    if (value is num) {
-      km = value.toDouble();
-    } else {
-      km = double.tryParse(
-            value
-                .toString()
-                .replaceAll(',', '')
-                .replaceAll(
-                  RegExp(r'[^0-9.\-]'),
-                  '',
-                ),
-          ) ??
-          0;
-    }
+    final double km = _readDouble(value);
 
     return '${km.toStringAsFixed(1)} km';
   }
@@ -179,33 +153,122 @@ class HomeDataService {
   static String formatDuration(
     dynamic value,
   ) {
-    if (value == null) {
-      return '0 mins';
-    }
-
-    final int minutes =
-        value is num
-            ? value.toInt()
-            : int.tryParse(
-                  value.toString(),
-                ) ??
-                0;
+    final int minutes = _readInt(value);
 
     if (minutes <= 0) {
       return '0 mins';
     }
 
     final int hours = minutes ~/ 60;
-    final int remaining = minutes % 60;
+    final int remainingMinutes = minutes % 60;
 
     if (hours > 0) {
-      if (remaining == 0) {
+      if (remainingMinutes == 0) {
         return '$hours hrs';
       }
 
-      return '$hours hrs $remaining mins';
+      return '$hours hrs $remainingMinutes mins';
     }
 
     return '$minutes mins';
+  }
+
+  // ============================================================
+  // PRIVATE STATUS READER
+  // ============================================================
+
+  static String _readStatus(
+    Map<String, dynamic> data,
+  ) {
+    final dynamic value =
+        data['status'] ??
+        data['walkStatus'] ??
+        data['currentStatus'];
+
+    if (value == null) {
+      return '';
+    }
+
+    return value
+        .toString()
+        .trim()
+        .toLowerCase();
+  }
+
+  // ============================================================
+  // SAFE DOUBLE PARSER
+  // ============================================================
+
+  static double _readDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 0.0;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    final String text = value
+        .toString()
+        .trim()
+        .replaceAll(',', '');
+
+    if (text.isEmpty) {
+      return 0.0;
+    }
+
+    final Match? match = RegExp(
+      r'-?\d+(?:\.\d+)?',
+    ).firstMatch(text);
+
+    if (match == null) {
+      return 0.0;
+    }
+
+    return double.tryParse(
+          match.group(0)!,
+        ) ??
+        0.0;
+  }
+
+  // ============================================================
+  // SAFE INTEGER PARSER
+  // ============================================================
+
+  static int _readInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 0;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.round();
+    }
+
+    final String text = value.toString().trim();
+
+    if (text.isEmpty) {
+      return 0;
+    }
+
+    final Match? match = RegExp(
+      r'-?\d+(?:\.\d+)?',
+    ).firstMatch(text);
+
+    if (match == null) {
+      return 0;
+    }
+
+    return double.tryParse(
+          match.group(0)!,
+        )?.round() ??
+        0;
   }
 }
