@@ -11,7 +11,7 @@ import '../change_mobile/change_mobile_flow.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/pet_details_card.dart';
-import '../widgets/profile_card.dart';
+import '../widgets/profile_card.dart' hide PetDetailsCard;
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
