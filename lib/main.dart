@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'firebase_options.dart';
-import 'core/network/network_monitor.dart';
 import 'core/constants/app_colors.dart';
+import 'core/network/network_monitor.dart';
 import 'screens/splash_screen.dart';
 
 Future<void> main() async {
@@ -15,15 +15,13 @@ Future<void> main() async {
   // ============================================================
 
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      // Status bar
-      statusBarColor: Color(0xFFF4511E),
+    SystemUiOverlayStyle(
+      statusBarColor: AppColors.orange,
       statusBarIconBrightness: Brightness.light,
       statusBarBrightness: Brightness.dark,
       systemStatusBarContrastEnforced: false,
 
-      // Navigation bar
-      systemNavigationBarColor: Colors.white,
+      systemNavigationBarColor: AppColors.white,
       systemNavigationBarIconBrightness: Brightness.dark,
       systemNavigationBarContrastEnforced: false,
     ),
@@ -45,8 +43,19 @@ class DojoWalk extends StatelessWidget {
       title: 'Dojo',
       debugShowCheckedModeBanner: false,
 
-      theme: DojoTheme.light(),
-      darkTheme: DojoTheme.dark(),
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: AppColors.background,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.orange,
+          brightness: Brightness.light,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.orange,
+          foregroundColor: AppColors.white,
+          elevation: 0,
+        ),
+      ),
 
       home: const NetworkMonitor(
         child: SplashScreen(),
