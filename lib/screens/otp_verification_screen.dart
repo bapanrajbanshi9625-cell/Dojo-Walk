@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_colors.dart';
 
@@ -37,6 +38,7 @@ class _OtpVerificationScreenState
   @override
   void initState() {
     super.initState();
+
     _reqId = widget.reqId.trim();
   }
 
@@ -49,7 +51,8 @@ class _OtpVerificationScreenState
       return;
     }
 
-    final String otp = _otpController.text.trim();
+    final String otp =
+        _otpController.text.trim();
 
     if (otp.length != 6) {
       _showMessage(
@@ -67,6 +70,7 @@ class _OtpVerificationScreenState
       _showMessage(
         'OTP session is invalid. Please request a new OTP.',
       );
+
       return;
     }
 
@@ -122,18 +126,15 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 3. TEMPORARY FIREBASE AUTH SESSION
+      // 3. CREATE TEMPORARY FIREBASE SESSION
       // ========================================================
       //
-      // Cloud Function is not available yet.
+      // IMPORTANT:
+      // MSG91 verification does NOT automatically create
+      // a Firebase Auth session.
       //
-      // So for temporary testing we create an anonymous
-      // Firebase Auth session.
-      //
-      // This is NOT the permanent UID.
-      //
-      // Cloud Functions will later replace this with the
-      // real Firebase UID authentication.
+      // Cloud Functions / custom token authentication will
+      // replace this temporary anonymous session later.
       //
       // ========================================================
 
@@ -158,28 +159,86 @@ class _OtpVerificationScreenState
         );
       }
 
+      final String temporaryUid =
+          firebaseUser.uid.trim();
+
+      if (temporaryUid.isEmpty) {
+        throw Exception(
+          'Temporary Firebase UID is missing.',
+        );
+      }
+
       debugPrint(
-        'TEMP FIREBASE UID: ${firebaseUser.uid}',
+        'TEMP FIREBASE UID: $temporaryUid',
       );
 
       debugPrint(
-        'TEMP SESSION ANONYMOUS: ${firebaseUser.isAnonymous}',
+        'TEMP SESSION ANONYMOUS: '
+        '${firebaseUser.isAnonymous}',
       );
 
       // ========================================================
-      // 4. FIND EXISTING ACCOUNT
+      // 4. SAVE MSG91 VERIFIED PHONE LOCALLY
       // ========================================================
       //
-      // phoneAccounts document ID remains Firebase UID.
+      // THIS WAS MISSING IN YOUR CURRENT CODE.
       //
-      // Mobile number is only stored in the phone field.
+      // ProfileSetupScreen reads this value.
       //
       // ========================================================
 
-      final QuerySnapshot<Map<String, dynamic>>
-          accountSnapshot =
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setString(
+        'tempVerifiedPhone',
+        phone,
+      );
+
+      await prefs.setBool(
+        'tempOtpVerified',
+        true,
+      );
+
+      await prefs.setString(
+        'tempAccountUid',
+        temporaryUid,
+      );
+
+      await prefs.setString(
+        'tempOwnerId',
+        '',
+      );
+
+      await prefs.setBool(
+        'tempExistingAccount',
+        false,
+      );
+
+      debugPrint(
+        'TEMP VERIFIED PHONE SAVED: $phone',
+      );
+
+      debugPrint(
+        'TEMP OTP VERIFIED SAVED: true',
+      );
+
+      // ========================================================
+      // 5. FIND EXISTING ACCOUNT
+      // ========================================================
+      //
+      // phoneAccounts document ID = Firebase UID.
+      //
+      // phone field = login phone number.
+      //
+      // ========================================================
+
+      final QuerySnapshot<
+          Map<String, dynamic>> accountSnapshot =
           await FirebaseFirestore.instance
-              .collection('phoneAccounts')
+              .collection(
+                'phoneAccounts',
+              )
               .where(
                 'phone',
                 isEqualTo: phone,
@@ -188,20 +247,19 @@ class _OtpVerificationScreenState
               .get();
 
       // ========================================================
-      // 5. EXISTING ACCOUNT
+      // 6. EXISTING ACCOUNT
       // ========================================================
 
       if (accountSnapshot.docs.isNotEmpty) {
         final DocumentSnapshot<
-                Map<String, dynamic>>
-            accountDoc =
+            Map<String, dynamic>> accountDoc =
             accountSnapshot.docs.first;
 
         final Map<String, dynamic> accountData =
             accountDoc.data() ??
                 <String, dynamic>{};
 
-        final String uid =
+        final String permanentUid =
             accountDoc.id.trim();
 
         final String ownerId =
@@ -210,7 +268,7 @@ class _OtpVerificationScreenState
                     .trim() ??
                 '';
 
-        if (uid.isEmpty) {
+        if (permanentUid.isEmpty) {
           throw Exception(
             'Account UID is missing.',
           );
@@ -221,11 +279,44 @@ class _OtpVerificationScreenState
         );
 
         debugPrint(
-          'PERMANENT FIREBASE UID: $uid',
+          'PERMANENT FIREBASE UID: $permanentUid',
         );
 
         debugPrint(
           'OWNER ID: $ownerId',
+        );
+
+        // ======================================================
+        // SAVE EXISTING ACCOUNT INFORMATION
+        // ======================================================
+
+        await prefs.setString(
+          'tempAccountUid',
+          permanentUid,
+        );
+
+        await prefs.setString(
+          'tempOwnerId',
+          ownerId,
+        );
+
+        await prefs.setBool(
+          'tempExistingAccount',
+          true,
+        );
+
+        await prefs.setBool(
+          'tempOtpVerified',
+          true,
+        );
+
+        await prefs.setString(
+          'tempVerifiedPhone',
+          phone,
+        );
+
+        debugPrint(
+          'EXISTING ACCOUNT SESSION DATA SAVED',
         );
 
         if (!mounted) {
@@ -246,6 +337,10 @@ class _OtpVerificationScreenState
           return;
         }
 
+        // ======================================================
+        // MAIN APP
+        // ======================================================
+
         Navigator.of(context)
             .pushNamedAndRemoveUntil(
           '/',
@@ -256,11 +351,41 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 6. NEW ACCOUNT
+      // 7. NEW ACCOUNT
       // ========================================================
 
       debugPrint(
         'NO EXISTING ACCOUNT FOUND',
+      );
+
+      // Keep the temporary UID for Profile Setup.
+      await prefs.setString(
+        'tempAccountUid',
+        temporaryUid,
+      );
+
+      await prefs.setString(
+        'tempOwnerId',
+        '',
+      );
+
+      await prefs.setBool(
+        'tempExistingAccount',
+        false,
+      );
+
+      await prefs.setBool(
+        'tempOtpVerified',
+        true,
+      );
+
+      await prefs.setString(
+        'tempVerifiedPhone',
+        phone,
+      );
+
+      debugPrint(
+        'NEW ACCOUNT TEMP SESSION READY',
       );
 
       if (!mounted) {
@@ -280,6 +405,10 @@ class _OtpVerificationScreenState
       if (!mounted) {
         return;
       }
+
+      // ======================================================
+      // ROOT FLOW
+      // ======================================================
 
       Navigator.of(context)
           .pushNamedAndRemoveUntil(
@@ -452,10 +581,10 @@ class _OtpVerificationScreenState
       phone = phone.substring(2);
     }
 
-    if (
-        phone.length != 10 ||
-        !RegExp(r'^[6-9][0-9]{9}$')
-            .hasMatch(phone)) {
+    if (phone.length != 10 ||
+        !RegExp(
+          r'^[6-9][0-9]{9}$',
+        ).hasMatch(phone)) {
       return null;
     }
 
@@ -476,6 +605,7 @@ class _OtpVerificationScreenState
       _showMessage(
         'OTP session is invalid. Please request OTP again.',
       );
+
       return;
     }
 
@@ -624,11 +754,13 @@ class _OtpVerificationScreenState
           borderRadius:
               BorderRadius.circular(12),
         ),
-        content: Text(
+        content:
+            Text(
           message,
           style:
               const TextStyle(
-            color: Colors.white,
+            color:
+                Colors.white,
             fontWeight:
                 FontWeight.w600,
           ),
@@ -738,6 +870,7 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 12,
                 ),
+
                 Container(
                   height: 78,
                   width: 78,
@@ -771,53 +904,68 @@ class _OtpVerificationScreenState
                     size: 38,
                   ),
                 ),
+
                 const SizedBox(
                   height: 26,
                 ),
+
                 const Text(
                   'Verify your number',
                   textAlign:
                       TextAlign.center,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 27,
+                  style:
+                      TextStyle(
+                    color:
+                        textColor,
+                    fontSize:
+                        27,
                     fontWeight:
                         FontWeight.w800,
                   ),
                 ),
+
                 const SizedBox(
                   height: 9,
                 ),
+
                 const Text(
                   'Enter the 6-digit OTP sent to',
                   textAlign:
                       TextAlign.center,
-                  style: TextStyle(
+                  style:
+                      TextStyle(
                     color:
                         secondaryText,
-                    fontSize: 14,
+                    fontSize:
+                        14,
                     fontWeight:
                         FontWeight.w500,
                   ),
                 ),
+
                 const SizedBox(
                   height: 5,
                 ),
+
                 Text(
                   _displayPhoneNumber(),
                   textAlign:
                       TextAlign.center,
                   style:
                       const TextStyle(
-                    color: textColor,
-                    fontSize: 15,
+                    color:
+                        textColor,
+                    fontSize:
+                        15,
                     fontWeight:
                         FontWeight.w800,
                   ),
                 ),
+
                 const SizedBox(
                   height: 30,
                 ),
+
                 Container(
                   width:
                       double.infinity,
@@ -857,37 +1005,44 @@ class _OtpVerificationScreenState
                       ),
                     ],
                   ),
-                  child: Column(
+                  child:
+                      Column(
                     crossAxisAlignment:
                         CrossAxisAlignment
                             .start,
                     children: [
                       const Text(
                         'One-Time Password',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           color:
                               textColor,
-                          fontSize: 15,
+                          fontSize:
+                              15,
                           fontWeight:
                               FontWeight.w800,
                         ),
                       ),
+
                       const SizedBox(
                         height: 12,
                       ),
+
                       TextField(
                         controller:
                             _otpController,
                         focusNode:
                             _otpFocusNode,
-                        autofocus: true,
+                        autofocus:
+                            true,
                         enabled:
                             !_isVerifying,
                         keyboardType:
                             TextInputType.number,
                         textInputAction:
                             TextInputAction.done,
-                        maxLength: 6,
+                        maxLength:
+                            6,
                         textAlign:
                             TextAlign.center,
                         inputFormatters: [
@@ -914,7 +1069,8 @@ class _OtpVerificationScreenState
                             const TextStyle(
                           color:
                               textColor,
-                          fontSize: 25,
+                          fontSize:
+                              25,
                           fontWeight:
                               FontWeight.w800,
                           letterSpacing:
@@ -930,19 +1086,22 @@ class _OtpVerificationScreenState
                                 Color(
                               0xFF9AA6B5,
                             ),
-                            fontSize: 24,
+                            fontSize:
+                                24,
                             letterSpacing:
                                 9,
                           ),
                           counterText:
                               '',
-                          filled: true,
+                          filled:
+                              true,
                           fillColor:
                               inputBackground,
                           contentPadding:
                               const EdgeInsets
                                   .symmetric(
-                            vertical: 17,
+                            vertical:
+                                17,
                           ),
                           border:
                               OutlineInputBorder(
@@ -981,18 +1140,22 @@ class _OtpVerificationScreenState
                                 const BorderSide(
                               color:
                                   primary,
-                              width: 2,
+                              width:
+                                  2,
                             ),
                           ),
                         ),
                       ),
+
                       const SizedBox(
                         height: 18,
                       ),
+
                       SizedBox(
                         width:
                             double.infinity,
-                        height: 54,
+                        height:
+                            54,
                         child:
                             ElevatedButton(
                           onPressed:
@@ -1009,9 +1172,11 @@ class _OtpVerificationScreenState
                             disabledBackgroundColor:
                                 primary
                                     .withValues(
-                              alpha: 0.55,
+                              alpha:
+                                  0.55,
                             ),
-                            elevation: 0,
+                            elevation:
+                                0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
@@ -1024,8 +1189,10 @@ class _OtpVerificationScreenState
                           child:
                               _isVerifying
                                   ? const SizedBox(
-                                      height: 23,
-                                      width: 23,
+                                      height:
+                                          23,
+                                      width:
+                                          23,
                                       child:
                                           CircularProgressIndicator(
                                         strokeWidth:
@@ -1047,9 +1214,11 @@ class _OtpVerificationScreenState
                                     ),
                         ),
                       ),
+
                       const SizedBox(
                         height: 16,
                       ),
+
                       Center(
                         child:
                             TextButton(
@@ -1061,8 +1230,10 @@ class _OtpVerificationScreenState
                           child:
                               _isResending
                                   ? const SizedBox(
-                                      height: 19,
-                                      width: 19,
+                                      height:
+                                          19,
+                                      width:
+                                          19,
                                       child:
                                           CircularProgressIndicator(
                                         strokeWidth:
@@ -1076,7 +1247,8 @@ class _OtpVerificationScreenState
                                         color:
                                             primary,
                                         fontWeight:
-                                            FontWeight.w800,
+                                            FontWeight
+                                                .w800,
                                       ),
                                     ),
                         ),
@@ -1084,9 +1256,11 @@ class _OtpVerificationScreenState
                     ],
                   ),
                 ),
+
                 const SizedBox(
                   height: 20,
                 ),
+
                 const Row(
                   mainAxisAlignment:
                       MainAxisAlignment
@@ -1095,12 +1269,14 @@ class _OtpVerificationScreenState
                     Icon(
                       Icons
                           .lock_outline_rounded,
-                      size: 15,
+                      size:
+                          15,
                       color:
                           secondaryText,
                     ),
                     SizedBox(
-                      width: 6,
+                      width:
+                          6,
                     ),
                     Text(
                       'Secure phone verification',
@@ -1108,24 +1284,29 @@ class _OtpVerificationScreenState
                           TextStyle(
                         color:
                             secondaryText,
-                        fontSize: 12,
+                        fontSize:
+                            12,
                         fontWeight:
                             FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
+
                 const SizedBox(
                   height: 8,
                 ),
+
                 const Text(
                   'Dojo Platform',
                   textAlign:
                       TextAlign.center,
-                  style: TextStyle(
+                  style:
+                      TextStyle(
                     color:
                         secondaryText,
-                    fontSize: 13,
+                    fontSize:
+                        13,
                     fontWeight:
                         FontWeight.w500,
                   ),
