@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 class HomeWeeklyProcessing extends StatelessWidget {
   const HomeWeeklyProcessing({
     super.key,
@@ -12,10 +14,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
     String title,
     String content,
   ) onDetails;
-
-  static const Color orange = Color(0xFFF4511E);
-  static const Color navy = Color(0xFF263746);
-  static const Color slate = Color(0xFF475569);
 
   // ==========================================================
   // CURRENT OWNER UID
@@ -41,7 +39,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
 
     if (uid == null) {
       return _buildWithData(
-        context,
         totalWalks: 0,
         totalDistance: 0,
         averageDistance: 0,
@@ -56,11 +53,9 @@ class HomeWeeklyProcessing extends StatelessWidget {
           .collection('walkHistory')
           .where('ownerId', isEqualTo: uid)
           .snapshots(),
-
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _buildWithData(
-            context,
             totalWalks: 0,
             totalDistance: 0,
             averageDistance: 0,
@@ -70,7 +65,8 @@ class HomeWeeklyProcessing extends StatelessWidget {
           );
         }
 
-        final documents = snapshot.data?.docs ?? [];
+        final documents = snapshot.data?.docs ??
+            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
         final weeklyData = _calculateCurrentWeek(
           documents,
@@ -78,7 +74,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
         );
 
         return _buildWithData(
-          context,
           totalWalks: weeklyData.totalWalks,
           totalDistance: weeklyData.totalDistance,
           averageDistance: weeklyData.averageDistance,
@@ -93,8 +88,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
   }
 
   // ==========================================================
-  // CURRENT WEEK CALCULATION
-  //
+  // CURRENT WEEK
   // MONDAY -> SUNDAY
   // ==========================================================
 
@@ -103,10 +97,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
     String currentUid,
   ) {
     final now = DateTime.now();
-
-    // DateTime.weekday:
-    // Monday = 1
-    // Sunday = 7
 
     final startOfToday = DateTime(
       now.year,
@@ -132,10 +122,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
     for (final document in documents) {
       final data = document.data();
 
-      // ------------------------------------------------------
-      // EXTRA OWNER SAFETY CHECK
-      // ------------------------------------------------------
-
       final ownerId = _readString(
         data['ownerId'],
       );
@@ -143,10 +129,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
       if (ownerId != currentUid) {
         continue;
       }
-
-      // ------------------------------------------------------
-      // COMPLETED AT
-      // ------------------------------------------------------
 
       final completedAt = _readDateTime(
         data['completedAt'],
@@ -156,21 +138,10 @@ class HomeWeeklyProcessing extends StatelessWidget {
         continue;
       }
 
-      // ------------------------------------------------------
-      // ONLY CURRENT MONDAY -> NEXT MONDAY
-      // ------------------------------------------------------
-
       if (completedAt.isBefore(weekStart) ||
           !completedAt.isBefore(nextWeekStart)) {
         continue;
       }
-
-      // ------------------------------------------------------
-      // OPTIONAL STATUS CHECK
-      //
-      // If status exists and is not completed, skip it.
-      // If status field does not exist, the record is allowed.
-      // ------------------------------------------------------
 
       final status = _readString(
         data['status'],
@@ -191,15 +162,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
         }
       }
 
-      // ------------------------------------------------------
-      // WALK COUNT
-      // ------------------------------------------------------
-
       totalWalks++;
-
-      // ------------------------------------------------------
-      // DISTANCE
-      // ------------------------------------------------------
 
       final distance = _readDouble(
         data['distance'],
@@ -212,15 +175,6 @@ class HomeWeeklyProcessing extends StatelessWidget {
           longestDistance = distance;
         }
       }
-
-      // ------------------------------------------------------
-      // DURATION
-      //
-      // Supports:
-      // durationMinutes
-      // duration
-      // durationInMinutes
-      // ------------------------------------------------------
 
       final durationMinutes = _readDurationMinutes(
         data,
@@ -251,11 +205,10 @@ class HomeWeeklyProcessing extends StatelessWidget {
   }
 
   // ==========================================================
-  // BUILD UI
+  // COMPACT WEEKLY UI
   // ==========================================================
 
-  Widget _buildWithData(
-    BuildContext context, {
+  Widget _buildWithData({
     required int totalWalks,
     required double totalDistance,
     required double averageDistance,
@@ -264,79 +217,121 @@ class HomeWeeklyProcessing extends StatelessWidget {
     required int averageDurationMinutes,
   }) {
     return Container(
-      padding: const EdgeInsets.all(13),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        9,
+        10,
+        9,
+        10,
+      ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFD6DAE0),
+          color: AppColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.055),
-            blurRadius: 11,
-            offset: const Offset(0, 5),
+            color: AppColors.black.withValues(
+              alpha: 0.045,
+            ),
+            blurRadius: 9,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _statCard(
-                  title: 'Total Walks',
-                  value: '$totalWalks',
-                  icon: Icons.pets,
-                  iconColor: orange,
-                  details:
-                      'Completed Walks: $totalWalks\n'
-                      'Average Walks/Day: '
-                      '${_averageWalksPerDay(totalWalks)}\n'
-                      'Status: ${_walkStatus(totalWalks)}',
-                ),
-              ),
-
-              const SizedBox(width: 9),
-
-              Expanded(
-                child: _statCard(
-                  title: 'Distance',
-                  value: _formatNumber(totalDistance),
-                  suffix: ' km',
-                  icon: Icons.route,
-                  iconColor: const Color(0xFF2196F3),
-                  details:
-                      'Total Distance: '
-                      '${_formatNumber(totalDistance)} km\n'
-                      'Average per Walk: '
-                      '${_formatNumber(averageDistance)} km\n'
-                      'Longest Walk: '
-                      '${_formatNumber(longestDistance)} km',
-                ),
-              ),
-            ],
+          Expanded(
+            child: _compactItem(
+              title: 'Walks',
+              value: '$totalWalks',
+              icon: Icons.pets_rounded,
+              iconColor: AppColors.orange,
+              onTap: () {
+                onDetails(
+                  'Walks Details',
+                  'Completed Walks: $totalWalks\n'
+                  'Average Walks/Day: '
+                  '${_averageWalksPerDay(totalWalks)}\n'
+                  'Status: ${_walkStatus(totalWalks)}',
+                );
+              },
+            ),
           ),
 
-          const SizedBox(height: 9),
+          _divider(),
 
-          Row(
-            children: [
-              Expanded(
-                child: _durationCard(
-                  totalDurationMinutes,
-                  averageDurationMinutes,
-                ),
+          Expanded(
+            child: _compactItem(
+              title: 'Distance',
+              value: _formatNumber(totalDistance),
+              unit: 'km',
+              icon: Icons.route_rounded,
+              iconColor: AppColors.info,
+              onTap: () {
+                onDetails(
+                  'Distance Details',
+                  'Total Distance: '
+                  '${_formatNumber(totalDistance)} km\n'
+                  'Average per Walk: '
+                  '${_formatNumber(averageDistance)} km\n'
+                  'Longest Walk: '
+                  '${_formatNumber(longestDistance)} km',
+                );
+              },
+            ),
+          ),
+
+          _divider(),
+
+          Expanded(
+            child: _compactItem(
+              title: 'Duration',
+              value: _compactDuration(
+                totalDurationMinutes,
               ),
+              icon: Icons.timer_outlined,
+              iconColor: AppColors.success,
+              onTap: () {
+                onDetails(
+                  'Duration Details',
+                  'Total Active Time: '
+                  '${_formatDuration(totalDurationMinutes)}\n'
+                  'Average Duration per Walk: '
+                  '${_formatDuration(averageDurationMinutes)}\n'
+                  'Pace Efficiency: '
+                  '${_paceStatus(averageDurationMinutes)}',
+                );
+              },
+            ),
+          ),
 
-              const SizedBox(width: 9),
+          _divider(),
 
-              Expanded(
-                child: _reportCard(
-                  totalWalks,
-                ),
-              ),
-            ],
+          Expanded(
+            child: _compactItem(
+              title: 'Report',
+              value: totalWalks > 0
+                  ? 'Active'
+                  : 'None',
+              icon: Icons.assessment_outlined,
+              iconColor: AppColors.orange,
+              onTap: () {
+                final reportStatus =
+                    totalWalks > 0
+                        ? 'Active'
+                        : 'No Walks';
+
+                onDetails(
+                  'Weekly Report',
+                  'Current Week Report: '
+                  '$reportStatus ($totalWalks Walks)\n\n'
+                  'Weekly Cycle: Monday - Sunday\n\n'
+                  'Counting resets automatically every Monday.',
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -344,303 +339,104 @@ class HomeWeeklyProcessing extends StatelessWidget {
   }
 
   // ==========================================================
-  // STAT CARD
+  // COMPACT ITEM
   // ==========================================================
 
-  Widget _statCard({
+  Widget _compactItem({
     required String title,
     required String value,
-    String suffix = '',
+    String unit = '',
     required IconData icon,
     required Color iconColor,
-    required String details,
+    required VoidCallback onTap,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        onDetails(
-          '$title Details',
-          details,
-        );
-      },
-      child: Container(
-        constraints: const BoxConstraints(
-          minHeight: 88,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 11,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF2F5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFFD4D9DF),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 3,
+            vertical: 3,
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 43,
-              width: 43,
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 22,
-              ),
-            ),
-
-            const SizedBox(width: 9),
-
-            Expanded(
-              child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: slate,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(
+                    alpha: 0.10,
                   ),
-
-                  const SizedBox(height: 3),
-
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: value,
-                            style: const TextStyle(
-                              color: navy,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          if (suffix.isNotEmpty)
-                            TextSpan(
-                              text: suffix,
-                              style: TextStyle(
-                                color: iconColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 18,
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 5),
+
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              if (unit.isNotEmpty)
+                Text(
+                  unit,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: iconColor,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+
+              const SizedBox(height: 1),
+
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.grey,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   // ==========================================================
-  // DURATION CARD
+  // DIVIDER
   // ==========================================================
 
-  Widget _durationCard(
-    int totalDurationMinutes,
-    int averageDurationMinutes,
-  ) {
-    final totalText = _formatDuration(
-      totalDurationMinutes,
-    );
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        onDetails(
-          'Duration Details',
-          'Total Active Time: $totalText\n'
-          'Average Duration per Walk: '
-          '${_formatDuration(averageDurationMinutes)}\n'
-          'Pace Efficiency: ${_paceStatus(
-            averageDurationMinutes,
-          )}',
-        );
-      },
-      child: Container(
-        constraints: const BoxConstraints(
-          minHeight: 88,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 11,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF2F5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFFD4D9DF),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 43,
-              width: 43,
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.timer_outlined,
-                color: Colors.green,
-                size: 22,
-              ),
-            ),
-
-            const SizedBox(width: 9),
-
-            Expanded(
-              child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Active Duration',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: slate,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 3),
-
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      totalText,
-                      style: const TextStyle(
-                        color: navy,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget _divider() {
+    return Container(
+      width: 1,
+      height: 55,
+      margin: const EdgeInsets.symmetric(
+        horizontal: 2,
       ),
-    );
-  }
-
-  // ==========================================================
-  // REPORT CARD
-  // ==========================================================
-
-  Widget _reportCard(
-    int totalWalks,
-  ) {
-    final reportStatus = totalWalks > 0
-        ? 'Active'
-        : 'No Walks';
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        onDetails(
-          'Report Card',
-          'Current Week Report: '
-          '$reportStatus ($totalWalks Walks)\n\n'
-          'Weekly Cycle: Monday - Sunday\n\n'
-          'Counting resets automatically every Monday.',
-        );
-      },
-      child: Container(
-        constraints: const BoxConstraints(
-          minHeight: 88,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 11,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF1EA),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: orange.withOpacity(0.25),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 43,
-              width: 43,
-              decoration: BoxDecoration(
-                color: orange,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.assessment_outlined,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-
-            const SizedBox(width: 9),
-
-            const Expanded(
-              child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Report Card',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: slate,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  SizedBox(height: 3),
-
-                  Text(
-                    'Performance',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: navy,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      color: AppColors.border.withValues(
+        alpha: 0.75,
       ),
     );
   }
@@ -792,6 +588,25 @@ class HomeWeeklyProcessing extends StatelessWidget {
     return '$hours h ${remainingMinutes}m';
   }
 
+  static String _compactDuration(int minutes) {
+    if (minutes <= 0) {
+      return '0h';
+    }
+
+    final hours = minutes ~/ 60;
+    final remaining = minutes % 60;
+
+    if (hours == 0) {
+      return '${remaining}m';
+    }
+
+    if (remaining == 0) {
+      return '${hours}h';
+    }
+
+    return '${hours}h';
+  }
+
   static String _averageWalksPerDay(
     int totalWalks,
   ) {
@@ -800,10 +615,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
     }
 
     final now = DateTime.now();
-
-    // Monday = 1 ... Sunday = 7
     final daysSoFar = now.weekday;
-
     final average = totalWalks / daysSoFar;
 
     return average.toStringAsFixed(1);
