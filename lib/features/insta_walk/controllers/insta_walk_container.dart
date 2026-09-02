@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../services/insta_walk_search_service.dart';
 import '../services/insta_walk_request_state.dart';
@@ -18,14 +16,6 @@ import '../../walker_accept/screens/walker_accept_screen.dart';
 // ============================================================
 // PART FILES
 // ============================================================
-//
-// Existing Insta Walk logic remains untouched.
-//
-// These files are still physically inside:
-//
-// lib/features/insta_walk/widgets/
-//
-// ============================================================
 
 part '../widgets/insta_walk_find_walker.dart';
 part '../widgets/insta_walk_start_search.dart';
@@ -38,13 +28,14 @@ part '../widgets/insta_walk_view.dart';
 // INSTA WALK CONTAINER
 // ============================================================
 //
-// This is now BOTH:
+// Owner-side Insta Walk.
 //
-// 1. Insta Walk controller
-// 2. Insta Walk screen
+// This file now contains:
+// - Insta Walk controller/state
+// - Insta Walk screen wrapper
+// - Walker accepted navigation
 //
-// No separate insta_walk_screen.dart is required.
-//
+// Existing part files remain inside widgets/.
 // ============================================================
 
 class InstaWalkContainer extends StatefulWidget {
@@ -54,8 +45,8 @@ class InstaWalkContainer extends StatefulWidget {
     this.onActiveChanged,
     this.fullScreen = true,
     this.onTap,
-    ValueChanged<InstaWalkAcceptedData>? onAccepted,
-  }) : _externalOnAccepted = onAccepted;
+    this.onAccepted,
+  });
 
   final VoidCallback? onWalkerFound;
 
@@ -65,52 +56,14 @@ class InstaWalkContainer extends StatefulWidget {
 
   final VoidCallback? onTap;
 
-  // ==========================================================
-  // EXTERNAL ACCEPTED CALLBACK
-  // ==========================================================
+  // ----------------------------------------------------------
+  // Optional external callback.
   //
-  // Kept for backward compatibility.
-  //
-  // Existing part file calls:
-  //
-  // widget.onAccepted?.call(accepted);
-  //
-  // So we expose a getter below which internally handles:
-  //
-  // Firestore accepted
-  //       ↓
-  // local cleanup
-  //       ↓
-  // Owner WalkerAcceptScreen
-  //
-  // ==========================================================
+  // Kept for compatibility with any existing caller.
+  // Internal accepted navigation is handled by State.
+  // ----------------------------------------------------------
 
-  final ValueChanged<InstaWalkAcceptedData>? _externalOnAccepted;
-
-  // ==========================================================
-  // ACCEPTED HANDLER
-  // ==========================================================
-  //
-  // IMPORTANT:
-  //
-  // The existing insta_walk_walker_accepted.dart does not need
-  // to know about navigation.
-  //
-  // Whenever it calls:
-  //
-  // widget.onAccepted?.call(accepted)
-  //
-  // this getter returns our internal handler.
-  //
-  // ==========================================================
-
-  ValueChanged<InstaWalkAcceptedData>? get onAccepted {
-    return _handleAccepted;
-  }
-
-  // ==========================================================
-  // STATE
-  // ==========================================================
+  final ValueChanged<InstaWalkAcceptedData>? onAccepted;
 
   @override
   State<InstaWalkContainer> createState() =>
@@ -157,7 +110,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   bool _activeReported = false;
 
   // ==========================================================
-  // ACCEPT NAVIGATION STATE
+  // ACCEPT NAVIGATION
   // ==========================================================
 
   bool _acceptedNavigationStarted = false;
@@ -169,7 +122,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   String? _requestId;
 
   // ==========================================================
-  // LOCATION
+  // OWNER LOCATION
   // ==========================================================
 
   Position? _ownerPosition;
@@ -199,24 +152,15 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // ACCEPTED
+  // WALKER ACCEPTED
   // ==========================================================
   //
-  // FLOW:
+  // IMPORTANT:
   //
-  // Walker accepts
-  //       ↓
-  // Firestore status = accepted
-  //       ↓
-  // insta_walk_walker_accepted.dart
-  //       ↓
-  // widget.onAccepted?.call(accepted)
-  //       ↓
-  // THIS METHOD
-  //       ↓
-  // stop local radar
-  //       ↓
-  // Owner WalkerAcceptScreen
+  // This method is called directly from
+  // insta_walk_walker_accepted.dart.
+  //
+  // Do NOT try to expose this through widget.onAccepted.
   //
   // ==========================================================
 
@@ -251,78 +195,70 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       'requestId = $requestId',
     );
 
-    // ========================================================
-    // REQUEST ID CHECK
-    // ========================================================
+    // --------------------------------------------------------
+    // REQUEST ID IS REQUIRED
+    // --------------------------------------------------------
 
     if (requestId.isEmpty) {
       debugPrint(
-        '❌ Owner navigation cancelled: requestId empty.',
+        '❌ Walker accepted but requestId is empty.',
       );
       return;
     }
 
     _acceptedNavigationStarted = true;
 
-    // ========================================================
+    // --------------------------------------------------------
     // KEEP REQUEST ID
-    // ========================================================
+    // --------------------------------------------------------
 
     _requestId = requestId;
 
-    // ========================================================
+    // --------------------------------------------------------
     // STOP ONLY LOCAL SEARCH UI
-    // ========================================================
     //
-    // IMPORTANT:
-    //
-    // We are NOT cancelling the Firestore request here.
-    //
-    // WalkerAcceptScreen still needs the same requestId.
-    //
-    // ========================================================
+    // Do NOT cancel Firestore request here.
+    // --------------------------------------------------------
 
     _stopRadar();
 
     _stopping = false;
 
-    if (mounted) {
-      setState(() {
-        _searching = false;
-        _searchFinished = false;
-        _checkingAddress = false;
-        _recovering = false;
-      });
-    }
+    _updateState(() {
+      _searching = false;
+      _searchFinished = false;
+      _checkingAddress = false;
+      _recovering = false;
+    });
 
     _setActive(false);
 
-    // ========================================================
-    // EXTERNAL CALLBACK
-    // ========================================================
-    //
-    // If another parent still supplied onAccepted, preserve it.
-    //
-    // The old InstaWalkScreen can therefore be removed later
-    // without breaking the callback contract.
-    //
-    // ========================================================
+    // --------------------------------------------------------
+    // PRESERVE EXTERNAL CALLBACK
+    // --------------------------------------------------------
 
-    _externalAcceptedCallback(accepted);
+    final ValueChanged<InstaWalkAcceptedData>? callback =
+        widget.onAccepted;
 
-    // ========================================================
-    // NAVIGATION
-    // ========================================================
-    //
-    // Wait until the current Firestore/state frame is complete.
-    //
-    // ========================================================
+    if (callback != null) {
+      try {
+        callback(accepted);
+      } catch (error) {
+        debugPrint(
+          'InstaWalkContainer onAccepted error: $error',
+        );
+      }
+    }
+
+    // --------------------------------------------------------
+    // NAVIGATE AFTER CURRENT FRAME
+    // --------------------------------------------------------
 
     WidgetsBinding.instance.addPostFrameCallback(
       (_) {
         if (!mounted) {
           debugPrint(
-            '❌ Owner navigation cancelled: container unmounted.',
+            '❌ Owner accepted screen navigation cancelled.',
           );
           return;
         }
@@ -333,30 +269,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // EXTERNAL CALLBACK
-  // ==========================================================
-
-  void _externalAcceptedCallback(
-    InstaWalkAcceptedData accepted,
-  ) {
-    final ValueChanged<InstaWalkAcceptedData>?
-        callback = widget._externalOnAccepted;
-
-    if (callback == null) {
-      return;
-    }
-
-    try {
-      callback(accepted);
-    } catch (error) {
-      debugPrint(
-        'InstaWalkContainer external onAccepted error: $error',
-      );
-    }
-  }
-
-  // ==========================================================
-  // OPEN OWNER ACCEPTED SCREEN
+  // OPEN OWNER WALKER ACCEPT SCREEN
   // ==========================================================
 
   void _openOwnerAcceptedScreen(
@@ -370,6 +283,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
         requestId.trim();
 
     if (cleanRequestId.isEmpty) {
+      debugPrint(
+        '❌ Cannot open WalkerAcceptScreen: empty requestId.',
+      );
       return;
     }
 
@@ -394,27 +310,21 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // DISPOSE
-  //
-  // IMPORTANT:
-  //
-  // Disposing this widget MUST NOT cancel the actual
-  // Insta Walk Firestore request.
-  //
   // ==========================================================
 
   @override
   void dispose() {
     // --------------------------------------------------------
-    // Stop only local radar animation.
+    // Stop local radar animation only.
     // --------------------------------------------------------
 
     _stopRadar();
 
     // --------------------------------------------------------
-    // Clean up local service/listener.
+    // Dispose local service/listener.
     //
-    // InstaWalkSearchService.dispose() must NOT cancel the
-    // active Firestore request.
+    // Service dispose must NOT delete/cancel the Firestore
+    // request itself.
     // --------------------------------------------------------
 
     _service.dispose();
@@ -484,11 +394,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // RESET SEARCH STATE
-  //
-  // LOCAL UI ONLY.
-  //
-  // Does NOT change Firestore.
-  //
   // ==========================================================
 
   void _resetSearchState({
@@ -499,6 +404,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _requestId = null;
     _ownerPosition = null;
     _stopping = false;
+    _acceptedNavigationStarted = false;
 
     if (!mounted) {
       _setActive(false);
@@ -517,11 +423,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   // ==========================================================
   // FINISH SEARCH
-  //
-  // No timer.
-  // No countdown.
-  // No automatic expiry.
-  //
   // ==========================================================
 
   void _finishSearch({
@@ -554,7 +455,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // RETRY
+  // RETRY SEARCH
   // ==========================================================
 
   Future<void> _retrySearch() async {
@@ -610,7 +511,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // READ STRING
+  // READ FIRST STRING
   // ==========================================================
 
   String _readFirstString(
@@ -664,6 +565,31 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       );
     }
 
+    if (value is Map) {
+      final dynamic lat =
+          value['latitude'] ?? value['lat'];
+
+      final dynamic lng =
+          value['longitude'] ??
+              value['lng'] ??
+              value['lon'];
+
+      if (lat is num && lng is num) {
+        return Position(
+          longitude: lng.toDouble(),
+          latitude: lat.toDouble(),
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+      }
+    }
+
     return null;
   }
 
@@ -678,20 +604,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // ========================================================
     // FULL SCREEN
     // ========================================================
-    //
-    // This is now the actual Insta Walk screen.
-    //
-    // ========================================================
 
     if (widget.fullScreen) {
       return Scaffold(
         backgroundColor:
             const Color(0xFFF4F7F8),
-
-        // ====================================================
-        // APP BAR
-        // ====================================================
-
         appBar: AppBar(
           backgroundColor:
               const Color(0xFF243746),
@@ -706,11 +623,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
             ),
           ),
         ),
-
-        // ====================================================
-        // BODY
-        // ====================================================
-
         body: SafeArea(
           child: SingleChildScrollView(
             physics:
