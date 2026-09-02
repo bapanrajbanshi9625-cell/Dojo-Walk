@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'firebase_options.dart';
 import 'core/network/network_monitor.dart';
-import 'core/theme/dojo_theme.dart';
+import 'core/constants/app_colors.dart';
 import 'screens/splash_screen.dart';
 
 Future<void> main() async {
