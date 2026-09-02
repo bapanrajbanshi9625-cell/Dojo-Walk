@@ -1,5 +1,3 @@
-// File: lib/features/profile/screens/profile_screen.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +8,6 @@ import '../../../screens/address_screen.dart';
 import '../change_mobile/change_mobile_flow.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
-import '../widgets/pet_details_card.dart';
 import '../widgets/pet_details_card.dart';
 
 class ProfileScreen extends StatefulWidget {
