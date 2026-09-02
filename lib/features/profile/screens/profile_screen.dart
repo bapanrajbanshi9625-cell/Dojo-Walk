@@ -1,3 +1,6 @@
+// File:
+// lib/features/profile/screens/profile_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -99,17 +102,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
       // OWNER PROFILE
       //
-      // IMPORTANT:
-      // AddressScreen uses ownerProfiles.
-      // Therefore ProfileScreen also uses ownerProfiles
-      // as the primary source.
+      // Primary source:
+      // ownerProfiles
       // ========================================================
 
       DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc;
 
       // --------------------------------------------------------
-      // 1. authUid
+      // 1. Find using authUid
       // --------------------------------------------------------
 
       final QuerySnapshot<Map<String, dynamic>>
@@ -129,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // --------------------------------------------------------
-      // 2. ownerAuthUid
+      // 2. Find using ownerAuthUid
       // --------------------------------------------------------
 
       if (ownerDoc == null) {
@@ -151,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // --------------------------------------------------------
-      // 3. ownerProfiles/{uid}
+      // 3. Find directly using UID
       // --------------------------------------------------------
 
       if (ownerDoc == null) {
@@ -168,12 +169,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // ========================================================
-      // OPTIONAL LEGACY FALLBACK
+      // LEGACY FALLBACK
       //
-      // Only owner information is read from owners if
-      // ownerProfiles does not exist.
-      //
-      // Address still remains ownerProfiles-first.
+      // Only used when ownerProfiles does not exist.
       // ========================================================
 
       if (ownerDoc == null) {
@@ -226,6 +224,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _mobileNumber =
               _firebasePhone(user);
 
+          _ownerDob = '';
+          _ownerGender = '';
+          _memberSince = '';
+
           _addressLine1 = '';
           _streetRoad = '';
           _area = '';
@@ -235,6 +237,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           _pets =
               <Map<String, dynamic>>[];
+
+          _isActive = true;
 
           _isLoading = false;
         });
@@ -320,17 +324,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // ========================================================
       // ADDRESS
-      //
-      // PRIMARY SOURCE:
-      // savedAddresses[]
       // ========================================================
 
       Map<String, dynamic>? savedAddress =
           _getSavedAddress(data);
-
-      // ========================================================
-      // ADDRESS FROM savedAddresses[]
-      // ========================================================
 
       String addressLine1 = '';
       String streetRoad = '';
@@ -338,6 +335,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       String city = '';
       String state = '';
       String pincode = '';
+
+      // ========================================================
+      // SAVED ADDRESS
+      // ========================================================
 
       if (savedAddress != null) {
         addressLine1 =
@@ -384,9 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ]);
 
         // ------------------------------------------------------
-        // If saved address contains a combined address and
-        // individual fields are missing, use the combined value
-        // in the street field so AddressCard still displays it.
+        // Combined address fallback
         // ------------------------------------------------------
 
         if (addressLine1.isEmpty &&
@@ -405,9 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // ========================================================
-      // FALLBACK TO PROFILE-LEVEL ADDRESS
-      //
-      // Supports older records.
+      // PROFILE LEVEL ADDRESS FALLBACK
       // ========================================================
 
       if (addressLine1.isEmpty) {
@@ -489,16 +486,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // ========================================================
       // PETS
-      //
-      // Expected:
-      // pets: [
-      //   {
-      //     name: ...,
-      //     age: ...,
-      //     breed: ...,
-      //     behaviour: ...
-      //   }
-      // ]
       // ========================================================
 
       final List<Map<String, dynamic>> pets =
@@ -542,7 +529,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _memberSince =
             memberSince;
 
-        // Address
         _addressLine1 =
             addressLine1;
 
@@ -561,7 +547,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _pincode =
             pincode;
 
-        // Pets
         _pets = pets;
 
         _isActive =
@@ -626,10 +611,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           item,
         );
 
-        final bool valid =
-            _hasAddressData(address);
-
-        if (valid) {
+        if (_hasAddressData(address)) {
           return address;
         }
       }
@@ -704,8 +686,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ============================================================
   // PET DELETE
-  //
-  // Safe local delete + Firestore update.
   // ============================================================
 
   Future<void> _deletePet(
@@ -727,7 +707,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: const Text(
             'Delete Pet?',
             style: TextStyle(
-              color: AppColors.navy,
+              color:
+                  AppColors.navy,
               fontWeight:
                   FontWeight.w800,
             ),
@@ -787,9 +768,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       DocumentReference<
           Map<String, dynamic>>? profileRef;
 
-      // --------------------------------------------------------
-      // Find ownerProfiles document exactly like profile loading.
-      // --------------------------------------------------------
+      // ========================================================
+      // FIND OWNER PROFILE
+      // ========================================================
 
       final QuerySnapshot<
           Map<String, dynamic>> authQuery =
@@ -847,6 +828,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
         return;
       }
+
+      // ========================================================
+      // UPDATE PET LIST
+      // ========================================================
 
       final List<Map<String, dynamic>> updatedPets =
           List<Map<String, dynamic>>.from(
@@ -1252,19 +1237,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       .start,
               children: [
                 // ==================================================
-                // PROFILE CARD
-                // ==================================================
-
-                ProfileCard(
-                  ownerName:
-                      _ownerName,
-                ),
-
-                const SizedBox(
-                  height: 16,
-                ),
-
-                // ==================================================
                 // OWNER INFORMATION
                 // ==================================================
 
@@ -1356,8 +1328,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // ==================================================
                 // MY ADDRESS
-                //
-                // PET PROFILE KE NICHE
                 // ==================================================
 
                 AddressCard(
