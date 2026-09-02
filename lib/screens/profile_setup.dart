@@ -1,3 +1,6 @@
+// File:
+// lib/screens/profile_setup.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -101,7 +104,48 @@ class _ProfileSetupScreenState
   }
 
   // ============================================================
+  // NORMALIZE PHONE
+  // ============================================================
+
+  String _normalizePhone(
+    String phone,
+  ) {
+    String value =
+        phone.trim();
+
+    value = value.replaceAll(
+      RegExp(r'[\s\-\(\)]'),
+      '',
+    );
+
+    if (value.startsWith('+')) {
+      return value;
+    }
+
+    if (value.length == 10) {
+      return '+91$value';
+    }
+
+    if (value.length == 12 &&
+        value.startsWith('91')) {
+      return '+$value';
+    }
+
+    return value;
+  }
+
+  // ============================================================
   // GET PHONE NUMBER
+  //
+  // Priority:
+  //
+  // 1. Real Firebase phoneNumber
+  // 2. tempVerifiedPhone saved after MSG91 OTP
+  // 3. phoneAccounts/{tempAccountUid}
+  // 4. phoneAccounts/{currentFirebaseUid}
+  //
+  // This is important because MSG91 verification does NOT
+  // automatically attach the phone number to Firebase Auth.
   // ============================================================
 
   Future<String?> _getPhoneNumber(
@@ -112,20 +156,25 @@ class _ProfileSetupScreenState
     // 1. REAL FIREBASE PHONE
     // ----------------------------------------------------------
 
-    String phone =
+    final String firebasePhone =
         user.phoneNumber?.trim() ?? '';
 
-    if (phone.isNotEmpty) {
-      return phone;
+    if (firebasePhone.isNotEmpty) {
+      return _normalizePhone(
+        firebasePhone,
+      );
     }
 
     // ----------------------------------------------------------
     // 2. TEMPORARY MSG91 VERIFIED PHONE
     // ----------------------------------------------------------
 
+    SharedPreferences? prefs;
+
     try {
-      final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
+      prefs =
+          await SharedPreferences
+              .getInstance();
 
       final bool otpVerified =
           prefs.getBool(
@@ -139,15 +188,30 @@ class _ProfileSetupScreenState
               ) ??
               '';
 
+      debugPrint(
+        'MSG91 TEMP OTP VERIFIED: '
+        '$otpVerified',
+      );
+
+      debugPrint(
+        'MSG91 TEMP PHONE: '
+        '$tempPhone',
+      );
+
       if (otpVerified &&
           tempPhone.trim().isNotEmpty) {
 
-        debugPrint(
-          'TEMP VERIFIED PHONE FOUND: '
-          '$tempPhone',
+        final String normalizedPhone =
+            _normalizePhone(
+          tempPhone,
         );
 
-        return tempPhone.trim();
+        debugPrint(
+          'PROFILE PHONE FROM MSG91: '
+          '$normalizedPhone',
+        );
+
+        return normalizedPhone;
       }
     } catch (e) {
       debugPrint(
@@ -156,7 +220,100 @@ class _ProfileSetupScreenState
     }
 
     // ----------------------------------------------------------
-    // 3. FALLBACK: phoneAccounts/{uid}
+    // 3. TEMPORARY ACCOUNT UID
+    //
+    // This is important for the current anonymous-session flow.
+    // ----------------------------------------------------------
+
+    String tempAccountUid = '';
+
+    try {
+      if (prefs == null) {
+        prefs =
+            await SharedPreferences
+                .getInstance();
+      }
+
+      tempAccountUid =
+          prefs.getString(
+                'tempAccountUid',
+              ) ??
+              '';
+
+      tempAccountUid =
+          tempAccountUid.trim();
+
+      debugPrint(
+        'TEMP ACCOUNT UID: '
+        '$tempAccountUid',
+      );
+    } catch (e) {
+      debugPrint(
+        'TEMP ACCOUNT UID READ ERROR: $e',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // 3A. READ phoneAccounts/{tempAccountUid}
+    // ----------------------------------------------------------
+
+    if (tempAccountUid.isNotEmpty) {
+      try {
+        final DocumentSnapshot<
+            Map<String, dynamic>> snapshot =
+            await _firestore
+                .collection(
+                  'phoneAccounts',
+                )
+                .doc(
+                  tempAccountUid,
+                )
+                .get();
+
+        if (snapshot.exists) {
+          final Map<String, dynamic> data =
+              snapshot.data() ??
+                  <String, dynamic>{};
+
+          final String phone =
+              (
+                data['phoneNumber'] ??
+                    data['phone'] ??
+                    data['mainPhone'] ??
+                    ''
+              )
+                  .toString()
+                  .trim();
+
+          if (phone.isNotEmpty) {
+            final String normalizedPhone =
+                _normalizePhone(
+              phone,
+            );
+
+            debugPrint(
+              'PROFILE PHONE FROM TEMP ACCOUNT: '
+              '$normalizedPhone',
+            );
+
+            return normalizedPhone;
+          }
+        }
+      } on FirebaseException catch (e) {
+        debugPrint(
+          'TEMP ACCOUNT PHONE READ ERROR: '
+          '${e.code} - ${e.message}',
+        );
+      } catch (e) {
+        debugPrint(
+          'TEMP ACCOUNT PHONE READ ERROR: $e',
+        );
+      }
+    }
+
+    // ----------------------------------------------------------
+    // 4. FALLBACK:
+    // phoneAccounts/{current Firebase UID}
     // ----------------------------------------------------------
 
     try {
@@ -171,45 +328,47 @@ class _ProfileSetupScreenState
               )
               .get();
 
-      if (!snapshot.exists) {
-        return null;
-      }
+      if (snapshot.exists) {
+        final Map<String, dynamic> data =
+            snapshot.data() ??
+                <String, dynamic>{};
 
-      final Map<String, dynamic> data =
-          snapshot.data() ??
-              <String, dynamic>{};
-
-      phone =
-          (data['phoneNumber'] ??
+        final String phone =
+            (
+              data['phoneNumber'] ??
                   data['phone'] ??
                   data['mainPhone'] ??
-                  '')
-              .toString()
-              .trim();
+                  ''
+            )
+                .toString()
+                .trim();
 
-      if (phone.isEmpty) {
-        return null;
+        if (phone.isNotEmpty) {
+          final String normalizedPhone =
+              _normalizePhone(
+            phone,
+          );
+
+          debugPrint(
+            'PROFILE PHONE FROM CURRENT UID: '
+            '$normalizedPhone',
+          );
+
+          return normalizedPhone;
+        }
       }
-
-      return phone;
-
     } on FirebaseException catch (e) {
-
       debugPrint(
-        'PHONE ACCOUNT READ ERROR: '
+        'CURRENT UID PHONE READ ERROR: '
         '${e.code} - ${e.message}',
       );
-
-      return null;
-
     } catch (e) {
-
       debugPrint(
-        'PHONE ACCOUNT READ ERROR: $e',
+        'CURRENT UID PHONE READ ERROR: $e',
       );
-
-      return null;
     }
+
+    return null;
   }
 
   // ============================================================
@@ -271,7 +430,6 @@ class _ProfileSetupScreenState
   // ============================================================
 
   bool _validateProfile() {
-
     final String ownerName =
         ownerController.text.trim();
 
@@ -316,24 +474,30 @@ class _ProfileSetupScreenState
         return false;
       }
 
-      if (pet.age == null ||
-          pet.age!.trim().isEmpty) {
+      final String age =
+          pet.age?.trim() ?? '';
+
+      if (age.isEmpty) {
         _showError(
           'Please choose Pet $number age.',
         );
         return false;
       }
 
-      if (pet.breed == null ||
-          pet.breed!.trim().isEmpty) {
+      final String breed =
+          pet.breed?.trim() ?? '';
+
+      if (breed.isEmpty) {
         _showError(
           'Please choose Pet $number breed.',
         );
         return false;
       }
 
-      if (pet.behaviour == null ||
-          pet.behaviour!.trim().isEmpty) {
+      final String behaviour =
+          pet.behaviour?.trim() ?? '';
+
+      if (behaviour.isEmpty) {
         _showError(
           'Please choose Pet $number behaviour.',
         );
@@ -349,7 +513,6 @@ class _ProfileSetupScreenState
   // ============================================================
 
   Future<void> _saveProfile() async {
-
     if (_isSaving) {
       return;
     }
@@ -363,7 +526,6 @@ class _ProfileSetupScreenState
     });
 
     try {
-
       // ========================================================
       // 1. CURRENT AUTH USER
       // ========================================================
@@ -392,10 +554,17 @@ class _ProfileSetupScreenState
 
       if (phone == null ||
           phone.trim().isEmpty) {
+
+        debugPrint(
+          'PROFILE SETUP ERROR: '
+          'Verified phone was not found.',
+        );
+
         _showError(
           'Verified mobile number was not found. '
           'Please login again.',
         );
+
         return;
       }
 
@@ -405,13 +574,15 @@ class _ProfileSetupScreenState
 
       // ========================================================
       // 3. SAVE PROFILE
+      //
+      // Address disabled.
+      // Location disabled.
       // ========================================================
 
       await ProfileSetupService.saveProfile(
         ownerName:
             ownerController.text.trim(),
 
-        // Address temporarily disabled.
         address:
             '',
 
@@ -421,7 +592,6 @@ class _ProfileSetupScreenState
         pets:
             pets,
 
-        // Current location temporarily disabled.
         requireLocation:
             false,
       );
@@ -448,7 +618,8 @@ class _ProfileSetupScreenState
               const Duration(
             seconds: 1,
           ),
-          content: Text(
+          content:
+              Text(
             'Profile saved successfully with '
             '${pets.length} '
             '${pets.length == 1 ? 'pet' : 'pets'}.',
@@ -489,9 +660,7 @@ class _ProfileSetupScreenState
         ),
         (route) => false,
       );
-
     } on FirebaseAuthException catch (e) {
-
       debugPrint(
         'PROFILE AUTH ERROR: '
         '${e.code} - ${e.message}',
@@ -502,7 +671,6 @@ class _ProfileSetupScreenState
       }
 
       switch (e.code) {
-
         case 'operation-not-allowed':
           _showError(
             'Firebase authentication is not enabled.',
@@ -528,15 +696,16 @@ class _ProfileSetupScreenState
           break;
 
         default:
+          final String authMessage =
+              e.message?.trim() ?? '';
+
           _showError(
-            e.message?.trim().isNotEmpty == true
-                ? e.message!.trim()
+            authMessage.isNotEmpty
+                ? authMessage
                 : 'Authentication failed. Please login again.',
           );
       }
-
     } on FirebaseException catch (e) {
-
       debugPrint(
         'PROFILE FIREBASE ERROR: '
         '${e.code}',
@@ -554,7 +723,6 @@ class _ProfileSetupScreenState
       String message;
 
       switch (e.code) {
-
         case 'permission-denied':
           message =
               'Firebase permission denied. '
@@ -622,9 +790,7 @@ class _ProfileSetupScreenState
       }
 
       _showError(message);
-
     } catch (e) {
-
       debugPrint(
         'PROFILE SAVE ERROR: $e',
       );
@@ -637,9 +803,7 @@ class _ProfileSetupScreenState
         'Something went wrong while saving your profile. '
         'Please try again.',
       );
-
     } finally {
-
       if (mounted) {
         setState(() {
           _isSaving = false;
@@ -697,7 +861,6 @@ class _ProfileSetupScreenState
     required String? selected,
     required ValueChanged<String> onSelected,
   }) {
-
     if (!mounted) {
       return;
     }
@@ -771,7 +934,6 @@ class _ProfileSetupScreenState
   void _showBreedPicker(
     PetData pet,
   ) {
-
     if (!mounted) {
       return;
     }
@@ -790,7 +952,6 @@ class _ProfileSetupScreenState
         ),
       ),
       builder: (_) {
-
         return BreedPicker(
           breeds:
               ProfileSetupData.breeds,
@@ -823,7 +984,6 @@ class _ProfileSetupScreenState
   void _showBehaviourPicker(
     PetData pet,
   ) {
-
     _openPicker(
       title:
           'Choose Behaviour',
@@ -859,9 +1019,7 @@ class _ProfileSetupScreenState
   Widget build(
     BuildContext context,
   ) {
-
     return Scaffold(
-
       backgroundColor:
           DojoLightColors.background,
 
@@ -882,16 +1040,13 @@ class _ProfileSetupScreenState
         title:
             const Row(
           children: [
-
             Icon(
               Icons.person_add_alt_1_rounded,
               size: 26,
             ),
-
             SizedBox(
               width: 10,
             ),
-
             Text(
               'Profile Setup',
               style:
@@ -927,7 +1082,6 @@ class _ProfileSetupScreenState
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-
               const ProfileWelcomeCard(),
 
               const SizedBox(
@@ -973,12 +1127,11 @@ class _ProfileSetupScreenState
               ),
 
               // ==================================================
-              // PETS
+              // PET INFORMATION
               // ==================================================
 
               Row(
                 children: [
-
                   Expanded(
                     child:
                         Text(
@@ -1038,7 +1191,6 @@ class _ProfileSetupScreenState
               ...List.generate(
                 pets.length,
                 (int index) {
-
                   return Padding(
                     padding:
                         const EdgeInsets.only(
