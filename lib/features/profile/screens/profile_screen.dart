@@ -5,17 +5,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../screens/address_screen.dart';
 import '../change_mobile/change_mobile_flow.dart';
-import '../services/profile_location_service.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/profile_card.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({
+    super.key,
+  });
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() =>
+      _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
@@ -23,16 +26,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // COLORS
   // ============================================================
 
-  static const Color orange = Color(0xFFFF6B35);
-  static const Color navy = Color(0xFF102A43);
-  static const Color background = Color(0xFFF7F9FC);
+  static const Color orange =
+      Color(0xFFFF6B35);
+
+  static const Color navy =
+      Color(0xFF102A43);
+
+  static const Color background =
+      Color(0xFFF7F9FC);
 
   // ============================================================
   // STATE
   // ============================================================
 
   bool _isLoading = true;
-  bool _isConnecting = false;
 
   String _ownerId = '';
   String _ownerName = '';
@@ -42,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _memberSince = '';
 
   String _addressLine1 = '';
+  String _streetRoad = '';
   String _area = '';
   String _city = '';
   String _state = '';
@@ -64,14 +72,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _loadProfile() async {
-    final User? user = FirebaseAuth.instance.currentUser;
+    final User? user =
+        FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _isLoading = false;
+      });
+
       return;
     }
 
@@ -88,20 +100,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .limit(1)
               .get();
 
-      DocumentSnapshot<Map<String, dynamic>>? ownerDoc;
+      DocumentSnapshot<Map<String, dynamic>>?
+          ownerDoc;
 
-      // ----------------------------------------------------------
-      // FIRST: authUid query
-      // ----------------------------------------------------------
+      // ========================================================
+      // FIRST: authUid QUERY
+      // ========================================================
 
       if (query.docs.isNotEmpty) {
         ownerDoc = query.docs.first;
       } else {
-        // --------------------------------------------------------
+        // ======================================================
         // SECOND: owners/{uid}
-        // --------------------------------------------------------
+        // ======================================================
 
-        final DocumentSnapshot<Map<String, dynamic>> directDoc =
+        final DocumentSnapshot<
+            Map<String, dynamic>> directDoc =
             await FirebaseFirestore.instance
                 .collection('owners')
                 .doc(uid)
@@ -112,147 +126,177 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
 
-      // ----------------------------------------------------------
+      // ========================================================
       // OWNER NOT FOUND
-      // ----------------------------------------------------------
+      // ========================================================
 
-      if (ownerDoc == null || !ownerDoc.exists) {
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
         if (!mounted) {
           return;
         }
 
         setState(() {
-          _ownerName = _firebaseName(user);
-          _mobileNumber = _firebasePhone(user);
+          _ownerName =
+              _firebaseName(user);
+
+          _mobileNumber =
+              _firebasePhone(user);
+
           _isLoading = false;
         });
 
         return;
       }
 
-      // ----------------------------------------------------------
+      // ========================================================
       // DATA
-      // ----------------------------------------------------------
+      // ========================================================
 
       final Map<String, dynamic> data =
-          ownerDoc.data() ?? <String, dynamic>{};
+          ownerDoc.data() ??
+              <String, dynamic>{};
 
-      // ----------------------------------------------------------
+      // ========================================================
       // OWNER ID
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String ownerId = _firstNonEmpty([
+      final String ownerId =
+          _firstNonEmpty([
         data['ownerId'],
         ownerDoc.id,
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // NAME
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String ownerName = _firstNonEmpty([
+      final String ownerName =
+          _firstNonEmpty([
         data['ownerName'],
         data['name'],
         user.displayName,
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // MOBILE
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String mobile = _firstNonEmpty([
+      final String mobile =
+          _firstNonEmpty([
         data['mainPhone'],
         data['phone'],
         user.phoneNumber,
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // DOB
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String dob = _firstNonEmpty([
+      final String dob =
+          _firstNonEmpty([
         data['dob'],
         data['dateOfBirth'],
         data['ownerDob'],
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // GENDER
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String gender = _firstNonEmpty([
+      final String gender =
+          _firstNonEmpty([
         data['gender'],
         data['ownerGender'],
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // MEMBER SINCE
-      // ----------------------------------------------------------
+      // ========================================================
 
       final String memberSince =
-          _formatMemberSince(data['createdAt']);
+          _formatMemberSince(
+        data['createdAt'],
+      );
 
-      // ----------------------------------------------------------
-      // ADDRESS LINE 1
-      // ----------------------------------------------------------
+      // ========================================================
+      // FLAT / HOUSE
+      // ========================================================
 
-      final String addressLine1 = _firstNonEmpty([
+      final String addressLine1 =
+          _firstNonEmpty([
         data['addressLine1'],
         data['flatHouseNo'],
         data['flat'],
         data['houseNo'],
         data['houseNumber'],
-        data['streetRoad'],
       ]);
 
-      // ----------------------------------------------------------
-      // AREA
-      // ----------------------------------------------------------
+      // ========================================================
+      // STREET / ROAD
+      // ========================================================
 
-      final String area = _firstNonEmpty([
+      final String streetRoad =
+          _firstNonEmpty([
+        data['streetRoad'],
+        data['street'],
+        data['road'],
+        data['addressLine2'],
+      ]);
+
+      // ========================================================
+      // AREA
+      // ========================================================
+
+      final String area =
+          _firstNonEmpty([
         data['area'],
         data['subLocality'],
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // CITY
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String city = _firstNonEmpty([
+      final String city =
+          _firstNonEmpty([
         data['city'],
         data['locality'],
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // STATE
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String state = _firstNonEmpty([
+      final String state =
+          _firstNonEmpty([
         data['state'],
         data['administrativeArea'],
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // PINCODE
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final String pincode = _firstNonEmpty([
+      final String pincode =
+          _firstNonEmpty([
         data['pincode'],
         data['postalCode'],
       ]);
 
-      // ----------------------------------------------------------
+      // ========================================================
       // ACTIVE
-      // ----------------------------------------------------------
+      // ========================================================
 
-      final bool active = _boolValue(
+      final bool active =
+          _boolValue(
         data['isActive'],
         fallback: true,
       );
 
-      // ----------------------------------------------------------
+      // ========================================================
       // SET STATE
-      // ----------------------------------------------------------
+      // ========================================================
 
       if (!mounted) {
         return;
@@ -261,20 +305,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _ownerId = ownerId;
 
-        _ownerName = ownerName.isNotEmpty
-            ? ownerName
-            : 'Owner';
+        _ownerName =
+            ownerName.isNotEmpty
+                ? ownerName
+                : 'Owner';
 
-        _mobileNumber = mobile.isNotEmpty
-            ? mobile
-            : 'Not available';
+        _mobileNumber =
+            mobile.isNotEmpty
+                ? mobile
+                : 'Not available';
 
         _ownerDob = dob;
         _ownerGender = gender;
         _memberSince = memberSince;
 
         _addressLine1 = addressLine1;
-
+        _streetRoad = streetRoad;
         _area = area;
         _city = city;
         _state = state;
@@ -296,8 +342,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FirebaseAuth.instance.currentUser;
 
       setState(() {
-        _ownerName = _firebaseName(currentUser);
-        _mobileNumber = _firebasePhone(currentUser);
+        _ownerName =
+            _firebaseName(currentUser);
+
+        _mobileNumber =
+            _firebasePhone(currentUser);
+
         _isLoading = false;
       });
 
@@ -319,9 +369,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return value.toString().trim();
   }
 
-  String _firstNonEmpty(List<dynamic> values) {
+  String _firstNonEmpty(
+    List<dynamic> values,
+  ) {
     for (final dynamic value in values) {
-      final String text = _stringValue(value);
+      final String text =
+          _stringValue(value);
 
       if (text.isNotEmpty) {
         return text;
@@ -372,7 +425,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // MEMBER SINCE
   // ============================================================
 
-  String _formatMemberSince(dynamic value) {
+  String _formatMemberSince(
+    dynamic value,
+  ) {
     if (value == null) {
       return '';
     }
@@ -410,7 +465,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'December',
     ];
 
-    if (month < 1 || month > 12) {
+    if (month < 1 ||
+        month > 12) {
       return '';
     }
 
@@ -442,7 +498,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _changeMobile() async {
-    final String number = _mobileNumber.trim();
+    final String number =
+        _mobileNumber.trim();
 
     if (number.isEmpty ||
         number == '-' ||
@@ -458,8 +515,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
           top: Radius.circular(24),
         ),
       ),
@@ -471,177 +530,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
 
-    if (changed == true && mounted) {
+    if (changed == true &&
+        mounted) {
       await _loadProfile();
     }
   }
 
   // ============================================================
-  // CONNECT LOCATION
+  // EDIT ADDRESS
   // ============================================================
 
-  Future<void> _connectLocation() async {
-    if (_isConnecting) {
+  Future<void> _editAddress() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            const AddressScreen(),
+      ),
+    );
+
+    if (!mounted) {
       return;
     }
 
-    setState(() {
-      _isConnecting = true;
-    });
-
-    try {
-      final Map<String, dynamic> result =
-          await ProfileLocationService
-              .instance
-              .connectCurrentLocation();
-
-      if (!mounted) {
-        return;
-      }
-
-      // --------------------------------------------------------
-      // UPDATE ADDRESS ON SCREEN
-      // --------------------------------------------------------
-
-      setState(() {
-        _addressLine1 =
-            result['addressLine1']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        _area =
-            result['area']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        _city =
-            result['city']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        _state =
-            result['state']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        _pincode =
-            result['pincode']
-                    ?.toString()
-                    .trim() ??
-                '';
-      });
-
-      _showMessage(
-        'Current location connected successfully.',
-      );
-    }
-
-    // ==========================================================
-    // ADDRESS NOT FOUND
-    // ==========================================================
-
-    on AddressNotFoundException {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Could not detect your address. Please try again.',
-      );
-    }
-
-    // ==========================================================
-    // AUTH ERROR
-    // ==========================================================
-
-    on FirebaseAuthException catch (e) {
-      debugPrint(
-        'Profile Location Auth Error: '
-        '${e.code} - ${e.message}',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        e.message?.trim().isNotEmpty == true
-            ? e.message!.trim()
-            : 'Login session expired. Please login again.',
-      );
-    }
-
-    // ==========================================================
-    // FIREBASE / FIRESTORE ERROR
-    // ==========================================================
-
-    on FirebaseException catch (e) {
-      debugPrint(
-        'Profile Location Firebase Error: '
-        '${e.code} - ${e.message}',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (e.code == 'permission-denied') {
-        _showMessage(
-          'Location could not be saved because Firestore permission was denied.',
-        );
-      } else if (e.code == 'owner-not-found') {
-        _showMessage(
-          'Owner profile was not found.',
-        );
-      } else {
-        _showMessage(
-          e.message?.trim().isNotEmpty == true
-              ? e.message!.trim()
-              : 'Could not save your location.',
-        );
-      }
-    }
-
-    // ==========================================================
-    // OTHER ERROR
-    // ==========================================================
-
-    catch (e) {
-      debugPrint(
-        'Profile Location Error: $e',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Could not connect your current location. Please try again.',
-      );
-    }
-
-    // ==========================================================
-    // STOP LOADING
-    // ==========================================================
-
-    finally {
-      if (mounted) {
-        setState(() {
-          _isConnecting = false;
-        });
-      }
-    }
+    await _loadProfile();
   }
 
   // ============================================================
   // MESSAGE
   // ============================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -650,8 +570,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          content: Text(
+            message,
+            maxLines: 2,
+            overflow:
+                TextOverflow.ellipsis,
+          ),
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(16),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+          ),
         ),
       );
   }
@@ -661,12 +594,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: background,
         body: Center(
-          child: CircularProgressIndicator(
+          child:
+              CircularProgressIndicator(
             color: orange,
           ),
         ),
@@ -705,10 +641,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: orange,
           onRefresh: _loadProfile,
           child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+            physics:
+                const AlwaysScrollableScrollPhysics(
+              parent:
+                  BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(
+            padding:
+                const EdgeInsets.fromLTRB(
               16,
               16,
               16,
@@ -736,14 +675,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 OwnerInfoCard(
                   ownerId: _ownerId,
-                  mobileNumber: _mobileNumber,
-                  ownerName: _ownerName,
-                  ownerDob: _ownerDob,
-                  ownerGender: _ownerGender,
-                  memberSince: _memberSince,
-                  isActive: _isActive,
-                  onChangeMobile: _changeMobile,
-                  onCopyOwnerId: _copyOwnerId,
+                  mobileNumber:
+                      _mobileNumber,
+                  ownerName:
+                      _ownerName,
+                  ownerDob:
+                      _ownerDob,
+                  ownerGender:
+                      _ownerGender,
+                  memberSince:
+                      _memberSince,
+                  isActive:
+                      _isActive,
+                  onChangeMobile:
+                      _changeMobile,
+                  onCopyOwnerId:
+                      _copyOwnerId,
                 ),
 
                 const SizedBox(
@@ -751,36 +698,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
                 // ==================================================
-                // ADDRESS
+                // MY ADDRESS
                 // ==================================================
 
                 AddressCard(
-                  flatHouseNo: _addressLine1,
-                  streetRoad: _area,
-                  landmark: _buildLocationText(),
-                  isConnecting: _isConnecting,
-                  onConnectLocation:
-                      _connectLocation,
+                  flatHouseNo:
+                      _addressLine1,
+                  streetRoad:
+                      _streetRoad,
+                  area: _area,
+                  city: _city,
+                  state: _state,
+                  pincode:
+                      _pincode,
+                  onEditAddress:
+                      _editAddress,
                 ),
 
                 const SizedBox(
-                  height: 24,
-                ),
-
-                // ==================================================
-                // CHANGE MOBILE
-                // ==================================================
-
-                _ProfileActionCard(
-                  icon: Icons.phone_android_rounded,
-                  title: 'Change Mobile Number',
-                  subtitle:
-                      'Update your registered mobile number',
-                  onTap: _changeMobile,
-                ),
-
-                const SizedBox(
-                  height: 12,
+                  height: 20,
                 ),
               ],
             ),
@@ -789,142 +725,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // LOCATION DISPLAY TEXT
-  // ============================================================
-
-  String _buildLocationText() {
-    final List<String> parts = <String>[
-      _area,
-      _city,
-      _state,
-      _pincode,
-    ]
-        .where(
-          (String value) =>
-              value.trim().isNotEmpty,
-        )
-        .map(
-          (String value) => value.trim(),
-        )
-        .toList();
-
-    return parts.join(', ');
-  }
-}
-
-// ================================================================
-// PROFILE ACTION CARD
-// ================================================================
-
-class _ProfileActionCard extends StatelessWidget {
-final IconData icon;
-final String title;
-final String subtitle;
-final VoidCallback onTap;
-
-const _ProfileActionCard({
-required this.icon,
-required this.title,
-required this.subtitle,
-required this.onTap,
-});
-
-@override
-Widget build(BuildContext context) {
-const Color color = Color(0xFFFF6B35);
-
-return Material(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(18),
-  elevation: 0,
-  child: InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(18),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.black.withValues(
-            alpha: 0.04,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: 0.04,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withValues(
-                alpha: 0.10,
-              ),
-              borderRadius: BorderRadius.circular(
-                13,
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 22,
-            ),
-          ),
-
-          const SizedBox(
-            width: 12,
-          ),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF263746),
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 3,
-                ),
-
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.grey,
-          ),
-        ],
-      ),
-    ),
-  ),
-);
-
-}
 }
