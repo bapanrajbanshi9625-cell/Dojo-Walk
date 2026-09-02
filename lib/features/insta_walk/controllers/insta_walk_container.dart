@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 import '../services/insta_walk_search_service.dart';
 import '../services/insta_walk_request_state.dart';
 import '../services/insta_walk_accepted_data.dart';
