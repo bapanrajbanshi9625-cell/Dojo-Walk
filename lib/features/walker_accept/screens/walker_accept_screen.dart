@@ -131,15 +131,12 @@ class _WalkerAcceptScreenState
       return;
     }
 
-    // First route immediately.
     if (!_routeRequestedOnce) {
       _routeRequestedOnce = true;
       _loadRoute(data);
       return;
     }
 
-    // Refresh only when the route becomes
-    // meaningfully stale.
     _loadRoute(data);
   }
 
@@ -152,6 +149,7 @@ class _WalkerAcceptScreenState
 
     final location =
         data.walkerLocation;
+
     final owner =
         data.ownerLocation;
 
@@ -256,6 +254,10 @@ class _WalkerAcceptScreenState
           _buildAppBar(context, data),
       body: Stack(
         children: [
+          // ====================================================
+          // FULL MAP
+          // ====================================================
+
           Positioned.fill(
             child: WalkerAcceptMap(
               ownerLocation:
@@ -274,19 +276,230 @@ class _WalkerAcceptScreenState
             ),
           ),
 
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: _buildBottomCard(
+          // ====================================================
+          // DRAGGABLE BOTTOM SHEET
+          // ====================================================
+
+          DraggableScrollableSheet(
+            initialChildSize: 0.14,
+            minChildSize: 0.14,
+            maxChildSize: 0.70,
+            snap: true,
+            snapSizes: const <double>[
+              0.14,
+              0.70,
+            ],
+            expand: false,
+            builder: (
+              BuildContext context,
+              ScrollController scrollController,
+            ) {
+              return _buildBottomSheet(
                 context,
                 data,
-              ),
-            ),
+                scrollController,
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  // ==========================================================
+  // BOTTOM SHEET
+  // ==========================================================
+
+  Widget _buildBottomSheet(
+    BuildContext context,
+    WalkerAcceptData data,
+    ScrollController scrollController,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final double routeDistanceMeters =
+        (_route?.distanceMeters ??
+                data.distanceMeters)
+            .toDouble();
+
+    final int routeEtaMinutes =
+        (_route?.durationMinutes ??
+                data.etaMinutes)
+            .toInt();
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius:
+              const BorderRadius.vertical(
+            top: Radius.circular(28),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(
+                alpha: 0.16,
+              ),
+              blurRadius: 24,
+              spreadRadius: 0,
+              offset: const Offset(
+                0,
+                -5,
+              ),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          controller: scrollController,
+          physics:
+              const ClampingScrollPhysics(),
+          padding:
+              const EdgeInsets.fromLTRB(
+            18,
+            9,
+            18,
+            24,
+          ),
+          child: Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            children: [
+              // =================================================
+              // HANDLE
+              // =================================================
+
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color:
+                      colors.outlineVariant,
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // =================================================
+              // STATUS
+              // =================================================
+
+              WalkerAcceptStatus(
+                status: data.status,
+                distanceMeters:
+                    routeDistanceMeters,
+              ),
+
+              const SizedBox(height: 14),
+
+              // =================================================
+              // WALKER CARD
+              // =================================================
+
+              WalkerInfoCard(
+                walkerName:
+                    data.walkerName,
+                profileImageUrl:
+                    data.walkerProfileImage,
+                rating:
+                    data.walkerRating,
+                distanceLabel:
+                    _route?.distanceLabel ??
+                        data.distanceLabel,
+                etaLabel:
+                    _route?.etaLabel ??
+                        data.etaLabel,
+                statusText:
+                    data.isReached
+                        ? 'Walker has arrived'
+                        : 'Walker is on the way',
+              ),
+
+              const SizedBox(height: 12),
+
+              // =================================================
+              // ETA + DISTANCE
+              // =================================================
+
+              WalkerEtaDistance(
+                distanceMeters:
+                    routeDistanceMeters,
+                etaMinutes:
+                    routeEtaMinutes,
+              ),
+
+              // =================================================
+              // ROUTE UPDATING
+              // =================================================
+
+              if (_loadingRoute)
+                Padding(
+                  padding:
+                      const EdgeInsets.only(
+                    top: 10,
+                  ),
+                  child: Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 13,
+                        height: 13,
+                        child:
+                            CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          color:
+                              colors.primary,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 7,
+                      ),
+                      Text(
+                        'Updating route…',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colors
+                              .onSurfaceVariant,
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // =================================================
+              // CONTACT BUTTONS
+              // =================================================
+
+              WalkerContactButtons(
+                onCall:
+                    widget.onCall ?? () {},
+                onChat:
+                    widget.onChat ?? () {},
+                callEnabled:
+                    widget.onCall != null &&
+                    data.walkerPhone != null &&
+                    data.walkerPhone!
+                        .trim()
+                        .isNotEmpty,
+                chatEnabled:
+                    widget.onChat != null,
+              ),
+
+              const SizedBox(height: 4),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -302,7 +515,8 @@ class _WalkerAcceptScreenState
         Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colors.surface,
+      backgroundColor:
+          colors.surface,
       body: Center(
         child: Column(
           mainAxisSize:
@@ -311,16 +525,22 @@ class _WalkerAcceptScreenState
             Container(
               width: 70,
               height: 70,
-              decoration: BoxDecoration(
-                color: colors.primary
-                    .withValues(alpha: .10),
-                shape: BoxShape.circle,
+              decoration:
+                  BoxDecoration(
+                color:
+                    colors.primary
+                        .withValues(
+                  alpha: .10,
+                ),
+                shape:
+                    BoxShape.circle,
               ),
               child: Icon(
                 Icons
                     .directions_walk_rounded,
                 size: 34,
-                color: colors.primary,
+                color:
+                    colors.primary,
               ),
             ),
             const SizedBox(height: 18),
@@ -328,7 +548,8 @@ class _WalkerAcceptScreenState
               'Connecting to your Walker',
               style: TextStyle(
                 fontSize: 17,
-                fontWeight: FontWeight.w800,
+                fontWeight:
+                    FontWeight.w800,
               ),
             ),
             const SizedBox(height: 7),
@@ -337,16 +558,19 @@ class _WalkerAcceptScreenState
               style: TextStyle(
                 fontSize: 13,
                 color:
-                    colors.onSurfaceVariant,
+                    colors
+                        .onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 20),
-            const SizedBox(
+            SizedBox(
               width: 24,
               height: 24,
               child:
                   CircularProgressIndicator(
                 strokeWidth: 2.5,
+                color:
+                    colors.primary,
               ),
             ),
           ],
@@ -362,15 +586,21 @@ class _WalkerAcceptScreenState
   Widget _buildLocationUnavailable(
     BuildContext context,
   ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     return Scaffold(
+      backgroundColor:
+          colors.surface,
       appBar: AppBar(
         title: const Text(
           'Walker is on the way',
         ),
       ),
-      body: const Center(
+      body: Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding:
+              const EdgeInsets.all(24),
           child: Column(
             mainAxisSize:
                 MainAxisSize.min,
@@ -378,13 +608,19 @@ class _WalkerAcceptScreenState
               Icon(
                 Icons.location_off_rounded,
                 size: 46,
+                color:
+                    colors.onSurfaceVariant,
               ),
-              SizedBox(height: 14),
+              const SizedBox(height: 14),
               Text(
                 'Owner location is unavailable.',
-                textAlign: TextAlign.center,
+                textAlign:
+                    TextAlign.center,
                 style: TextStyle(
-                  fontWeight: FontWeight.w700,
+                  color:
+                      colors.onSurface,
+                  fontWeight:
+                      FontWeight.w700,
                 ),
               ),
             ],
@@ -408,24 +644,33 @@ class _WalkerAcceptScreenState
     return AppBar(
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor: colors.surface,
+      backgroundColor:
+          colors.surface,
+      foregroundColor:
+          colors.onSurface,
       titleSpacing: 4,
       title: Row(
         children: [
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(
-              color: colors.primary
-                  .withValues(alpha: .10),
-              shape: BoxShape.circle,
+            decoration:
+                BoxDecoration(
+              color:
+                  colors.primary
+                      .withValues(
+                alpha: .10,
+              ),
+              shape:
+                  BoxShape.circle,
             ),
             child: Icon(
               data.isReached
                   ? Icons.check_rounded
                   : Icons
                       .directions_walk_rounded,
-              color: colors.primary,
+              color:
+                  colors.primary,
               size: 21,
             ),
           ),
@@ -438,9 +683,13 @@ class _WalkerAcceptScreenState
                 data.isReached
                     ? 'Walker has arrived'
                     : 'Walker is on the way',
-                style: const TextStyle(
+                style:
+                    TextStyle(
+                  color:
+                      colors.onSurface,
                   fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 2),
@@ -448,7 +697,8 @@ class _WalkerAcceptScreenState
                 data.isReached
                     ? 'Your Walker is here'
                     : 'Live tracking',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   fontSize: 11,
                   color:
                       colors.onSurfaceVariant,
@@ -462,184 +712,16 @@ class _WalkerAcceptScreenState
       ),
       actions: [
         IconButton(
-          tooltip: 'Help & Support',
-          onPressed: widget.onHelp,
+          tooltip:
+              'Help & Support',
+          onPressed:
+              widget.onHelp,
           icon: const Icon(
-            Icons.help_outline_rounded,
+            Icons
+                .help_outline_rounded,
           ),
         ),
       ],
-    );
-  }
-
-  // ==========================================================
-  // BOTTOM CARD
-  // ==========================================================
-
-  Widget _buildBottomCard(
-    BuildContext context,
-    WalkerAcceptData data,
-  ) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
-    final double routeDistanceMeters =
-        (_route?.distanceMeters ??
-                data.distanceMeters)
-            .toDouble();
-
-    final int routeEtaMinutes =
-        (_route?.durationMinutes ??
-                data.etaMinutes)
-            .toInt();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius:
-            const BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            blurRadius: 28,
-            offset: Offset(0, -7),
-            color: Color(0x26000000),
-          ),
-        ],
-      ),
-      padding:
-          const EdgeInsets.fromLTRB(
-        18,
-        10,
-        18,
-        14,
-      ),
-      child: Column(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          // ==================================================
-          // DRAG HANDLE
-          // ==================================================
-
-          Container(
-            width: 42,
-            height: 4,
-            decoration: BoxDecoration(
-              color:
-                  colors.outlineVariant,
-              borderRadius:
-                  BorderRadius.circular(20),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ==================================================
-          // ARRIVAL / STATUS
-          // ==================================================
-
-          WalkerAcceptStatus(
-            status: data.status,
-            distanceMeters:
-                routeDistanceMeters,
-          ),
-
-          const SizedBox(height: 14),
-
-          // ==================================================
-          // WALKER
-          // ==================================================
-
-          WalkerInfoCard(
-            walkerName:
-                data.walkerName,
-            profileImageUrl:
-                data.walkerProfileImage,
-            rating:
-                data.walkerRating,
-            distanceLabel:
-                _route?.distanceLabel ??
-                    data.distanceLabel,
-            etaLabel:
-                _route?.etaLabel ??
-                    data.etaLabel,
-            statusText:
-                data.isReached
-                    ? 'Walker has arrived'
-                    : 'Walker is on the way',
-          ),
-
-          const SizedBox(height: 10),
-
-          // ==================================================
-          // ETA + DISTANCE
-          // ==================================================
-
-          WalkerEtaDistance(
-            distanceMeters:
-                routeDistanceMeters,
-            etaMinutes:
-                routeEtaMinutes,
-          ),
-
-          if (_loadingRoute)
-            Padding(
-              padding:
-                  const EdgeInsets.only(
-                top: 8,
-              ),
-              child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 13,
-                    height: 13,
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 1.8,
-                      color: colors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    'Updating route…',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color:
-                          colors.onSurfaceVariant,
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 12),
-
-          // ==================================================
-          // CONTACT
-          // ==================================================
-
-          WalkerContactButtons(
-            onCall:
-                widget.onCall ?? () {},
-            onChat:
-                widget.onChat ?? () {},
-            callEnabled:
-                widget.onCall != null &&
-                data.walkerPhone != null &&
-                data.walkerPhone!
-                    .trim()
-                    .isNotEmpty,
-            chatEnabled:
-                widget.onChat != null,
-          ),
-        ],
-      ),
     );
   }
 
