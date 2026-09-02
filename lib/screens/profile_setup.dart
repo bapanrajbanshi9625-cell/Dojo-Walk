@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/dojo_colors.dart';
 
@@ -15,7 +16,6 @@ import '../features/profile_setup/widgets/profile_section_card.dart';
 import '../features/profile_setup/widgets/profile_text_field.dart';
 import '../features/profile_setup/widgets/pet_card.dart';
 import '../features/profile_setup/widgets/add_pet_button.dart';
-import '../features/profile_setup/widgets/address_field.dart';
 import '../features/profile_setup/widgets/save_profile_button.dart';
 
 import '../features/profile_setup/pickers/compact_picker_sheet.dart';
@@ -51,9 +51,6 @@ class _ProfileSetupScreenState
   final TextEditingController ownerController =
       TextEditingController();
 
-  final TextEditingController addressController =
-      TextEditingController();
-
   // ============================================================
   // PETS
   // ============================================================
@@ -76,7 +73,6 @@ class _ProfileSetupScreenState
   @override
   void dispose() {
     ownerController.dispose();
-    addressController.dispose();
 
     for (final PetData pet in pets) {
       pet.dispose();
@@ -113,7 +109,7 @@ class _ProfileSetupScreenState
   ) async {
 
     // ----------------------------------------------------------
-    // FIRST: FIREBASE AUTH PHONE
+    // 1. REAL FIREBASE PHONE
     // ----------------------------------------------------------
 
     String phone =
@@ -124,7 +120,43 @@ class _ProfileSetupScreenState
     }
 
     // ----------------------------------------------------------
-    // FALLBACK: phoneAccounts/{uid}
+    // 2. TEMPORARY MSG91 VERIFIED PHONE
+    // ----------------------------------------------------------
+
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      final bool otpVerified =
+          prefs.getBool(
+                'tempOtpVerified',
+              ) ??
+              false;
+
+      final String tempPhone =
+          prefs.getString(
+                'tempVerifiedPhone',
+              ) ??
+              '';
+
+      if (otpVerified &&
+          tempPhone.trim().isNotEmpty) {
+
+        debugPrint(
+          'TEMP VERIFIED PHONE FOUND: '
+          '$tempPhone',
+        );
+
+        return tempPhone.trim();
+      }
+    } catch (e) {
+      debugPrint(
+        'TEMP VERIFIED PHONE READ ERROR: $e',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // 3. FALLBACK: phoneAccounts/{uid}
     // ----------------------------------------------------------
 
     try {
@@ -160,6 +192,7 @@ class _ProfileSetupScreenState
       }
 
       return phone;
+
     } on FirebaseException catch (e) {
 
       debugPrint(
@@ -168,6 +201,7 @@ class _ProfileSetupScreenState
       );
 
       return null;
+
     } catch (e) {
 
       debugPrint(
@@ -350,7 +384,7 @@ class _ProfileSetupScreenState
       );
 
       // ========================================================
-      // 2. PHONE
+      // 2. VERIFIED PHONE
       // ========================================================
 
       final String? phone =
@@ -370,15 +404,16 @@ class _ProfileSetupScreenState
       );
 
       // ========================================================
-      // 3. SAVE
+      // 3. SAVE PROFILE
       // ========================================================
 
       await ProfileSetupService.saveProfile(
         ownerName:
             ownerController.text.trim(),
 
+        // Address temporarily disabled.
         address:
-            addressController.text.trim(),
+            '',
 
         phoneNumber:
             phone,
@@ -386,7 +421,7 @@ class _ProfileSetupScreenState
         pets:
             pets,
 
-        // Location is optional during setup.
+        // Current location temporarily disabled.
         requireLocation:
             false,
       );
@@ -1051,54 +1086,6 @@ class _ProfileSetupScreenState
                   onPressed:
                       _addPet,
                 ),
-
-              const SizedBox(
-                height: 24,
-              ),
-
-              // ==================================================
-              // ADDRESS
-              // ==================================================
-
-              Text(
-                'Address',
-                style:
-                    TextStyle(
-                  fontSize: 22,
-                  fontWeight:
-                      FontWeight.bold,
-                  color:
-                      DojoLightColors.text,
-                ),
-              ),
-
-              const SizedBox(
-                height: 5,
-              ),
-
-              Text(
-                'Optional',
-                style:
-                    TextStyle(
-                  color:
-                      DojoInputColors
-                          .lightHint,
-                  fontSize:
-                      13,
-                ),
-              ),
-
-              const SizedBox(
-                height: 14,
-              ),
-
-              ProfileSectionCard(
-                child:
-                    AddressField(
-                  controller:
-                      addressController,
-                ),
-              ),
 
               const SizedBox(
                 height: 28,
