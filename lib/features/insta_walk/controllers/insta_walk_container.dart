@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../screens/address_screen.dart';
 
 import '../services/insta_walk_search_service.dart';
 import '../services/insta_walk_request_state.dart';
