@@ -275,39 +275,39 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
 
   void _openOwnerAcceptedScreen(
-    String requestId,
-  ) {
-    if (!mounted) {
-      return;
-    }
+  String requestId,
+) {
+  if (!mounted) {
+    return;
+  }
 
-    final String cleanRequestId =
-        requestId.trim();
+  final String cleanRequestId =
+      requestId.trim();
 
-    if (cleanRequestId.isEmpty) {
-      debugPrint(
-        '❌ Cannot open WalkerAcceptScreen: empty requestId.',
-      );
-      return;
-    }
-
+  if (cleanRequestId.isEmpty) {
     debugPrint(
-      '🚀 Opening Owner WalkerAcceptScreen',
+      '❌ Cannot open WalkerAcceptScreen: empty requestId.',
     );
+    return;
+  }
 
-    debugPrint(
-      'requestId = $cleanRequestId',
-    );
+  debugPrint(
+    '🚀 Opening Owner WalkerAcceptScreen',
+  );
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) {
-          return WalkerAcceptScreen(
-            requestId: cleanRequestId,
-          );
-        },
-      ),
-    );
+  debugPrint(
+    'requestId = $cleanRequestId',
+  );
+
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) {
+        return WalkerAcceptScreen(
+          requestId: cleanRequestId,
+        );
+      },
+    ),
+  );
   }
 
   // ==========================================================
