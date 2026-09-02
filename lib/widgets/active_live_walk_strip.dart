@@ -1,6 +1,3 @@
-// File location:
-// lib/widgets/active_live_walk_strip.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,46 +21,24 @@ class ActiveLiveWalkStrip extends StatefulWidget {
 
 class _ActiveLiveWalkStripState
     extends State<ActiveLiveWalkStrip> {
-  // ==========================================================
-  // FIREBASE
-  // ==========================================================
-
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
 
-  StreamSubscription<
-          QuerySnapshot<Map<String, dynamic>>>?
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _subscription;
 
-  // ==========================================================
-  // CORRECT COLLECTION
-  // ==========================================================
-
-  static const String collectionName =
-      'walk_request';
-
-  // ==========================================================
-  // CURRENT REQUEST
-  // ==========================================================
+  static const String collectionName = 'walk_request';
 
   String? _requestId;
-
   String _status = '';
-
   String _dogName = 'Dog';
-
   String _dogBreed = '';
-
   String _walkerName = 'Walker';
 
   bool _loading = true;
-
-  // ==========================================================
-  // COLORS
-  // ==========================================================
 
   static const Color navy =
       Color(0xFF263746);
@@ -79,10 +54,6 @@ class _ActiveLiveWalkStripState
 
   static const Color border =
       Color(0xFFE5E7EB);
-
-  // ==========================================================
-  // ACTIVE STATUSES
-  // ==========================================================
 
   static const Set<String> _activeStatuses = {
     'accepted',
@@ -102,12 +73,11 @@ class _ActiveLiveWalkStripState
   @override
   void initState() {
     super.initState();
-
     _startListener();
   }
 
   // ==========================================================
-  // LISTENER
+  // FIRESTORE LISTENER
   // ==========================================================
 
   void _startListener() {
@@ -115,9 +85,7 @@ class _ActiveLiveWalkStripState
         _auth.currentUser;
 
     if (user == null) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _loading = false;
@@ -127,12 +95,7 @@ class _ActiveLiveWalkStripState
       return;
     }
 
-    final String uid =
-        user.uid;
-
-    // --------------------------------------------------------
-    // OWNER
-    // --------------------------------------------------------
+    final String uid = user.uid;
 
     final String field =
         widget.isWalker
@@ -141,8 +104,7 @@ class _ActiveLiveWalkStripState
 
     debugPrint(
       'ActiveLiveWalkStrip listening: '
-      '$collectionName '
-      '$field = $uid',
+      '$collectionName $field = $uid',
     );
 
     _subscription = _firestore
@@ -153,9 +115,9 @@ class _ActiveLiveWalkStripState
         )
         .snapshots()
         .listen(
-      _onSnapshot,
-      onError: _onError,
-    );
+          _onSnapshot,
+          onError: _onError,
+        );
   }
 
   // ==========================================================
@@ -163,25 +125,16 @@ class _ActiveLiveWalkStripState
   // ==========================================================
 
   void _onSnapshot(
-    QuerySnapshot<Map<String, dynamic>>
-        snapshot,
+    QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
-    QueryDocumentSnapshot<
-        Map<String, dynamic>>?
-    selectedDocument;
+    QueryDocumentSnapshot<Map<String, dynamic>>?
+        selectedDocument;
 
     DateTime? newestTime;
 
-    // ========================================================
-    // FIND NEWEST ACTIVE REQUEST
-    // ========================================================
-
-    for (final QueryDocumentSnapshot<
-            Map<String, dynamic>>
+    for (final QueryDocumentSnapshot<Map<String, dynamic>>
         document in snapshot.docs) {
       final Map<String, dynamic> data =
           document.data();
@@ -192,7 +145,8 @@ class _ActiveLiveWalkStripState
       );
 
       debugPrint(
-        'walk_request ${document.id} '
+        'walk_request '
+        '${document.id} '
         'status=$status',
       );
 
@@ -200,41 +154,19 @@ class _ActiveLiveWalkStripState
         continue;
       }
 
-      // ------------------------------------------------------
-      // UPDATED AT
-      // ------------------------------------------------------
-
       final DateTime? updatedAt =
-          _readDate(
-        data['updatedAt'],
-      );
-
-      // ------------------------------------------------------
-      // ACCEPTED AT
-      // ------------------------------------------------------
+          _readDate(data['updatedAt']);
 
       final DateTime? acceptedAt =
-          _readDate(
-        data['acceptedAt'],
-      );
-
-      // ------------------------------------------------------
-      // CREATED AT
-      // ------------------------------------------------------
+          _readDate(data['acceptedAt']);
 
       final DateTime? createdAt =
-          _readDate(
-        data['createdAt'],
-      );
+          _readDate(data['createdAt']);
 
       final DateTime? candidateTime =
           updatedAt ??
               acceptedAt ??
               createdAt;
-
-      // ------------------------------------------------------
-      // FIRST MATCH
-      // ------------------------------------------------------
 
       if (selectedDocument == null) {
         selectedDocument = document;
@@ -242,14 +174,10 @@ class _ActiveLiveWalkStripState
         continue;
       }
 
-      // ------------------------------------------------------
-      // NEWEST MATCH
-      // ------------------------------------------------------
-
       if (candidateTime != null &&
           (newestTime == null ||
               candidateTime.isAfter(
-                newestTime,
+                newestTime!,
               ))) {
         selectedDocument = document;
         newestTime = candidateTime;
@@ -257,7 +185,7 @@ class _ActiveLiveWalkStripState
     }
 
     // ========================================================
-    // NO ACTIVE REQUEST
+    // NO ACTIVE WALK
     // ========================================================
 
     if (selectedDocument == null) {
@@ -274,20 +202,19 @@ class _ActiveLiveWalkStripState
     }
 
     // ========================================================
-    // DATA
+    // ACTIVE WALK FOUND
     // ========================================================
 
+    final QueryDocumentSnapshot<Map<String, dynamic>>
+        document = selectedDocument;
+
     final Map<String, dynamic> data =
-        selectedDocument.data();
+        document.data();
 
     final String status =
         _normalizeStatus(
       data['status'],
     );
-
-    // ========================================================
-    // DOG NAME
-    // ========================================================
 
     String dogName =
         _readString(
@@ -296,25 +223,19 @@ class _ActiveLiveWalkStripState
 
     if (dogName.isEmpty) {
       dogName =
-          _readString(data['petName']);
+          _readString(
+        data['petName'],
+      );
     }
 
     if (dogName.isEmpty) {
       dogName = 'Dog';
     }
 
-    // ========================================================
-    // DOG BREED
-    // ========================================================
-
     final String dogBreed =
         _readString(
       data['dogBreed'],
     );
-
-    // ========================================================
-    // WALKER NAME
-    // ========================================================
 
     String walkerName =
         _readString(
@@ -325,38 +246,34 @@ class _ActiveLiveWalkStripState
       walkerName = 'Walker';
     }
 
-    // ========================================================
-    // UPDATE
-    // ========================================================
-
     setState(() {
-  _loading = false;
+      _loading = false;
 
-  // Firestore document ID = request ID
-  _requestId =
-      selectedDocument!.id;
+      // Firestore document ID = request ID.
+      _requestId = document.id;
 
-  _status = status;
+      _status = status;
 
-  _dogName = dogName;
+      _dogName = dogName;
 
-  _dogBreed = dogBreed;
+      _dogBreed = dogBreed;
 
-  _walkerName = walkerName;
-});
+      _walkerName = walkerName;
+    });
+  }
 
   // ==========================================================
-  // ERROR
+  // FIRESTORE ERROR
   // ==========================================================
 
-  void _onError(Object error) {
+  void _onError(
+    Object error,
+  ) {
     debugPrint(
       'ActiveLiveWalkStrip error: $error',
     );
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _loading = false;
@@ -366,7 +283,7 @@ class _ActiveLiveWalkStripState
   }
 
   // ==========================================================
-  // LIVE
+  // LIVE STATUS
   // ==========================================================
 
   bool get _isLive {
@@ -433,7 +350,8 @@ class _ActiveLiveWalkStripState
                 ),
                 width: .7,
               ),
-              bottom: const BorderSide(
+              bottom:
+                  const BorderSide(
                 color: border,
                 width: .6,
               ),
@@ -441,10 +359,6 @@ class _ActiveLiveWalkStripState
           ),
           child: Row(
             children: [
-              // =================================================
-              // ICON
-              // =================================================
-
               Container(
                 width: 38,
                 height: 38,
@@ -469,10 +383,6 @@ class _ActiveLiveWalkStripState
 
               const SizedBox(width: 10),
 
-              // =================================================
-              // TEXT
-              // =================================================
-
               Expanded(
                 child: Column(
                   mainAxisAlignment:
@@ -493,9 +403,11 @@ class _ActiveLiveWalkStripState
                                 BoxShape.circle,
                           ),
                         ),
+
                         const SizedBox(
                           width: 5,
                         ),
+
                         Text(
                           title,
                           style:
@@ -511,9 +423,9 @@ class _ActiveLiveWalkStripState
                         ),
                       ],
                     ),
-                    const SizedBox(
-                      height: 2,
-                    ),
+
+                    const SizedBox(height: 2),
+
                     Text(
                       subtitle,
                       maxLines: 1,
@@ -532,10 +444,6 @@ class _ActiveLiveWalkStripState
               ),
 
               const SizedBox(width: 8),
-
-              // =================================================
-              // ARROW
-              // =================================================
 
               const Icon(
                 Icons.chevron_right_rounded,
@@ -578,8 +486,7 @@ class _ActiveLiveWalkStripState
   // ==========================================================
 
   void _openLiveWalk() {
-    final String? id =
-        _requestId;
+    final String? id = _requestId;
 
     if (id == null ||
         id.trim().isEmpty) {
@@ -589,28 +496,19 @@ class _ActiveLiveWalkStripState
     final String requestId =
         id.trim();
 
-    // --------------------------------------------------------
-    // OWNER
-    // --------------------------------------------------------
-
     if (!widget.isWalker) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              WalkerAcceptScreen(
-            requestId: requestId,
-          ),
+          builder: (_) {
+            return WalkerAcceptScreen(
+              requestId: requestId,
+            );
+          },
         ),
       );
 
       return;
     }
-
-    // --------------------------------------------------------
-    // WALKER
-    //
-    // Keep existing Walker live screen.
-    // --------------------------------------------------------
 
     debugPrint(
       'Walker ActiveLiveWalkStrip tapped: '
@@ -619,7 +517,7 @@ class _ActiveLiveWalkStripState
   }
 
   // ==========================================================
-  // NORMALIZE STATUS
+  // STATUS NORMALIZER
   // ==========================================================
 
   String _normalizeStatus(
@@ -630,18 +528,21 @@ class _ActiveLiveWalkStripState
             .toLowerCase()
             .trim();
 
-    status = status.replaceAll(
+    status =
+        status.replaceAll(
       RegExp(r'\s+'),
       '_',
     );
 
-    status = status.replaceAll(
+    status =
+        status.replaceAll(
       '-',
       '_',
     );
 
     while (status.contains('__')) {
-      status = status.replaceAll(
+      status =
+          status.replaceAll(
         '__',
         '_',
       );
@@ -671,7 +572,7 @@ class _ActiveLiveWalkStripState
   }
 
   // ==========================================================
-  // STRING
+  // STRING READER
   // ==========================================================
 
   String _readString(
@@ -681,11 +582,13 @@ class _ActiveLiveWalkStripState
       return '';
     }
 
-    return value.toString().trim();
+    return value
+        .toString()
+        .trim();
   }
 
   // ==========================================================
-  // DATE
+  // DATE READER
   // ==========================================================
 
   DateTime? _readDate(
@@ -715,6 +618,7 @@ class _ActiveLiveWalkStripState
   @override
   void dispose() {
     _subscription?.cancel();
+
     super.dispose();
   }
 }
