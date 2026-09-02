@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -111,49 +112,163 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 3. IMPORTANT
+      // 3. EXTRACT MSG91 ACCESS TOKEN
+      // ========================================================
+
+      final String? accessToken =
+          _extractAccessToken(response);
+
+      if (accessToken == null ||
+          accessToken.isEmpty) {
+        debugPrint(
+          'MSG91 RESPONSE DOES NOT CONTAIN ACCESS TOKEN.',
+        );
+
+        throw Exception(
+          'OTP verified, but secure authentication token was not received.',
+        );
+      }
+
+      debugPrint(
+        'MSG91 ACCESS TOKEN RECEIVED',
+      );
+
+      // ========================================================
+      // 4. CALL FIREBASE CLOUD FUNCTION
       // ========================================================
       //
-      // DO NOT:
+      // Cloud Function:
       //
-      // - create Anonymous Firebase UID
-      // - call OwnerAuthService.authenticateOwner()
-      // - check profileCompleted here
-      // - check isActive here
-      // - open ProfileSetup here
-      // - open MainNavigation here
+      // createFirebaseToken
       //
-      // OTP SCREEN ONLY VERIFIES OTP.
+      // The backend will:
       //
-      // AFTER OTP SUCCESS:
-      // Splash Screen will control the complete login flow.
+      // MSG91 access-token
+      //        ↓
+      // verify MSG91 token
+      //        ↓
+      // get verified phone
+      //        ↓
+      // find phoneAccounts
+      //        ↓
+      // existing UID / create new UID
+      //        ↓
+      // create Firebase Custom Token
+      //
+      // ========================================================
+
+      final FirebaseFunctions functions =
+          FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      );
+
+      final HttpsCallable callable =
+          functions.httpsCallable(
+        'createFirebaseToken',
+      );
+
+      final HttpsCallableResult result =
+          await callable.call(
+        <String, dynamic>{
+          'accessToken': accessToken,
+        },
+      );
+
+      final dynamic functionData =
+          result.data;
+
+      if (functionData is! Map) {
+        throw Exception(
+          'Invalid authentication response from server.',
+        );
+      }
+
+      // ========================================================
+      // 5. GET FIREBASE CUSTOM TOKEN
+      // ========================================================
+
+      final String customToken =
+          functionData['customToken']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (customToken.isEmpty) {
+        throw Exception(
+          'Firebase authentication token was not received.',
+        );
+      }
+
+      debugPrint(
+        'FIREBASE CUSTOM TOKEN RECEIVED',
+      );
+
+      // ========================================================
+      // 6. SIGN IN TO FIREBASE
+      // ========================================================
+      //
+      // IMPORTANT:
+      //
+      // NO anonymous sign-in.
+      //
+      // Existing account:
+      // existing Firebase UID is restored.
+      //
+      // New account:
+      // backend creates the new Firebase UID.
+      //
+      // ========================================================
+
+      final UserCredential credential =
+          await FirebaseAuth.instance
+              .signInWithCustomToken(
+        customToken,
+      );
+
+      final User? user =
+          credential.user;
+
+      if (user == null) {
+        throw Exception(
+          'Firebase sign-in failed.',
+        );
+      }
+
+      debugPrint(
+        'FIREBASE SIGN-IN SUCCESS',
+      );
+
+      debugPrint(
+        'FIREBASE UID: ${user.uid}',
+      );
+
+      // ========================================================
+      // 7. GO TO STARTUP / SPLASH FLOW
+      // ========================================================
+      //
+      // UI remains unchanged.
+      //
+      // Splash/startup flow will now see:
+      //
+      // FirebaseAuth.instance.currentUser != null
+      //
+      // Then it can check:
+      //
+      // existing profile
+      // profileCompleted
+      // isActive
+      //
+      // and decide:
+      //
+      // MainNavigationScreen
+      // OR
+      // ProfileSetupScreen
       //
       // ========================================================
 
       if (!mounted) {
         return;
       }
-
-      // --------------------------------------------------------
-      // GO TO SPLASH
-      // --------------------------------------------------------
-      //
-      // IMPORTANT:
-      // We intentionally do not decide where the user belongs.
-      //
-      // Splash/Main startup flow should perform:
-      //
-      // Firebase Auth check
-      //        ↓
-      // Existing account/profile check
-      //        ↓
-      // profileCompleted
-      //        ↓
-      // active status
-      //        ↓
-      // Home / Profile Setup
-      //
-      // --------------------------------------------------------
 
       Navigator.of(context).pushNamedAndRemoveUntil(
         '/',
@@ -168,6 +283,10 @@ class _OtpVerificationScreenState
     on FirebaseAuthException catch (e) {
       debugPrint(
         'OWNER FIREBASE AUTH ERROR: ${e.code}',
+      );
+
+      debugPrint(
+        'OWNER FIREBASE AUTH MESSAGE: ${e.message}',
       );
 
       if (!mounted) {
@@ -231,6 +350,14 @@ class _OtpVerificationScreenState
         _showMessage(
           'Firebase permission denied. Please check Firestore rules.',
         );
+      } else if (error.contains('unauthenticated')) {
+        _showMessage(
+          'OTP authentication could not be verified. Please try again.',
+        );
+      } else if (error.contains('not-found')) {
+        _showMessage(
+          'Account information could not be found.',
+        );
       } else if (error.contains('network')) {
         _showMessage(
           'Network error. Please check your internet connection.',
@@ -253,6 +380,59 @@ class _OtpVerificationScreenState
         });
       }
     }
+  }
+
+  // ============================================================
+  // EXTRACT MSG91 ACCESS TOKEN
+  // ============================================================
+
+  String? _extractAccessToken(
+    dynamic response,
+  ) {
+    if (response is! Map) {
+      return null;
+    }
+
+    final List<dynamic> candidates = [
+      response['access-token'],
+      response['access_token'],
+      response['accessToken'],
+      response['token'],
+
+      if (response['data'] is Map)
+        (response['data'] as Map)['access-token'],
+
+      if (response['data'] is Map)
+        (response['data'] as Map)['access_token'],
+
+      if (response['data'] is Map)
+        (response['data'] as Map)['accessToken'],
+
+      if (response['data'] is Map)
+        (response['data'] as Map)['token'],
+
+      if (response['result'] is Map)
+        (response['result'] as Map)['access-token'],
+
+      if (response['result'] is Map)
+        (response['result'] as Map)['accessToken'],
+
+      if (response['result'] is Map)
+        (response['result'] as Map)['token'],
+    ];
+
+    for (final dynamic value in candidates) {
+      if (value != null) {
+        final String token =
+            value.toString().trim();
+
+        if (token.isNotEmpty) {
+          return token;
+        }
+      }
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -355,7 +535,9 @@ class _OtpVerificationScreenState
         final dynamic value =
             response['reqId'] ??
                 response['req_id'] ??
-                response['requestId'];
+                response['requestId'] ??
+                response['request_id'] ??
+                response['requestID'];
 
         if (value != null) {
           final String valueString =
@@ -444,6 +626,12 @@ class _OtpVerificationScreenState
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
 
+      case 'invalid-custom-token':
+        return 'Authentication token is invalid. Please try again.';
+
+      case 'custom-token-mismatch':
+        return 'Authentication configuration mismatch. Please contact support.';
+
       default:
         final String message =
             e.message?.trim() ?? '';
@@ -464,6 +652,9 @@ class _OtpVerificationScreenState
     switch (e.code) {
       case 'permission-denied':
         return 'Firebase permission denied. Please check Firestore rules.';
+
+      case 'unauthenticated':
+        return 'Firebase authentication is required. Please try again.';
 
       case 'unavailable':
         return 'Firebase is temporarily unavailable. Please try again.';
