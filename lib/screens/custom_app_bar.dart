@@ -1,108 +1,123 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/constants/app_colors.dart';
+
 class CustomAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const CustomAppBar({super.key});
 
-  static const orange = Color(0xFFF4511E);
-  static const navy = Color(0xFF263746);
-  static const slate = Color(0xFF475569);
+  static const double _toolbarHeight = 56.0;
 
   @override
   Size get preferredSize =>
-      const Size.fromHeight(kToolbarHeight);
+      const Size.fromHeight(_toolbarHeight);
 
   @override
   Widget build(BuildContext context) {
-    // =========================================================
-    // FORCE STATUS BAR TO SAME ORANGE
-    // =========================================================
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        // ======================================================
+        // STATUS BAR
+        // ======================================================
 
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: orange,
+        statusBarColor: AppColors.orange,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
         systemStatusBarContrastEnforced: false,
+
+        // ======================================================
+        // NAVIGATION BAR
+        // ======================================================
+
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
       ),
-    );
+      child: AppBar(
+        // ======================================================
+        // APP BAR
+        // ======================================================
 
-    return AppBar(
-      backgroundColor: orange,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: false,
-      titleSpacing: 14,
+        backgroundColor: AppColors.orange,
+        foregroundColor: AppColors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
 
-      // =======================================================
-      // STATUS BAR
-      // =======================================================
+        centerTitle: false,
+        titleSpacing: 14,
+        toolbarHeight: _toolbarHeight,
 
-      systemOverlayStyle: const SystemUiOverlayStyle(
-        statusBarColor: orange,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-        systemStatusBarContrastEnforced: false,
-      ),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: AppColors.orange,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemStatusBarContrastEnforced: false,
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarContrastEnforced: false,
+        ),
 
-      // =======================================================
-      // LEFT — DOJO WALK
-      // =======================================================
+        // ======================================================
+        // LEFT — DOJO WALK
+        // ======================================================
 
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 42,
-            width: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 42,
+              width: 42,
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.35),
+                ),
+              ),
+              child: const Icon(
+                Icons.pets,
+                size: 21,
+                color: AppColors.white,
               ),
             ),
-            child: const Icon(
-              Icons.pets,
-              size: 21,
-              color: Colors.white,
+            const SizedBox(width: 10),
+            const Text(
+              'Dojo Walk',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+                color: AppColors.white,
+              ),
             ),
-          ),
+          ],
+        ),
 
-          const SizedBox(width: 10),
+        // ======================================================
+        // RIGHT ACTIONS
+        // ======================================================
 
-          const Text(
-            'Dojo Walk',
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
+        actions: [
+          _appBarButton(
+            context,
+            Icons.notifications_outlined,
+            'Notifications',
           ),
+          _appBarButton(
+            context,
+            Icons.support_agent,
+            'Help & Support',
+          ),
+          const SizedBox(width: 7),
         ],
       ),
-
-      // =======================================================
-      // RIGHT
-      // =======================================================
-
-      actions: [
-        _appBarButton(
-          context,
-          Icons.notifications_outlined,
-          'Notifications',
-        ),
-        _appBarButton(
-          context,
-          Icons.support_agent,
-          'Help & Support',
-        ),
-        const SizedBox(width: 7),
-      ],
     );
   }
+
+  // ============================================================
+  // APP BAR BUTTON
+  // ============================================================
 
   Widget _appBarButton(
     BuildContext context,
@@ -115,18 +130,18 @@ class CustomAppBar extends StatelessWidget
         horizontal: 3,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.17),
+        color: AppColors.white.withValues(alpha: 0.17),
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.30),
+          color: AppColors.white.withValues(alpha: 0.30),
         ),
       ),
       child: IconButton(
         tooltip: title,
-        icon: Icon(
-          icon,
+        icon: const Icon(
+          Icons.notifications_outlined,
           size: 20,
-          color: Colors.white,
+          color: AppColors.white,
         ),
         onPressed: () {
           _showDialog(
@@ -139,6 +154,10 @@ class CustomAppBar extends StatelessWidget
     );
   }
 
+  // ============================================================
+  // DIALOG
+  // ============================================================
+
   void _showDialog(
     BuildContext context,
     String title,
@@ -148,21 +167,17 @@ class CustomAppBar extends StatelessWidget
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: const Color(0xFFF7F8FA),
+          backgroundColor: AppColors.background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              color: navy,
-              fontWeight: FontWeight.w900,
-            ),
+          title: const Text(
+            '',
           ),
           content: Text(
             content,
             style: const TextStyle(
-              color: slate,
+              color: AppColors.slate,
               height: 1.5,
             ),
           ),
@@ -174,7 +189,7 @@ class CustomAppBar extends StatelessWidget
               child: const Text(
                 'CLOSE',
                 style: TextStyle(
-                  color: orange,
+                  color: AppColors.orange,
                   fontWeight: FontWeight.bold,
                 ),
               ),
