@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../core/constants/app_colors.dart';
 import '../features/walker_accept/screens/walker_accept_screen.dart';
 
 class ActiveLiveWalkStrip extends StatefulWidget {
@@ -32,31 +33,9 @@ class _ActiveLiveWalkStripState
 
   static const String collectionName = 'walk_request';
 
-  String? _requestId;
-  String _status = '';
-  String _dogName = 'Dog';
-  String _dogBreed = '';
-  String _walkerName = 'Walker';
-
-  bool _loading = true;
-
-  static const Color navy =
-      Color(0xFF263746);
-
-  static const Color primary =
-      Color(0xFFFF8A00);
-
-  static const Color green =
-      Color(0xFF16A34A);
-
-  static const Color slate =
-      Color(0xFF475569);
-
-  static const Color border =
-      Color(0xFFE5E7EB);
-
   static const Set<String> _activeStatuses = {
     'accepted',
+    'active',
     'on_the_way',
     'reached',
     'walking',
@@ -65,6 +44,14 @@ class _ActiveLiveWalkStripState
     'ongoing',
     'live',
   };
+
+  String? _requestId;
+  String _status = '';
+  String _dogName = 'Dog';
+  String _dogBreed = '';
+  String _walkerName = 'Walker';
+
+  bool _loading = true;
 
   // ==========================================================
   // INIT
@@ -81,11 +68,12 @@ class _ActiveLiveWalkStripState
   // ==========================================================
 
   void _startListener() {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _loading = false;
@@ -98,9 +86,7 @@ class _ActiveLiveWalkStripState
     final String uid = user.uid;
 
     final String field =
-        widget.isWalker
-            ? 'walkerUid'
-            : 'ownerAuthUid';
+        widget.isWalker ? 'walkerUid' : 'ownerAuthUid';
 
     debugPrint(
       'ActiveLiveWalkStrip listening: '
@@ -127,7 +113,9 @@ class _ActiveLiveWalkStripState
   void _onSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     QueryDocumentSnapshot<Map<String, dynamic>>?
         selectedDocument;
@@ -136,18 +124,14 @@ class _ActiveLiveWalkStripState
 
     for (final QueryDocumentSnapshot<Map<String, dynamic>>
         document in snapshot.docs) {
-      final Map<String, dynamic> data =
-          document.data();
+      final Map<String, dynamic> data = document.data();
 
-      final String status =
-          _normalizeStatus(
+      final String status = _normalizeStatus(
         data['status'],
       );
 
       debugPrint(
-        'walk_request '
-        '${document.id} '
-        'status=$status',
+        'walk_request ${document.id} status=$status',
       );
 
       if (!_activeStatuses.contains(status)) {
@@ -164,9 +148,7 @@ class _ActiveLiveWalkStripState
           _readDate(data['createdAt']);
 
       final DateTime? candidateTime =
-          updatedAt ??
-              acceptedAt ??
-              createdAt;
+          updatedAt ?? acceptedAt ?? createdAt;
 
       if (selectedDocument == null) {
         selectedDocument = document;
@@ -176,13 +158,11 @@ class _ActiveLiveWalkStripState
 
       if (candidateTime != null &&
           (newestTime == null ||
-              candidateTime.isAfter(
-                newestTime,
-              ))) {
+              candidateTime.isAfter(newestTime!))) {
         selectedDocument = document;
         newestTime = candidateTime;
       }
-    } 
+    }
 
     // ========================================================
     // NO ACTIVE WALK
@@ -208,22 +188,18 @@ class _ActiveLiveWalkStripState
     final QueryDocumentSnapshot<Map<String, dynamic>>
         document = selectedDocument;
 
-    final Map<String, dynamic> data =
-        document.data();
+    final Map<String, dynamic> data = document.data();
 
-    final String status =
-        _normalizeStatus(
+    final String status = _normalizeStatus(
       data['status'],
     );
 
-    String dogName =
-        _readString(
+    String dogName = _readString(
       data['dogName'],
     );
 
     if (dogName.isEmpty) {
-      dogName =
-          _readString(
+      dogName = _readString(
         data['petName'],
       );
     }
@@ -232,13 +208,11 @@ class _ActiveLiveWalkStripState
       dogName = 'Dog';
     }
 
-    final String dogBreed =
-        _readString(
+    final String dogBreed = _readString(
       data['dogBreed'],
     );
 
-    String walkerName =
-        _readString(
+    String walkerName = _readString(
       data['walkerName'],
     );
 
@@ -253,11 +227,8 @@ class _ActiveLiveWalkStripState
       _requestId = document.id;
 
       _status = status;
-
       _dogName = dogName;
-
       _dogBreed = dogBreed;
-
       _walkerName = walkerName;
     });
   }
@@ -266,14 +237,14 @@ class _ActiveLiveWalkStripState
   // FIRESTORE ERROR
   // ==========================================================
 
-  void _onError(
-    Object error,
-  ) {
+  void _onError(Object error) {
     debugPrint(
       'ActiveLiveWalkStrip error: $error',
     );
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _loading = false;
@@ -306,23 +277,16 @@ class _ActiveLiveWalkStripState
   // ==========================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    if (_loading ||
-        _requestId == null) {
+  Widget build(BuildContext context) {
+    if (_loading || _requestId == null) {
       return const SizedBox.shrink();
     }
 
     final Color statusColor =
-        _isLive
-            ? green
-            : primary;
+        _isLive ? AppColors.success : AppColors.orange;
 
     final String title =
-        _isLive
-            ? 'LIVE WALK'
-            : 'ACTIVE WALK';
+        _isLive ? 'LIVE WALK' : 'ACTIVE WALK';
 
     final String subtitle =
         widget.isWalker
@@ -330,58 +294,57 @@ class _ActiveLiveWalkStripState
             : _buildOwnerSubtitle();
 
     return Material(
-      color: Colors.white,
+      color: AppColors.white,
       child: InkWell(
         onTap: _openLiveWalk,
         child: Container(
           width: double.infinity,
           height: 56,
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 14,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border(
               top: BorderSide(
-                color:
-                    statusColor.withValues(
-                  alpha: .18,
+                color: statusColor.withValues(
+                  alpha: 0.18,
                 ),
-                width: .7,
+                width: 0.7,
               ),
-              bottom:
-                  const BorderSide(
-                color: border,
-                width: .6,
+              bottom: BorderSide(
+                color: AppColors.border,
+                width: 0.6,
               ),
             ),
           ),
           child: Row(
             children: [
+              // ==================================================
+              // WALK ICON
+              // ==================================================
+
               Container(
                 width: 38,
                 height: 38,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      statusColor.withValues(
-                    alpha: .10,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(
+                    alpha: 0.10,
                   ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    11,
-                  ),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(
-                  Icons
-                      .directions_walk_rounded,
+                  Icons.directions_walk_rounded,
                   color: statusColor,
                   size: 21,
                 ),
               ),
 
               const SizedBox(width: 10),
+
+              // ==================================================
+              // WALK INFO
+              // ==================================================
 
               Expanded(
                 child: Column(
@@ -395,30 +358,19 @@ class _ActiveLiveWalkStripState
                         Container(
                           width: 7,
                           height: 7,
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                statusColor,
-                            shape:
-                                BoxShape.circle,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
                           ),
                         ),
-
-                        const SizedBox(
-                          width: 5,
-                        ),
-
+                        const SizedBox(width: 5),
                         Text(
                           title,
-                          style:
-                              TextStyle(
-                            color:
-                                statusColor,
+                          style: TextStyle(
+                            color: statusColor,
                             fontSize: 10,
-                            fontWeight:
-                                FontWeight.w900,
-                            letterSpacing:
-                                .7,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.7,
                           ),
                         ),
                       ],
@@ -429,14 +381,11 @@ class _ActiveLiveWalkStripState
                     Text(
                       subtitle,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
-                        color: navy,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.navy,
                         fontSize: 13,
-                        fontWeight:
-                            FontWeight.w800,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
@@ -445,9 +394,13 @@ class _ActiveLiveWalkStripState
 
               const SizedBox(width: 8),
 
+              // ==================================================
+              // ARROW
+              // ==================================================
+
               const Icon(
                 Icons.chevron_right_rounded,
-                color: slate,
+                color: AppColors.slate,
                 size: 25,
               ),
             ],
@@ -488,13 +441,15 @@ class _ActiveLiveWalkStripState
   void _openLiveWalk() {
     final String? id = _requestId;
 
-    if (id == null ||
-        id.trim().isEmpty) {
+    if (id == null || id.trim().isEmpty) {
       return;
     }
 
-    final String requestId =
-        id.trim();
+    final String requestId = id.trim();
+
+    // ========================================================
+    // OWNER
+    // ========================================================
 
     if (!widget.isWalker) {
       Navigator.of(context).push(
@@ -510,6 +465,10 @@ class _ActiveLiveWalkStripState
       return;
     }
 
+    // ========================================================
+    // WALKER
+    // ========================================================
+
     debugPrint(
       'Walker ActiveLiveWalkStrip tapped: '
       'requestId=$requestId',
@@ -520,29 +479,23 @@ class _ActiveLiveWalkStripState
   // STATUS NORMALIZER
   // ==========================================================
 
-  String _normalizeStatus(
-    dynamic value,
-  ) {
-    String status =
-        _readString(value)
-            .toLowerCase()
-            .trim();
+  String _normalizeStatus(dynamic value) {
+    String status = _readString(
+      value,
+    ).toLowerCase().trim();
 
-    status =
-        status.replaceAll(
+    status = status.replaceAll(
       RegExp(r'\s+'),
       '_',
     );
 
-    status =
-        status.replaceAll(
+    status = status.replaceAll(
       '-',
       '_',
     );
 
     while (status.contains('__')) {
-      status =
-          status.replaceAll(
+      status = status.replaceAll(
         '__',
         '_',
       );
@@ -575,25 +528,19 @@ class _ActiveLiveWalkStripState
   // STRING READER
   // ==========================================================
 
-  String _readString(
-    dynamic value,
-  ) {
+  String _readString(dynamic value) {
     if (value == null) {
       return '';
     }
 
-    return value
-        .toString()
-        .trim();
+    return value.toString().trim();
   }
 
   // ==========================================================
   // DATE READER
   // ==========================================================
 
-  DateTime? _readDate(
-    dynamic value,
-  ) {
+  DateTime? _readDate(dynamic value) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -603,9 +550,7 @@ class _ActiveLiveWalkStripState
     }
 
     if (value is String) {
-      return DateTime.tryParse(
-        value,
-      );
+      return DateTime.tryParse(value);
     }
 
     return null;
@@ -618,7 +563,6 @@ class _ActiveLiveWalkStripState
   @override
   void dispose() {
     _subscription?.cancel();
-
     super.dispose();
   }
 }
