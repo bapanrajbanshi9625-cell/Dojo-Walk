@@ -10,6 +10,7 @@ import '../../../screens/address_screen.dart';
 import '../change_mobile/change_mobile_flow.dart';
 import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
+import '../widgets/pet_details_card.dart';
 import '../widgets/profile_card.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -36,6 +37,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _ownerGender = '';
   String _memberSince = '';
 
+  bool _isActive = true;
+
   // ============================================================
   // ADDRESS
   // ============================================================
@@ -47,7 +50,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _state = '';
   String _pincode = '';
 
-  bool _isActive = true;
+  // ============================================================
+  // PETS
+  // ============================================================
+
+  List<Map<String, dynamic>> _pets =
+      <Map<String, dynamic>>[];
 
   // ============================================================
   // INIT
@@ -79,6 +87,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     try {
       final String uid = user.uid.trim();
 
@@ -86,12 +100,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FirebaseFirestore.instance;
 
       // ========================================================
-      // FIRST: SEARCH BY authUid
+      // OWNER PROFILE
+      //
+      // IMPORTANT:
+      // AddressScreen uses ownerProfiles.
+      // Therefore ProfileScreen also uses ownerProfiles
+      // as the primary source.
       // ========================================================
 
-      final QuerySnapshot<Map<String, dynamic>> query =
+      DocumentSnapshot<Map<String, dynamic>>?
+          ownerDoc;
+
+      // --------------------------------------------------------
+      // 1. authUid
+      // --------------------------------------------------------
+
+      final QuerySnapshot<Map<String, dynamic>>
+          authUidQuery =
           await firestore
-              .collection('owners')
+              .collection('ownerProfiles')
               .where(
                 'authUid',
                 isEqualTo: uid,
@@ -99,25 +126,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .limit(1)
               .get();
 
-      DocumentSnapshot<Map<String, dynamic>>?
-          ownerDoc;
+      if (authUidQuery.docs.isNotEmpty) {
+        ownerDoc =
+            authUidQuery.docs.first;
+      }
 
-      if (query.docs.isNotEmpty) {
-        ownerDoc = query.docs.first;
-      } else {
-        // ======================================================
-        // SECOND: owners/{uid}
-        // ======================================================
+      // --------------------------------------------------------
+      // 2. ownerAuthUid
+      // --------------------------------------------------------
 
-        final DocumentSnapshot<Map<String, dynamic>>
-            directDoc =
+      if (ownerDoc == null) {
+        final QuerySnapshot<
+            Map<String, dynamic>> ownerAuthQuery =
             await firestore
-                .collection('owners')
+                .collection('ownerProfiles')
+                .where(
+                  'ownerAuthUid',
+                  isEqualTo: uid,
+                )
+                .limit(1)
+                .get();
+
+        if (ownerAuthQuery.docs.isNotEmpty) {
+          ownerDoc =
+              ownerAuthQuery.docs.first;
+        }
+      }
+
+      // --------------------------------------------------------
+      // 3. ownerProfiles/{uid}
+      // --------------------------------------------------------
+
+      if (ownerDoc == null) {
+        final DocumentSnapshot<
+            Map<String, dynamic>> directDoc =
+            await firestore
+                .collection('ownerProfiles')
                 .doc(uid)
                 .get();
 
         if (directDoc.exists) {
           ownerDoc = directDoc;
+        }
+      }
+
+      // ========================================================
+      // OPTIONAL LEGACY FALLBACK
+      //
+      // Only owner information is read from owners if
+      // ownerProfiles does not exist.
+      //
+      // Address still remains ownerProfiles-first.
+      // ========================================================
+
+      if (ownerDoc == null) {
+        final QuerySnapshot<
+            Map<String, dynamic>> ownersQuery =
+            await firestore
+                .collection('owners')
+                .where(
+                  'authUid',
+                  isEqualTo: uid,
+                )
+                .limit(1)
+                .get();
+
+        if (ownersQuery.docs.isNotEmpty) {
+          ownerDoc =
+              ownersQuery.docs.first;
+        }
+      }
+
+      if (ownerDoc == null) {
+        final DocumentSnapshot<
+            Map<String, dynamic>> legacyDoc =
+            await firestore
+                .collection('owners')
+                .doc(uid)
+                .get();
+
+        if (legacyDoc.exists) {
+          ownerDoc = legacyDoc;
         }
       }
 
@@ -139,6 +228,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           _mobileNumber =
               _firebasePhone(user);
+
+          _addressLine1 = '';
+          _streetRoad = '';
+          _area = '';
+          _city = '';
+          _state = '';
+          _pincode = '';
+
+          _pets =
+              <Map<String, dynamic>>[];
 
           _isLoading = false;
         });
@@ -167,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]);
 
       // ========================================================
-      // NAME
+      // OWNER NAME
       // ========================================================
 
       final String ownerName =
@@ -175,6 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         data['ownerName'],
         data['name'],
         data['fullName'],
+        data['displayName'],
         user.displayName,
       ]);
 
@@ -222,77 +322,190 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       // ========================================================
-      // FLAT / HOUSE NO.
+      // ADDRESS
       //
-      // AddressScreen saves:
-      // flatNumber
+      // PRIMARY SOURCE:
+      // savedAddresses[]
       // ========================================================
 
-      final String addressLine1 =
-          _firstNonEmpty([
-        data['flatNumber'],
-        data['flatHouseNo'],
-        data['flat'],
-        data['houseNo'],
-        data['houseNumber'],
-      ]);
+      Map<String, dynamic>? savedAddress =
+          _getSavedAddress(data);
 
       // ========================================================
-      // STREET / ROAD / BUILDING
+      // ADDRESS FROM savedAddresses[]
+      // ========================================================
+
+      String addressLine1 = '';
+      String streetRoad = '';
+      String area = '';
+      String city = '';
+      String state = '';
+      String pincode = '';
+
+      if (savedAddress != null) {
+        addressLine1 =
+            _firstNonEmpty([
+          savedAddress['flatNumber'],
+          savedAddress['flatHouseNo'],
+          savedAddress['flat'],
+          savedAddress['houseNo'],
+          savedAddress['houseNumber'],
+        ]);
+
+        streetRoad =
+            _firstNonEmpty([
+          savedAddress['addressLine1'],
+          savedAddress['streetRoad'],
+          savedAddress['street'],
+          savedAddress['road'],
+        ]);
+
+        area =
+            _firstNonEmpty([
+          savedAddress['area'],
+          savedAddress['subLocality'],
+          savedAddress['locality'],
+        ]);
+
+        city =
+            _firstNonEmpty([
+          savedAddress['city'],
+          savedAddress['town'],
+        ]);
+
+        state =
+            _firstNonEmpty([
+          savedAddress['state'],
+          savedAddress['administrativeArea'],
+        ]);
+
+        pincode =
+            _firstNonEmpty([
+          savedAddress['pincode'],
+          savedAddress['Pincode'],
+          savedAddress['postalCode'],
+        ]);
+
+        // ------------------------------------------------------
+        // If saved address contains a combined address and
+        // individual fields are missing, use the combined value
+        // in the street field so AddressCard still displays it.
+        // ------------------------------------------------------
+
+        if (addressLine1.isEmpty &&
+            streetRoad.isEmpty &&
+            area.isEmpty &&
+            city.isEmpty &&
+            state.isEmpty &&
+            pincode.isEmpty) {
+          streetRoad =
+              _firstNonEmpty([
+            savedAddress['address'],
+            savedAddress['fullAddress'],
+            savedAddress['formattedAddress'],
+          ]);
+        }
+      }
+
+      // ========================================================
+      // FALLBACK TO PROFILE-LEVEL ADDRESS
       //
-      // AddressScreen saves:
-      // addressLine1
+      // Supports older records.
       // ========================================================
 
-      final String streetRoad =
-          _firstNonEmpty([
-        data['addressLine1'],
-        data['streetRoad'],
-        data['street'],
-        data['road'],
-      ]);
+      if (addressLine1.isEmpty) {
+        addressLine1 =
+            _firstNonEmpty([
+          data['flatNumber'],
+          data['flatHouseNo'],
+          data['flat'],
+          data['houseNo'],
+          data['houseNumber'],
+        ]);
+      }
+
+      if (streetRoad.isEmpty) {
+        streetRoad =
+            _firstNonEmpty([
+          data['addressLine1'],
+          data['streetRoad'],
+          data['street'],
+          data['road'],
+        ]);
+      }
+
+      if (area.isEmpty) {
+        area =
+            _firstNonEmpty([
+          data['area'],
+          data['subLocality'],
+          data['locality'],
+        ]);
+      }
+
+      if (city.isEmpty) {
+        city =
+            _firstNonEmpty([
+          data['city'],
+          data['town'],
+        ]);
+      }
+
+      if (state.isEmpty) {
+        state =
+            _firstNonEmpty([
+          data['state'],
+          data['administrativeArea'],
+        ]);
+      }
+
+      if (pincode.isEmpty) {
+        pincode =
+            _firstNonEmpty([
+          data['pincode'],
+          data['Pincode'],
+          data['postalCode'],
+        ]);
+      }
 
       // ========================================================
-      // AREA / LOCALITY
+      // FULL ADDRESS FALLBACK
       // ========================================================
 
-      final String area =
-          _firstNonEmpty([
-        data['area'],
-        data['subLocality'],
-        data['locality'],
-      ]);
+      if (addressLine1.isEmpty &&
+          streetRoad.isEmpty &&
+          area.isEmpty &&
+          city.isEmpty &&
+          state.isEmpty &&
+          pincode.isEmpty) {
+        final String combined =
+            _firstNonEmpty([
+          data['address'],
+          data['fullAddress'],
+          data['formattedAddress'],
+        ]);
+
+        if (combined.isNotEmpty) {
+          streetRoad = combined;
+        }
+      }
 
       // ========================================================
-      // CITY
+      // PETS
+      //
+      // Expected:
+      // pets: [
+      //   {
+      //     name: ...,
+      //     age: ...,
+      //     breed: ...,
+      //     behaviour: ...
+      //   }
+      // ]
       // ========================================================
 
-      final String city =
-          _firstNonEmpty([
-        data['city'],
-        data['town'],
-      ]);
-
-      // ========================================================
-      // STATE
-      // ========================================================
-
-      final String state =
-          _firstNonEmpty([
-        data['state'],
-        data['administrativeArea'],
-      ]);
-
-      // ========================================================
-      // PINCODE
-      // ========================================================
-
-      final String pincode =
-          _firstNonEmpty([
-        data['pincode'],
-        data['Pincode'],
-        data['postalCode'],
-      ]);
+      final List<Map<String, dynamic>> pets =
+          _readPets(data['pets']);
 
       // ========================================================
       // ACTIVE STATUS
@@ -332,10 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _memberSince =
             memberSince;
 
-        // ======================================================
-        // ADDRESS
-        // ======================================================
-
+        // Address
         _addressLine1 =
             addressLine1;
 
@@ -353,6 +563,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         _pincode =
             pincode;
+
+        // Pets
+        _pets = pets;
 
         _isActive =
             active;
@@ -390,6 +603,287 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       _showMessage(
         'Could not load complete profile information.',
+      );
+    }
+  }
+
+  // ============================================================
+  // GET SAVED ADDRESS
+  // ============================================================
+
+  Map<String, dynamic>? _getSavedAddress(
+    Map<String, dynamic> data,
+  ) {
+    final dynamic value =
+        data['savedAddresses'];
+
+    if (value is! List ||
+        value.isEmpty) {
+      return null;
+    }
+
+    for (final dynamic item in value) {
+      if (item is Map) {
+        final Map<String, dynamic> address =
+            Map<String, dynamic>.from(
+          item,
+        );
+
+        final bool valid =
+            _hasAddressData(address);
+
+        if (valid) {
+          return address;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // CHECK ADDRESS DATA
+  // ============================================================
+
+  bool _hasAddressData(
+    Map<String, dynamic> address,
+  ) {
+    final String combined =
+        _firstNonEmpty([
+      address['address'],
+      address['fullAddress'],
+      address['formattedAddress'],
+      address['flatNumber'],
+      address['addressLine1'],
+      address['addressLine2'],
+      address['area'],
+      address['city'],
+      address['state'],
+      address['pincode'],
+      address['Pincode'],
+    ]);
+
+    return combined.isNotEmpty;
+  }
+
+  // ============================================================
+  // READ PETS
+  // ============================================================
+
+  List<Map<String, dynamic>> _readPets(
+    dynamic value,
+  ) {
+    if (value is! List) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final List<Map<String, dynamic>> result =
+        <Map<String, dynamic>>[];
+
+    for (final dynamic item in value) {
+      if (item is Map) {
+        result.add(
+          Map<String, dynamic>.from(
+            item,
+          ),
+        );
+      }
+    }
+
+    return result;
+  }
+
+  // ============================================================
+  // PET EDIT
+  // ============================================================
+
+  void _editPet(
+    int index,
+  ) {
+    _showMessage(
+      'Pet editing is available from Pet Profile.',
+    );
+  }
+
+  // ============================================================
+  // PET DELETE
+  //
+  // Safe local delete + Firestore update.
+  // ============================================================
+
+  Future<void> _deletePet(
+    int index,
+  ) async {
+    if (index < 0 ||
+        index >= _pets.length) {
+      return;
+    }
+
+    final bool? confirm =
+        await showDialog<bool>(
+      context: context,
+      builder:
+          (BuildContext context) {
+        return AlertDialog(
+          backgroundColor:
+              AppColors.white,
+          title: const Text(
+            'Delete Pet?',
+            style: TextStyle(
+              color: AppColors.navy,
+              fontWeight:
+                  FontWeight.w800,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to remove this pet from your profile?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context)
+                    .pop(false);
+              },
+              child: const Text(
+                'Cancel',
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context)
+                    .pop(true);
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  color:
+                      AppColors.error,
+                  fontWeight:
+                      FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true ||
+        !mounted) {
+      return;
+    }
+
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return;
+    }
+
+    try {
+      final String uid =
+          user.uid.trim();
+
+      final FirebaseFirestore firestore =
+          FirebaseFirestore.instance;
+
+      DocumentReference<
+          Map<String, dynamic>>? profileRef;
+
+      // --------------------------------------------------------
+      // Find ownerProfiles document exactly like profile loading.
+      // --------------------------------------------------------
+
+      final QuerySnapshot<
+          Map<String, dynamic>> authQuery =
+          await firestore
+              .collection('ownerProfiles')
+              .where(
+                'authUid',
+                isEqualTo: uid,
+              )
+              .limit(1)
+              .get();
+
+      if (authQuery.docs.isNotEmpty) {
+        profileRef =
+            authQuery.docs.first.reference;
+      }
+
+      if (profileRef == null) {
+        final QuerySnapshot<
+            Map<String, dynamic>> ownerAuthQuery =
+            await firestore
+                .collection('ownerProfiles')
+                .where(
+                  'ownerAuthUid',
+                  isEqualTo: uid,
+                )
+                .limit(1)
+                .get();
+
+        if (ownerAuthQuery.docs.isNotEmpty) {
+          profileRef =
+              ownerAuthQuery.docs.first.reference;
+        }
+      }
+
+      if (profileRef == null) {
+        final DocumentReference<
+            Map<String, dynamic>> directRef =
+            firestore
+                .collection('ownerProfiles')
+                .doc(uid);
+
+        final DocumentSnapshot<
+            Map<String, dynamic>> directDoc =
+            await directRef.get();
+
+        if (directDoc.exists) {
+          profileRef = directRef;
+        }
+      }
+
+      if (profileRef == null) {
+        _showMessage(
+          'Owner profile not found.',
+        );
+        return;
+      }
+
+      final List<Map<String, dynamic>> updatedPets =
+          List<Map<String, dynamic>>.from(
+        _pets,
+      );
+
+      updatedPets.removeAt(index);
+
+      await profileRef.update({
+        'pets': updatedPets,
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _pets = updatedPets;
+      });
+
+      _showMessage(
+        'Pet deleted.',
+      );
+    } catch (e) {
+      debugPrint(
+        'Delete Pet Error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Unable to delete pet.',
       );
     }
   }
@@ -799,11 +1293,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
                 const SizedBox(
-                  height: 16,
+                  height: 20,
                 ),
 
                 // ==================================================
+                // PET PROFILE
+                // ==================================================
+
+                if (_pets.isNotEmpty) ...[
+                  const Text(
+                    'Pet Profile',
+                    style: TextStyle(
+                      color:
+                          AppColors.navy,
+                      fontSize: 18,
+                      fontWeight:
+                          FontWeight.w900,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 10,
+                  ),
+
+                  ...List.generate(
+                    _pets.length,
+                    (int index) {
+                      final Map<String, dynamic>
+                          pet =
+                          _pets[index];
+
+                      return Padding(
+                        padding:
+                            EdgeInsets.only(
+                          bottom:
+                              index ==
+                                      _pets.length -
+                                          1
+                                  ? 0
+                                  : 12,
+                        ),
+                        child:
+                            PetDetailsCard(
+                          pet: pet,
+                          index: index,
+                          onEdit: () {
+                            _editPet(
+                              index,
+                            );
+                          },
+                          onDelete: () {
+                            _deletePet(
+                              index,
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(
+                    height: 20,
+                  ),
+                ],
+
+                // ==================================================
                 // MY ADDRESS
+                //
+                // PET PROFILE KE NICHE
                 // ==================================================
 
                 AddressCard(
