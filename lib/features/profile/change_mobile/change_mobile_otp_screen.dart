@@ -65,7 +65,6 @@ class _ChangeMobileOtpScreenState
 
   late String _verificationId;
 
-
   bool _isVerifying = false;
   bool _isResending = false;
 
@@ -74,22 +73,22 @@ class _ChangeMobileOtpScreenState
   // ============================================================
 
   @override
-void initState() {
-  super.initState();
+  void initState() {
+    super.initState();
 
-  _verificationId =
-      widget.verificationId.trim();
+    _verificationId =
+        widget.verificationId.trim();
 
-  WidgetsBinding.instance
-      .addPostFrameCallback((_) {
-    if (!mounted) {
-      return;
-    }
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
 
-    _otpFocusNode.requestFocus();
-  });
-}
-  
+      _otpFocusNode.requestFocus();
+    });
+  }
+
   // ============================================================
   // DISPOSE
   // ============================================================
@@ -204,11 +203,6 @@ void initState() {
 
       // ========================================================
       // COMPLETE MOBILE CHANGE
-      //
-      // 1. Firebase Auth phone
-      // 2. owners/{owner document}
-      //    mainPhone
-      //    phone
       // ========================================================
 
       await _service.completeMobileChange(
@@ -416,7 +410,6 @@ void initState() {
         phoneNumber:
             phone,
 
-        
         // ------------------------------------------------------
         // CODE SENT
         // ------------------------------------------------------
@@ -475,14 +468,11 @@ void initState() {
         onVerificationCompleted: (
           PhoneAuthCredential credential,
         ) {
-          // ----------------------------------------------------
-          // IMPORTANT
+          // Intentionally disabled.
           //
-          // Do NOT automatically update the phone number.
-          // User must explicitly enter OTP and press:
-          //
-          // "Verify & Update"
-          // ----------------------------------------------------
+          // The mobile number is updated only when
+          // the user enters the OTP and presses
+          // "Verify & Update".
         },
       );
     }
@@ -706,28 +696,20 @@ void initState() {
                     TextAlign.center,
                 maxLength: 6,
                 autofocus: true,
-
                 inputFormatters: [
                   FilteringTextInputFormatter
                       .digitsOnly,
                 ],
-
                 onChanged: (
                   String value,
                 ) {
-                  if (value.length == 6 &&
-                      !_isVerifying &&
-                      !_isResending) {
-                    // Keep automatic verification
-                    // disabled. User explicitly presses
-                    // Verify & Update.
-                  }
+                  // Automatic verification intentionally disabled.
+                  //
+                  // User must press "Verify & Update".
                 },
-
                 onSubmitted: (_) {
                   _verifyOtp();
                 },
-
                 style:
                     const TextStyle(
                   fontSize: 25,
@@ -737,7 +719,6 @@ void initState() {
                   color:
                       navy,
                 ),
-
                 decoration:
                     InputDecoration(
                   counterText: '',
@@ -812,7 +793,6 @@ void initState() {
                               _isResending)
                           ? null
                           : _verifyOtp,
-
                   style:
                       ElevatedButton
                           .styleFrom(
@@ -820,10 +800,14 @@ void initState() {
                         orange,
                     foregroundColor:
                         Colors.white,
+
+                    // FIX:
+                    // withOpacity() is deprecated.
                     disabledBackgroundColor:
-                        orange.withOpacity(
-                      0.55,
+                        orange.withValues(
+                      alpha: 0.55,
                     ),
+
                     disabledForegroundColor:
                         Colors.white,
                     elevation: 0,
@@ -835,7 +819,6 @@ void initState() {
                       ),
                     ),
                   ),
-
                   child:
                       _isVerifying
                           ? const SizedBox(
@@ -896,7 +879,6 @@ void initState() {
                                 _isVerifying)
                             ? null
                             : _resendOtp,
-
                     child:
                         _isResending
                             ? const SizedBox(
