@@ -177,12 +177,12 @@ class _ActiveLiveWalkStripState
       if (candidateTime != null &&
           (newestTime == null ||
               candidateTime.isAfter(
-                newestTime!,
+                newestTime,
               ))) {
         selectedDocument = document;
         newestTime = candidateTime;
       }
-    }
+    } 
 
     // ========================================================
     // NO ACTIVE WALK
