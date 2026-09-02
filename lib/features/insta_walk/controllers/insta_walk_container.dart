@@ -608,37 +608,19 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // ========================================================
 
     if (widget.fullScreen) {
-      return Scaffold(
-        backgroundColor:
-            const Color(0xFFF4F7F8),
-        appBar: AppBar(
-          backgroundColor:
-              const Color(0xFF243746),
-          foregroundColor:
-              Colors.white,
-          elevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'Insta Walk',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+        padding:
+            const EdgeInsets.only(
+          bottom: 30,
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics:
-                const AlwaysScrollableScrollPhysics(),
-            padding:
-                const EdgeInsets.only(
-              bottom: 30,
-            ),
-            child: _buildFullScreen(),
-          ),
-        ),
-      );
+        child: _buildFullScreen(),
+      ),
+    );
     }
-
+    
     // ========================================================
     // COMPACT MODE
     // ========================================================
