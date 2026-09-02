@@ -119,5 +119,3 @@ DojoStatusColors.warning;
 static const Color info =
 DojoStatusColors.info;
 }
-
-مین کنیکشن ہائیلی یہ کلر کا، اندر سے یہی بلاک لاتا۔
