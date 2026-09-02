@@ -8,7 +8,6 @@ import 'package:latlong2/latlong.dart';
 // INSTA WALK MAP + RADAR
 // ============================================================
 //
-// Contains:
 // • Interactive OpenStreetMap
 // • Owner search-location pin
 // • Search-radius circle
@@ -16,15 +15,11 @@ import 'package:latlong2/latlong.dart';
 // • Radar rings
 // • Radar pulse
 // • Radar sweep
-// • LIVE SEARCH badge
-// • Search-radius badge
-// • Map movement / zoom
+// • My Location button
 //
-// RadarPainter is intentionally kept in this same file.
-// No separate radar_painter.dart is required.
 // ============================================================
 
-class InstaWalkMapRadar extends StatelessWidget {
+class InstaWalkMapRadar extends StatefulWidget {
   final LatLng ownerPoint;
   final double searchRadiusKm;
   final Animation<double> radarAnimation;
@@ -37,11 +32,49 @@ class InstaWalkMapRadar extends StatelessWidget {
   });
 
   @override
+  State<InstaWalkMapRadar> createState() =>
+      _InstaWalkMapRadarState();
+}
+
+class _InstaWalkMapRadarState
+    extends State<InstaWalkMapRadar> {
+  // ==========================================================
+  // MAP CONTROLLER
+  // ==========================================================
+
+  final MapController _mapController =
+      MapController();
+
+  // ==========================================================
+  // MY LOCATION
+  // ==========================================================
+
+  void _goToMyLocation() {
+    _mapController.move(
+      widget.ownerPoint,
+      14.5,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final Color primary =
+        colors.primary;
+
+    final Color surface =
+        colors.surface;
+
+    final Color onSurface =
+        colors.onSurface;
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius:
+          BorderRadius.circular(20),
       child: SizedBox(
-        height: 190,
+        height: 270,
         width: double.infinity,
         child: Stack(
           children: [
@@ -50,20 +83,22 @@ class InstaWalkMapRadar extends StatelessWidget {
             // ==================================================
 
             FlutterMap(
+              mapController:
+                  _mapController,
               options: MapOptions(
-                initialCenter: ownerPoint,
+                initialCenter:
+                    widget.ownerPoint,
                 initialZoom: 14.5,
-
-                // REAL INTERACTIVE MAP
                 interactionOptions:
                     const InteractionOptions(
-                  flags: InteractiveFlag.all,
+                  flags:
+                      InteractiveFlag.all,
                 ),
               ),
               children: [
-                // ==================================================
+                // ==============================================
                 // OPEN STREET MAP
-                // ==================================================
+                // ==============================================
 
                 TileLayer(
                   urlTemplate:
@@ -72,93 +107,103 @@ class InstaWalkMapRadar extends StatelessWidget {
                       'com.doojowalker.app',
                 ),
 
-                // ==================================================
-                // SEARCH AREA
-                // ==================================================
+                // ==============================================
+                // SEARCH RADIUS
+                // ==============================================
 
                 CircleLayer(
                   circles: [
                     CircleMarker(
-                      point: ownerPoint,
+                      point:
+                          widget.ownerPoint,
                       radius:
-                          searchRadiusKm * 1000,
-                      useRadiusInMeter: true,
-                      color: const Color(0xFF65D6C8)
-                          .withValues(alpha: .10),
+                          widget.searchRadiusKm *
+                              1000,
+                      useRadiusInMeter:
+                          true,
+                      color:
+                          primary.withValues(
+                        alpha: .10,
+                      ),
                       borderColor:
-                          const Color(0xFF65D6C8)
-                              .withValues(alpha: .65),
-                      borderStrokeWidth: 1.5,
+                          primary.withValues(
+                        alpha: .55,
+                      ),
+                      borderStrokeWidth:
+                          1.5,
                     ),
                   ],
                 ),
 
-                // ==================================================
-                // OWNER SEARCH LOCATION
-                // ==================================================
+                // ==============================================
+                // OWNER LOCATION PIN
+                // ==============================================
 
                 MarkerLayer(
                   markers: [
                     Marker(
-                      point: ownerPoint,
-                      width: 52,
-                      height: 62,
+                      point:
+                          widget.ownerPoint,
+                      width: 54,
+                      height: 64,
                       child: Column(
                         mainAxisSize:
                             MainAxisSize.min,
                         children: [
                           Container(
-                            width: 44,
-                            height: 44,
+                            width: 46,
+                            height: 46,
                             decoration:
                                 BoxDecoration(
                               shape:
                                   BoxShape.circle,
                               color:
-                                  const Color(
-                                0xFF243746,
-                              ),
+                                  colors
+                                      .surface,
                               border:
                                   Border.all(
                                 color:
-                                    Colors.white,
+                                    primary,
                                 width: 3,
                               ),
-                              boxShadow: const [
+                              boxShadow: [
                                 BoxShadow(
                                   color:
-                                      Colors.black26,
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
+                                      Colors
+                                          .black
+                                          .withValues(
+                                    alpha: .22,
+                                  ),
+                                  blurRadius:
+                                      10,
                                   offset:
-                                      Offset(0, 3),
+                                      const Offset(
+                                    0,
+                                    3,
+                                  ),
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons
                                   .location_on_rounded,
                               color:
-                                  Colors.white,
-                              size: 23,
+                                  primary,
+                              size: 25,
                             ),
                           ),
 
-                          // Small pin tail
                           Transform.translate(
                             offset:
                                 const Offset(
                               0,
                               -8,
                             ),
-                            child:
-                                const Icon(
+                            child: Icon(
                               Icons
                                   .arrow_drop_down,
                               color:
-                                  Color(
-                                0xFF243746,
-                              ),
+                                  surface,
                               size: 22,
                             ),
                           ),
@@ -177,12 +222,24 @@ class InstaWalkMapRadar extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(
                 child: AnimatedBuilder(
-                  animation: radarAnimation,
-                  builder: (_, __) {
+                  animation:
+                      widget.radarAnimation,
+                  builder: (
+                    BuildContext context,
+                    Widget? child,
+                  ) {
                     return CustomPaint(
-                      painter: RadarPainter(
+                      painter:
+                          RadarPainter(
                         progress:
-                            radarAnimation.value,
+                            widget
+                                .radarAnimation
+                                .value,
+                        color:
+                            primary,
+                        glowColor:
+                            colors
+                                .secondary,
                       ),
                     );
                   },
@@ -191,141 +248,60 @@ class InstaWalkMapRadar extends StatelessWidget {
             ),
 
             // ==================================================
-            // TOP LEFT — LIVE SEARCH
+            // MY LOCATION BUTTON
             // ==================================================
 
             Positioned(
-              left: 10,
-              top: 10,
-              child: _MapBadge(
-                icon:
-                    Icons.radar_rounded,
-                text: 'LIVE SEARCH',
-              ),
-            ),
-
-            // ==================================================
-            // TOP RIGHT — MOVE MAP
-            // ==================================================
-
-            Positioned(
-              right: 10,
-              top: 10,
-              child: _MapBadge(
-                icon:
-                    Icons.pan_tool_alt_rounded,
-                text: 'MOVE',
-                light: true,
-              ),
-            ),
-
-            // ==================================================
-            // BOTTOM LEFT — LOCATION
-            // ==================================================
-
-            Positioned(
-              left: 10,
-              bottom: 10,
-              child: _MapBadge(
-                icon:
-                    Icons.location_on_rounded,
-                text: 'YOUR LOCATION',
-                light: true,
-              ),
-            ),
-
-            // ==================================================
-            // BOTTOM RIGHT — SEARCH RADIUS
-            // ==================================================
-
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: _MapBadge(
-                icon:
-                    Icons.near_me_rounded,
-                text:
-                    '${searchRadiusKm.toStringAsFixed(1)} km',
-                light: true,
+              right: 12,
+              bottom: 12,
+              child: Material(
+                color: Colors.transparent,
+                elevation: 4,
+                shadowColor:
+                    Colors.black.withValues(
+                  alpha: .22,
+                ),
+                borderRadius:
+                    BorderRadius.circular(
+                  15,
+                ),
+                child: InkWell(
+                  onTap:
+                      _goToMyLocation,
+                  borderRadius:
+                      BorderRadius.circular(
+                    15,
+                  ),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration:
+                        BoxDecoration(
+                      color: surface,
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        15,
+                      ),
+                      border: Border.all(
+                        color: primary
+                            .withValues(
+                          alpha: .18,
+                        ),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons
+                          .my_location_rounded,
+                      color: primary,
+                      size: 23,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// MAP BADGE
-// ============================================================
-
-class _MapBadge extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final bool light;
-
-  const _MapBadge({
-    required this.icon,
-    required this.text,
-    this.light = false,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: light
-            ? Colors.white
-                .withValues(alpha: .94)
-            : const Color(0xFF172733)
-                .withValues(alpha: .90),
-        borderRadius:
-            BorderRadius.circular(30),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 7,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: light
-                ? const Color(
-                    0xFF243746,
-                  )
-                : Colors.white,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            text,
-            style: TextStyle(
-              color: light
-                  ? const Color(
-                      0xFF243746,
-                    )
-                  : Colors.white,
-              fontSize: 9,
-              fontWeight:
-                  FontWeight.w900,
-              letterSpacing: .3,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -337,9 +313,13 @@ class _MapBadge extends StatelessWidget {
 
 class RadarPainter extends CustomPainter {
   final double progress;
+  final Color color;
+  final Color glowColor;
 
   RadarPainter({
     required this.progress,
+    required this.color,
+    required this.glowColor,
   });
 
   @override
@@ -368,8 +348,9 @@ class RadarPainter extends CustomPainter {
           PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..color =
-          const Color(0xFF65D6C8)
-              .withValues(alpha: .30);
+          color.withValues(
+        alpha: .25,
+      );
 
     for (int i = 1; i <= 3; i++) {
       canvas.drawCircle(
@@ -380,7 +361,7 @@ class RadarPainter extends CustomPainter {
     }
 
     // ========================================================
-    // OUTER SOFT RING
+    // OUTER RING
     // ========================================================
 
     final Paint outerRing = Paint()
@@ -388,8 +369,9 @@ class RadarPainter extends CustomPainter {
           PaintingStyle.stroke
       ..strokeWidth = 2
       ..color =
-          const Color(0xFF65D6C8)
-              .withValues(alpha: .16);
+          color.withValues(
+        alpha: .14,
+      );
 
     canvas.drawCircle(
       center,
@@ -410,10 +392,9 @@ class RadarPainter extends CustomPainter {
           PaintingStyle.stroke
       ..strokeWidth = 2
       ..color =
-          const Color(0xFF8FFFEF)
-              .withValues(
+          glowColor.withValues(
         alpha:
-            (1 - progress) * .65,
+            (1 - progress) * .55,
       );
 
     canvas.drawCircle(
@@ -437,10 +418,12 @@ class RadarPainter extends CustomPainter {
             angle - 1.0,
         endAngle: angle,
         colors: [
-          const Color(0xFF65D6C8)
-              .withValues(alpha: 0),
-          const Color(0xFF8FFFEF)
-              .withValues(alpha: .55),
+          color.withValues(
+            alpha: 0,
+          ),
+          glowColor.withValues(
+            alpha: .42,
+          ),
         ],
       ).createShader(
         Rect.fromCircle(
@@ -461,8 +444,9 @@ class RadarPainter extends CustomPainter {
 
     final Paint centerGlow = Paint()
       ..color =
-          const Color(0xFF8FFFEF)
-              .withValues(alpha: .10);
+          glowColor.withValues(
+        alpha: .08,
+      );
 
     canvas.drawCircle(
       center,
@@ -476,6 +460,9 @@ class RadarPainter extends CustomPainter {
     covariant RadarPainter oldDelegate,
   ) {
     return oldDelegate.progress !=
-        progress;
+            progress ||
+        oldDelegate.color != color ||
+        oldDelegate.glowColor !=
+            glowColor;
   }
 }
