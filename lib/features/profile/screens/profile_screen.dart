@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../screens/address_screen.dart';
 import '../change_mobile/change_mobile_flow.dart';
 import '../widgets/address_card.dart';
@@ -22,19 +23,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color orange =
-      Color(0xFFFF6B35);
-
-  static const Color navy =
-      Color(0xFF102A43);
-
-  static const Color background =
-      Color(0xFFF7F9FC);
-
   // ============================================================
   // STATE
   // ============================================================
@@ -514,7 +502,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
@@ -578,6 +566,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           behavior:
               SnackBarBehavior.floating,
+          backgroundColor:
+              AppColors.navy,
           margin:
               const EdgeInsets.all(16),
           shape:
@@ -599,18 +589,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: background,
+        backgroundColor:
+            AppColors.background,
         body: Center(
           child:
               CircularProgressIndicator(
-            color: orange,
+            color: AppColors.orange,
           ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor:
+          AppColors.background,
 
       // ========================================================
       // APP BAR
@@ -619,13 +611,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: navy,
+        backgroundColor:
+            AppColors.white,
+        foregroundColor:
+            AppColors.navy,
         centerTitle: false,
         title: const Text(
           'My Profile',
           style: TextStyle(
-            color: navy,
+            color: AppColors.navy,
             fontSize: 21,
             fontWeight: FontWeight.w900,
           ),
@@ -638,7 +632,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       body: SafeArea(
         child: RefreshIndicator(
-          color: orange,
+          color: AppColors.orange,
           onRefresh: _loadProfile,
           child: SingleChildScrollView(
             physics:
@@ -662,7 +656,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // ==================================================
 
                 ProfileCard(
-                  ownerName: _ownerName,
+                  ownerName:
+                      _ownerName,
                 ),
 
                 const SizedBox(
@@ -674,7 +669,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // ==================================================
 
                 OwnerInfoCard(
-                  ownerId: _ownerId,
+                  ownerId:
+                      _ownerId,
                   mobileNumber:
                       _mobileNumber,
                   ownerName:
@@ -706,9 +702,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _addressLine1,
                   streetRoad:
                       _streetRoad,
-                  area: _area,
-                  city: _city,
-                  state: _state,
+                  area:
+                      _area,
+                  city:
+                      _city,
+                  state:
+                      _state,
                   pincode:
                       _pincode,
                   onEditAddress:
