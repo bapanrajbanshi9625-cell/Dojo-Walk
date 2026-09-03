@@ -48,6 +48,7 @@ class _WalkerAcceptScreenState
   bool _loadingRoute = false;
   bool _reachedHandled = false;
   bool _routeRequestedOnce = false;
+  bool _closingAfterReached = false;
 
   @override
   void initState() {
@@ -87,7 +88,12 @@ class _WalkerAcceptScreenState
         });
 
         _checkReached(data);
-        _refreshRoute(data);
+
+        // Once reached, there is no reason to keep
+        // requesting routes for the accept screen.
+        if (!data.isReached) {
+          _refreshRoute(data);
+        }
       },
       onError: (Object error) {
         debugPrint(
@@ -104,18 +110,42 @@ class _WalkerAcceptScreenState
   void _checkReached(
     WalkerAcceptData data,
   ) {
-    if (_reachedHandled ||
-        !data.isReached) {
+    if (!data.isReached ||
+        _reachedHandled ||
+        _closingAfterReached) {
       return;
     }
 
     _reachedHandled = true;
+    _closingAfterReached = true;
 
     debugPrint(
       'WalkerAcceptScreen: Walker reached Owner.',
     );
 
+    // Stop Firestore listener before leaving this screen.
+    _requestSubscription?.cancel();
+
+    // Tell parent that Walker has reached.
     widget.onReached?.call(data);
+
+    if (!mounted) {
+      return;
+    }
+
+    // Remove this Accept/On-the-way screen.
+    //
+    // The parent should use onReached to open the
+    // next Live/Active Walk screen.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (!mounted) {
+          return;
+        }
+
+        Navigator.of(context).pop();
+      },
+    );
   }
 
   // ==========================================================
@@ -127,7 +157,8 @@ class _WalkerAcceptScreenState
   ) {
     if (!data.hasWalkerLocation ||
         !data.hasOwnerLocation ||
-        _loadingRoute) {
+        _loadingRoute ||
+        _reachedHandled) {
       return;
     }
 
@@ -143,7 +174,9 @@ class _WalkerAcceptScreenState
   Future<void> _loadRoute(
     WalkerAcceptData data,
   ) async {
-    if (!mounted || _loadingRoute) {
+    if (!mounted ||
+        _loadingRoute ||
+        _reachedHandled) {
       return;
     }
 
@@ -174,7 +207,8 @@ class _WalkerAcceptScreenState
       );
 
       if (!mounted ||
-          result == null) {
+          result == null ||
+          _reachedHandled) {
         return;
       }
 
@@ -253,9 +287,10 @@ class _WalkerAcceptScreenState
       appBar:
           _buildAppBar(context, data),
       body: Stack(
+        fit: StackFit.expand,
         children: [
           // ====================================================
-          // FULL MAP
+          // MAP
           // ====================================================
 
           Positioned.fill(
@@ -277,29 +312,37 @@ class _WalkerAcceptScreenState
           ),
 
           // ====================================================
-          // DRAGGABLE BOTTOM SHEET
+          // BOTTOM SHEET
           // ====================================================
 
-          DraggableScrollableSheet(
-            initialChildSize: 0.14,
-            minChildSize: 0.14,
-            maxChildSize: 0.70,
-            snap: true,
-            snapSizes: const <double>[
-              0.14,
-              0.70,
-            ],
-            expand: false,
-            builder: (
-              BuildContext context,
-              ScrollController scrollController,
-            ) {
-              return _buildBottomSheet(
-                context,
-                data,
-                scrollController,
-              );
-            },
+          Positioned.fill(
+            child: Align(
+              alignment:
+                  Alignment.bottomCenter,
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.14,
+                minChildSize: 0.14,
+                maxChildSize: 0.70,
+                snap: true,
+                snapSizes:
+                    const <double>[
+                  0.14,
+                  0.70,
+                ],
+                expand: false,
+                builder: (
+                  BuildContext context,
+                  ScrollController
+                      scrollController,
+                ) {
+                  return _buildBottomSheet(
+                    context,
+                    data,
+                    scrollController,
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
