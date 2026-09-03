@@ -17,73 +17,59 @@ class LiveWalkMap extends StatefulWidget {
   final VoidCallback onRecenter;
 
   @override
-  State<LiveWalkMap> createState() =>
-      _LiveWalkMapState();
+  State<LiveWalkMap> createState() => _LiveWalkMapState();
 }
 
-class _LiveWalkMapState
-    extends State<LiveWalkMap> {
-  final MapController _mapController =
-      MapController();
+class _LiveWalkMapState extends State<LiveWalkMap> {
+  final MapController _mapController = MapController();
 
   bool _initialCentered = false;
 
-  static const Color primary =
-      Color(0xFFFF8A00);
-
-  static const Color green =
-      Color(0xFF16A34A);
-
-  static const Color red =
-      Color(0xFFDC2626);
+  static const Color primary = Color(0xFFFF8A00);
+  static const Color green = Color(0xFF16A34A);
+  static const Color red = Color(0xFFDC2626);
 
   @override
-  void didUpdateWidget(
-    covariant LiveWalkMap oldWidget,
-  ) {
+  void didUpdateWidget(covariant LiveWalkMap oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final LatLng? current =
-        widget.walkerLocation;
+    final LatLng? current = widget.walkerLocation;
 
     if (current != null &&
-        oldWidget.walkerLocation !=
-            current) {
-      if (!_initialCentered) {
-        _initialCentered = true;
+        oldWidget.walkerLocation != current &&
+        !_initialCentered) {
+      _initialCentered = true;
 
-        WidgetsBinding.instance
-            .addPostFrameCallback(
-          (_) {
-            if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
 
-            _mapController.move(
-              current,
-              17,
-            );
-          },
-        );
-      }
+        _mapController.move(current, 17);
+      });
     }
   }
 
+  void _recenterMap() {
+    final LatLng? location = widget.walkerLocation;
+
+    if (location == null) {
+      widget.onRecenter();
+      return;
+    }
+
+    _mapController.move(location, 17);
+  }
+
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     final LatLng center =
         widget.walkerLocation ??
-            widget.destination ??
-            const LatLng(
-              28.6139,
-              77.2090,
-            );
+        widget.destination ??
+        const LatLng(28.6139, 77.2090);
 
     return Stack(
       children: [
         FlutterMap(
-          mapController:
-              _mapController,
+          mapController: _mapController,
           options: MapOptions(
             initialCenter: center,
             initialZoom: 16,
@@ -94,16 +80,14 @@ class _LiveWalkMapState
             TileLayer(
               urlTemplate:
                   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName:
-                  'com.doojowalker.app',
+              userAgentPackageName: 'com.doojowalker.app',
             ),
 
             if (widget.routePoints.length >= 2)
               PolylineLayer(
                 polylines: [
                   Polyline(
-                    points:
-                        widget.routePoints,
+                    points: widget.routePoints,
                     strokeWidth: 5,
                     color: primary,
                   ),
@@ -114,8 +98,7 @@ class _LiveWalkMapState
               markers: [
                 if (widget.destination != null)
                   Marker(
-                    point:
-                        widget.destination!,
+                    point: widget.destination!,
                     width: 54,
                     height: 64,
                     child: _destinationMarker(),
@@ -123,8 +106,7 @@ class _LiveWalkMapState
 
                 if (widget.walkerLocation != null)
                   Marker(
-                    point:
-                        widget.walkerLocation!,
+                    point: widget.walkerLocation!,
                     width: 60,
                     height: 70,
                     child: _walkerMarker(),
@@ -146,18 +128,17 @@ class _LiveWalkMapState
           child: Material(
             color: Colors.white,
             elevation: 3,
-            borderRadius:
-                BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(13),
             child: InkWell(
-              borderRadius:
-                  BorderRadius.circular(13),
-              onTap: widget.onRecenter,
+              borderRadius: BorderRadius.circular(13),
+              onTap: _recenterMap,
               child: const SizedBox(
                 width: 46,
                 height: 46,
                 child: Icon(
                   Icons.my_location_rounded,
                   color: primary,
+                  size: 22,
                 ),
               ),
             ),
@@ -168,47 +149,42 @@ class _LiveWalkMapState
   }
 
   Widget _statusBadge() {
-    final bool hasLocation =
-        widget.walkerLocation != null;
+    final bool hasLocation = widget.walkerLocation != null;
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
+            blurRadius: 12,
+            offset: Offset(0, 4),
+            color: Color(0x22000000),
           ),
         ],
       ),
       child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.location_on_rounded,
-            size: 17,
-            color:
-                hasLocation
-                    ? green
-                    : Colors.grey,
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: hasLocation ? green : red,
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
-            hasLocation
-                ? 'Live Location'
-                : 'Waiting for walk',
+            hasLocation ? 'Live location' : 'Waiting for location',
             style: const TextStyle(
-              fontSize: 11,
-              fontWeight:
-                  FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1F2937),
             ),
           ),
         ],
@@ -218,34 +194,35 @@ class _LiveWalkMapState
 
   Widget _walkerMarker() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 43,
-          height: 43,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
-            color: primary,
             shape: BoxShape.circle,
+            color: primary,
             border: Border.all(
               color: Colors.white,
-              width: 4,
+              width: 3,
             ),
             boxShadow: const [
               BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
+                blurRadius: 10,
+                offset: Offset(0, 4),
+                color: Color(0x44000000),
               ),
             ],
           ),
           child: const Icon(
             Icons.directions_walk_rounded,
             color: Colors.white,
-            size: 22,
+            size: 25,
           ),
         ),
-        const Icon(
-          Icons.arrow_drop_down,
-          color: primary,
-          size: 18,
+        CustomPaint(
+          size: const Size(14, 8),
+          painter: _MarkerArrowPainter(primary),
         ),
       ],
     );
@@ -253,21 +230,23 @@ class _LiveWalkMapState
 
   Widget _destinationMarker() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 43,
-          height: 43,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            color: red,
             shape: BoxShape.circle,
+            color: red,
             border: Border.all(
               color: Colors.white,
-              width: 4,
+              width: 3,
             ),
             boxShadow: const [
               BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
+                blurRadius: 9,
+                offset: Offset(0, 4),
+                color: Color(0x44000000),
               ),
             ],
           ),
@@ -277,12 +256,43 @@ class _LiveWalkMapState
             size: 22,
           ),
         ),
-        const Icon(
-          Icons.arrow_drop_down,
-          color: red,
-          size: 18,
+        CustomPaint(
+          size: const Size(14, 8),
+          painter: _MarkerArrowPainter(red),
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+}
+
+class _MarkerArrowPainter extends CustomPainter {
+  const _MarkerArrowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final Path path = Path()
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MarkerArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
