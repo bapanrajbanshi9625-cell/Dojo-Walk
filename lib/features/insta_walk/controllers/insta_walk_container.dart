@@ -181,8 +181,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
-    final String requestId =
-        accepted.requestId.trim();
+    final String requestId = accepted.requestId.trim();
 
     debugPrint('');
     debugPrint(
@@ -282,8 +281,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
-    final String cleanRequestId =
-        requestId.trim();
+    final String cleanRequestId = requestId.trim();
 
     if (cleanRequestId.isEmpty) {
       debugPrint(
@@ -528,8 +526,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
         continue;
       }
 
-      final String result =
-          value.toString().trim();
+      final String result = value.toString().trim();
 
       if (result.isNotEmpty) {
         return result;
@@ -550,8 +547,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return null;
     }
 
-    final dynamic value =
-        data['ownerLocation'];
+    final dynamic value = data['ownerLocation'];
 
     if (value is GeoPoint) {
       return Position(
@@ -574,8 +570,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
       final dynamic lng =
           value['longitude'] ??
-              value['lng'] ??
-              value['lon'];
+          value['lng'] ??
+          value['lon'];
 
       if (lat is num && lng is num) {
         return Position(
@@ -599,6 +595,20 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // BUILD
   // ==========================================================
+  //
+  // IMPORTANT:
+  // WalksScreen already provides the main ListView.
+  //
+  // Therefore InstaWalkContainer MUST NOT create another
+  // SingleChildScrollView here.
+  //
+  // This prevents:
+  // - nested scrolling
+  // - Insta Walk moving behind the AppBar
+  // - strange scroll boundaries
+  // - content jumping upward
+  //
+  // ==========================================================
 
   @override
   Widget build(
@@ -609,32 +619,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // ========================================================
 
     if (widget.fullScreen) {
-      return SafeArea(
-        child: LayoutBuilder(
-          builder: (
-            BuildContext context,
-            BoxConstraints constraints,
-          ) {
-            return SingleChildScrollView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              padding: const EdgeInsets.only(
-                top: 2,
-                bottom: 40,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: _buildFullScreen(),
-              ),
-            );
-          },
-        ),
-      );
+      return _buildFullScreen();
     }
 
     // ========================================================
