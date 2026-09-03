@@ -33,21 +33,41 @@ class LiveWalkSession {
     required this.startedAt,
   });
 
+  // ============================================================
+  // IDENTITY
+  // ============================================================
+
   final String documentId;
   final String walkId;
+
+  // ============================================================
+  // OWNER
+  // ============================================================
 
   final String ownerId;
   final String ownerUid;
   final String ownerName;
   final String ownerPhone;
 
+  // ============================================================
+  // WALKER
+  // ============================================================
+
   final String walkerId;
   final String walkerUid;
   final String walkerName;
   final String walkerPhone;
 
+  // ============================================================
+  // DOG
+  // ============================================================
+
   final String dogName;
   final String dogBreed;
+
+  // ============================================================
+  // STATUS
+  // ============================================================
 
   final String status;
 
@@ -57,12 +77,28 @@ class LiveWalkSession {
   final bool walkStarted;
   final bool walkEnded;
 
+  // ============================================================
+  // LOCATION
+  // ============================================================
+
   final LatLng? walkerLocation;
   final LatLng? ownerLocation;
 
+  // ============================================================
+  // DESTINATION
+  // ============================================================
+
   final String destinationAddress;
 
+  // ============================================================
+  // ROUTE
+  // ============================================================
+
   final List<LatLng> routePoints;
+
+  // ============================================================
+  // WALK STATS
+  // ============================================================
 
   final int elapsedSeconds;
   final double distanceKm;
@@ -71,6 +107,10 @@ class LiveWalkSession {
   final int poopCount;
 
   final DateTime? startedAt;
+
+  // ============================================================
+  // STATUS HELPERS
+  // ============================================================
 
   bool get isCompleted {
     return trackingEnded ||
@@ -85,13 +125,19 @@ class LiveWalkSession {
         (trackingStarted || walkStarted);
   }
 
+  // ============================================================
+  // DISPLAY
+  // ============================================================
+
   String get durationLabel {
     final Duration duration =
         Duration(seconds: elapsedSeconds);
 
     final int hours = duration.inHours;
+
     final int minutes =
         duration.inMinutes.remainder(60);
+
     final int seconds =
         duration.inSeconds.remainder(60);
 
@@ -113,6 +159,10 @@ class LiveWalkSession {
     return '${distanceKm.toStringAsFixed(1)} km';
   }
 
+  // ============================================================
+  // FIRESTORE
+  // ============================================================
+
   factory LiveWalkSession.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
@@ -132,43 +182,74 @@ class LiveWalkSession {
     return LiveWalkSession(
       documentId: documentId,
 
+      // --------------------------------------------------------
+      // WALK ID
+      // --------------------------------------------------------
+
       walkId: _string(
         data['walkId'] ??
             data['walkRequestId'],
       ),
 
-      ownerId: _string(data['ownerId']),
+      // --------------------------------------------------------
+      // OWNER
+      // --------------------------------------------------------
+
+      ownerId: _string(
+        data['ownerId'],
+      ),
+
       ownerUid: _string(
         data['ownerUid'] ??
             data['ownerAuthUid'],
       ),
+
       ownerName: _string(
         data['ownerName'],
         fallback: 'Owner',
       ),
+
       ownerPhone: _string(
         data['ownerPhone'],
       ),
 
-      walkerId: _string(data['walkerId']),
+      // --------------------------------------------------------
+      // WALKER
+      // --------------------------------------------------------
+
+      walkerId: _string(
+        data['walkerId'],
+      ),
+
       walkerUid: _string(
         data['walkerUid'],
       ),
+
       walkerName: _string(
         data['walkerName'],
         fallback: 'Walker',
       ),
+
       walkerPhone: _string(
         data['walkerPhone'],
       ),
+
+      // --------------------------------------------------------
+      // DOG
+      // --------------------------------------------------------
 
       dogName: _string(
         data['dogName'],
         fallback: 'Dog',
       ),
+
       dogBreed: _string(
         data['dogBreed'],
       ),
+
+      // --------------------------------------------------------
+      // STATUS
+      // --------------------------------------------------------
 
       status: _normalizeStatus(
         data['status'],
@@ -189,62 +270,98 @@ class LiveWalkSession {
       walkEnded:
           data['walkEnded'] == true,
 
+      // --------------------------------------------------------
+      // WALKER LOCATION
+      //
+      // Supports:
+      // 1. currentLocation = GeoPoint
+      // 2. currentLocation = {lat, lng}
+      // 3. currentLat + currentLng
+      // --------------------------------------------------------
+
       walkerLocation:
-          _location(
-        data['currentLocation'],
-      ),
+          _readWalkerLocation(data),
+
+      // --------------------------------------------------------
+      // OWNER LOCATION
+      //
+      // Supports:
+      // 1. destinationLocation
+      // 2. ownerLocation
+      // --------------------------------------------------------
 
       ownerLocation:
           _location(
-        data['destinationLocation'],
-      ) ??
+            data['destinationLocation'],
+          ) ??
           _location(
             data['ownerLocation'],
           ),
 
+      // --------------------------------------------------------
+      // ADDRESS
+      // --------------------------------------------------------
+
       destinationAddress:
           _readAddress(
-        data['address'],
-        fallback:
-            data['destinationAddress'],
-      ),
+            data['address'],
+            fallback:
+                data['destinationAddress'],
+          ),
+
+      // --------------------------------------------------------
+      // ROUTE
+      // --------------------------------------------------------
 
       routePoints:
           _route(
-        data['routeCoordinates'],
-      ),
+            data['routeCoordinates'],
+          ),
+
+      // --------------------------------------------------------
+      // STATS
+      // --------------------------------------------------------
 
       elapsedSeconds:
           _int(
-        data['elapsedSeconds'],
-      ),
+            data['elapsedSeconds'] ??
+                data['durationSeconds'],
+          ),
 
       distanceKm:
           _double(
-        data['distanceKm'],
-      ),
+            data['distanceKm'],
+          ),
 
       steps:
           _int(
-        data['steps'],
-      ),
+            data['steps'],
+          ),
 
       peeCount:
           _int(
-        data['peeCount'],
-      ),
+            data['peeCount'],
+          ),
 
       poopCount:
           _int(
-        data['poopCount'],
-      ),
+            data['poopCount'],
+          ),
+
+      // --------------------------------------------------------
+      // START TIME
+      // --------------------------------------------------------
 
       startedAt:
           _date(
-        data['startedAt'],
-      ),
+            data['startedAt'],
+          ),
     );
   }
+
+  // ============================================================
+  // STRING
+  // ============================================================
 
   static String _string(
     dynamic value, {
@@ -258,7 +375,13 @@ class LiveWalkSession {
         : result;
   }
 
-  static int _int(dynamic value) {
+  // ============================================================
+  // INT
+  // ============================================================
+
+  static int _int(
+    dynamic value,
+  ) {
     if (value is num) {
       return value.toInt();
     }
@@ -269,7 +392,13 @@ class LiveWalkSession {
         0;
   }
 
-  static double _double(dynamic value) {
+  // ============================================================
+  // DOUBLE
+  // ============================================================
+
+  static double _double(
+    dynamic value,
+  ) {
     if (value is num) {
       return value.toDouble();
     }
@@ -280,24 +409,39 @@ class LiveWalkSession {
         0;
   }
 
-  static LatLng? _location(dynamic value) {
-    double? lat;
-    double? lng;
+  // ============================================================
+  // WALKER LOCATION
+  // ============================================================
 
-    if (value is GeoPoint) {
-      lat = value.latitude;
-      lng = value.longitude;
-    } else if (value is Map) {
-      lat = _nullableDouble(
-        value['lat'] ??
-            value['latitude'],
-      );
+  static LatLng? _readWalkerLocation(
+    Map<String, dynamic> data,
+  ) {
+    // ----------------------------------------------------------
+    // First: currentLocation
+    // ----------------------------------------------------------
 
-      lng = _nullableDouble(
-        value['lng'] ??
-            value['longitude'],
-      );
+    final LatLng? currentLocation =
+        _location(
+      data['currentLocation'],
+    );
+
+    if (currentLocation != null) {
+      return currentLocation;
     }
+
+    // ----------------------------------------------------------
+    // Second: currentLat + currentLng
+    // ----------------------------------------------------------
+
+    final double? lat =
+        _nullableDouble(
+      data['currentLat'],
+    );
+
+    final double? lng =
+        _nullableDouble(
+      data['currentLng'],
+    );
 
     if (lat == null || lng == null) {
       return null;
@@ -314,8 +458,68 @@ class LiveWalkSession {
       return null;
     }
 
-    return LatLng(lat, lng);
+    return LatLng(
+      lat,
+      lng,
+    );
   }
+
+  // ============================================================
+  // LOCATION PARSER
+  // ============================================================
+
+  static LatLng? _location(
+    dynamic value,
+  ) {
+    double? lat;
+    double? lng;
+
+    // GeoPoint
+    if (value is GeoPoint) {
+      lat = value.latitude;
+      lng = value.longitude;
+    }
+
+    // Map
+    else if (value is Map) {
+      lat = _nullableDouble(
+        value['lat'] ??
+            value['latitude'],
+      );
+
+      lng = _nullableDouble(
+        value['lng'] ??
+            value['longitude'],
+      );
+    }
+
+    if (lat == null ||
+        lng == null) {
+      return null;
+    }
+
+    // Invalid Firestore default
+    if (lat == 0 && lng == 0) {
+      return null;
+    }
+
+    // Invalid coordinates
+    if (lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180) {
+      return null;
+    }
+
+    return LatLng(
+      lat,
+      lng,
+    );
+  }
+
+  // ============================================================
+  // NULLABLE DOUBLE
+  // ============================================================
 
   static double? _nullableDouble(
     dynamic value,
@@ -328,6 +532,10 @@ class LiveWalkSession {
       value?.toString() ?? '',
     );
   }
+
+  // ============================================================
+  // ROUTE
+  // ============================================================
 
   static List<LatLng> _route(
     dynamic value,
@@ -351,10 +559,18 @@ class LiveWalkSession {
     return result;
   }
 
+  // ============================================================
+  // ADDRESS
+  // ============================================================
+
   static String _readAddress(
     dynamic value, {
     dynamic fallback,
   }) {
+    // ----------------------------------------------------------
+    // Address stored as Map
+    // ----------------------------------------------------------
+
     if (value is Map) {
       final String addressLine1 =
           _string(
@@ -362,23 +578,33 @@ class LiveWalkSession {
       );
 
       final String area =
-          _string(value['area']);
+          _string(
+        value['area'],
+      );
 
       final String city =
-          _string(value['city']);
+          _string(
+        value['city'],
+      );
 
       final List<String> parts =
           <String>[
         if (addressLine1.isNotEmpty)
           addressLine1,
-        if (area.isNotEmpty) area,
-        if (city.isNotEmpty) city,
+        if (area.isNotEmpty)
+          area,
+        if (city.isNotEmpty)
+          city,
       ];
 
       if (parts.isNotEmpty) {
         return parts.join(', ');
       }
     }
+
+    // ----------------------------------------------------------
+    // Address stored as String
+    // ----------------------------------------------------------
 
     final String text =
         _string(value);
@@ -387,13 +613,23 @@ class LiveWalkSession {
       return text;
     }
 
+    // ----------------------------------------------------------
+    // Fallback
+    // ----------------------------------------------------------
+
     final String fallbackText =
         _string(fallback);
 
-    return fallbackText.isEmpty
-        ? 'Destination not available'
-        : fallbackText;
+    if (fallbackText.isNotEmpty) {
+      return fallbackText;
+    }
+
+    return 'Destination not available';
   }
+
+  // ============================================================
+  // DATE
+  // ============================================================
 
   static DateTime? _date(
     dynamic value,
@@ -407,11 +643,17 @@ class LiveWalkSession {
     }
 
     if (value is String) {
-      return DateTime.tryParse(value);
+      return DateTime.tryParse(
+        value,
+      );
     }
 
     return null;
   }
+
+  // ============================================================
+  // STATUS NORMALIZER
+  // ============================================================
 
   static String _normalizeStatus(
     dynamic value,
@@ -419,7 +661,13 @@ class LiveWalkSession {
     return _string(value)
         .toLowerCase()
         .trim()
-        .replaceAll('-', '_')
-        .replaceAll(' ', '_');
+        .replaceAll(
+          '-',
+          '_',
+        )
+        .replaceAll(
+          ' ',
+          '_',
+        );
   }
 }
