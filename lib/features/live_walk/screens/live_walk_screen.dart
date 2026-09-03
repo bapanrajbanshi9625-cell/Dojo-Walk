@@ -24,8 +24,7 @@ class LiveWalkScreen extends StatefulWidget {
   final bool isWalker;
 
   @override
-  State<LiveWalkScreen> createState() =>
-      _LiveWalkScreenState();
+  State<LiveWalkScreen> createState() => _LiveWalkScreenState();
 }
 
 class _LiveWalkScreenState extends State<LiveWalkScreen> {
@@ -72,6 +71,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       'LIVE WALK → walkId = "$id"',
     );
 
+    debugPrint(
+      'LIVE WALK → mode = '
+      '${widget.isWalker ? "WALKER" : "OWNER"}',
+    );
+
     if (id.isEmpty) {
       if (!mounted) return;
 
@@ -92,8 +96,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       });
     }
 
+    // =========================================================
+    // IMPORTANT FIX
+    //
+    // Owner  → ownerUid == FirebaseAuth.currentUser.uid
+    // Walker → walkerUid == FirebaseAuth.currentUser.uid
+    //
+    // This prevents the service from doing an unrestricted
+    // direct document read before checking ownership.
+    // =========================================================
+
     _subscription = _service
-        .watchSession(id)
+        .watchSession(
+          id,
+          isWalker: widget.isWalker,
+        )
         .listen(
       (LiveWalkSession? session) {
         if (!mounted) return;
@@ -189,11 +206,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ===========================================================
 
   String _friendlyError(Object error) {
-    final String text =
-        error.toString().toLowerCase();
+    final String text = error.toString().toLowerCase();
 
     if (text.contains('permission-denied')) {
-      return 'Live walk permission denied.';
+      return widget.isWalker
+          ? 'Walker does not have permission to read this live walk.'
+          : 'Owner does not have permission to read this live walk.';
     }
 
     if (text.contains('network')) {
@@ -202,6 +220,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     if (text.contains('unavailable')) {
       return 'Firestore is temporarily unavailable.';
+    }
+
+    if (text.contains('unauthenticated')) {
+      return 'Please login again to continue.';
     }
 
     return 'Unable to load live walk.';
@@ -236,18 +258,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     LiveWalkSession session,
   ) {
     if (!session.isLive) {
-      _liveElapsedSeconds =
-          session.elapsedSeconds;
+      _liveElapsedSeconds = session.elapsedSeconds;
       return;
     }
 
     if (session.startedAt != null) {
-      final int seconds =
-          DateTime.now()
-              .difference(
-                session.startedAt!,
-              )
-              .inSeconds;
+      final int seconds = DateTime.now()
+          .difference(session.startedAt!)
+          .inSeconds;
 
       if (seconds >= 0) {
         _liveElapsedSeconds = seconds;
@@ -255,8 +273,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       }
     }
 
-    _liveElapsedSeconds =
-        session.elapsedSeconds;
+    _liveElapsedSeconds = session.elapsedSeconds;
   }
 
   void _startDurationTimer() {
@@ -264,24 +281,20 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       return;
     }
 
-    final LiveWalkSession? session =
-        _session;
+    final LiveWalkSession? session = _session;
 
-    if (session == null ||
-        !session.isLive) {
+    if (session == null || !session.isLive) {
       return;
     }
 
     _durationTimer = Timer.periodic(
       const Duration(seconds: 1),
       (_) {
-        if (!mounted ||
-            _session == null) {
+        if (!mounted || _session == null) {
           return;
         }
 
-        final LiveWalkSession current =
-            _session!;
+        final LiveWalkSession current = _session!;
 
         if (current.isCompleted) {
           _stopDurationTimer();
@@ -294,17 +307,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         }
 
         if (current.startedAt != null) {
-          final int seconds =
-              DateTime.now()
-                  .difference(
-                    current.startedAt!,
-                  )
-                  .inSeconds;
+          final int seconds = DateTime.now()
+              .difference(current.startedAt!)
+              .inSeconds;
 
           if (seconds >= 0) {
             setState(() {
-              _liveElapsedSeconds =
-                  seconds;
+              _liveElapsedSeconds = seconds;
             });
           }
 
@@ -324,19 +333,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   String _durationLabel() {
-    final Duration duration =
-        Duration(
+    final Duration duration = Duration(
       seconds: _liveElapsedSeconds,
     );
 
-    final int hours =
-        duration.inHours;
-
-    final int minutes =
-        duration.inMinutes.remainder(60);
-
-    final int seconds =
-        duration.inSeconds.remainder(60);
+    final int hours = duration.inHours;
+    final int minutes = duration.inMinutes.remainder(60);
+    final int seconds = duration.inSeconds.remainder(60);
 
     if (hours > 0) {
       return '${hours.toString().padLeft(2, '0')}:'
@@ -359,8 +362,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     _closing = true;
 
-    WidgetsBinding.instance
-        .addPostFrameCallback(
+    WidgetsBinding.instance.addPostFrameCallback(
       (_) {
         if (!mounted) return;
 
@@ -374,11 +376,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ===========================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final LiveWalkSession? session =
-        _session;
+  Widget build(BuildContext context) {
+    final LiveWalkSession? session = _session;
 
     return Scaffold(
       backgroundColor: lightBg,
@@ -457,8 +456,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color:
-                    red.withValues(alpha: .10),
+                color: red.withValues(alpha: .10),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -511,11 +509,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   label: const Text(
                     'Retry',
                   ),
-                  style:
-                      ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
-                    foregroundColor:
-                        Colors.white,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ],
@@ -533,13 +529,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   Widget _topBar(
     LiveWalkSession session,
   ) {
-    final bool live =
-        session.isLive;
+    final bool live = session.isLive;
 
     return Container(
       height: 66,
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 12,
       ),
       color: Colors.white,
@@ -566,11 +560,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       ? 'LIVE WALK'
                       : 'READY TO WALK',
                   style: TextStyle(
-                    color:
-                        live ? green : primary,
+                    color: live ? green : primary,
                     fontSize: 10,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: .8,
                   ),
                 ),
@@ -580,41 +572,32 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       ? session.dogName
                       : '${session.dogName} • ${session.dogBreed}',
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 16,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               horizontal: 9,
               vertical: 6,
             ),
             decoration: BoxDecoration(
-              color:
-                  (live
-                          ? green
-                          : primary)
-                      .withValues(alpha: .10),
-              borderRadius:
-                  BorderRadius.circular(20),
+              color: (live ? green : primary)
+                  .withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               live ? 'LIVE' : 'READY',
               style: TextStyle(
-                color:
-                    live ? green : primary,
+                color: live ? green : primary,
                 fontSize: 8,
-                fontWeight:
-                    FontWeight.w900,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -630,17 +613,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   Widget _bottomPanel(
     LiveWalkSession session,
   ) {
-    final bool live =
-        session.isLive;
+    final bool live = session.isLive;
 
     return Container(
       width: double.infinity,
-      constraints:
-          const BoxConstraints(
+      constraints: const BoxConstraints(
         maxHeight: 310,
       ),
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         15,
         12,
         15,
@@ -648,8 +628,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.vertical(
+        borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
         ),
         boxShadow: [
@@ -664,33 +643,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         child: Column(
           children: [
             _walkerCard(session),
-
             const SizedBox(height: 10),
-
             _destinationCard(session),
-
             const SizedBox(height: 10),
-
             LiveWalkStats(
-              duration:
-                  _durationLabel(),
-              steps:
-                  session.steps,
-              distance:
-                  session.distanceLabel,
-              peeCount:
-                  session.peeCount,
-              poopCount:
-                  session.poopCount,
+              duration: _durationLabel(),
+              steps: session.steps,
+              distance: session.distanceLabel,
+              peeCount: session.peeCount,
+              poopCount: session.poopCount,
             ),
-
             if (!live) ...[
               const SizedBox(height: 10),
               _waitingCard(),
             ],
-
             const SizedBox(height: 10),
-
             Row(
               children: [
                 Expanded(
@@ -712,7 +679,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 ),
               ],
             ),
-
             if (widget.isWalker &&
                 !session.isCompleted &&
                 session.isLive) ...[
@@ -721,10 +687,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 width: double.infinity,
                 height: 46,
                 child: ElevatedButton.icon(
-                  onPressed:
-                      _ending
-                          ? null
-                          : _endWalk,
+                  onPressed: _ending ? null : _endWalk,
                   icon: _ending
                       ? const SizedBox(
                           width: 18,
@@ -742,24 +705,17 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     _ending
                         ? 'Ending Walk...'
                         : 'End Walk',
-                    style:
-                        const TextStyle(
-                      fontWeight:
-                          FontWeight.w900,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                  style:
-                      ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: navy,
-                    foregroundColor:
-                        Colors.white,
+                    foregroundColor: Colors.white,
                     elevation: 0,
-                    shape:
-                        RoundedRectangleBorder(
+                    shape: RoundedRectangleBorder(
                       borderRadius:
-                          BorderRadius.circular(
-                        13,
-                      ),
+                          BorderRadius.circular(13),
                     ),
                   ),
                 ),
@@ -778,19 +734,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   Widget _waitingCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color:
-            primary.withValues(alpha: .07),
-        borderRadius:
-            BorderRadius.circular(13),
+        color: primary.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(13),
         border: Border.all(
-          color:
-              primary.withValues(alpha: .15),
+          color: primary.withValues(alpha: .15),
         ),
       ),
       child: const Row(
@@ -798,8 +750,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           SizedBox(
             width: 18,
             height: 18,
-            child:
-                CircularProgressIndicator(
+            child: CircularProgressIndicator(
               strokeWidth: 2,
               color: primary,
             ),
@@ -811,8 +762,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               style: TextStyle(
                 color: navy,
                 fontSize: 11,
-                fontWeight:
-                    FontWeight.w700,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -828,23 +778,20 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   Widget _walkerCard(
     LiveWalkSession session,
   ) {
-    final String name =
-        widget.isWalker
-            ? session.ownerName
-            : session.walkerName;
+    final String name = widget.isWalker
+        ? session.ownerName
+        : session.walkerName;
 
-    final String uid =
-        widget.isWalker
-            ? session.ownerUid
-            : session.walkerUid;
+    final String uid = widget.isWalker
+        ? session.ownerUid
+        : session.walkerUid;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -852,8 +799,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color:
-                  primary.withValues(alpha: .10),
+              color: primary.withValues(alpha: .10),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -869,15 +815,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.isWalker
-                      ? 'OWNER'
-                      : 'WALKER',
+                  widget.isWalker ? 'OWNER' : 'WALKER',
                   style: const TextStyle(
-                    color:
-                        Color(0xFF475569),
+                    color: Color(0xFF475569),
                     fontSize: 8,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: .6,
                   ),
                 ),
@@ -885,25 +827,20 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 Text(
                   name,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 if (uid.isNotEmpty)
                   Text(
                     'UID: $uid',
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(
-                      color:
-                          Color(0xFF475569),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
                       fontSize: 9,
                     ),
                   ),
@@ -927,8 +864,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: lightBg,
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -936,10 +872,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color:
-                  primary.withValues(alpha: .10),
-              borderRadius:
-                  BorderRadius.circular(10),
+              color: primary.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.location_on_rounded,
@@ -956,11 +890,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 const Text(
                   'DESTINATION',
                   style: TextStyle(
-                    color:
-                        Color(0xFF475569),
+                    color: Color(0xFF475569),
                     fontSize: 8,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: .5,
                   ),
                 ),
@@ -968,13 +900,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 Text(
                   session.destinationAddress,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 11,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -1009,23 +939,18 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           style: TextStyle(
             color: color,
             fontSize: 11,
-            fontWeight:
-                FontWeight.w800,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        style:
-            OutlinedButton.styleFrom(
+        style: OutlinedButton.styleFrom(
           backgroundColor:
               color.withValues(alpha: .05),
           side: BorderSide(
-            color:
-                color.withValues(alpha: .18),
+            color: color.withValues(alpha: .18),
           ),
           padding: EdgeInsets.zero,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(11),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(11),
           ),
         ),
       ),
@@ -1041,8 +966,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         _session?.walkerLocation;
 
     if (location == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Walker live location is not available yet.',
@@ -1060,19 +984,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ===========================================================
 
   Future<void> _call() async {
-    final LiveWalkSession? session =
-        _session;
+    final LiveWalkSession? session = _session;
 
     if (session == null) return;
 
-    final String phone =
-        widget.isWalker
-            ? session.ownerPhone
-            : session.walkerPhone;
+    final String phone = widget.isWalker
+        ? session.ownerPhone
+        : session.walkerPhone;
 
     if (phone.trim().isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Phone number is not available.',
@@ -1101,8 +1022,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ===========================================================
 
   void _chat() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
           'Chat will open here.',
@@ -1116,8 +1036,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ===========================================================
 
   Future<void> _endWalk() async {
-    final LiveWalkSession? session =
-        _session;
+    final LiveWalkSession? session = _session;
 
     if (!widget.isWalker ||
         _ending ||
@@ -1127,17 +1046,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       return;
     }
 
-    final bool? confirm =
-        await showDialog<bool>(
+    final bool? confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (BuildContext dialogContext) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text(
             'End Walk?',
             style: TextStyle(
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
           content: const Text(
@@ -1146,9 +1062,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(false);
+                Navigator.of(dialogContext).pop(false);
               },
               child: const Text(
                 'Keep Walking',
@@ -1156,15 +1070,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(true);
+                Navigator.of(dialogContext).pop(true);
               },
-              style:
-                  ElevatedButton.styleFrom(
+              style: ElevatedButton.styleFrom(
                 backgroundColor: red,
-                foregroundColor:
-                    Colors.white,
+                foregroundColor: Colors.white,
               ),
               child: const Text(
                 'End Walk',
@@ -1175,8 +1085,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       },
     );
 
-    if (confirm != true ||
-        !mounted) {
+    if (confirm != true || !mounted) {
       return;
     }
 
@@ -1199,8 +1108,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         _ending = false;
       });
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Unable to end walk: $error',
@@ -1219,8 +1127,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
               Icons.directions_walk_rounded,
@@ -1230,29 +1137,23 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             const SizedBox(height: 12),
             const Text(
               'Live walk session not found.',
-              textAlign:
-                  TextAlign.center,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: navy,
                 fontSize: 16,
-                fontWeight:
-                    FontWeight.w900,
+                fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 14),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context)
-                    .pop();
+                Navigator.of(context).pop();
               },
-              style:
-                  ElevatedButton.styleFrom(
+              style: ElevatedButton.styleFrom(
                 backgroundColor: primary,
-                foregroundColor:
-                    Colors.white,
+                foregroundColor: Colors.white,
               ),
-              child:
-                  const Text('Go Back'),
+              child: const Text('Go Back'),
             ),
           ],
         ),
