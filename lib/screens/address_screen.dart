@@ -201,8 +201,6 @@ class _AddressScreenState extends State<AddressScreen> {
           }
         }
 
-        // If savedAddresses is empty but canonical
-        // address exists, create a UI saved-address item.
         if (_savedAddresses.isEmpty &&
             rawAddress is Map) {
           final Map<String, dynamic> address =
@@ -882,8 +880,6 @@ class _AddressScreenState extends State<AddressScreen> {
             FieldValue.serverTimestamp(),
       };
 
-      // No saved address left -> remove canonical
-      // owners.address as well.
       if (addresses.isEmpty) {
         updateData['address'] =
             FieldValue.delete();
@@ -927,16 +923,20 @@ class _AddressScreenState extends State<AddressScreen> {
   // ============================================================
 
   Future<void> _openLocationPicker() async {
-    final LatLng? result =
-        await Navigator.push<LatLng?>(
+    final Map<String, dynamic>? result =
+        await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (BuildContext context) {
           return AddressLocationPickerScreen(
-            initialLatitude:
-                _selectedLatitude,
-            initialLongitude:
-                _selectedLongitude,
+            initialLocation:
+                _selectedLatitude != null &&
+                        _selectedLongitude != null
+                    ? LatLng(
+                        _selectedLatitude!,
+                        _selectedLongitude!,
+                      )
+                    : null,
           );
         },
       ),
@@ -946,8 +946,30 @@ class _AddressScreenState extends State<AddressScreen> {
       return;
     }
 
-    _selectedLatitude = result.latitude;
-    _selectedLongitude = result.longitude;
+    final double? latitude =
+        _readDouble(result['latitude']);
+
+    final double? longitude =
+        _readDouble(result['longitude']);
+
+    if (latitude == null ||
+        longitude == null) {
+      return;
+    }
+
+    _selectedLatitude = latitude;
+    _selectedLongitude = longitude;
+
+    final String selectedAddress =
+        _readString(result['address']);
+
+    if (selectedAddress.isNotEmpty) {
+      // The picker has already reverse-geocoded
+      // the selected location.
+      // Keep the selected coordinates and
+      // continue using the address service below
+      // to populate the individual fields.
+    }
 
     try {
       final AddressLocationResult location =
@@ -1045,7 +1067,7 @@ class _AddressScreenState extends State<AddressScreen> {
         backgroundColor:
             AppColors.background,
         foregroundColor:
-            AppColors.textPrimary,
+            AppColors.navy,
         title: const Text(
           'Address',
         ),
