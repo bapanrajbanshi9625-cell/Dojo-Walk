@@ -35,7 +35,7 @@ part '../widgets/insta_walk_view.dart';
 //
 // Owner-side Insta Walk.
 //
-// This file now contains:
+// This file contains:
 // - Insta Walk controller/state
 // - Insta Walk screen wrapper
 // - Walker accepted navigation
@@ -160,8 +160,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // WALKER ACCEPTED
   // ==========================================================
   //
-  // IMPORTANT:
-  //
   // This method is called directly from
   // insta_walk_walker_accepted.dart.
   //
@@ -278,39 +276,39 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
 
   void _openOwnerAcceptedScreen(
-  String requestId,
-) {
-  if (!mounted) {
-    return;
-  }
+    String requestId,
+  ) {
+    if (!mounted) {
+      return;
+    }
 
-  final String cleanRequestId =
-      requestId.trim();
+    final String cleanRequestId =
+        requestId.trim();
 
-  if (cleanRequestId.isEmpty) {
+    if (cleanRequestId.isEmpty) {
+      debugPrint(
+        '❌ Cannot open WalkerAcceptScreen: empty requestId.',
+      );
+      return;
+    }
+
     debugPrint(
-      '❌ Cannot open WalkerAcceptScreen: empty requestId.',
+      '🚀 Opening Owner WalkerAcceptScreen',
     );
-    return;
-  }
 
-  debugPrint(
-    '🚀 Opening Owner WalkerAcceptScreen',
-  );
+    debugPrint(
+      'requestId = $cleanRequestId',
+    );
 
-  debugPrint(
-    'requestId = $cleanRequestId',
-  );
-
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) {
-        return WalkerAcceptScreen(
-          requestId: cleanRequestId,
-        );
-      },
-    ),
-  );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) {
+          return WalkerAcceptScreen(
+            requestId: cleanRequestId,
+          );
+        },
+      ),
+    );
   }
 
   // ==========================================================
@@ -611,19 +609,34 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // ========================================================
 
     if (widget.fullScreen) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-        padding:
-            const EdgeInsets.only(
-          bottom: 30,
+      return SafeArea(
+        child: LayoutBuilder(
+          builder: (
+            BuildContext context,
+            BoxConstraints constraints,
+          ) {
+            return SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              padding: const EdgeInsets.only(
+                top: 2,
+                bottom: 40,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: _buildFullScreen(),
+              ),
+            );
+          },
         ),
-        child: _buildFullScreen(),
-      ),
-    );
+      );
     }
-    
+
     // ========================================================
     // COMPACT MODE
     // ========================================================
