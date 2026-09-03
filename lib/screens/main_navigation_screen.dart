@@ -1,6 +1,3 @@
-// File location:
-// lib/screens/main_navigation_screen.dart
-
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
@@ -103,11 +100,9 @@ class _MainNavigationScreenState
           // ACTIVE / LIVE WALK STRIP
           // ======================================================
 
-          SizedBox(
+          const SizedBox(
             width: double.infinity,
-            child: ActiveLiveWalkStrip(
-              isWalker: widget.isWalker,
-            ),
+            child: ActiveLiveWalkStrip(),
           ),
 
           // ======================================================
@@ -129,30 +124,17 @@ class _MainNavigationScreenState
               child: BottomNavigationBar(
                 backgroundColor: Colors.white,
                 elevation: 0,
-
                 currentIndex: _currentIndex,
-
-                selectedItemColor:
-                    AppColors.primary,
-
-                unselectedItemColor:
-                    Colors.black54,
-
-                selectedLabelStyle:
-                    const TextStyle(
+                selectedItemColor: AppColors.primary,
+                unselectedItemColor: Colors.black54,
+                selectedLabelStyle: const TextStyle(
                   fontWeight: FontWeight.w700,
                 ),
-
-                unselectedLabelStyle:
-                    const TextStyle(
+                unselectedLabelStyle: const TextStyle(
                   fontWeight: FontWeight.w500,
                 ),
-
-                type:
-                    BottomNavigationBarType.fixed,
-
+                type: BottomNavigationBarType.fixed,
                 onTap: _onNavigationTap,
-
                 items: const [
                   BottomNavigationBarItem(
                     icon: Icon(
@@ -160,14 +142,12 @@ class _MainNavigationScreenState
                     ),
                     label: 'Home',
                   ),
-
                   BottomNavigationBarItem(
                     icon: Icon(
                       Icons.directions_walk_rounded,
                     ),
                     label: 'Walks',
                   ),
-
                   BottomNavigationBarItem(
                     icon: Icon(
                       Icons.menu_rounded,
