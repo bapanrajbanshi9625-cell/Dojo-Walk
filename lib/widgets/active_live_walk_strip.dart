@@ -19,10 +19,12 @@ class ActiveLiveWalkStrip extends StatefulWidget {
   final bool isWalker;
 
   @override
-  State<ActiveLiveWalkStrip> createState() => _ActiveLiveWalkStripState();
+  State<ActiveLiveWalkStrip> createState() =>
+      _ActiveLiveWalkStripState();
 }
 
-class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
+class _ActiveLiveWalkStripState
+    extends State<ActiveLiveWalkStrip> {
   static const String collectionName = 'walk_request';
 
   static const Set<String> _activeStatuses = {
@@ -37,7 +39,8 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     'live',
   };
 
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  StreamSubscription<
+          QuerySnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   String? _requestId;
@@ -60,8 +63,13 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     super.dispose();
   }
 
+  // ===========================================================
+  // FIRESTORE LISTENER
+  // ===========================================================
+
   void _listenToActiveWalk() {
-    final User? user = FirebaseAuth.instance.currentUser;
+    final User? user =
+        FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       if (mounted) {
@@ -76,38 +84,57 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     final String uid = user.uid;
 
     final String field =
-        widget.isWalker ? 'walkerUid' : 'ownerAuthUid';
+        widget.isWalker
+            ? 'walkerUid'
+            : 'ownerAuthUid';
 
-    _requestSubscription = FirebaseFirestore.instance
-        .collection(collectionName)
-        .where(field, isEqualTo: uid)
-        .snapshots()
-        .listen(
-      _onSnapshot,
-      onError: _onError,
-    );
+    _requestSubscription =
+        FirebaseFirestore.instance
+            .collection(collectionName)
+            .where(
+              field,
+              isEqualTo: uid,
+            )
+            .snapshots()
+            .listen(
+              _onSnapshot,
+              onError: _onError,
+            );
   }
+
+  // ===========================================================
+  // SNAPSHOT
+  // ===========================================================
 
   void _onSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
-    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
+    QueryDocumentSnapshot<
+            Map<String, dynamic>>?
+        selected;
 
-    DateTime latestTime = DateTime.fromMillisecondsSinceEpoch(0);
+    DateTime latestTime =
+        DateTime.fromMillisecondsSinceEpoch(0);
 
     for (final doc in snapshot.docs) {
-      final Map<String, dynamic> data = doc.data();
+      final Map<String, dynamic> data =
+          doc.data();
 
       final String status =
-          (data['status'] ?? '').toString().trim().toLowerCase();
+          (data['status'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
 
       if (!_activeStatuses.contains(status)) {
         continue;
       }
 
-      final DateTime time = _getLatestTime(data);
+      final DateTime time =
+          _getLatestTime(data);
 
-      if (selected == null || time.isAfter(latestTime)) {
+      if (selected == null ||
+          time.isAfter(latestTime)) {
         selected = doc;
         latestTime = time;
       }
@@ -127,29 +154,45 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return;
     }
 
-    final Map<String, dynamic> data = selected.data();
+    final Map<String, dynamic> data =
+        selected.data();
 
     setState(() {
       _loading = false;
 
-      // Firestore document ID = request ID
+      // Firestore document ID = walk ID
       _requestId = selected!.id;
 
       _status =
-          (data['status'] ?? '').toString().trim().toLowerCase();
+          (data['status'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
 
       _dogName =
-          (data['dogName'] ?? '').toString().trim();
+          (data['dogName'] ?? '')
+              .toString()
+              .trim();
 
       _dogBreed =
-          (data['dogBreed'] ?? '').toString().trim();
+          (data['dogBreed'] ?? '')
+              .toString()
+              .trim();
 
       _walkerName =
-          (data['walkerName'] ?? '').toString().trim();
+          (data['walkerName'] ?? '')
+              .toString()
+              .trim();
     });
   }
 
-  DateTime _getLatestTime(Map<String, dynamic> data) {
+  // ===========================================================
+  // LATEST TIME
+  // ===========================================================
+
+  DateTime _getLatestTime(
+    Map<String, dynamic> data,
+  ) {
     final dynamic value =
         data['updatedAt'] ??
         data['acceptedAt'] ??
@@ -166,6 +209,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
+  // ===========================================================
+  // ERROR
+  // ===========================================================
+
   void _onError(Object error) {
     debugPrint(
       'ActiveLiveWalkStrip Firestore error: $error',
@@ -177,6 +224,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       _loading = false;
     });
   }
+
+  // ===========================================================
+  // LIVE STATUS
+  // ===========================================================
 
   bool get _isLive {
     switch (_status) {
@@ -193,6 +244,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     }
   }
 
+  // ===========================================================
+  // STATUS TITLE
+  // ===========================================================
+
   String get _statusTitle {
     if (_isLive) {
       return 'LIVE WALK';
@@ -200,6 +255,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     return 'ACTIVE WALK';
   }
+
+  // ===========================================================
+  // STATUS SUBTITLE
+  // ===========================================================
 
   String get _statusSubtitle {
     if (_isLive) {
@@ -213,6 +272,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
         : 'Walker is on the way • Tap to track';
   }
 
+  // ===========================================================
+  // MAIN TITLE
+  // ===========================================================
+
   String get _mainTitle {
     if (widget.isWalker) {
       if (_dogName.isNotEmpty) {
@@ -222,7 +285,8 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return 'Your Walk';
     }
 
-    if (_dogName.isNotEmpty && _walkerName.isNotEmpty) {
+    if (_dogName.isNotEmpty &&
+        _walkerName.isNotEmpty) {
       return '$_dogName • $_walkerName';
     }
 
@@ -237,6 +301,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     return 'Your Dog Walk';
   }
 
+  // ===========================================================
+  // SECONDARY TEXT
+  // ===========================================================
+
   String get _secondaryText {
     if (widget.isWalker) {
       return _dogBreed.isNotEmpty
@@ -244,25 +312,36 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
           : 'Walker mode';
     }
 
-    return _isLive ? 'Walking now' : 'Walker assigned';
+    return _isLive
+        ? 'Walking now'
+        : 'Walker assigned';
   }
+
+  // ===========================================================
+  // OPEN WALK
+  // ===========================================================
 
   void _openWalk() {
     final String? id = _requestId;
 
-    if (id == null || id.trim().isEmpty) {
+    if (id == null ||
+        id.trim().isEmpty) {
       return;
     }
 
+    // This is the actual walk ID.
     final String walkId = id.trim();
 
+    // =========================================================
     // OWNER SIDE
+    // =========================================================
+
     if (!widget.isWalker) {
       if (_isLive) {
         Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => LiveWalkScreen(
-              activeWalkId: walkId,
+              walkId: walkId,
               isWalker: false,
             ),
           ),
@@ -280,42 +359,68 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return;
     }
 
+    // =========================================================
     // WALKER SIDE
+    // =========================================================
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LiveWalkScreen(
-          activeWalkId: walkId,
+          walkId: walkId,
           isWalker: true,
         ),
       ),
     );
   }
 
+  // ===========================================================
+  // BUILD
+  // ===========================================================
+
   @override
-  Widget build(BuildContext context) {
-    if (_loading || _requestId == null) {
+  Widget build(
+    BuildContext context,
+  ) {
+    if (_loading ||
+        _requestId == null) {
       return const SizedBox.shrink();
     }
 
-    final Color orange = AppColors.orange;
-    final Color navy = AppColors.navy;
-    final Color success = AppColors.success;
+    final Color orange =
+        AppColors.orange;
 
-    final Color accent = _isLive ? success : orange;
+    final Color navy =
+        AppColors.navy;
+
+    final Color success =
+        AppColors.success;
+
+    final Color accent =
+        _isLive ? success : orange;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      // HEIGHT REDUCED
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        6,
+        12,
+        6,
+      ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius:
+            BorderRadius.circular(20),
         elevation: 8,
-        shadowColor: navy.withValues(alpha: 0.28),
+        shadowColor:
+            navy.withValues(alpha: 0.28),
         child: InkWell(
           onTap: _openWalk,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius:
+              BorderRadius.circular(20),
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius:
+                  BorderRadius.circular(20),
 
               // FULL CARD COLOR
               gradient: LinearGradient(
@@ -333,37 +438,56 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
               ),
 
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
+                color: Colors.white.withValues(
+                  alpha: 0.18,
+                ),
                 width: 1,
               ),
             ),
+
+            // REDUCED INNER PADDING
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding:
+                  const EdgeInsets.all(11),
               child: Row(
                 children: [
+                  // =================================================
                   // PAW / WALK ICON
+                  // =================================================
+
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(16),
+                      color:
+                          Colors.white.withValues(
+                        alpha: 0.16,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(14),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.20),
+                        color:
+                            Colors.white.withValues(
+                          alpha: 0.20,
+                        ),
                       ),
                     ),
                     child: Icon(
                       _isLive
                           ? Icons.pets_rounded
-                          : Icons.directions_walk_rounded,
+                          : Icons
+                              .directions_walk_rounded,
                       color: Colors.white,
-                      size: 27,
+                      size: 24,
                     ),
                   ),
 
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
 
+                  // =================================================
                   // TEXT
+                  // =================================================
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
@@ -377,27 +501,36 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                                 maxLines: 1,
                                 overflow:
                                     TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.2,
+                                style:
+                                    const TextStyle(
+                                  color:
+                                      Colors.white,
+                                  fontSize: 15,
+                                  fontWeight:
+                                      FontWeight.w800,
+                                  letterSpacing:
+                                      -0.2,
                                 ),
                               ),
                             ),
 
-                            const SizedBox(width: 8),
+                            const SizedBox(
+                              width: 7,
+                            ),
 
                             // STATUS DOT
                             Container(
                               width: 7,
                               height: 7,
-                              decoration: BoxDecoration(
+                              decoration:
+                                  BoxDecoration(
                                 color: accent,
-                                shape: BoxShape.circle,
+                                shape:
+                                    BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: accent.withValues(
+                                    color:
+                                        accent.withValues(
                                       alpha: 0.65,
                                     ),
                                     blurRadius: 8,
@@ -409,63 +542,81 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                           ],
                         ),
 
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
 
                         Text(
                           _secondaryText,
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          overflow:
+                              TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(
+                            color:
+                                Colors.white.withValues(
                               alpha: 0.82,
                             ),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                            fontWeight:
+                                FontWeight.w500,
                           ),
                         ),
 
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 5),
 
                         Row(
                           children: [
                             Container(
                               padding:
-                                  const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                                  const EdgeInsets
+                                      .symmetric(
+                                horizontal: 7,
+                                vertical: 3,
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(
+                              decoration:
+                                  BoxDecoration(
+                                color:
+                                    Colors.white.withValues(
                                   alpha: 0.14,
                                 ),
                                 borderRadius:
-                                    BorderRadius.circular(8),
+                                    BorderRadius
+                                        .circular(
+                                  7,
+                                ),
                               ),
                               child: Text(
                                 _statusTitle,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.8,
+                                style:
+                                    const TextStyle(
+                                  color:
+                                      Colors.white,
+                                  fontSize: 8,
+                                  fontWeight:
+                                      FontWeight.w900,
+                                  letterSpacing:
+                                      0.7,
                                 ),
                               ),
                             ),
 
-                            const SizedBox(width: 7),
+                            const SizedBox(
+                              width: 6,
+                            ),
 
                             Flexible(
                               child: Text(
                                 _statusSubtitle,
                                 maxLines: 1,
                                 overflow:
-                                    TextOverflow.ellipsis,
+                                    TextOverflow
+                                        .ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(
+                                  color:
+                                      Colors.white.withValues(
                                     alpha: 0.72,
                                   ),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
+                                  fontSize: 9,
+                                  fontWeight:
+                                      FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -475,23 +626,32 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                     ),
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
 
+                  // =================================================
                   // PREMIUM ARROW BUTTON
+                  // =================================================
+
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
+                      color:
+                          Colors.white.withValues(
+                        alpha: 0.18,
+                      ),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.20),
+                        color:
+                            Colors.white.withValues(
+                          alpha: 0.20,
+                        ),
                       ),
                     ),
                     child: const Icon(
                       Icons.arrow_forward_rounded,
                       color: Colors.white,
-                      size: 21,
+                      size: 19,
                     ),
                   ),
                 ],
