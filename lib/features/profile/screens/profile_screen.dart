@@ -57,6 +57,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Map<String, dynamic>> _pets =
       <Map<String, dynamic>>[];
 
+  static const int _maximumPets = 3;
+
   // ============================================================
   // INIT
   // ============================================================
@@ -65,6 +67,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+  }
+
+  // ============================================================
+  // FIND CURRENT OWNER DOCUMENT
+  //
+  // Canonical collection = owners
+  //
+  // Document ID is ownerId, NOT necessarily Firebase UID.
+  // ============================================================
+
+  Future<DocumentSnapshot<Map<String, dynamic>>?>
+      _findOwnerDocument(
+    String uid,
+  ) async {
+    final FirebaseFirestore firestore =
+        FirebaseFirestore.instance;
+
+    // ----------------------------------------------------------
+    // 1. Find by authUid
+    // ----------------------------------------------------------
+
+    final QuerySnapshot<Map<String, dynamic>>
+        query =
+        await firestore
+            .collection('owners')
+            .where(
+              'authUid',
+              isEqualTo: uid,
+            )
+            .limit(1)
+            .get();
+
+    if (query.docs.isNotEmpty) {
+      return query.docs.first;
+    }
+
+    // ----------------------------------------------------------
+    // 2. Direct UID document fallback
+    //
+    // Some older owner documents may use UID as document ID.
+    // ----------------------------------------------------------
+
+    final DocumentSnapshot<Map<String, dynamic>>
+        direct =
+        await firestore
+            .collection('owners')
+            .doc(uid)
+            .get();
+
+    if (direct.exists) {
+      return direct;
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -94,116 +150,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final String uid = user.uid.trim();
+      final String uid =
+          user.uid.trim();
 
-      final FirebaseFirestore firestore =
-          FirebaseFirestore.instance;
-
-      // ========================================================
-      // OWNER PROFILE
-      //
-      // Primary source:
-      // ownerProfiles
-      // ========================================================
-
-      DocumentSnapshot<Map<String, dynamic>>?
-          ownerDoc;
-
-      // --------------------------------------------------------
-      // 1. Find using authUid
-      // --------------------------------------------------------
-
-      final QuerySnapshot<Map<String, dynamic>>
-          authUidQuery =
-          await firestore
-              .collection('ownerProfiles')
-              .where(
-                'authUid',
-                isEqualTo: uid,
-              )
-              .limit(1)
-              .get();
-
-      if (authUidQuery.docs.isNotEmpty) {
-        ownerDoc =
-            authUidQuery.docs.first;
-      }
-
-      // --------------------------------------------------------
-      // 2. Find using ownerAuthUid
-      // --------------------------------------------------------
-
-      if (ownerDoc == null) {
-        final QuerySnapshot<
-            Map<String, dynamic>> ownerAuthQuery =
-            await firestore
-                .collection('ownerProfiles')
-                .where(
-                  'ownerAuthUid',
-                  isEqualTo: uid,
-                )
-                .limit(1)
-                .get();
-
-        if (ownerAuthQuery.docs.isNotEmpty) {
+      final DocumentSnapshot<
+              Map<String, dynamic>>?
           ownerDoc =
-              ownerAuthQuery.docs.first;
-        }
-      }
-
-      // --------------------------------------------------------
-      // 3. Find directly using UID
-      // --------------------------------------------------------
-
-      if (ownerDoc == null) {
-        final DocumentSnapshot<
-            Map<String, dynamic>> directDoc =
-            await firestore
-                .collection('ownerProfiles')
-                .doc(uid)
-                .get();
-
-        if (directDoc.exists) {
-          ownerDoc = directDoc;
-        }
-      }
-
-      // ========================================================
-      // LEGACY FALLBACK
-      //
-      // Only used when ownerProfiles does not exist.
-      // ========================================================
-
-      if (ownerDoc == null) {
-        final QuerySnapshot<
-            Map<String, dynamic>> ownersQuery =
-            await firestore
-                .collection('owners')
-                .where(
-                  'authUid',
-                  isEqualTo: uid,
-                )
-                .limit(1)
-                .get();
-
-        if (ownersQuery.docs.isNotEmpty) {
-          ownerDoc =
-              ownersQuery.docs.first;
-        }
-      }
-
-      if (ownerDoc == null) {
-        final DocumentSnapshot<
-            Map<String, dynamic>> legacyDoc =
-            await firestore
-                .collection('owners')
-                .doc(uid)
-                .get();
-
-        if (legacyDoc.exists) {
-          ownerDoc = legacyDoc;
-        }
-      }
+          await _findOwnerDocument(uid);
 
       // ========================================================
       // OWNER NOT FOUND
@@ -261,7 +214,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String ownerId =
           _firstNonEmpty([
         data['ownerId'],
-        data['id'],
         ownerDoc.id,
         uid,
       ]);
@@ -273,8 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String ownerName =
           _firstNonEmpty([
         data['ownerName'],
-        data['name'],
         data['fullName'],
+        data['name'],
         data['displayName'],
         user.displayName,
       ]);
@@ -287,6 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _firstNonEmpty([
         data['mainPhone'],
         data['phone'],
+        data['phoneNumber'],
         data['mobileNumber'],
         data['mobile'],
         user.phoneNumber,
@@ -326,161 +279,140 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ADDRESS
       // ========================================================
 
-      Map<String, dynamic>? savedAddress =
-          _getSavedAddress(data);
+      final Map<String, dynamic>
+          address =
+          _readCanonicalAddress(data);
 
-      String addressLine1 = '';
-      String streetRoad = '';
-      String area = '';
-      String city = '';
-      String state = '';
-      String pincode = '';
+      String addressLine1 =
+          _firstNonEmpty([
+        address['flatNumber'],
+        address['flatHouseNo'],
+        address['houseNo'],
+        address['houseNumber'],
+      ]);
 
-      // ========================================================
-      // SAVED ADDRESS
-      // ========================================================
+      String streetRoad =
+          _firstNonEmpty([
+        address['addressLine1'],
+        address['streetRoad'],
+        address['street'],
+        address['road'],
+      ]);
 
-      if (savedAddress != null) {
-        addressLine1 =
-            _firstNonEmpty([
-          savedAddress['flatNumber'],
-          savedAddress['flatHouseNo'],
-          savedAddress['flat'],
-          savedAddress['houseNo'],
-          savedAddress['houseNumber'],
-        ]);
+      final String addressLine2 =
+          _stringValue(
+        address['addressLine2'],
+      );
 
-        streetRoad =
-            _firstNonEmpty([
-          savedAddress['addressLine1'],
-          savedAddress['streetRoad'],
-          savedAddress['street'],
-          savedAddress['road'],
-        ]);
-
-        area =
-            _firstNonEmpty([
-          savedAddress['area'],
-          savedAddress['subLocality'],
-          savedAddress['locality'],
-        ]);
-
-        city =
-            _firstNonEmpty([
-          savedAddress['city'],
-          savedAddress['town'],
-        ]);
-
-        state =
-            _firstNonEmpty([
-          savedAddress['state'],
-          savedAddress['administrativeArea'],
-        ]);
-
-        pincode =
-            _firstNonEmpty([
-          savedAddress['pincode'],
-          savedAddress['Pincode'],
-          savedAddress['postalCode'],
-        ]);
-
-        // ------------------------------------------------------
-        // Combined address fallback
-        // ------------------------------------------------------
-
-        if (addressLine1.isEmpty &&
-            streetRoad.isEmpty &&
-            area.isEmpty &&
-            city.isEmpty &&
-            state.isEmpty &&
-            pincode.isEmpty) {
+      if (addressLine2.isNotEmpty) {
+        if (streetRoad.isEmpty) {
+          streetRoad = addressLine2;
+        } else if (!streetRoad
+            .contains(addressLine2)) {
           streetRoad =
-              _firstNonEmpty([
-            savedAddress['address'],
-            savedAddress['fullAddress'],
-            savedAddress['formattedAddress'],
-          ]);
+              '$streetRoad, $addressLine2';
         }
       }
 
-      // ========================================================
-      // PROFILE LEVEL ADDRESS FALLBACK
-      // ========================================================
+      String area =
+          _firstNonEmpty([
+        address['area'],
+        address['subLocality'],
+        address['locality'],
+      ]);
 
-      if (addressLine1.isEmpty) {
-        addressLine1 =
-            _firstNonEmpty([
-          data['flatNumber'],
-          data['flatHouseNo'],
-          data['flat'],
-          data['houseNo'],
-          data['houseNumber'],
-        ]);
-      }
+      String city =
+          _firstNonEmpty([
+        address['city'],
+        address['town'],
+      ]);
 
-      if (streetRoad.isEmpty) {
-        streetRoad =
-            _firstNonEmpty([
-          data['addressLine1'],
-          data['streetRoad'],
-          data['street'],
-          data['road'],
-        ]);
-      }
+      String state =
+          _firstNonEmpty([
+        address['state'],
+        address['administrativeArea'],
+      ]);
 
-      if (area.isEmpty) {
-        area =
-            _firstNonEmpty([
-          data['area'],
-          data['subLocality'],
-          data['locality'],
-        ]);
-      }
-
-      if (city.isEmpty) {
-        city =
-            _firstNonEmpty([
-          data['city'],
-          data['town'],
-        ]);
-      }
-
-      if (state.isEmpty) {
-        state =
-            _firstNonEmpty([
-          data['state'],
-          data['administrativeArea'],
-        ]);
-      }
-
-      if (pincode.isEmpty) {
-        pincode =
-            _firstNonEmpty([
-          data['pincode'],
-          data['Pincode'],
-          data['postalCode'],
-        ]);
-      }
+      String pincode =
+          _firstNonEmpty([
+        address['pincode'],
+        address['Pincode'],
+        address['postalCode'],
+      ]);
 
       // ========================================================
-      // FULL ADDRESS FALLBACK
+      // SAVED ADDRESS COMPATIBILITY
+      //
+      // Canonical address above remains primary.
+      // savedAddresses is only a compatibility fallback.
       // ========================================================
 
-      if (addressLine1.isEmpty &&
-          streetRoad.isEmpty &&
-          area.isEmpty &&
-          city.isEmpty &&
-          state.isEmpty &&
+      if (addressLine1.isEmpty ||
+          streetRoad.isEmpty ||
+          area.isEmpty ||
+          city.isEmpty ||
+          state.isEmpty ||
           pincode.isEmpty) {
-        final String combined =
-            _firstNonEmpty([
-          data['address'],
-          data['fullAddress'],
-          data['formattedAddress'],
-        ]);
+        final Map<String, dynamic>?
+            savedAddress =
+            _getSavedAddress(data);
 
-        if (combined.isNotEmpty) {
-          streetRoad = combined;
+        if (savedAddress != null) {
+          if (addressLine1.isEmpty) {
+            addressLine1 =
+                _firstNonEmpty([
+              savedAddress['flatNumber'],
+              savedAddress['flatHouseNo'],
+              savedAddress['flat'],
+              savedAddress['houseNo'],
+              savedAddress['houseNumber'],
+            ]);
+          }
+
+          if (streetRoad.isEmpty) {
+            streetRoad =
+                _firstNonEmpty([
+              savedAddress['addressLine1'],
+              savedAddress['streetRoad'],
+              savedAddress['street'],
+              savedAddress['road'],
+              savedAddress['addressLine2'],
+            ]);
+          }
+
+          if (area.isEmpty) {
+            area =
+                _firstNonEmpty([
+              savedAddress['area'],
+              savedAddress['subLocality'],
+              savedAddress['locality'],
+            ]);
+          }
+
+          if (city.isEmpty) {
+            city =
+                _firstNonEmpty([
+              savedAddress['city'],
+              savedAddress['town'],
+            ]);
+          }
+
+          if (state.isEmpty) {
+            state =
+                _firstNonEmpty([
+              savedAddress['state'],
+              savedAddress['administrativeArea'],
+            ]);
+          }
+
+          if (pincode.isEmpty) {
+            pincode =
+                _firstNonEmpty([
+              savedAddress['pincode'],
+              savedAddress['Pincode'],
+              savedAddress['postalCode'],
+            ]);
+          }
         }
       }
 
@@ -523,11 +455,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : 'Not available';
 
         _ownerDob = dob;
-
         _ownerGender = gender;
-
-        _memberSince =
-            memberSince;
+        _memberSince = memberSince;
 
         _addressLine1 =
             addressLine1;
@@ -535,22 +464,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _streetRoad =
             streetRoad;
 
-        _area =
-            area;
-
-        _city =
-            city;
-
-        _state =
-            state;
-
-        _pincode =
-            pincode;
+        _area = area;
+        _city = city;
+        _state = state;
+        _pincode = pincode;
 
         _pets = pets;
 
-        _isActive =
-            active;
+        _isActive = active;
 
         _isLoading = false;
       });
@@ -571,14 +492,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             currentUser?.uid ?? '';
 
         _ownerName =
-            _firebaseName(
-          currentUser,
-        );
+            _firebaseName(currentUser);
 
         _mobileNumber =
-            _firebasePhone(
-          currentUser,
-        );
+            _firebasePhone(currentUser);
 
         _isLoading = false;
       });
@@ -587,6 +504,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'Could not load complete profile information.',
       );
     }
+  }
+
+  // ============================================================
+  // READ CANONICAL ADDRESS
+  // ============================================================
+
+  Map<String, dynamic> _readCanonicalAddress(
+    Map<String, dynamic> data,
+  ) {
+    final dynamic value =
+        data['address'];
+
+    if (value is Map) {
+      return Map<String, dynamic>.from(
+        value,
+      );
+    }
+
+    return <String, dynamic>{};
   }
 
   // ============================================================
@@ -606,7 +542,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     for (final dynamic item in value) {
       if (item is Map) {
-        final Map<String, dynamic> address =
+        final Map<String, dynamic>
+            address =
             Map<String, dynamic>.from(
           item,
         );
@@ -629,9 +566,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) {
     final String combined =
         _firstNonEmpty([
-      address['address'],
-      address['fullAddress'],
-      address['formattedAddress'],
       address['flatNumber'],
       address['addressLine1'],
       address['addressLine2'],
@@ -639,7 +573,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       address['city'],
       address['state'],
       address['pincode'],
-      address['Pincode'],
     ]);
 
     return combined.isNotEmpty;
@@ -656,7 +589,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return <Map<String, dynamic>>[];
     }
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, dynamic>>
+        result =
         <Map<String, dynamic>>[];
 
     for (final dynamic item in value) {
@@ -673,15 +607,915 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
+  // ADD PET
+  // ============================================================
+
+  Future<void> _addPet() async {
+    if (_pets.length >= _maximumPets) {
+      _showMessage(
+        'Maximum 3 pets allowed.',
+      );
+      return;
+    }
+
+    final TextEditingController
+        nameController =
+        TextEditingController();
+
+    final TextEditingController
+        ageController =
+        TextEditingController();
+
+    final TextEditingController
+        breedController =
+        TextEditingController();
+
+    final TextEditingController
+        behaviourController =
+        TextEditingController();
+
+    final GlobalKey<FormState>
+        formKey =
+        GlobalKey<FormState>();
+
+    final bool? saved =
+        await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor:
+          AppColors.white,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(26),
+        ),
+      ),
+      builder:
+          (BuildContext sheetContext) {
+        return Padding(
+          padding:
+              EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(
+                  sheetContext,
+                ).viewInsets.bottom +
+                20,
+          ),
+          child:
+              SingleChildScrollView(
+            child:
+                Form(
+              key: formKey,
+              child:
+                  Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child:
+                        Container(
+                      width: 42,
+                      height: 5,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors.navy
+                                .withValues(
+                          alpha: 0.15,
+                        ),
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          20,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 18,
+                  ),
+
+                  Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              AppColors.orange
+                                  .withValues(
+                            alpha: 0.12,
+                          ),
+                          shape:
+                              BoxShape.circle,
+                        ),
+                        child:
+                            const Icon(
+                          Icons.pets_rounded,
+                          color:
+                              AppColors.orange,
+                          size: 25,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 12,
+                      ),
+                      const Expanded(
+                        child:
+                            Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            Text(
+                              'Add Pet',
+                              style:
+                                  TextStyle(
+                                color:
+                                    AppColors.navy,
+                                fontSize:
+                                    20,
+                                fontWeight:
+                                    FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(
+                              height: 2,
+                            ),
+                            Text(
+                              'Add your pet details',
+                              style:
+                                  TextStyle(
+                                color:
+                                    Colors.grey,
+                                fontSize:
+                                    13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    height: 22,
+                  ),
+
+                  _petField(
+                    controller:
+                        nameController,
+                    label:
+                        'Pet Name',
+                    icon:
+                        Icons.pets_rounded,
+                    requiredField:
+                        true,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  _petField(
+                    controller:
+                        ageController,
+                    label:
+                        'Age',
+                    icon:
+                        Icons.cake_outlined,
+                    requiredField:
+                        true,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  _petField(
+                    controller:
+                        breedController,
+                    label:
+                        'Breed',
+                    icon:
+                        Icons.category_outlined,
+                    requiredField:
+                        true,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  _petField(
+                    controller:
+                        behaviourController,
+                    label:
+                        'Behaviour',
+                    icon:
+                        Icons.psychology_outlined,
+                    requiredField:
+                        true,
+                    maxLines:
+                        2,
+                  ),
+
+                  const SizedBox(
+                    height: 22,
+                  ),
+
+                  SizedBox(
+                    width:
+                        double.infinity,
+                    height:
+                        52,
+                    child:
+                        ElevatedButton.icon(
+                      onPressed:
+                          () async {
+                        if (!formKey
+                            .currentState!
+                            .validate()) {
+                          return;
+                        }
+
+                        final bool result =
+                            await _saveNewPet(
+                          name:
+                              nameController
+                                  .text,
+                          age:
+                              ageController
+                                  .text,
+                          breed:
+                              breedController
+                                  .text,
+                          behaviour:
+                              behaviourController
+                                  .text,
+                        );
+
+                        if (result &&
+                            sheetContext
+                                .mounted) {
+                          Navigator.of(
+                            sheetContext,
+                          ).pop(true);
+                        }
+                      },
+                      icon:
+                          const Icon(
+                        Icons
+                            .add_rounded,
+                      ),
+                      label:
+                          const Text(
+                        'Add Pet',
+                        style:
+                            TextStyle(
+                          fontWeight:
+                              FontWeight.w800,
+                        ),
+                      ),
+                      style:
+                          ElevatedButton
+                              .styleFrom(
+                        backgroundColor:
+                            AppColors.orange,
+                        foregroundColor:
+                            AppColors.white,
+                        elevation:
+                            0,
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    nameController.dispose();
+    ageController.dispose();
+    breedController.dispose();
+    behaviourController.dispose();
+
+    if (saved == true && mounted) {
+      await _loadProfile();
+    }
+  }
+
+  // ============================================================
+  // PET FIELD
+  // ============================================================
+
+  Widget _petField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool requiredField,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      textCapitalization:
+          TextCapitalization.sentences,
+      validator: (String? value) {
+        if (!requiredField) {
+          return null;
+        }
+
+        if (value == null ||
+            value.trim().isEmpty) {
+          return '$label is required';
+        }
+
+        return null;
+      },
+      decoration:
+          InputDecoration(
+        labelText: label,
+        prefixIcon:
+            Icon(
+          icon,
+          color:
+              AppColors.orange,
+        ),
+        filled: true,
+        fillColor:
+            AppColors.background,
+        border:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+          borderSide:
+              BorderSide.none,
+        ),
+        enabledBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+          borderSide:
+              BorderSide.none,
+        ),
+        focusedBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+          borderSide:
+              const BorderSide(
+            color:
+                AppColors.orange,
+            width: 1.3,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SAVE NEW PET
+  // ============================================================
+
+  Future<bool> _saveNewPet({
+    required String name,
+    required String age,
+    required String breed,
+    required String behaviour,
+  }) async {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showMessage(
+        'Please login again.',
+      );
+      return false;
+    }
+
+    try {
+      final String uid =
+          user.uid.trim();
+
+      final DocumentSnapshot<
+              Map<String, dynamic>>?
+          ownerDoc =
+          await _findOwnerDocument(uid);
+
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
+        _showMessage(
+          'Owner profile not found.',
+        );
+        return false;
+      }
+
+      final Map<String, dynamic>
+          ownerData =
+          ownerDoc.data() ??
+              <String, dynamic>{};
+
+      final List<Map<String, dynamic>>
+          currentPets =
+          _readPets(
+        ownerData['pets'],
+      );
+
+      if (currentPets.length >=
+          _maximumPets) {
+        _showMessage(
+          'Maximum 3 pets allowed.',
+        );
+        return false;
+      }
+
+      final Map<String, dynamic>
+          newPet =
+          <String, dynamic>{
+        'name': name.trim(),
+        'age': age.trim(),
+        'breed': breed.trim(),
+        'behaviour':
+            behaviour.trim(),
+      };
+
+      currentPets.add(newPet);
+
+      await ownerDoc.reference
+          .set(
+        {
+          'pets': currentPets,
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      if (!mounted) {
+        return true;
+      }
+
+      setState(() {
+        _pets = currentPets;
+      });
+
+      _showMessage(
+        'Pet added successfully.',
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint(
+        'Add Pet Error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Unable to add pet.',
+        );
+      }
+
+      return false;
+    }
+  }
+
+  // ============================================================
   // PET EDIT
   // ============================================================
 
-  void _editPet(
+  Future<void> _editPet(
     int index,
-  ) {
-    _showMessage(
-      'Pet editing is available from Pet Profile.',
+  ) async {
+    if (index < 0 ||
+        index >= _pets.length) {
+      return;
+    }
+
+    final Map<String, dynamic>
+        existing =
+        _pets[index];
+
+    final TextEditingController
+        nameController =
+        TextEditingController(
+      text: _firstNonEmpty([
+        existing['name'],
+        existing['petName'],
+      ]),
     );
+
+    final TextEditingController
+        ageController =
+        TextEditingController(
+      text: _firstNonEmpty([
+        existing['age'],
+        existing['petAge'],
+      ]),
+    );
+
+    final TextEditingController
+        breedController =
+        TextEditingController(
+      text: _firstNonEmpty([
+        existing['breed'],
+        existing['petBreed'],
+      ]),
+    );
+
+    final TextEditingController
+        behaviourController =
+        TextEditingController(
+      text: _firstNonEmpty([
+        existing['behaviour'],
+        existing['behavior'],
+        existing['petBehaviour'],
+      ]),
+    );
+
+    final GlobalKey<FormState>
+        formKey =
+        GlobalKey<FormState>();
+
+    final bool? saved =
+        await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor:
+          AppColors.white,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(26),
+        ),
+      ),
+      builder:
+          (BuildContext sheetContext) {
+        return Padding(
+          padding:
+              EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(
+                  sheetContext,
+                ).viewInsets.bottom +
+                20,
+          ),
+          child:
+              SingleChildScrollView(
+            child:
+                Form(
+              key: formKey,
+              child:
+                  Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child:
+                        Container(
+                      width: 42,
+                      height: 5,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors.navy
+                                .withValues(
+                          alpha: 0.15,
+                        ),
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          20,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 18,
+                  ),
+
+                  Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              AppColors.orange
+                                  .withValues(
+                            alpha: 0.12,
+                          ),
+                          shape:
+                              BoxShape.circle,
+                        ),
+                        child:
+                            const Icon(
+                          Icons.edit_rounded,
+                          color:
+                              AppColors.orange,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 12,
+                      ),
+                      const Text(
+                        'Edit Pet',
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.navy,
+                          fontSize:
+                              20,
+                          fontWeight:
+                              FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    height: 22,
+                  ),
+
+                  _petField(
+                    controller:
+                        nameController,
+                    label:
+                        'Pet Name',
+                    icon:
+                        Icons.pets_rounded,
+                    requiredField:
+                        true,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  _petField(
+                    controller:
+                        ageController,
+                    label:
+                        'Age',
+                    icon:
+                        Icons.cake_outlined,
+                    requiredField:
+                        true,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  _petField(
+                    controller:
+                        breedController,
+                    label:
+                        'Breed',
+                    icon:
+                        Icons.category_outlined,
+                    requiredField:
+                        true,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  _petField(
+                    controller:
+                        behaviourController,
+                    label:
+                        'Behaviour',
+                    icon:
+                        Icons.psychology_outlined,
+                    requiredField:
+                        true,
+                    maxLines:
+                        2,
+                  ),
+
+                  const SizedBox(
+                    height: 22,
+                  ),
+
+                  SizedBox(
+                    width:
+                        double.infinity,
+                    height:
+                        52,
+                    child:
+                        ElevatedButton(
+                      onPressed:
+                          () async {
+                        if (!formKey
+                            .currentState!
+                            .validate()) {
+                          return;
+                        }
+
+                        final bool result =
+                            await _updatePet(
+                          index:
+                              index,
+                          name:
+                              nameController
+                                  .text,
+                          age:
+                              ageController
+                                  .text,
+                          breed:
+                              breedController
+                                  .text,
+                          behaviour:
+                              behaviourController
+                                  .text,
+                        );
+
+                        if (result &&
+                            sheetContext
+                                .mounted) {
+                          Navigator.of(
+                            sheetContext,
+                          ).pop(true);
+                        }
+                      },
+                      style:
+                          ElevatedButton
+                              .styleFrom(
+                        backgroundColor:
+                            AppColors.orange,
+                        foregroundColor:
+                            AppColors.white,
+                        elevation:
+                            0,
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            15,
+                          ),
+                        ),
+                      ),
+                      child:
+                          const Text(
+                        'Save Changes',
+                        style:
+                            TextStyle(
+                          fontWeight:
+                              FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    nameController.dispose();
+    ageController.dispose();
+    breedController.dispose();
+    behaviourController.dispose();
+
+    if (saved == true && mounted) {
+      await _loadProfile();
+    }
+  }
+
+  // ============================================================
+  // UPDATE PET
+  // ============================================================
+
+  Future<bool> _updatePet({
+    required int index,
+    required String name,
+    required String age,
+    required String breed,
+    required String behaviour,
+  }) async {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showMessage(
+        'Please login again.',
+      );
+      return false;
+    }
+
+    try {
+      final DocumentSnapshot<
+              Map<String, dynamic>>?
+          ownerDoc =
+          await _findOwnerDocument(
+        user.uid.trim(),
+      );
+
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
+        _showMessage(
+          'Owner profile not found.',
+        );
+        return false;
+      }
+
+      final Map<String, dynamic>
+          ownerData =
+          ownerDoc.data() ??
+              <String, dynamic>{};
+
+      final List<Map<String, dynamic>>
+          updatedPets =
+          _readPets(
+        ownerData['pets'],
+      );
+
+      if (index < 0 ||
+          index >= updatedPets.length) {
+        _showMessage(
+          'Pet not found.',
+        );
+        return false;
+      }
+
+      updatedPets[index] =
+          <String, dynamic>{
+        'name': name.trim(),
+        'age': age.trim(),
+        'breed': breed.trim(),
+        'behaviour':
+            behaviour.trim(),
+      };
+
+      await ownerDoc.reference
+          .set(
+        {
+          'pets': updatedPets,
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      if (!mounted) {
+        return true;
+      }
+
+      setState(() {
+        _pets = updatedPets;
+      });
+
+      _showMessage(
+        'Pet updated successfully.',
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint(
+        'Update Pet Error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Unable to update pet.',
+        );
+      }
+
+      return false;
+    }
   }
 
   // ============================================================
@@ -700,7 +1534,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await showDialog<bool>(
       context: context,
       builder:
-          (BuildContext context) {
+          (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor:
               AppColors.white,
@@ -719,8 +1553,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context)
-                    .pop(false);
+                Navigator.of(
+                  dialogContext,
+                ).pop(false);
               },
               child: const Text(
                 'Cancel',
@@ -728,8 +1563,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context)
-                    .pop(true);
+                Navigator.of(
+                  dialogContext,
+                ).pop(true);
               },
               child: const Text(
                 'Delete',
@@ -759,90 +1595,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final String uid =
-          user.uid.trim();
+      final DocumentSnapshot<
+              Map<String, dynamic>>?
+          ownerDoc =
+          await _findOwnerDocument(
+        user.uid.trim(),
+      );
 
-      final FirebaseFirestore firestore =
-          FirebaseFirestore.instance;
-
-      DocumentReference<
-          Map<String, dynamic>>? profileRef;
-
-      // ========================================================
-      // FIND OWNER PROFILE
-      // ========================================================
-
-      final QuerySnapshot<
-          Map<String, dynamic>> authQuery =
-          await firestore
-              .collection('ownerProfiles')
-              .where(
-                'authUid',
-                isEqualTo: uid,
-              )
-              .limit(1)
-              .get();
-
-      if (authQuery.docs.isNotEmpty) {
-        profileRef =
-            authQuery.docs.first.reference;
-      }
-
-      if (profileRef == null) {
-        final QuerySnapshot<
-            Map<String, dynamic>> ownerAuthQuery =
-            await firestore
-                .collection('ownerProfiles')
-                .where(
-                  'ownerAuthUid',
-                  isEqualTo: uid,
-                )
-                .limit(1)
-                .get();
-
-        if (ownerAuthQuery.docs.isNotEmpty) {
-          profileRef =
-              ownerAuthQuery.docs.first.reference;
-        }
-      }
-
-      if (profileRef == null) {
-        final DocumentReference<
-            Map<String, dynamic>> directRef =
-            firestore
-                .collection('ownerProfiles')
-                .doc(uid);
-
-        final DocumentSnapshot<
-            Map<String, dynamic>> directDoc =
-            await directRef.get();
-
-        if (directDoc.exists) {
-          profileRef = directRef;
-        }
-      }
-
-      if (profileRef == null) {
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
         _showMessage(
           'Owner profile not found.',
         );
         return;
       }
 
-      // ========================================================
-      // UPDATE PET LIST
-      // ========================================================
+      final Map<String, dynamic>
+          ownerData =
+          ownerDoc.data() ??
+              <String, dynamic>{};
 
-      final List<Map<String, dynamic>> updatedPets =
-          List<Map<String, dynamic>>.from(
-        _pets,
+      final List<Map<String, dynamic>>
+          updatedPets =
+          _readPets(
+        ownerData['pets'],
       );
+
+      if (index < 0 ||
+          index >= updatedPets.length) {
+        _showMessage(
+          'Pet not found.',
+        );
+        return;
+      }
 
       updatedPets.removeAt(index);
 
-      await profileRef.update({
-        'pets': updatedPets,
-      });
+      await ownerDoc.reference
+          .set(
+        {
+          'pets': updatedPets,
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
 
       if (!mounted) {
         return;
@@ -881,9 +1678,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return '';
     }
 
-    return value
-        .toString()
-        .trim();
+    return value.toString().trim();
   }
 
   // ============================================================
@@ -893,8 +1688,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _firstNonEmpty(
     List<dynamic> values,
   ) {
-    for (final dynamic value
-        in values) {
+    for (final dynamic value in values) {
       final String text =
           _stringValue(value);
 
@@ -914,8 +1708,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     User? user,
   ) {
     final String name =
-        user?.displayName
-                ?.trim() ??
+        user?.displayName?.trim() ??
             '';
 
     return name.isNotEmpty
@@ -931,8 +1724,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     User? user,
   ) {
     final String phone =
-        user?.phoneNumber
-                ?.trim() ??
+        user?.phoneNumber?.trim() ??
             '';
 
     return phone.isNotEmpty
@@ -974,9 +1766,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       date = value;
     } else if (value is String) {
       date =
-          DateTime.tryParse(
-        value,
-      );
+          DateTime.tryParse(value);
     }
 
     if (date == null) {
@@ -1021,16 +1811,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   void _copyOwnerId() {
-    if (_ownerId
-        .trim()
-        .isEmpty) {
+    if (_ownerId.trim().isEmpty) {
       return;
     }
 
     Clipboard.setData(
       ClipboardData(
-        text:
-            _ownerId.trim(),
+        text: _ownerId.trim(),
       ),
     );
 
@@ -1049,8 +1836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (number.isEmpty ||
         number == '-' ||
-        number ==
-            'Not available') {
+        number == 'Not available') {
       _showMessage(
         'Current mobile number was not found.',
       );
@@ -1093,8 +1879,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Future<void> _editAddress() async {
-    await Navigator.of(context)
-        .push(
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
             const AddressScreen(),
@@ -1138,9 +1923,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              14,
-            ),
+                BorderRadius.circular(14),
           ),
         ),
       );
@@ -1154,10 +1937,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(
     BuildContext context,
   ) {
-    // ==========================================================
-    // LOADING
-    // ==========================================================
-
     if (_isLoading) {
       return const Scaffold(
         backgroundColor:
@@ -1172,17 +1951,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    // ==========================================================
-    // SCREEN
-    // ==========================================================
-
     return Scaffold(
       backgroundColor:
           AppColors.background,
-
-      // ========================================================
-      // APP BAR
-      // ========================================================
 
       appBar: AppBar(
         elevation: 0,
@@ -1204,10 +1975,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
 
-      // ========================================================
-      // BODY
-      // ========================================================
-
       body: SafeArea(
         child:
             RefreshIndicator(
@@ -1223,8 +1990,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   BouncingScrollPhysics(),
             ),
             padding:
-                const EdgeInsets
-                    .fromLTRB(
+                const EdgeInsets.fromLTRB(
               16,
               16,
               16,
@@ -1233,8 +1999,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child:
                 Column(
               crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+                  CrossAxisAlignment.start,
               children: [
                 // ==================================================
                 // OWNER INFORMATION
@@ -1269,22 +2034,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // PET PROFILE
                 // ==================================================
 
-                if (_pets.isNotEmpty) ...[
-                  const Text(
-                    'Pet Profile',
-                    style: TextStyle(
-                      color:
-                          AppColors.navy,
-                      fontSize: 18,
-                      fontWeight:
-                          FontWeight.w900,
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Pet Profile',
+                        style: TextStyle(
+                          color:
+                              AppColors.navy,
+                          fontSize: 18,
+                          fontWeight:
+                              FontWeight.w900,
+                        ),
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(
-                    height: 10,
-                  ),
+                    if (_pets.length <
+                        _maximumPets)
+                      InkWell(
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                        onTap:
+                            _addPet,
+                        child:
+                            Container(
+                          padding:
+                              const EdgeInsets
+                                  .symmetric(
+                            horizontal:
+                                12,
+                            vertical:
+                                8,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                AppColors.orange
+                                    .withValues(
+                              alpha:
+                                  0.10,
+                            ),
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              12,
+                            ),
+                          ),
+                          child:
+                              const Row(
+                            mainAxisSize:
+                                MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons
+                                    .pets_rounded,
+                                size:
+                                    18,
+                                color:
+                                    AppColors.orange,
+                              ),
+                              SizedBox(
+                                width:
+                                    5,
+                              ),
+                              Text(
+                                'Add Pet',
+                                style:
+                                    TextStyle(
+                                  color:
+                                      AppColors.orange,
+                                  fontSize:
+                                      13,
+                                  fontWeight:
+                                      FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
 
+                const SizedBox(
+                  height: 10,
+                ),
+
+                // ==================================================
+                // PET CARDS
+                // ==================================================
+
+                if (_pets.isNotEmpty)
                   ...List.generate(
                     _pets.length,
                     (int index) {
@@ -1305,7 +2147,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child:
                             PetDetailsCard(
                           pet: pet,
-                          index: index,
+                          index:
+                              index,
                           onEdit: () {
                             _editPet(
                               index,
@@ -1319,12 +2162,141 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       );
                     },
+                  )
+                else
+                  Container(
+                    width:
+                        double.infinity,
+                    padding:
+                        const EdgeInsets
+                            .symmetric(
+                      horizontal:
+                          18,
+                      vertical:
+                          22,
+                    ),
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          AppColors.white,
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        18,
+                      ),
+                    ),
+                    child:
+                        Column(
+                      children: [
+                        Container(
+                          width:
+                              58,
+                          height:
+                              58,
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                AppColors.orange
+                                    .withValues(
+                              alpha:
+                                  0.10,
+                            ),
+                            shape:
+                                BoxShape.circle,
+                          ),
+                          child:
+                              const Icon(
+                            Icons
+                                .pets_rounded,
+                            color:
+                                AppColors.orange,
+                            size:
+                                30,
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 10,
+                        ),
+                        const Text(
+                          'No pets added yet',
+                          style:
+                              TextStyle(
+                            color:
+                                AppColors.navy,
+                            fontSize:
+                                15,
+                            fontWeight:
+                                FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 5,
+                        ),
+                        const Text(
+                          'Tap Add Pet to add your first pet.',
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              TextStyle(
+                            color:
+                                Colors.grey,
+                            fontSize:
+                                13,
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 14,
+                        ),
+                        SizedBox(
+                          height:
+                              44,
+                          child:
+                              ElevatedButton
+                                  .icon(
+                            onPressed:
+                                _addPet,
+                            icon:
+                                const Icon(
+                              Icons
+                                  .pets_rounded,
+                              size:
+                                  19,
+                            ),
+                            label:
+                                const Text(
+                              'Add Pet',
+                              style:
+                                  TextStyle(
+                                fontWeight:
+                                    FontWeight.w800,
+                              ),
+                            ),
+                            style:
+                                ElevatedButton
+                                    .styleFrom(
+                              backgroundColor:
+                                  AppColors.orange,
+                              foregroundColor:
+                                  AppColors.white,
+                              elevation:
+                                  0,
+                              shape:
+                                  RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(
+                                  13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
-                  const SizedBox(
-                    height: 20,
-                  ),
-                ],
+                const SizedBox(
+                  height: 20,
+                ),
 
                 // ==================================================
                 // MY ADDRESS
