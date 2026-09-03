@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
 import '../features/walker_accept/screens/walker_accept_screen.dart';
-import '../screens/live_walk_screen.dart';
+import '../features/live_walk/screens/live_walk_screen.dart';
 
 class ActiveLiveWalkStrip extends StatefulWidget {
   const ActiveLiveWalkStrip({
