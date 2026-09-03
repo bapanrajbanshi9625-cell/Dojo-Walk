@@ -159,11 +159,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             blurRadius: 12,
-            offset: Offset(0, 4),
-            color: Color(0x22000000),
+            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.13),
           ),
         ],
       ),
@@ -180,7 +180,9 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           ),
           const SizedBox(width: 8),
           Text(
-            hasLocation ? 'Live location' : 'Waiting for location',
+            hasLocation
+                ? 'Live location'
+                : 'Waiting for location',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -206,11 +208,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
               color: Colors.white,
               width: 3,
             ),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
                 blurRadius: 10,
-                offset: Offset(0, 4),
-                color: Color(0x44000000),
+                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.27),
               ),
             ],
           ),
@@ -220,9 +222,10 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
             size: 25,
           ),
         ),
-        CustomPaint(
-          size: const Size(14, 8),
-          painter: _MarkerArrowPainter(primary),
+        const Icon(
+          Icons.arrow_drop_down,
+          color: primary,
+          size: 18,
         ),
       ],
     );
@@ -242,11 +245,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
               color: Colors.white,
               width: 3,
             ),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
                 blurRadius: 9,
-                offset: Offset(0, 4),
-                color: Color(0x44000000),
+                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.27),
               ),
             ],
           ),
@@ -256,9 +259,10 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
             size: 22,
           ),
         ),
-        CustomPaint(
-          size: const Size(14, 8),
-          painter: _MarkerArrowPainter(red),
+        const Icon(
+          Icons.arrow_drop_down,
+          color: red,
+          size: 18,
         ),
       ],
     );
@@ -268,31 +272,5 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   void dispose() {
     _mapController.dispose();
     super.dispose();
-  }
-}
-
-class _MarkerArrowPainter extends CustomPainter {
-  const _MarkerArrowPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final Path path = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _MarkerArrowPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }
