@@ -28,7 +28,7 @@ class _ActiveLiveWalkStripState
   static const String collectionName = 'walk_request';
 
   // ===========================================================
-  // ONLY THESE STATUSES ARE ALLOWED TO SHOW THE STRIP
+  // ACTIVE STATUSES
   // ===========================================================
 
   static const Set<String> _activeStatuses = {
@@ -43,8 +43,10 @@ class _ActiveLiveWalkStripState
     'live',
   };
 
-  // Explicitly completed/closed states.
-  // These will NEVER show the strip.
+  // ===========================================================
+  // CLOSED STATUSES
+  // ===========================================================
+
   static const Set<String> _closedStatuses = {
     'completed',
     'complete',
@@ -97,6 +99,7 @@ class _ActiveLiveWalkStripState
           _clearWalk();
         });
       }
+
       return;
     }
 
@@ -146,7 +149,8 @@ class _ActiveLiveWalkStripState
               .toLowerCase();
 
       // =======================================================
-      // COMPLETED / CLOSED WALK
+      // IMPORTANT:
+      // COMPLETED / CLOSED WALK MUST NEVER REMAIN IN STRIP
       // =======================================================
 
       if (_closedStatuses.contains(status)) {
@@ -154,7 +158,7 @@ class _ActiveLiveWalkStripState
       }
 
       // =======================================================
-      // ONLY VALID ACTIVE WALK STATUSES
+      // ONLY ACTIVE WALK STATUSES
       // =======================================================
 
       if (!_activeStatuses.contains(status)) {
@@ -175,6 +179,10 @@ class _ActiveLiveWalkStripState
 
     // =========================================================
     // NO ACTIVE WALK
+    //
+    // This also happens immediately when Firestore changes:
+    // accepted/active/...  ->  completed
+    //
     // =========================================================
 
     if (selected == null) {
@@ -182,6 +190,7 @@ class _ActiveLiveWalkStripState
         _loading = false;
         _clearWalk();
       });
+
       return;
     }
 
@@ -198,10 +207,22 @@ class _ActiveLiveWalkStripState
             .trim()
             .toLowerCase();
 
+    // Extra safety:
+    // Never allow a closed status to enter local UI state.
+    if (_closedStatuses.contains(status) ||
+        !_activeStatuses.contains(status)) {
+      setState(() {
+        _loading = false;
+        _clearWalk();
+      });
+
+      return;
+    }
+
     setState(() {
       _loading = false;
 
-      // Firestore document ID = walk/request ID
+      // Firestore document ID
       _requestId = selected!.id;
 
       _status = status;
@@ -271,6 +292,7 @@ class _ActiveLiveWalkStripState
 
     setState(() {
       _loading = false;
+      _clearWalk();
     });
   }
 
@@ -377,7 +399,6 @@ class _ActiveLiveWalkStripState
       return;
     }
 
-    // Actual walk/request document ID.
     final String walkId = id.trim();
 
     // =========================================================
@@ -429,8 +450,19 @@ class _ActiveLiveWalkStripState
   Widget build(
     BuildContext context,
   ) {
-    // No loading UI and no active request = no strip.
+    // =========================================================
+    // NO ACTIVE WALK = NO STRIP
+    // =========================================================
+
     if (_loading || _requestId == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Extra UI-level safety.
+    // Even if local state somehow becomes closed,
+    // absolutely nothing should be rendered.
+    if (_closedStatuses.contains(_status) ||
+        !_activeStatuses.contains(_status)) {
       return const SizedBox.shrink();
     }
 
@@ -468,7 +500,6 @@ class _ActiveLiveWalkStripState
             decoration: BoxDecoration(
               borderRadius:
                   BorderRadius.circular(20),
-
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -482,7 +513,6 @@ class _ActiveLiveWalkStripState
                   navy,
                 ],
               ),
-
               border: Border.all(
                 color:
                     Colors.white.withValues(
@@ -491,7 +521,6 @@ class _ActiveLiveWalkStripState
                 width: 1,
               ),
             ),
-
             child: Padding(
               padding:
                   const EdgeInsets.all(11),
@@ -559,11 +588,9 @@ class _ActiveLiveWalkStripState
                                 ),
                               ),
                             ),
-
                             const SizedBox(
                               width: 7,
                             ),
-
                             Container(
                               width: 7,
                               height: 7,
@@ -642,11 +669,9 @@ class _ActiveLiveWalkStripState
                                 ),
                               ),
                             ),
-
                             const SizedBox(
                               width: 6,
                             ),
-
                             Flexible(
                               child: Text(
                                 _statusSubtitle,
@@ -674,7 +699,7 @@ class _ActiveLiveWalkStripState
                   const SizedBox(width: 8),
 
                   // =================================================
-                  // PREMIUM ARROW BUTTON
+                  // ARROW
                   // =================================================
 
                   Container(
