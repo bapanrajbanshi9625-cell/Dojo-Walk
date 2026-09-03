@@ -1,100 +1,135 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/live_walk_session.dart';
 
 class LiveWalkService {
-  LiveWalkService({
-    FirebaseFirestore? firestore,
-  }) : _firestore =
-            firestore ?? FirebaseFirestore.instance;
+  LiveWalkService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
   static const String collectionName = 'liveWalkSessions';
-
   static const String historyCollection = 'walk_history';
 
   // ============================================================
-  // WATCH LIVE WALK SESSION
+  // WATCH SESSION
   // ============================================================
 
-  Stream<LiveWalkSession?> watchSession(
-    String walkId,
-  ) {
-    final String id = walkId.trim();
+  Stream<LiveWalkSession?> watchSession(String id) async* {
+    final String value = id.trim();
 
-    if (id.isEmpty) {
-      return Stream.value(null);
+    if (value.isEmpty) {
+      yield null;
+      return;
     }
 
-    return Stream<LiveWalkSession?>.multi(
-      (MultiStreamController<LiveWalkSession?> controller) {
-        StreamSubscription<
-                QuerySnapshot<Map<String, dynamic>>>?
-            walkIdSubscription;
+    final CollectionReference<Map<String, dynamic>> collection =
+        _firestore.collection(collectionName);
 
-        StreamSubscription<
-                QuerySnapshot<Map<String, dynamic>>>?
-            requestIdSubscription;
+    // ------------------------------------------------------------
+    // 1. Direct document ID
+    // ------------------------------------------------------------
 
-        String? lastDocumentId;
+    final DocumentReference<Map<String, dynamic>> directRef =
+        collection.doc(value);
 
-        void emitSnapshot(
-          QuerySnapshot<Map<String, dynamic>> snapshot,
-        ) {
+    final DocumentSnapshot<Map<String, dynamic>> directSnapshot =
+        await directRef.get();
+
+    if (directSnapshot.exists) {
+      yield* directRef.snapshots().map(
+        (snapshot) {
+          if (!snapshot.exists) {
+            return null;
+          }
+
+          return LiveWalkSession.fromFirestore(snapshot);
+        },
+      );
+
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // 2. walkId
+    // ------------------------------------------------------------
+
+    final Query<Map<String, dynamic>> walkIdQuery = collection
+        .where(
+          'walkId',
+          isEqualTo: value,
+        )
+        .limit(1);
+
+    final QuerySnapshot<Map<String, dynamic>> walkIdSnapshot =
+        await walkIdQuery.get();
+
+    if (walkIdSnapshot.docs.isNotEmpty) {
+      yield* walkIdQuery.snapshots().map(
+        (snapshot) {
           if (snapshot.docs.isEmpty) {
-            return;
+            return null;
           }
 
-          final QueryDocumentSnapshot<
-                  Map<String, dynamic>>
-              document = snapshot.docs.first;
-
-          // Avoid duplicate emission when both queries
-          // return the same liveWalkSessions document.
-          if (lastDocumentId == document.id) {
-            return;
-          }
-
-          lastDocumentId = document.id;
-
-          controller.add(
-            LiveWalkSession.fromFirestore(document),
+          return LiveWalkSession.fromFirestore(
+            snapshot.docs.first,
           );
+        },
+      );
+
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // 3. walkRequestId
+    // ------------------------------------------------------------
+
+    final Query<Map<String, dynamic>> requestIdQuery = collection
+        .where(
+          'walkRequestId',
+          isEqualTo: value,
+        )
+        .limit(1);
+
+    final QuerySnapshot<Map<String, dynamic>> requestSnapshot =
+        await requestIdQuery.get();
+
+    if (requestSnapshot.docs.isNotEmpty) {
+      yield* requestIdQuery.snapshots().map(
+        (snapshot) {
+          if (snapshot.docs.isEmpty) {
+            return null;
+          }
+
+          return LiveWalkSession.fromFirestore(
+            snapshot.docs.first,
+          );
+        },
+      );
+
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // 4. sessionId
+    // ------------------------------------------------------------
+
+    final Query<Map<String, dynamic>> sessionIdQuery = collection
+        .where(
+          'sessionId',
+          isEqualTo: value,
+        )
+        .limit(1);
+
+    yield* sessionIdQuery.snapshots().map(
+      (snapshot) {
+        if (snapshot.docs.isEmpty) {
+          return null;
         }
 
-        walkIdSubscription = _firestore
-            .collection(collectionName)
-            .where(
-              'walkId',
-              isEqualTo: id,
-            )
-            .limit(1)
-            .snapshots()
-            .listen(
-          emitSnapshot,
-          onError: controller.addError,
+        return LiveWalkSession.fromFirestore(
+          snapshot.docs.first,
         );
-
-        requestIdSubscription = _firestore
-            .collection(collectionName)
-            .where(
-              'walkRequestId',
-              isEqualTo: id,
-            )
-            .limit(1)
-            .snapshots()
-            .listen(
-          emitSnapshot,
-          onError: controller.addError,
-        );
-
-        controller.onCancel = () async {
-          await walkIdSubscription?.cancel();
-          await requestIdSubscription?.cancel();
-        };
       },
     );
   }
@@ -103,28 +138,35 @@ class LiveWalkService {
   // FIND SESSION
   // ============================================================
 
-  Future<DocumentReference<Map<String, dynamic>>?>
-      findSession(
-    String walkId,
+  Future<DocumentReference<Map<String, dynamic>>?> findSession(
+    String id,
   ) async {
-    final String id = walkId.trim();
+    final String value = id.trim();
 
-    if (id.isEmpty) {
+    if (value.isEmpty) {
       return null;
     }
 
-    // ----------------------------------------------------------
-    // First: search by walkId
-    // ----------------------------------------------------------
+    final CollectionReference<Map<String, dynamic>> collection =
+        _firestore.collection(collectionName);
 
-    final QuerySnapshot<
-            Map<String, dynamic>>
-        walkIdSnapshot =
-        await _firestore
-            .collection(collectionName)
+    // 1. Document ID
+    final DocumentReference<Map<String, dynamic>> directRef =
+        collection.doc(value);
+
+    final DocumentSnapshot<Map<String, dynamic>> directSnapshot =
+        await directRef.get();
+
+    if (directSnapshot.exists) {
+      return directRef;
+    }
+
+    // 2. walkId
+    final QuerySnapshot<Map<String, dynamic>> walkIdSnapshot =
+        await collection
             .where(
               'walkId',
-              isEqualTo: id,
+              isEqualTo: value,
             )
             .limit(1)
             .get();
@@ -133,24 +175,32 @@ class LiveWalkService {
       return walkIdSnapshot.docs.first.reference;
     }
 
-    // ----------------------------------------------------------
-    // Fallback: search by walkRequestId
-    // ----------------------------------------------------------
-
-    final QuerySnapshot<
-            Map<String, dynamic>>
-        requestIdSnapshot =
-        await _firestore
-            .collection(collectionName)
+    // 3. walkRequestId
+    final QuerySnapshot<Map<String, dynamic>> requestSnapshot =
+        await collection
             .where(
               'walkRequestId',
-              isEqualTo: id,
+              isEqualTo: value,
             )
             .limit(1)
             .get();
 
-    if (requestIdSnapshot.docs.isNotEmpty) {
-      return requestIdSnapshot.docs.first.reference;
+    if (requestSnapshot.docs.isNotEmpty) {
+      return requestSnapshot.docs.first.reference;
+    }
+
+    // 4. sessionId
+    final QuerySnapshot<Map<String, dynamic>> sessionSnapshot =
+        await collection
+            .where(
+              'sessionId',
+              isEqualTo: value,
+            )
+            .limit(1)
+            .get();
+
+    if (sessionSnapshot.docs.isNotEmpty) {
+      return sessionSnapshot.docs.first.reference;
     }
 
     return null;
@@ -163,29 +213,20 @@ class LiveWalkService {
   Future<void> completeWalk({
     required LiveWalkSession session,
   }) async {
-    final DocumentReference<
-            Map<String, dynamic>>
-        sessionRef =
+    final DocumentReference<Map<String, dynamic>> sessionRef =
         _firestore
             .collection(collectionName)
             .doc(session.documentId);
 
-    // ----------------------------------------------------------
-    // Build final route
-    // ----------------------------------------------------------
+    final List<GeoPoint> finalRoute = session.routePoints
+        .map(
+          (point) => GeoPoint(
+            point.latitude,
+            point.longitude,
+          ),
+        )
+        .toList();
 
-    final List<GeoPoint> finalRoute =
-        session.routePoints
-            .map(
-              (LatLngPoint) => GeoPoint(
-                LatLngPoint.latitude,
-                LatLngPoint.longitude,
-              ),
-            )
-            .toList();
-
-    // Add final valid walker location if it is not
-    // already the last route point.
     if (session.walkerLocation != null) {
       final GeoPoint finalPoint = GeoPoint(
         session.walkerLocation!.latitude,
@@ -193,152 +234,74 @@ class LiveWalkService {
       );
 
       if (finalRoute.isEmpty ||
-          finalRoute.last.latitude !=
-              finalPoint.latitude ||
-          finalRoute.last.longitude !=
-              finalPoint.longitude) {
+          finalRoute.last.latitude != finalPoint.latitude ||
+          finalRoute.last.longitude != finalPoint.longitude) {
         finalRoute.add(finalPoint);
       }
     }
 
-    // ----------------------------------------------------------
-    // Mark live session completed
-    // ----------------------------------------------------------
-
     final Map<String, dynamic> sessionUpdates =
         <String, dynamic>{
       'status': 'completed',
-
       'trackingEnded': true,
       'walkEnded': true,
-
-      'endedAt':
-          FieldValue.serverTimestamp(),
-
-      'completedAt':
-          FieldValue.serverTimestamp(),
-
-      'updatedAt':
-          FieldValue.serverTimestamp(),
-
-      'elapsedSeconds':
-          session.elapsedSeconds,
-
-      'distanceKm':
-          session.distanceKm,
-
-      'steps':
-          session.steps,
-
-      'peeCount':
-          session.peeCount,
-
-      'poopCount':
-          session.poopCount,
-
-      'routeCoordinates':
-          finalRoute,
+      'endedAt': FieldValue.serverTimestamp(),
+      'completedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'elapsedSeconds': session.elapsedSeconds,
+      'distanceKm': session.distanceKm,
+      'steps': session.steps,
+      'peeCount': session.peeCount,
+      'poopCount': session.poopCount,
+      'routeCoordinates': finalRoute,
     };
 
-    // Only write a valid location.
     if (session.walkerLocation != null) {
-      sessionUpdates['currentLocation'] =
-          GeoPoint(
+      sessionUpdates['currentLocation'] = GeoPoint(
         session.walkerLocation!.latitude,
         session.walkerLocation!.longitude,
       );
     }
 
-    await sessionRef.update(
-      sessionUpdates,
-    );
-
-    // ----------------------------------------------------------
-    // Save walk history
-    // ----------------------------------------------------------
+    await sessionRef.update(sessionUpdates);
 
     final Map<String, dynamic> history =
         <String, dynamic>{
-      'walkId':
-          session.walkId,
-
-      'status':
-          'completed',
-
-      'ownerId':
-          session.ownerId,
-
-      'ownerUid':
-          session.ownerUid,
-
-      'ownerName':
-          session.ownerName,
-
-      'ownerPhone':
-          session.ownerPhone,
-
-      'walkerId':
-          session.walkerId,
-
-      'walkerUid':
-          session.walkerUid,
-
-      'walkerName':
-          session.walkerName,
-
-      'walkerPhone':
-          session.walkerPhone,
-
-      'dogName':
-          session.dogName,
-
-      'dogBreed':
-          session.dogBreed,
-
-      'duration':
-          session.durationLabel,
-
-      'elapsedSeconds':
-          session.elapsedSeconds,
-
-      'distanceKm':
-          session.distanceKm,
-
-      'steps':
-          session.steps,
-
-      'peeCount':
-          session.peeCount,
-
-      'poopCount':
-          session.poopCount,
-
-      'routeCoordinates':
-          finalRoute,
-
-      'endedAt':
-          FieldValue.serverTimestamp(),
-
-      'completedAt':
-          FieldValue.serverTimestamp(),
-
-      'createdAt':
-          FieldValue.serverTimestamp(),
+      'walkId': session.walkId,
+      'status': 'completed',
+      'ownerId': session.ownerId,
+      'ownerUid': session.ownerUid,
+      'ownerName': session.ownerName,
+      'ownerPhone': session.ownerPhone,
+      'walkerId': session.walkerId,
+      'walkerUid': session.walkerUid,
+      'walkerName': session.walkerName,
+      'walkerPhone': session.walkerPhone,
+      'dogName': session.dogName,
+      'dogBreed': session.dogBreed,
+      'duration': session.durationLabel,
+      'elapsedSeconds': session.elapsedSeconds,
+      'distanceKm': session.distanceKm,
+      'steps': session.steps,
+      'peeCount': session.peeCount,
+      'poopCount': session.poopCount,
+      'routeCoordinates': finalRoute,
+      'endedAt': FieldValue.serverTimestamp(),
+      'completedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
     };
 
     if (session.startedAt != null) {
       history['startedAt'] =
-          Timestamp.fromDate(
-        session.startedAt!,
-      );
+          Timestamp.fromDate(session.startedAt!);
     }
 
     await _firestore
         .collection(historyCollection)
         .doc(session.walkId)
         .set(
-      history,
-      SetOptions(merge: true),
-    );
+          history,
+          SetOptions(merge: true),
+        );
   }
 }
