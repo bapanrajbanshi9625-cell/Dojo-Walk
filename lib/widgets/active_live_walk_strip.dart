@@ -7,535 +7,333 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
-import '../features/walker_accept/screens/walker_accept_screen.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
+import '../features/walker_accept/screens/walker_accept_screen.dart';
 
 class ActiveLiveWalkStrip extends StatefulWidget {
   const ActiveLiveWalkStrip({
     super.key,
-    required this.isWalker,
   });
 
-  final bool isWalker;
-
   @override
-  State<ActiveLiveWalkStrip> createState() =>
-      _ActiveLiveWalkStripState();
+  State<ActiveLiveWalkStrip> createState() => _ActiveLiveWalkStripState();
 }
 
-class _ActiveLiveWalkStripState
-    extends State<ActiveLiveWalkStrip> {
-  // ===========================================================
-  // COLLECTIONS
-  // ===========================================================
+class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const String _walkRequestCollection =
-      'walk_request';
-
-  static const String _liveWalkSessionCollection =
-      'liveWalkSessions';
-
-  // ===========================================================
-  // ACTIVE STATUSES
-  // ===========================================================
-
-  static const Set<String> _activeStatuses = {
-    'accepted',
-    'active',
-    'on_the_way',
-    'reached',
-    'walking',
-    'in_progress',
-    'started',
-    'ongoing',
-    'live',
-  };
-
-  // ===========================================================
-  // CLOSED STATUSES
-  // ===========================================================
-
-  static const Set<String> _closedStatuses = {
-    'completed',
-    'complete',
-    'cancelled',
-    'canceled',
-    'rejected',
-    'declined',
-    'expired',
-    'finished',
-    'closed',
-  };
-
-  // ===========================================================
-  // SUBSCRIPTIONS
-  // ===========================================================
-
-  StreamSubscription<
-          QuerySnapshot<Map<String, dynamic>>>?
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _walkRequestSubscription;
 
-  StreamSubscription<
-          QuerySnapshot<Map<String, dynamic>>>?
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _liveSessionSubscription;
 
-  // ===========================================================
-  // SNAPSHOTS
-  // ===========================================================
-
-  QuerySnapshot<Map<String, dynamic>>?
-      _walkRequestSnapshot;
-
-  QuerySnapshot<Map<String, dynamic>>?
-      _liveSessionSnapshot;
-
-  // ===========================================================
-  // CURRENT UI STATE
-  // ===========================================================
-
   String? _requestId;
+  String? _walkId;
 
-  String _status = '';
-  String _dogName = '';
-  String _dogBreed = '';
-  String _walkerName = '';
+  String _requestStatus = '';
+  String _sessionStatus = '';
+
+  bool _isLive = false;
+  bool _hasAcceptedRequest = false;
+  bool _hasLiveSession = false;
 
   bool _loading = true;
-
-  // ===========================================================
-  // INIT
-  // ===========================================================
 
   @override
   void initState() {
     super.initState();
-    _listenToActiveWalk();
+    _startListeners();
   }
-
-  // ===========================================================
-  // DISPOSE
-  // ===========================================================
 
   @override
   void dispose() {
     _walkRequestSubscription?.cancel();
     _liveSessionSubscription?.cancel();
-
     super.dispose();
   }
 
-  // ===========================================================
-  // FIRESTORE LISTENERS
-  // ===========================================================
-
-  void _listenToActiveWalk() {
-    final User? user =
-        FirebaseAuth.instance.currentUser;
+  void _startListeners() {
+    final user = _auth.currentUser;
 
     if (user == null) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _clearWalk();
-        });
-      }
-
+      _clearWalk();
       return;
     }
 
-    final String uid = user.uid;
-
-    // =========================================================
-    // OWNER SIDE
-    //
-    // walk_request is identified using ownerAuthUid.
-    //
-    // liveWalkSessions can use ownerAuthUid OR ownerId.
-    // We listen using ownerAuthUid first because that is the
-    // owner identity used by the walk_request collection.
-    // =========================================================
-
-    final String ownerField =
-        'ownerAuthUid';
-
-    _walkRequestSubscription =
-        FirebaseFirestore.instance
-            .collection(
-              _walkRequestCollection,
-            )
-            .where(
-              ownerField,
-              isEqualTo: uid,
-            )
-            .snapshots()
-            .listen(
-              (snapshot) {
-                _walkRequestSnapshot =
-                    snapshot;
-
-                _processSnapshots();
-              },
-              onError: (Object error) {
-                _onFirestoreError(
-                  _walkRequestCollection,
-                  error,
-                );
-              },
-            );
-
-    // =========================================================
-    // LIVE WALK SESSION
-    //
-    // IMPORTANT:
-    // We query ownerAuthUid here too.
-    //
-    // If your liveWalkSessions document uses ownerId instead,
-    // the fallback below is handled by the separate listener.
-    // =========================================================
-
-    _liveSessionSubscription =
-        FirebaseFirestore.instance
-            .collection(
-              _liveWalkSessionCollection,
-            )
-            .where(
-              ownerField,
-              isEqualTo: uid,
-            )
-            .snapshots()
-            .listen(
-              (snapshot) {
-                _liveSessionSnapshot =
-                    snapshot;
-
-                _processSnapshots();
-              },
-              onError: (Object error) {
-                _onFirestoreError(
-                  _liveWalkSessionCollection,
-                  error,
-                );
-              },
-            );
+    _listenWalkRequests(user.uid);
+    _listenLiveSessions(user.uid);
   }
 
-  // ===========================================================
-  // PROCESS BOTH COLLECTIONS
-  // ===========================================================
+  void _listenWalkRequests(String uid) {
+    _walkRequestSubscription?.cancel();
 
-  void _processSnapshots() {
-    if (!mounted) return;
-
-    final QuerySnapshot<Map<String, dynamic>>?
-        requestSnapshot =
-        _walkRequestSnapshot;
-
-    final QuerySnapshot<Map<String, dynamic>>?
-        liveSnapshot =
-        _liveSessionSnapshot;
-
-    // =========================================================
-    // WAIT UNTIL REQUEST DATA IS AVAILABLE
-    // =========================================================
-
-    if (requestSnapshot == null) {
-      return;
-    }
-
-    // =========================================================
-    // STEP 1
-    //
-    // Find active walk_request.
-    // =========================================================
-
-    QueryDocumentSnapshot<
-            Map<String, dynamic>>?
-        selectedRequest;
-
-    DateTime latestRequestTime =
-        DateTime.fromMillisecondsSinceEpoch(0);
-
-    for (final doc in requestSnapshot.docs) {
-      final Map<String, dynamic> data =
-          doc.data();
-
-      final String status =
-          _readStatus(data);
-
-      // Closed request is never shown.
-      if (_closedStatuses.contains(status)) {
-        continue;
-      }
-
-      // Only active statuses.
-      if (!_activeStatuses.contains(status)) {
-        continue;
-      }
-
-      final DateTime time =
-          _getLatestTime(data);
-
-      if (selectedRequest == null ||
-          time.isAfter(latestRequestTime)) {
-        selectedRequest = doc;
-        latestRequestTime = time;
-      }
-    }
-
-    // =========================================================
-    // NO ACTIVE REQUEST
-    // =========================================================
-
-    if (selectedRequest == null) {
-      setState(() {
-        _loading = false;
-        _clearWalk();
-      });
-
-      return;
-    }
-
-    final Map<String, dynamic> requestData =
-        selectedRequest.data();
-
-    final String requestStatus =
-        _readStatus(requestData);
-
-    // =========================================================
-    // STEP 2
-    //
-    // Find matching liveWalkSession.
-    //
-    // Match using requestId first.
-    // =========================================================
-
-    Map<String, dynamic>? matchingLiveSession;
-
-    if (liveSnapshot != null) {
-      for (final doc in liveSnapshot.docs) {
-        final Map<String, dynamic> data =
-            doc.data();
-
-        final bool matches =
-            _sessionMatchesRequest(
-          data,
-          selectedRequest.id,
+    _walkRequestSubscription = _firestore
+        .collection('walk_request')
+        .where('ownerAuthUid', isEqualTo: uid)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        _processWalkRequests(snapshot);
+      },
+      onError: (error) {
+        debugPrint(
+          'ActiveLiveWalkStrip walk_request error: $error',
         );
+      },
+    );
+  }
 
-        if (!matches) {
-          continue;
+  void _listenLiveSessions(String uid) {
+    _liveSessionSubscription?.cancel();
+
+    _liveSessionSubscription = _firestore
+        .collection('liveWalkSessions')
+        .where('ownerAuthUid', isEqualTo: uid)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        _processLiveSessions(snapshot);
+      },
+      onError: (error) {
+        debugPrint(
+          'ActiveLiveWalkStrip liveWalkSessions error: $error',
+        );
+      },
+    );
+  }
+
+  void _processWalkRequests(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      final status = _readStatus(data['status']);
+
+      if (!_isAcceptedStatus(status)) {
+        continue;
+      }
+
+      if (selected == null ||
+          _getLatestTime(doc.data()) >
+              _getLatestTime(selected.data())) {
+        selected = doc;
+      }
+    }
+
+    if (selected == null) {
+      _hasAcceptedRequest = false;
+      _requestId = null;
+      _requestStatus = '';
+      _recalculateVisibility();
+      return;
+    }
+
+    _hasAcceptedRequest = true;
+    _requestId = selected.id;
+    _requestStatus = _readStatus(selected.data()['status']);
+
+    _recalculateVisibility();
+  }
+
+  void _processLiveSessions(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
+
+    final currentRequestId = _requestId;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      if (currentRequestId != null &&
+          !_sessionMatchesRequest(data, currentRequestId)) {
+        continue;
+      }
+
+      if (_isCompletedSession(data)) {
+        if (currentRequestId != null &&
+            _sessionMatchesRequest(data, currentRequestId)) {
+          _hasLiveSession = true;
+          _sessionStatus = 'completed';
+          _walkId = _readString(data['walkId']);
+          _isLive = false;
+
+          _recalculateVisibility();
+          return;
         }
 
-        matchingLiveSession = data;
-        break;
+        continue;
+      }
+
+      if (selected == null ||
+          _getLatestTime(doc.data()) >
+              _getLatestTime(selected.data())) {
+        selected = doc;
       }
     }
 
-    // =========================================================
-    // STEP 3
-    //
-    // LIVE SESSION HAS PRIORITY.
-    //
-    // If liveWalkSessions says completed, the strip MUST
-    // disappear even if walk_request still says accepted.
-    // =========================================================
+    if (selected == null) {
+      _hasLiveSession = false;
+      _sessionStatus = '';
+      _walkId = null;
+      _isLive = false;
 
-    if (matchingLiveSession != null) {
-      final String liveStatus =
-          _readStatus(matchingLiveSession);
-
-      if (_closedStatuses.contains(liveStatus) ||
-          liveStatus == 'completed' ||
-          liveStatus == 'complete') {
-        setState(() {
-          _loading = false;
-          _clearWalk();
-        });
-
-        return;
-      }
-    }
-
-    // =========================================================
-    // STEP 4
-    //
-    // Extra safety on request itself.
-    // =========================================================
-
-    if (_closedStatuses.contains(requestStatus) ||
-        !_activeStatuses.contains(requestStatus)) {
-      setState(() {
-        _loading = false;
-        _clearWalk();
-      });
-
+      _recalculateVisibility();
       return;
     }
 
-    // =========================================================
-    // STEP 5
-    //
-    // Decide final status.
-    //
-    // If a live session exists with an active status,
-    // use the live session status.
-    // Otherwise use walk_request status.
-    // =========================================================
+    final data = selected.data();
 
-    String finalStatus = requestStatus;
+    _hasLiveSession = true;
+    _sessionStatus = _readStatus(data['status']);
 
-    if (matchingLiveSession != null) {
-      final String liveStatus =
-          _readStatus(matchingLiveSession);
+    _walkId = _readString(data['walkId']);
 
-      if (_activeStatuses.contains(liveStatus)) {
-        finalStatus = liveStatus;
-      }
-    }
+    _isLive = _isLiveStatus(_sessionStatus);
 
-    // =========================================================
-    // FINAL SAFETY
-    // =========================================================
+    _recalculateVisibility();
+  }
 
-    if (_closedStatuses.contains(finalStatus) ||
-        !_activeStatuses.contains(finalStatus)) {
-      setState(() {
-        _loading = false;
-        _clearWalk();
-      });
-
+  void _recalculateVisibility() {
+    if (!mounted) {
       return;
     }
 
-    // =========================================================
-    // DATA
-    //
-    // Prefer live session data when available.
-    // Fall back to walk_request.
-    // =========================================================
-
-    final Map<String, dynamic> displayData =
-        matchingLiveSession ?? requestData;
-
-    final String dogName =
-        _firstNonEmpty([
-      displayData['dogName'],
-      requestData['dogName'],
-    ]);
-
-    final String dogBreed =
-        _firstNonEmpty([
-      displayData['dogBreed'],
-      requestData['dogBreed'],
-    ]);
-
-    final String walkerName =
-        _firstNonEmpty([
-      displayData['walkerName'],
-      requestData['walkerName'],
-    ]);
-
-    // =========================================================
-    // UPDATE UI
-    // =========================================================
-    
     setState(() {
-  _loading = false;
+      _loading = false;
 
-  // IMPORTANT:
-  // Navigation still uses walk_request document ID.
-  _requestId = selectedRequest!.id;
+      // ------------------------------------------------------------
+      // IMPORTANT:
+      //
+      // 1. Accepted walk_request => strip visible.
+      // 2. Matching liveWalkSessions completed => strip hidden.
+      // 3. liveWalkSessions ready => strip stays, but NOT LIVE.
+      // 4. Actual live status => strip shows LIVE WALK.
+      // ------------------------------------------------------------
 
-  _status = finalStatus;
-
-  _dogName = dogName;
-  _dogBreed = dogBreed;
-  _walkerName = walkerName;
-});
-
-  // ===========================================================
-  // MATCH LIVE SESSION TO REQUEST
-  // ===========================================================
+      if (_sessionStatus == 'completed' ||
+          _sessionStatus == 'complete' ||
+          _sessionStatus == 'finished' ||
+          _sessionStatus == 'closed' ||
+          _sessionStatus == 'cancelled' ||
+          _sessionStatus == 'canceled' ||
+          _sessionStatus == 'rejected' ||
+          _sessionStatus == 'declined' ||
+          _sessionStatus == 'expired') {
+        _hasAcceptedRequest = false;
+        _hasLiveSession = false;
+        _requestId = null;
+        _walkId = null;
+        _isLive = false;
+      }
+    });
+  }
 
   bool _sessionMatchesRequest(
     Map<String, dynamic> data,
     String requestId,
   ) {
-    final List<dynamic> possibleIds = [
-      data['requestId'],
-      data['walkRequestId'],
-      data['walkId'],
-      data['requestID'],
-    ];
+    final walkRequestId = _readString(data['walkRequestId']);
+    final requestIdField = _readString(data['requestId']);
+    final requestIDField = _readString(data['requestID']);
 
-    for (final value in possibleIds) {
-      if (value == null) continue;
-
-      if (value.toString().trim() == requestId) {
-        return true;
-      }
-    }
-
-    return false;
+    return walkRequestId == requestId ||
+        requestIdField == requestId ||
+        requestIDField == requestId;
   }
 
-  // ===========================================================
-  // READ STATUS
-  // ===========================================================
-
-  String _readStatus(
+  bool _isCompletedSession(
     Map<String, dynamic> data,
   ) {
-    return (data['status'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final status = _readStatus(data['status']);
+
+    final completedAt = data['completedAt'];
+    final trackingEnded = data['trackingEnded'] == true;
+    final walkEnded = data['walkEnded'] == true;
+
+    return status == 'completed' ||
+        status == 'complete' ||
+        status == 'finished' ||
+        status == 'closed' ||
+        (completedAt != null) ||
+        trackingEnded ||
+        walkEnded;
   }
 
-  // ===========================================================
-  // FIRST NON-EMPTY VALUE
-  // ===========================================================
+  bool _isAcceptedStatus(String status) {
+    return status == 'accepted' ||
+        status == 'active' ||
+        status == 'on_the_way' ||
+        status == 'reached' ||
+        status == 'walking' ||
+        status == 'in_progress' ||
+        status == 'started' ||
+        status == 'ongoing' ||
+        status == 'live' ||
+        status == 'ready';
+  }
 
-  String _firstNonEmpty(
-    List<dynamic> values,
-  ) {
-    for (final value in values) {
-      final String text =
-          (value ?? '').toString().trim();
+  bool _isLiveStatus(String status) {
+    return status == 'active' ||
+        status == 'walking' ||
+        status == 'in_progress' ||
+        status == 'started' ||
+        status == 'ongoing' ||
+        status == 'live';
+  }
 
-      if (text.isNotEmpty) {
-        return text;
-      }
+  String _readStatus(dynamic value) {
+    if (value == null) {
+      return '';
     }
 
-    return '';
+    return value.toString().trim().toLowerCase();
   }
 
-  // ===========================================================
-  // CLEAR WALK
-  // ===========================================================
+  String? _readString(dynamic value) {
+    if (value == null) {
+      return null;
+    }
 
-  void _clearWalk() {
-    _requestId = null;
-    _status = '';
-    _dogName = '';
-    _dogBreed = '';
-    _walkerName = '';
+    final valueString = value.toString().trim();
+
+    if (valueString.isEmpty) {
+      return null;
+    }
+
+    return valueString;
   }
-
-  // ===========================================================
-  // LATEST TIME
-  // ===========================================================
 
   DateTime _getLatestTime(
     Map<String, dynamic> data,
   ) {
-    final dynamic value =
-        data['updatedAt'] ??
-        data['acceptedAt'] ??
-        data['startedAt'] ??
-        data['createdAt'];
+    final updatedAt = _timestampToDate(data['updatedAt']);
 
+    if (updatedAt != null) {
+      return updatedAt;
+    }
+
+    final acceptedAt = _timestampToDate(data['acceptedAt']);
+
+    if (acceptedAt != null) {
+      return acceptedAt;
+    }
+
+    final createdAt = _timestampToDate(data['createdAt']);
+
+    if (createdAt != null) {
+      return createdAt;
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  DateTime? _timestampToDate(dynamic value) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -544,469 +342,213 @@ class _ActiveLiveWalkStripState
       return value;
     }
 
-    if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(
-        value,
-      );
-    }
-
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    return null;
   }
 
-  // ===========================================================
-  // FIRESTORE ERROR
-  // ===========================================================
+  void _clearWalk() {
+    if (!mounted) {
+      return;
+    }
 
-  void _onFirestoreError(
-    String collection,
-    Object error,
-  ) {
-    debugPrint(
-      'ActiveLiveWalkStrip Firestore error '
-      '[$collection]: $error',
-    );
-
-    if (!mounted) return;
-
-    // Do not destroy valid UI state because one listener
-    // temporarily reports an error.
     setState(() {
       _loading = false;
+      _hasAcceptedRequest = false;
+      _hasLiveSession = false;
+      _requestId = null;
+      _walkId = null;
+      _requestStatus = '';
+      _sessionStatus = '';
+      _isLive = false;
     });
   }
 
-  // ===========================================================
-  // LIVE STATUS
-  // ===========================================================
-
-  bool get _isLive {
-    switch (_status) {
-      case 'reached':
-      case 'walking':
-      case 'in_progress':
-      case 'started':
-      case 'ongoing':
-      case 'live':
-        return true;
-
-      default:
-        return false;
+  String get _mainTitle {
+    if (_isLive) {
+      return 'LIVE WALK';
     }
+
+    return 'WALK ACCEPTED';
   }
 
-  // ===========================================================
-  // STATUS TITLE
-  // ===========================================================
+  String get _secondaryText {
+    if (_isLive) {
+      return 'Your dog walk is currently in progress';
+    }
+
+    if (_hasLiveSession && _sessionStatus == 'ready') {
+      return 'Walker is ready to start the walk';
+    }
+
+    return 'Your walker has accepted the walk';
+  }
 
   String get _statusTitle {
     if (_isLive) {
       return 'LIVE WALK';
     }
 
-    return 'ACTIVE WALK';
-  }
+    if (_hasLiveSession && _sessionStatus == 'ready') {
+      return 'READY';
+    }
 
-  // ===========================================================
-  // STATUS SUBTITLE
-  // ===========================================================
+    return 'ACCEPTED';
+  }
 
   String get _statusSubtitle {
     if (_isLive) {
-      return widget.isWalker
-          ? 'Walk is live • Tap to continue'
-          : 'Walker has arrived • Tap to open';
+      return 'Tap to view live walk';
     }
 
-    return widget.isWalker
-        ? 'Walk accepted • Tap to open'
-        : 'Walker is on the way • Tap to track';
+    if (_hasLiveSession && _sessionStatus == 'ready') {
+      return 'Tap to open walk';
+    }
+
+    return 'Tap to view walker';
   }
 
-  // ===========================================================
-  // MAIN TITLE
-  // ===========================================================
+  Future<void> _openWalk() async {
+    final requestId = _requestId;
+    final walkId = _walkId;
 
-  String get _mainTitle {
-    if (widget.isWalker) {
-      if (_dogName.isNotEmpty) {
-        return _dogName;
-      }
-
-      return 'Your Walk';
-    }
-
-    if (_dogName.isNotEmpty &&
-        _walkerName.isNotEmpty) {
-      return '$_dogName • $_walkerName';
-    }
-
-    if (_dogName.isNotEmpty) {
-      return _dogName;
-    }
-
-    if (_walkerName.isNotEmpty) {
-      return _walkerName;
-    }
-
-    return 'Your Dog Walk';
-  }
-
-  // ===========================================================
-  // SECONDARY TEXT
-  // ===========================================================
-
-  String get _secondaryText {
-    if (widget.isWalker) {
-      return _dogBreed.isNotEmpty
-          ? _dogBreed
-          : 'Walker mode';
-    }
-
-    return _isLive
-        ? 'Walking now'
-        : 'Walker assigned';
-  }
-
-  // ===========================================================
-  // OPEN WALK
-  // ===========================================================
-
-  void _openWalk() {
-    final String? id = _requestId;
-
-    if (id == null || id.trim().isEmpty) {
+    if (requestId == null || requestId.isEmpty) {
       return;
     }
 
-    final String walkId = id.trim();
-
-    // =========================================================
-    // OWNER
-    // =========================================================
-
-    if (!widget.isWalker) {
-      if (_isLive) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => LiveWalkScreen(
-              walkId: walkId,
-              isWalker: false,
-            ),
+    if (_isLive && walkId != null && walkId.isNotEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LiveWalkScreen(
+            walkId: walkId,
+            isWalker: false,
           ),
-        );
-      } else {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => WalkerAcceptScreen(
-              requestId: walkId,
-            ),
-          ),
-        );
-      }
+        ),
+      );
 
       return;
     }
 
-    // =========================================================
-    // WALKER
-    // =========================================================
-
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => LiveWalkScreen(
-          walkId: walkId,
-          isWalker: true,
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => WalkerAcceptScreen(
+          requestId: requestId,
         ),
       ),
     );
   }
 
-  // ===========================================================
-  // BUILD
-  // ===========================================================
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    // =========================================================
-    // NO ACTIVE WALK
-    // =========================================================
-
-    if (_loading || _requestId == null) {
+  Widget build(BuildContext context) {
+    if (_loading) {
       return const SizedBox.shrink();
     }
 
-    // =========================================================
-    // UI SAFETY
-    // =========================================================
-
-    if (_closedStatuses.contains(_status) ||
-        !_activeStatuses.contains(_status)) {
+    if (!_hasAcceptedRequest) {
       return const SizedBox.shrink();
     }
 
-    final Color orange =
-        AppColors.orange;
-
-    final Color navy =
-        AppColors.navy;
-
-    final Color success =
-        AppColors.success;
-
-    final Color accent =
-        _isLive ? success : orange;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        12,
-        6,
-        12,
-        6,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius:
-            BorderRadius.circular(20),
-        elevation: 8,
-        shadowColor:
-            navy.withValues(alpha: 0.28),
-        child: InkWell(
-          onTap: _openWalk,
-          borderRadius:
-              BorderRadius.circular(20),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  orange,
-                  Color.lerp(
-                    orange,
-                    navy,
-                    0.48,
-                  )!,
-                  navy,
-                ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openWalk,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                DojoColors.primary,
+                DojoColors.primaryDark,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+                color: Colors.black.withValues(alpha: 0.12),
               ),
-              border: Border.all(
-                color:
-                    Colors.white.withValues(
-                  alpha: 0.18,
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
                 ),
-                width: 1,
+                child: Icon(
+                  _isLive
+                      ? Icons.directions_walk_rounded
+                      : Icons.pets_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-            ),
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(11),
-              child: Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _mainTitle,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _secondaryText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // =================================================
-                  // ICON
-                  // =================================================
-
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color:
-                          Colors.white.withValues(
-                        alpha: 0.16,
-                      ),
-                      borderRadius:
-                          BorderRadius.circular(14),
-                      border: Border.all(
-                        color:
-                            Colors.white.withValues(
-                          alpha: 0.20,
-                        ),
-                      ),
-                    ),
-                    child: Icon(
-                      _isLive
-                          ? Icons.pets_rounded
-                          : Icons
-                              .directions_walk_rounded,
+                  Text(
+                    _statusTitle,
+                    style: const TextStyle(
                       color: Colors.white,
-                      size: 24,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-
-                  const SizedBox(width: 10),
-
-                  // =================================================
-                  // TEXT
-                  // =================================================
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _mainTitle,
-                                maxLines: 1,
-                                overflow:
-                                    TextOverflow.ellipsis,
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white,
-                                  fontSize: 15,
-                                  fontWeight:
-                                      FontWeight.w800,
-                                  letterSpacing:
-                                      -0.2,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(
-                              width: 7,
-                            ),
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration:
-                                  BoxDecoration(
-                                color: accent,
-                                shape:
-                                    BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color:
-                                        accent.withValues(
-                                      alpha: 0.65,
-                                    ),
-                                    blurRadius: 8,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 2),
-
-                        Text(
-                          _secondaryText,
-                          maxLines: 1,
-                          overflow:
-                              TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color:
-                                Colors.white.withValues(
-                              alpha: 0.82,
-                            ),
-                            fontSize: 11,
-                            fontWeight:
-                                FontWeight.w500,
-                          ),
-                        ),
-
-                        const SizedBox(height: 5),
-
-                        Row(
-                          children: [
-                            Container(
-                              padding:
-                                  const EdgeInsets
-                                      .symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration:
-                                  BoxDecoration(
-                                color:
-                                    Colors.white.withValues(
-                                  alpha: 0.14,
-                                ),
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  7,
-                                ),
-                              ),
-                              child: Text(
-                                _statusTitle,
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white,
-                                  fontSize: 8,
-                                  fontWeight:
-                                      FontWeight.w900,
-                                  letterSpacing:
-                                      0.7,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(
-                              width: 6,
-                            ),
-                            Flexible(
-                              child: Text(
-                                _statusSubtitle,
-                                maxLines: 1,
-                                overflow:
-                                    TextOverflow
-                                        .ellipsis,
-                                style: TextStyle(
-                                  color:
-                                      Colors.white.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                  fontSize: 9,
-                                  fontWeight:
-                                      FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  // =================================================
-                  // ARROW
-                  // =================================================
-
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color:
-                          Colors.white.withValues(
-                        alpha: 0.18,
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color:
-                            Colors.white.withValues(
-                          alpha: 0.20,
-                        ),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 19,
+                  const SizedBox(height: 3),
+                  Text(
+                    _statusSubtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 9,
                     ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ],
           ),
         ),
       ),
