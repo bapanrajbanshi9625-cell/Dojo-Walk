@@ -10,32 +10,44 @@ part of '../controllers/insta_walk_container.dart';
 //
 // Find a Walker Now
 //        ↓
-// Find ownerProfiles/{owner}
+// Find owners/{owner}
 //        ↓
-// Check savedAddresses[]
+// Check direct owner address
 //        ↓
-// ┌───────────────┐
-// │ Address found │
-// └───────┬───────┘
-//         ↓
-//   Start Walker Search
+// ┌─────────────────────┐
+// │ Address found       │
+// └──────────┬──────────┘
+//            ↓
+//     Start Walker Search
 //
-// If no saved address:
+// If no address:
 //        ↓
 // Choose Walking Address
 //        ↓
 // Save Address
 //        ↓
-// Reload ownerProfiles
+// Reload owners/{owner}
 //        ↓
 // Start Walker Search
 //
 // IMPORTANT:
-// savedAddresses is the PRIMARY address source.
+// The `owners` collection is the PRIMARY source.
+//
+// Supported direct address fields:
+// - address
+// - addressLine1
+// - area
+// - city
+// - state
+// - pincode
+// - latitude
+// - longitude
+// - location
+//
+// `savedAddresses[]` remains supported as a fallback.
 // ============================================================
 
-extension _FindWalkerRole
-    on _InstaWalkContainerState {
+extension _FindWalkerRole on _InstaWalkContainerState {
   // ==========================================================
   // FIND WALKER
   // ==========================================================
@@ -48,8 +60,7 @@ extension _FindWalkerRole
       return;
     }
 
-    final User? user =
-        FirebaseAuth.instance.currentUser;
+    final User? user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       _message('Please login first.');
@@ -68,18 +79,19 @@ extension _FindWalkerRole
     try {
       // ========================================================
       // FIND OWNER PROFILE
+      //
+      // InstaWalkSearchService already reads:
+      // owners.where(authUid == currentUser.uid)
       // ========================================================
 
-      final DocumentSnapshot<
-          Map<String, dynamic>>? ownerDoc =
+      DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
           await _service.findOwnerProfile();
 
       if (!mounted) {
         return;
       }
 
-      if (ownerDoc == null ||
-          !ownerDoc.exists) {
+      if (ownerDoc == null || !ownerDoc.exists) {
         _updateState(() {
           _checkingAddress = false;
         });
@@ -92,13 +104,10 @@ extension _FindWalkerRole
       }
 
       Map<String, dynamic> data =
-          ownerDoc.data() ??
-              <String, dynamic>{};
+          ownerDoc.data() ?? <String, dynamic>{};
 
       // ========================================================
       // PROFILE COMPLETION
-      //
-      // Address is NOT required for profile completion.
       // ========================================================
 
       final bool profileCompleted =
@@ -120,12 +129,12 @@ extension _FindWalkerRole
       // OWNER ID
       // ========================================================
 
-      String ownerId =
-          _readFirstString(
+      String ownerId = _readFirstString(
         data,
         const [
           'ownerId',
           'Owner ID',
+          'id',
         ],
       );
 
@@ -137,13 +146,12 @@ extension _FindWalkerRole
       // OWNER NAME
       // ========================================================
 
-      String ownerName =
-          _readFirstString(
+      String ownerName = _readFirstString(
         data,
         const [
+          'ownerName',
           'fullName',
           'Full Name',
-          'ownerName',
           'name',
           'displayName',
         ],
@@ -157,8 +165,7 @@ extension _FindWalkerRole
       // PET / DOG DATA
       // ========================================================
 
-      String dogName =
-          _readFirstString(
+      String dogName = _readFirstString(
         data,
         const [
           'dogName',
@@ -168,8 +175,7 @@ extension _FindWalkerRole
         ],
       );
 
-      String dogBreed =
-          _readFirstString(
+      String dogBreed = _readFirstString(
         data,
         const [
           'dogBreed',
@@ -183,24 +189,20 @@ extension _FindWalkerRole
       // PETS ARRAY FALLBACK
       // ========================================================
 
-      final dynamic pets =
-          data['pets'];
+      final dynamic pets = data['pets'];
 
-      if (pets is List &&
-          pets.isNotEmpty) {
-        final dynamic firstPet =
-            pets.first;
+      if (pets is List && pets.isNotEmpty) {
+        final dynamic firstPet = pets.first;
 
         if (firstPet is Map) {
           if (dogName.isEmpty) {
             final dynamic petName =
                 firstPet['name'] ??
-                    firstPet['petName'] ??
-                    firstPet['dogName'];
+                firstPet['petName'] ??
+                firstPet['dogName'];
 
             if (petName != null) {
-              final String value =
-                  petName.toString().trim();
+              final String value = petName.toString().trim();
 
               if (value.isNotEmpty) {
                 dogName = value;
@@ -211,12 +213,11 @@ extension _FindWalkerRole
           if (dogBreed.isEmpty) {
             final dynamic petBreed =
                 firstPet['breed'] ??
-                    firstPet['petBreed'] ??
-                    firstPet['dogBreed'];
+                firstPet['petBreed'] ??
+                firstPet['dogBreed'];
 
             if (petBreed != null) {
-              final String value =
-                  petBreed.toString().trim();
+              final String value = petBreed.toString().trim();
 
               if (value.isNotEmpty) {
                 dogBreed = value;
@@ -230,90 +231,113 @@ extension _FindWalkerRole
       // SAVE PET NAME FOR UI
       // ========================================================
 
-      _petName =
-          dogName.isEmpty
-              ? 'Your Pet'
-              : dogName;
+      _petName = dogName.isEmpty ? 'Your Pet' : dogName;
 
       // ========================================================
       // ADDRESS
       //
       // IMPORTANT:
-      // savedAddresses[] is checked FIRST.
+      //
+      // `owners.address` is now checked FIRST.
+      //
+      // This matches the actual Firestore structure.
       // ========================================================
 
-      Map<String, dynamic>? selectedSavedAddress =
-          _getSavedAddress(data);
-
-      String address = '';
+      String address = _readFirstString(
+        data,
+        const [
+          'address',
+          'fullAddress',
+          'formattedAddress',
+          'Adress',
+          'Address',
+        ],
+      );
 
       Position? position;
 
       // ========================================================
-      // SAVED ADDRESS FOUND
+      // DIRECT OWNER ADDRESS FOUND
       // ========================================================
 
-      if (selectedSavedAddress != null) {
-        address =
-            _buildSavedAddress(
-          selectedSavedAddress,
-        );
-
-        position =
-            _readSavedAddressPosition(
-          selectedSavedAddress,
-        );
-
+      if (address.isNotEmpty) {
         debugPrint(
-          '✅ InstaWalk: saved address found.',
+          '✅ InstaWalk: direct owners.address found.',
         );
 
         debugPrint(
           '📍 InstaWalk address: $address',
         );
+
+        // ------------------------------------------------------
+        // Read coordinates directly from owners document.
+        // ------------------------------------------------------
+
+        position = _readOwnerProfilePosition(data);
+
+        if (position != null) {
+          debugPrint(
+            '📍 InstaWalk: owner coordinates found.',
+          );
+
+          debugPrint(
+            'latitude = ${position.latitude}',
+          );
+
+          debugPrint(
+            'longitude = ${position.longitude}',
+          );
+        }
       }
 
       // ========================================================
-      // FALLBACK:
-      // OLD PROFILE ADDRESS
-      //
-      // This keeps compatibility with older owner profiles.
+      // SAVED ADDRESS ARRAY FALLBACK
+      // ========================================================
+
+      Map<String, dynamic>? selectedSavedAddress;
+
+      if (address.isEmpty) {
+        selectedSavedAddress = _getSavedAddress(data);
+
+        if (selectedSavedAddress != null) {
+          address = _buildSavedAddress(
+            selectedSavedAddress,
+          );
+
+          position = _readSavedAddressPosition(
+            selectedSavedAddress,
+          );
+
+          debugPrint(
+            '✅ InstaWalk: savedAddresses[] address found.',
+          );
+
+          debugPrint(
+            '📍 InstaWalk address: $address',
+          );
+        }
+      }
+
+      // ========================================================
+      // STRUCTURED PROFILE ADDRESS FALLBACK
       // ========================================================
 
       if (address.isEmpty) {
-        address =
-            _readFirstString(
-          data,
-          const [
-            'address',
-            'Adress',
-            'Address',
-          ],
-        );
+        address = _buildAddressFromProfile(data);
+
+        if (address.isNotEmpty) {
+          debugPrint(
+            '✅ InstaWalk: structured owner address found.',
+          );
+        }
       }
 
       // ========================================================
-      // FALLBACK:
-      // STRUCTURED OWNER PROFILE ADDRESS
-      // ========================================================
-
-      if (address.isEmpty) {
-        address =
-            _buildAddressFromProfile(
-          data,
-        );
-      }
-
-      // ========================================================
-      // FALLBACK:
-      // PROFILE LOCATION
+      // PROFILE LOCATION FALLBACK
       // ========================================================
 
       if (position == null) {
-        position =
-            _readOwnerProfilePosition(
-          data,
-        );
+        position = _readOwnerProfilePosition(data);
       }
 
       // ========================================================
@@ -324,7 +348,7 @@ extension _FindWalkerRole
 
       if (address.isEmpty) {
         debugPrint(
-          '⚠️ InstaWalk: no saved address found.',
+          '⚠️ InstaWalk: NO owner address found.',
         );
 
         _updateState(() {
@@ -333,8 +357,7 @@ extension _FindWalkerRole
 
         await Navigator.of(context).push(
           MaterialPageRoute<dynamic>(
-            builder: (_) =>
-                const AddressScreen(),
+            builder: (_) => const AddressScreen(),
           ),
         );
 
@@ -346,16 +369,13 @@ extension _FindWalkerRole
         // RELOAD OWNER PROFILE
         // ======================================================
 
-        final DocumentSnapshot<
-            Map<String, dynamic>>? updatedOwnerDoc =
-            await _service.findOwnerProfile();
+        ownerDoc = await _service.findOwnerProfile();
 
         if (!mounted) {
           return;
         }
 
-        if (updatedOwnerDoc == null ||
-            !updatedOwnerDoc.exists) {
+        if (ownerDoc == null || !ownerDoc.exists) {
           _message(
             'Unable to reload owner address.',
           );
@@ -363,74 +383,56 @@ extension _FindWalkerRole
           return;
         }
 
-        data =
-            updatedOwnerDoc.data() ??
-                <String, dynamic>{};
+        data = ownerDoc.data() ?? <String, dynamic>{};
 
         // ======================================================
-        // READ SAVED ADDRESS AGAIN
+        // CHECK DIRECT OWNER ADDRESS AGAIN
         // ======================================================
 
-        selectedSavedAddress =
-            _getSavedAddress(data);
+        address = _readFirstString(
+          data,
+          const [
+            'address',
+            'fullAddress',
+            'formattedAddress',
+            'Adress',
+            'Address',
+          ],
+        );
 
-        address = '';
-
-        position = null;
-
-        if (selectedSavedAddress != null) {
-          address =
-              _buildSavedAddress(
-            selectedSavedAddress,
-          );
-
-          position =
-              _readSavedAddressPosition(
-            selectedSavedAddress,
-          );
-
-          debugPrint(
-            '✅ InstaWalk: address found after returning from AddressScreen.',
-          );
-        }
+        position = _readOwnerProfilePosition(data);
 
         // ======================================================
-        // PROFILE ADDRESS FALLBACK
-        // ======================================================
+        // SAVED ADDRESS ARRAY FALLBACK
+        // ========================================================
 
         if (address.isEmpty) {
-          address =
-              _readFirstString(
-            data,
-            const [
-              'address',
-              'Adress',
-              'Address',
-            ],
-          );
+          selectedSavedAddress = _getSavedAddress(data);
+
+          if (selectedSavedAddress != null) {
+            address = _buildSavedAddress(
+              selectedSavedAddress,
+            );
+
+            if (position == null) {
+              position = _readSavedAddressPosition(
+                selectedSavedAddress,
+              );
+            }
+          }
         }
+
+        // ======================================================
+        // STRUCTURED ADDRESS FALLBACK
+        // ========================================================
 
         if (address.isEmpty) {
-          address =
-              _buildAddressFromProfile(
-            data,
-          );
-        }
-
-        // ======================================================
-        // PROFILE LOCATION FALLBACK
-        // ======================================================
-
-        if (position == null) {
-          position =
-              _readOwnerProfilePosition(
-            data,
-          );
+          address = _buildAddressFromProfile(data);
         }
 
         // ======================================================
         // STILL NO ADDRESS
-        // ======================================================
+        // ========================================================
 
         if (address.isEmpty) {
           _updateState(() {
@@ -444,9 +446,13 @@ extension _FindWalkerRole
           return;
         }
 
+        debugPrint(
+          '✅ InstaWalk: address available after AddressScreen.',
+        );
+
         // ======================================================
         // CONTINUE SEARCH
-        // ======================================================
+        // ========================================================
 
         _updateState(() {
           _checkingAddress = true;
@@ -457,18 +463,20 @@ extension _FindWalkerRole
       // ========================================================
       // LOCATION
       //
-      // Saved address coordinates first.
-      // Profile coordinates second.
-      // GPS only as final fallback.
+      // Priority:
+      //
+      // 1. owners.latitude + longitude
+      // 2. owners.location
+      // 3. savedAddresses coordinates
+      // 4. GPS
       // ========================================================
 
       if (position == null) {
         debugPrint(
-          '⚠️ InstaWalk: saved address has no coordinates.',
+          '⚠️ InstaWalk: address exists but coordinates missing.',
         );
 
-        position =
-            await _getLocation();
+        position = await _getLocation();
       }
 
       if (!mounted) {
@@ -496,6 +504,38 @@ extension _FindWalkerRole
       // ========================================================
       // START SEARCH
       // ========================================================
+
+      debugPrint('');
+      debugPrint(
+        '==============================================',
+      );
+      debugPrint(
+        '🚀 INSTA WALK SEARCH STARTING',
+      );
+      debugPrint(
+        '==============================================',
+      );
+      debugPrint(
+        'ownerId = $ownerId',
+      );
+      debugPrint(
+        'ownerName = $ownerName',
+      );
+      debugPrint(
+        'address = $address',
+      );
+      debugPrint(
+        'latitude = ${position.latitude}',
+      );
+      debugPrint(
+        'longitude = ${position.longitude}',
+      );
+      debugPrint(
+        'dogName = $dogName',
+      );
+      debugPrint(
+        'dogBreed = $dogBreed',
+      );
 
       await _startSearch(
         ownerId: ownerId,
@@ -546,50 +586,23 @@ extension _FindWalkerRole
   // ==========================================================
   // GET SAVED ADDRESS
   // ==========================================================
-  //
-  // savedAddresses is expected to be:
-  //
-  // [
-  //   {
-  //     id: address_1,
-  //     title: Home,
-  //     address: ...,
-  //     flatNumber: ...,
-  //     addressLine1: ...,
-  //     area: ...,
-  //     city: ...,
-  //     state: ...,
-  //     pincode: ...,
-  //     latitude: ...,
-  //     longitude: ...
-  //   }
-  // ]
-  //
-  // First valid saved address is used.
-  // ==========================================================
 
   Map<String, dynamic>? _getSavedAddress(
     Map<String, dynamic> data,
   ) {
-    final dynamic saved =
-        data['savedAddresses'];
+    final dynamic saved = data['savedAddresses'];
 
-    if (saved is! List ||
-        saved.isEmpty) {
+    if (saved is! List || saved.isEmpty) {
       return null;
     }
 
     for (final dynamic item in saved) {
       if (item is Map) {
         final Map<String, dynamic> address =
-            Map<String, dynamic>.from(
-          item,
-        );
+            Map<String, dynamic>.from(item);
 
         final String fullAddress =
-            _buildSavedAddress(
-          address,
-        );
+            _buildSavedAddress(address);
 
         if (fullAddress.isNotEmpty) {
           return address;
@@ -607,18 +620,14 @@ extension _FindWalkerRole
   String _buildSavedAddress(
     Map<String, dynamic> data,
   ) {
-    // ========================================================
-    // PREFERRED:
-    // Already combined address
-    // ========================================================
-
-    final String combined =
-        _readFirstString(
+    final String combined = _readFirstString(
       data,
       const [
         'address',
         'fullAddress',
         'formattedAddress',
+        'Adress',
+        'Address',
       ],
     );
 
@@ -626,15 +635,9 @@ extension _FindWalkerRole
       return combined;
     }
 
-    // ========================================================
-    // STRUCTURED ADDRESS
-    // ========================================================
+    final List<String> parts = <String>[];
 
-    final List<String> parts =
-        <String>[];
-
-    final List<String> keys =
-        <String>[
+    const List<String> keys = <String>[
       'flatNumber',
       'addressLine1',
       'addressLine2',
@@ -646,18 +649,15 @@ extension _FindWalkerRole
     ];
 
     for (final String key in keys) {
-      final dynamic value =
-          data[key];
+      final dynamic value = data[key];
 
       if (value == null) {
         continue;
       }
 
-      final String text =
-          value.toString().trim();
+      final String text = value.toString().trim();
 
-      if (text.isNotEmpty &&
-          !parts.contains(text)) {
+      if (text.isNotEmpty && !parts.contains(text)) {
         parts.add(text);
       }
     }
@@ -676,78 +676,39 @@ extension _FindWalkerRole
     // DIRECT LATITUDE / LONGITUDE
     // ========================================================
 
-    final dynamic latitude =
-        data['latitude'];
+    final dynamic latitude = data['latitude'];
+    final dynamic longitude = data['longitude'];
 
-    final dynamic longitude =
-        data['longitude'];
-
-    if (latitude is num &&
-        longitude is num) {
-      return Position(
-        longitude:
-            longitude.toDouble(),
-        latitude:
-            latitude.toDouble(),
-        timestamp:
-            DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
+    if (latitude is num && longitude is num) {
+      return _positionFromCoordinates(
+        latitude.toDouble(),
+        longitude.toDouble(),
       );
     }
 
     // ========================================================
-    // GEOPOINT
+    // GEOPOINT LOCATION
     // ========================================================
 
-    final dynamic location =
-        data['location'];
+    final dynamic location = data['location'];
 
     if (location is GeoPoint) {
-      return Position(
-        longitude:
-            location.longitude,
-        latitude:
-            location.latitude,
-        timestamp:
-            DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
+      return _positionFromCoordinates(
+        location.latitude,
+        location.longitude,
       );
     }
 
     // ========================================================
-    // ownerLocation
+    // OWNER LOCATION
     // ========================================================
 
-    final dynamic ownerLocation =
-        data['ownerLocation'];
+    final dynamic ownerLocation = data['ownerLocation'];
 
     if (ownerLocation is GeoPoint) {
-      return Position(
-        longitude:
-            ownerLocation.longitude,
-        latitude:
-            ownerLocation.latitude,
-        timestamp:
-            DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
+      return _positionFromCoordinates(
+        ownerLocation.latitude,
+        ownerLocation.longitude,
       );
     }
 
@@ -757,69 +718,66 @@ extension _FindWalkerRole
 
     if (location is Map) {
       final dynamic lat =
-          location['latitude'] ??
-              location['lat'];
+          location['latitude'] ?? location['lat'];
 
       final dynamic lng =
           location['longitude'] ??
-              location['lng'] ??
-              location['lon'];
+          location['lng'] ??
+          location['lon'];
 
-      if (lat is num &&
-          lng is num) {
-        return Position(
-          longitude:
-              lng.toDouble(),
-          latitude:
-              lat.toDouble(),
-          timestamp:
-              DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
+      if (lat is num && lng is num) {
+        return _positionFromCoordinates(
+          lat.toDouble(),
+          lng.toDouble(),
         );
       }
     }
 
     // ========================================================
-    // ownerLocation MAP
+    // OWNER LOCATION MAP
     // ========================================================
 
     if (ownerLocation is Map) {
       final dynamic lat =
           ownerLocation['latitude'] ??
-              ownerLocation['lat'];
+          ownerLocation['lat'];
 
       final dynamic lng =
           ownerLocation['longitude'] ??
-              ownerLocation['lng'] ??
-              ownerLocation['lon'];
+          ownerLocation['lng'] ??
+          ownerLocation['lon'];
 
-      if (lat is num &&
-          lng is num) {
-        return Position(
-          longitude:
-              lng.toDouble(),
-          latitude:
-              lat.toDouble(),
-          timestamp:
-              DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
+      if (lat is num && lng is num) {
+        return _positionFromCoordinates(
+          lat.toDouble(),
+          lng.toDouble(),
         );
       }
     }
 
     return null;
+  }
+
+  // ==========================================================
+  // POSITION FROM COORDINATES
+  // ==========================================================
+
+  Position _positionFromCoordinates(
+    double latitude,
+    double longitude,
+  ) {
+    return Position(
+      longitude: longitude,
+      latitude: latitude,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
   }
 
   // ==========================================================
@@ -829,11 +787,9 @@ extension _FindWalkerRole
   String _buildAddressFromProfile(
     Map<String, dynamic> data,
   ) {
-    final List<String> parts =
-        <String>[];
+    final List<String> parts = <String>[];
 
-    final List<String> keys =
-        <String>[
+    const List<String> keys = <String>[
       'flatNumber',
       'addressLine1',
       'addressLine2',
@@ -845,18 +801,15 @@ extension _FindWalkerRole
     ];
 
     for (final String key in keys) {
-      final dynamic value =
-          data[key];
+      final dynamic value = data[key];
 
       if (value == null) {
         continue;
       }
 
-      final String text =
-          value.toString().trim();
+      final String text = value.toString().trim();
 
-      if (text.isNotEmpty &&
-          !parts.contains(text)) {
+      if (text.isNotEmpty && !parts.contains(text)) {
         parts.add(text);
       }
     }
@@ -875,86 +828,73 @@ extension _FindWalkerRole
     // DIRECT LATITUDE / LONGITUDE
     // ========================================================
 
-    final dynamic latitude =
-        data['latitude'];
+    final dynamic latitude = data['latitude'];
+    final dynamic longitude = data['longitude'];
 
-    final dynamic longitude =
-        data['longitude'];
-
-    if (latitude is num &&
-        longitude is num) {
-      return Position(
-        longitude:
-            longitude.toDouble(),
-        latitude:
-            latitude.toDouble(),
-        timestamp:
-            DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
+    if (latitude is num && longitude is num) {
+      return _positionFromCoordinates(
+        latitude.toDouble(),
+        longitude.toDouble(),
       );
     }
 
     // ========================================================
-    // ownerLocation GeoPoint
+    // LOCATION MAP
     // ========================================================
 
-    final dynamic location =
-        data['ownerLocation'];
+    final dynamic location = data['location'];
 
     if (location is GeoPoint) {
-      return Position(
-        longitude:
-            location.longitude,
-        latitude:
-            location.latitude,
-        timestamp:
-            DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
+      return _positionFromCoordinates(
+        location.latitude,
+        location.longitude,
       );
     }
-
-    // ========================================================
-    // ownerLocation MAP
-    // ========================================================
 
     if (location is Map) {
       final dynamic lat =
-          location['latitude'] ??
-              location['lat'];
+          location['latitude'] ?? location['lat'];
 
       final dynamic lng =
           location['longitude'] ??
-              location['lng'] ??
-              location['lon'];
+          location['lng'] ??
+          location['lon'];
 
-      if (lat is num &&
-          lng is num) {
-        return Position(
-          longitude:
-              lng.toDouble(),
-          latitude:
-              lat.toDouble(),
-          timestamp:
-              DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
+      if (lat is num && lng is num) {
+        return _positionFromCoordinates(
+          lat.toDouble(),
+          lng.toDouble(),
+        );
+      }
+    }
+
+    // ========================================================
+    // OWNER LOCATION
+    // ========================================================
+
+    final dynamic ownerLocation = data['ownerLocation'];
+
+    if (ownerLocation is GeoPoint) {
+      return _positionFromCoordinates(
+        ownerLocation.latitude,
+        ownerLocation.longitude,
+      );
+    }
+
+    if (ownerLocation is Map) {
+      final dynamic lat =
+          ownerLocation['latitude'] ??
+          ownerLocation['lat'];
+
+      final dynamic lng =
+          ownerLocation['longitude'] ??
+          ownerLocation['lng'] ??
+          ownerLocation['lon'];
+
+      if (lat is num && lng is num) {
+        return _positionFromCoordinates(
+          lat.toDouble(),
+          lng.toDouble(),
         );
       }
     }
@@ -973,8 +913,7 @@ extension _FindWalkerRole
       // ======================================================
 
       final bool enabled =
-          await Geolocator
-              .isLocationServiceEnabled();
+          await Geolocator.isLocationServiceEnabled();
 
       if (!enabled) {
         _message(
@@ -991,16 +930,12 @@ extension _FindWalkerRole
       LocationPermission permission =
           await Geolocator.checkPermission();
 
-      if (permission ==
-          LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
       }
 
-      if (permission ==
-              LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         _message(
           'Location permission is required.',
         );
@@ -1013,8 +948,7 @@ extension _FindWalkerRole
       // ======================================================
 
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy:
-            LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.high,
       );
     } catch (e) {
       debugPrint(
