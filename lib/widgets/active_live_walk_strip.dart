@@ -438,21 +438,20 @@ class _ActiveLiveWalkStripState
     // =========================================================
     // UPDATE UI
     // =========================================================
-
+    
     setState(() {
-      _loading = false;
+  _loading = false;
 
-      // IMPORTANT:
-      // Navigation still uses walk_request document ID.
-      _requestId = selectedRequest.id;
+  // IMPORTANT:
+  // Navigation still uses walk_request document ID.
+  _requestId = selectedRequest!.id;
 
-      _status = finalStatus;
+  _status = finalStatus;
 
-      _dogName = dogName;
-      _dogBreed = dogBreed;
-      _walkerName = walkerName;
-    });
-  }
+  _dogName = dogName;
+  _dogBreed = dogBreed;
+  _walkerName = walkerName;
+});
 
   // ===========================================================
   // MATCH LIVE SESSION TO REQUEST
