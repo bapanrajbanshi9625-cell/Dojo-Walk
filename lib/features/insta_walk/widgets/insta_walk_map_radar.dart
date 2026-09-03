@@ -50,11 +50,11 @@ class _InstaWalkMapRadarState
   // ==========================================================
 
   void _goToMyLocation() {
-  _mapController.move(
-    widget.ownerPoint,
-    14.5,
-  );
-}
+    _mapController.move(
+      widget.ownerPoint,
+      14.5,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,8 +156,7 @@ class _InstaWalkMapRadarState
                               shape:
                                   BoxShape.circle,
                               color:
-                                  colors
-                                      .surface,
+                                  colors.surface,
                               border:
                                   Border.all(
                                 color:
@@ -167,8 +166,7 @@ class _InstaWalkMapRadarState
                               boxShadow: [
                                 BoxShadow(
                                   color:
-                                      Colors
-                                          .black
+                                      Colors.black
                                           .withValues(
                                     alpha: .22,
                                   ),
@@ -190,7 +188,6 @@ class _InstaWalkMapRadarState
                               size: 25,
                             ),
                           ),
-
                           Transform.translate(
                             offset:
                                 const Offset(
@@ -236,8 +233,7 @@ class _InstaWalkMapRadarState
                         color:
                             primary,
                         glowColor:
-                            colors
-                                .secondary,
+                            primary,
                       ),
                     );
                   },
@@ -277,13 +273,12 @@ class _InstaWalkMapRadarState
                         BoxDecoration(
                       color: surface,
                       borderRadius:
-                          BorderRadius
-                              .circular(
+                          BorderRadius.circular(
                         15,
                       ),
                       border: Border.all(
-                        color: primary
-                            .withValues(
+                        color:
+                            primary.withValues(
                           alpha: .18,
                         ),
                       ),
@@ -347,7 +342,7 @@ class RadarPainter extends CustomPainter {
       ..strokeWidth = 1.2
       ..color =
           color.withValues(
-        alpha: .25,
+        alpha: .20,
       );
 
     for (int i = 1; i <= 3; i++) {
@@ -368,7 +363,7 @@ class RadarPainter extends CustomPainter {
       ..strokeWidth = 2
       ..color =
           color.withValues(
-        alpha: .14,
+        alpha: .12,
       );
 
     canvas.drawCircle(
@@ -392,7 +387,7 @@ class RadarPainter extends CustomPainter {
       ..color =
           glowColor.withValues(
         alpha:
-            (1 - progress) * .55,
+            (1 - progress) * .38,
       );
 
     canvas.drawCircle(
@@ -413,14 +408,17 @@ class RadarPainter extends CustomPainter {
     final Paint sweep = Paint()
       ..shader = SweepGradient(
         startAngle:
-            angle - 1.0,
+            angle - 1.15,
         endAngle: angle,
         colors: [
           color.withValues(
             alpha: 0,
           ),
-          glowColor.withValues(
-            alpha: .42,
+          color.withValues(
+            alpha: .26,
+          ),
+          color.withValues(
+            alpha: .46,
           ),
         ],
       ).createShader(
@@ -443,7 +441,7 @@ class RadarPainter extends CustomPainter {
     final Paint centerGlow = Paint()
       ..color =
           glowColor.withValues(
-        alpha: .08,
+        alpha: .10,
       );
 
     canvas.drawCircle(
@@ -459,7 +457,8 @@ class RadarPainter extends CustomPainter {
   ) {
     return oldDelegate.progress !=
             progress ||
-        oldDelegate.color != color ||
+        oldDelegate.color !=
+            color ||
         oldDelegate.glowColor !=
             glowColor;
   }
