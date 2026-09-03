@@ -49,13 +49,22 @@ class _WalkerAcceptMapState
 
     final LatLng? oldWalker =
         oldWidget.walkerLocation;
+
     final LatLng? newWalker =
         widget.walkerLocation;
 
-    if (newWalker == null) return;
+    if (newWalker == null) {
+      return;
+    }
 
     if (oldWalker == null) {
-      _followWalker(newWalker);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) {
+          if (mounted) {
+            _followWalker(newWalker);
+          }
+        },
+      );
       return;
     }
 
@@ -73,6 +82,7 @@ class _WalkerAcceptMapState
         Theme.of(context).colorScheme;
 
     final List<Marker> markers = <Marker>[
+      // OWNER
       Marker(
         point: widget.ownerLocation,
         width: 70,
@@ -81,6 +91,7 @@ class _WalkerAcceptMapState
         child: const OwnerHomeMarker(),
       ),
 
+      // WALKER
       if (widget.walkerLocation != null)
         Marker(
           point: widget.walkerLocation!,
@@ -97,47 +108,89 @@ class _WalkerAcceptMapState
         ),
     ];
 
-    return ClipRect(
+    return ColoredBox(
+      color: const Color(0xFFE8EEF3),
       child: Stack(
+        fit: StackFit.expand,
         children: [
+          // ====================================================
+          // MAP
+          // ====================================================
+
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: widget.ownerLocation,
-              initialZoom: 14.5,
-              minZoom: 5,
-              maxZoom: 19,
+              initialCenter:
+                  widget.ownerLocation,
+              initialZoom: 15.0,
+              minZoom: 5.0,
+              maxZoom: 19.0,
 
               interactionOptions:
                   const InteractionOptions(
-                flags: InteractiveFlag.all,
+                flags:
+                    InteractiveFlag.all,
               ),
 
               onMapReady: () {
+                if (!mounted) {
+                  return;
+                }
+
                 _mapReady = true;
 
-                if (widget.walkerLocation != null &&
+                final LatLng? walker =
+                    widget.walkerLocation;
+
+                if (walker != null &&
                     _autoFollow) {
-                  _followWalker(
-                    widget.walkerLocation!,
+                  WidgetsBinding.instance
+                      .addPostFrameCallback(
+                    (_) {
+                      if (mounted) {
+                        _followWalker(walker);
+                      }
+                    },
+                  );
+                } else {
+                  WidgetsBinding.instance
+                      .addPostFrameCallback(
+                    (_) {
+                      if (mounted) {
+                        _recenterOwner();
+                      }
+                    },
                   );
                 }
               },
 
               onPositionChanged:
                   (camera, hasGesture) {
-                if (hasGesture) {
-                  _autoFollow = false;
+                if (hasGesture &&
+                    mounted) {
+                  setState(() {
+                    _autoFollow = false;
+                  });
                 }
               },
             ),
+
             children: [
+              // ==================================================
+              // OPEN STREET MAP
+              // ==================================================
+
               TileLayer(
                 urlTemplate:
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName:
                     'com.doojowalker.app',
+                maxZoom: 19,
               ),
+
+              // ==================================================
+              // ROUTE
+              // ==================================================
 
               if (widget.routePoints.length >= 2)
                 PolylineLayer(
@@ -145,15 +198,19 @@ class _WalkerAcceptMapState
                     Polyline(
                       points:
                           widget.routePoints,
-                      strokeWidth: 7,
-                      color: colors.primary
-                          .withValues(alpha: .25),
+                      strokeWidth: 8,
+                      color:
+                          colors.primary
+                              .withValues(
+                        alpha: .22,
+                      ),
                     ),
                     Polyline(
                       points:
                           widget.routePoints,
                       strokeWidth: 4,
-                      color: colors.primary,
+                      color:
+                          colors.primary,
                       borderStrokeWidth: 1,
                       borderColor:
                           Colors.white,
@@ -161,15 +218,19 @@ class _WalkerAcceptMapState
                   ],
                 ),
 
+              // ==================================================
+              // MARKERS
+              // ==================================================
+
               MarkerLayer(
                 markers: markers,
               ),
             ],
           ),
 
-          // ==================================================
-          // TOP LIVE STATUS
-          // ==================================================
+          // ====================================================
+          // LIVE BADGE
+          // ====================================================
 
           const Positioned(
             left: 16,
@@ -177,78 +238,79 @@ class _WalkerAcceptMapState
             child: _LiveMapBadge(),
           ),
 
-          // ==================================================
-          // FOLLOW STATUS
-          // ==================================================
+          // ====================================================
+          // FOLLOW BADGE
+          // ====================================================
 
           Positioned(
             right: 16,
             top: 16,
             child: _FollowBadge(
-              following: _autoFollow,
+              following:
+                  _autoFollow,
             ),
           ),
 
-          // ==================================================
+          // ====================================================
           // MAP CONTROLS
-          // ==================================================
+          // ====================================================
 
           Positioned(
             right: 16,
-            bottom: 22,
+            bottom: 24,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 _MapControlButton(
-                  icon: Icons.add_rounded,
-                  onPressed: _zoomIn,
+                  icon:
+                      Icons.add_rounded,
+                  onPressed:
+                      _zoomIn,
                 ),
-                const SizedBox(height: 8),
+
+                const SizedBox(
+                  height: 8,
+                ),
+
                 _MapControlButton(
-                  icon: Icons.remove_rounded,
-                  onPressed: _zoomOut,
+                  icon:
+                      Icons.remove_rounded,
+                  onPressed:
+                      _zoomOut,
                 ),
-                const SizedBox(height: 12),
+
+                const SizedBox(
+                  height: 12,
+                ),
+
                 _MapControlButton(
                   icon: _autoFollow
-                      ? Icons.navigation_rounded
-                      : Icons.my_location_rounded,
-                  active: _autoFollow,
-                  onPressed: () {
-                    _autoFollow = true;
-
-                    final LatLng? walker =
-                        widget.walkerLocation;
-
-                    if (walker != null) {
-                      _followWalker(walker);
-                    } else {
-                      _recenterOwner();
-                    }
-
-                    widget
-                        .onMyLocationPressed
-                        ?.call();
-
-                    if (mounted) {
-                      setState(() {});
-                    }
-                  },
+                      ? Icons
+                          .navigation_rounded
+                      : Icons
+                          .my_location_rounded,
+                  active:
+                      _autoFollow,
+                  onPressed:
+                      _recenterPressed,
                 ),
               ],
             ),
           ),
 
-          // ==================================================
-          // NO WALKER LOCATION
-          // ==================================================
+          // ====================================================
+          // WAITING FOR WALKER LOCATION
+          // ====================================================
 
-          if (widget.walkerLocation == null)
+          if (widget.walkerLocation ==
+              null)
             const Positioned(
               left: 16,
               right: 16,
-              bottom: 22,
-              child: _WaitingLocationBanner(),
+              bottom: 24,
+              child:
+                  _WaitingLocationBanner(),
             ),
         ],
       ),
@@ -256,8 +318,27 @@ class _WalkerAcceptMapState
   }
 
   // ==========================================================
-  // FOLLOW WALKER
+  // RECENTER / FOLLOW
   // ==========================================================
+
+  void _recenterPressed() {
+    _autoFollow = true;
+
+    final LatLng? walker =
+        widget.walkerLocation;
+
+    if (walker != null) {
+      _followWalker(walker);
+    } else {
+      _recenterOwner();
+    }
+
+    widget.onMyLocationPressed?.call();
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   void _followWalker(
     LatLng walkerLocation,
@@ -273,24 +354,29 @@ class _WalkerAcceptMapState
         walkerLocation,
         _mapController.camera.zoom,
       );
-    } catch (_) {}
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptMap follow error: $error',
+      );
+    }
   }
 
-  // ==========================================================
-  // RECENTER OWNER
-  // ==========================================================
-
   void _recenterOwner() {
-    if (!mounted || !_mapReady) {
+    if (!mounted ||
+        !_mapReady) {
       return;
     }
 
     try {
       _mapController.move(
         widget.ownerLocation,
-        15.5,
+        15.0,
       );
-    } catch (_) {}
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptMap recenter error: $error',
+      );
+    }
   }
 
   // ==========================================================
@@ -298,7 +384,9 @@ class _WalkerAcceptMapState
   // ==========================================================
 
   void _zoomIn() {
-    if (!_mapReady) return;
+    if (!_mapReady) {
+      return;
+    }
 
     try {
       final double zoom =
@@ -306,13 +394,21 @@ class _WalkerAcceptMapState
 
       _mapController.move(
         _mapController.camera.center,
-        (zoom + 1).clamp(5, 19),
+        (zoom + 1)
+            .clamp(5.0, 19.0)
+            .toDouble(),
       );
-    } catch (_) {}
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptMap zoom in error: $error',
+      );
+    }
   }
 
   void _zoomOut() {
-    if (!_mapReady) return;
+    if (!_mapReady) {
+      return;
+    }
 
     try {
       final double zoom =
@@ -320,9 +416,15 @@ class _WalkerAcceptMapState
 
       _mapController.move(
         _mapController.camera.center,
-        (zoom - 1).clamp(5, 19),
+        (zoom - 1)
+            .clamp(5.0, 19.0)
+            .toDouble(),
       );
-    } catch (_) {}
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptMap zoom out error: $error',
+      );
+    }
   }
 
   // ==========================================================
@@ -333,7 +435,8 @@ class _WalkerAcceptMapState
     LatLng oldLocation,
     LatLng newLocation,
   ) {
-    const double threshold = 0.00001;
+    const double threshold =
+        0.00001;
 
     final double lat =
         (oldLocation.latitude -
@@ -376,7 +479,9 @@ class _LiveMapBadge
   const _LiveMapBadge();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final Color primary =
         Theme.of(context)
             .colorScheme
@@ -384,14 +489,17 @@ class _LiveMapBadge
 
     return _GlassBadge(
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
+            decoration:
+                BoxDecoration(
               color: primary,
-              shape: BoxShape.circle,
+              shape:
+                  BoxShape.circle,
             ),
           ),
           const SizedBox(width: 7),
@@ -399,7 +507,8 @@ class _LiveMapBadge
             'LIVE TRACKING',
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
               letterSpacing: .7,
             ),
           ),
@@ -422,15 +531,19 @@ class _FollowBadge
   final bool following;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return _GlassBadge(
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
           Icon(
             following
                 ? Icons.navigation_rounded
-                : Icons.pan_tool_alt_rounded,
+                : Icons
+                    .pan_tool_alt_rounded,
             size: 13,
           ),
           const SizedBox(width: 5),
@@ -440,7 +553,8 @@ class _FollowBadge
                 : 'MAP MOVED',
             style: const TextStyle(
               fontSize: 9,
-              fontWeight: FontWeight.w800,
+              fontWeight:
+                  FontWeight.w800,
             ),
           ),
         ],
@@ -462,17 +576,19 @@ class _GlassBadge
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Container(
       padding:
           const EdgeInsets.symmetric(
         horizontal: 11,
         vertical: 8,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(
-          alpha: .94,
-        ),
+      decoration:
+          BoxDecoration(
+        color: Colors.white
+            .withValues(alpha: .94),
         borderRadius:
             BorderRadius.circular(22),
         boxShadow: const [
@@ -505,7 +621,9 @@ class _MapControlButton
   final bool active;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -514,7 +632,8 @@ class _MapControlButton
           ? colors.primary
           : Colors.white,
       elevation: 5,
-      shape: const CircleBorder(),
+      shape:
+          const CircleBorder(),
       child: InkWell(
         onTap: onPressed,
         customBorder:
@@ -544,14 +663,17 @@ class _WaitingLocationBanner
   const _WaitingLocationBanner();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Container(
       padding:
           const EdgeInsets.symmetric(
         horizontal: 14,
         vertical: 11,
       ),
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color: Colors.white
             .withValues(alpha: .95),
         borderRadius:
@@ -579,7 +701,8 @@ class _WaitingLocationBanner
               'Waiting for Walker location…',
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight:
+                    FontWeight.w700,
               ),
             ),
           ),
