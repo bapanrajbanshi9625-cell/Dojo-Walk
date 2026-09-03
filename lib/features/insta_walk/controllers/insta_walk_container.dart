@@ -217,14 +217,29 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _requestId = requestId;
 
     // --------------------------------------------------------
-    // STOP ONLY LOCAL SEARCH UI
-    //
-    // Do NOT cancel Firestore request here.
+    // STOP LOCAL RADAR
     // --------------------------------------------------------
 
     _stopRadar();
 
+    // --------------------------------------------------------
+    // STOP FIRESTORE LISTENER
+    //
+    // IMPORTANT:
+    // Walker has accepted the request.
+    // Owner no longer needs the searching listener.
+    //
+    // This does NOT cancel/delete the Firestore request.
+    // It only stops this owner's local realtime listener.
+    // --------------------------------------------------------
+
+    _service.stopListening();
+
     _stopping = false;
+
+    // --------------------------------------------------------
+    // IMMEDIATELY REMOVE SEARCH UI
+    // --------------------------------------------------------
 
     _updateState(() {
       _searching = false;
