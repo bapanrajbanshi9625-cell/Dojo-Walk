@@ -6,6 +6,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
 
   Widget _buildCompactPatti() {
+    final bool accepted = _acceptedNavigationStarted;
+
     final Widget patti = Container(
       width: double.infinity,
       height: 64,
@@ -55,7 +57,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
               ),
             ),
             child: Icon(
-              Icons.flash_on_rounded,
+              accepted
+                  ? Icons.check_circle_rounded
+                  : Icons.flash_on_rounded,
               color: AppColors.mintTint,
               size: 19,
             ),
@@ -65,16 +69,15 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
           Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Insta Walk',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
@@ -84,9 +87,11 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 const SizedBox(height: 2),
 
                 Text(
-                  _searching
-                      ? 'Finding walker for $_petName'
-                      : 'Walker is active',
+                  accepted
+                      ? 'Walker accepted'
+                      : _searching
+                          ? 'Finding walker for $_petName'
+                          : 'Walker is active',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -115,7 +120,11 @@ extension _InstaWalkView on _InstaWalkContainerState {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              _searching ? 'LIVE' : 'ACTIVE',
+              accepted
+                  ? 'ACCEPTED'
+                  : _searching
+                      ? 'LIVE'
+                      : 'ACTIVE',
               style: TextStyle(
                 color: AppColors.mintTint,
                 fontSize: 7,
@@ -199,6 +208,24 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
 
   Widget _buildFullScreenContent() {
+    // ==========================================================
+    // ACCEPTED = SEARCH UI MUST NEVER BE RENDERED
+    // ==========================================================
+    //
+    // Walker accepted होने के बाद:
+    //
+    // - Radar नहीं दिखेगा
+    // - Searching UI नहीं दिखेगा
+    // - Stop Search button नहीं दिखेगा
+    // - पुराने Firestore rebuild से searching UI वापस नहीं आएगा
+    //
+    // Container handler accepted navigation को control करता है.
+    // ==========================================================
+
+    if (_acceptedNavigationStarted) {
+      return const SizedBox.shrink();
+    }
+
     // ----------------------------------------------------------
     // RECOVERY
     // ----------------------------------------------------------
@@ -221,7 +248,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         _header(),
 
@@ -260,13 +288,16 @@ extension _InstaWalkView on _InstaWalkContainerState {
         // SEARCHING
         // ------------------------------------------------------
 
-        if (_searching) _buildSearching(),
+        if (_searching && !_acceptedNavigationStarted)
+          _buildSearching(),
 
         // ------------------------------------------------------
         // SEARCH FINISHED
         // ------------------------------------------------------
 
-        if (!_searching && _searchFinished)
+        if (!_searching &&
+            !_acceptedNavigationStarted &&
+            _searchFinished)
           InstaWalkSearchButton(
             loading: false,
             text: 'Try Again',
@@ -281,6 +312,18 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
 
   Widget _buildSearching() {
+    // ----------------------------------------------------------
+    // HARD GUARD
+    // ----------------------------------------------------------
+    //
+    // Even if this method is accidentally reached after accept,
+    // never create InstaWalkSearching / Radar.
+    // ----------------------------------------------------------
+
+    if (_acceptedNavigationStarted) {
+      return const SizedBox.shrink();
+    }
+
     if (_ownerPosition != null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -370,10 +413,12 @@ extension _InstaWalkView on _InstaWalkContainerState {
       width: double.infinity,
       height: 46,
       child: ElevatedButton(
-        onPressed: _stopping ? null : _stopSearch,
+        onPressed:
+            _stopping ? null : _stopSearch,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.navy,
-          disabledBackgroundColor: AppColors.navy,
+          disabledBackgroundColor:
+              AppColors.navy,
           foregroundColor: AppColors.white,
           disabledForegroundColor:
               AppColors.white.withValues(
@@ -432,7 +477,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
 
   Widget _header() {
-    final bool isLive = _searching;
+    final bool isLive =
+        _searching && !_acceptedNavigationStarted;
 
     return Row(
       children: [
@@ -446,7 +492,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 AppColors.mintTint,
               ],
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius:
+                BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
                 color: AppColors.mint.withValues(
@@ -456,8 +503,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.flash_on_rounded,
+          child: Icon(
+            _acceptedNavigationStarted
+                ? Icons.check_circle_rounded
+                : Icons.flash_on_rounded,
             color: AppColors.navy,
             size: 25,
           ),
@@ -482,11 +531,14 @@ extension _InstaWalkView on _InstaWalkContainerState {
               const SizedBox(height: 2),
 
               Text(
-                isLive
-                    ? 'Finding a walker for $_petName'
-                    : 'Walker is active',
+                _acceptedNavigationStarted
+                    ? 'Walker accepted'
+                    : isLive
+                        ? 'Finding a walker for $_petName'
+                        : 'Walker is active',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.white.withValues(
                     alpha: 0.60,
@@ -510,7 +562,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
             color: AppColors.mint.withValues(
               alpha: 0.12,
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius:
+                BorderRadius.circular(20),
             border: Border.all(
               color: AppColors.mint.withValues(
                 alpha: 0.25,
@@ -518,12 +571,14 @@ extension _InstaWalkView on _InstaWalkContainerState {
             ),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize:
+                MainAxisSize.min,
             children: [
               Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(
+                decoration:
+                    BoxDecoration(
                   color: AppColors.mint,
                   shape: BoxShape.circle,
                 ),
@@ -532,7 +587,11 @@ extension _InstaWalkView on _InstaWalkContainerState {
               const SizedBox(width: 4),
 
               Text(
-                isLive ? 'LIVE' : 'ACTIVE',
+                _acceptedNavigationStarted
+                    ? 'ACCEPTED'
+                    : isLive
+                        ? 'LIVE'
+                        : 'ACTIVE',
                 style: const TextStyle(
                   color: AppColors.mintTint,
                   fontSize: 8,
