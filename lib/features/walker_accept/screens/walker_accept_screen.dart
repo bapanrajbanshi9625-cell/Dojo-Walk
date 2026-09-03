@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../screens/live_walk_screen.dart';  
-import '../models/walker_accept_data.dart';  
-import '../services/walker_accept_service.dart';  
-import '../services/walker_route_service.dart';  
-import '../widgets/walker_accept_map.dart';  
-import '../widgets/walker_accept_status.dart';  
-import '../widgets/walker_contact_buttons.dart';  
-import '../widgets/walker_eta_distance.dart';  
-import '../widgets/walker_info_card.dart';  
+import '../../../screens/live_walk_screen.dart';
+import '../models/walker_accept_data.dart';
+import '../services/walker_accept_service.dart';
+import '../services/walker_route_service.dart';
+import '../widgets/walker_accept_map.dart';
+import '../widgets/walker_accept_status.dart';
+import '../widgets/walker_contact_buttons.dart';
+import '../widgets/walker_eta_distance.dart';
+import '../widgets/walker_info_card.dart';
 
 class WalkerAcceptScreen extends StatefulWidget {
   const WalkerAcceptScreen({
@@ -32,7 +32,8 @@ class WalkerAcceptScreen extends StatefulWidget {
   final VoidCallback? onHelp;
 
   @override
-  State<WalkerAcceptScreen> createState() => _WalkerAcceptScreenState();
+  State<WalkerAcceptScreen> createState() =>
+      _WalkerAcceptScreenState();
 }
 
 class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
@@ -48,17 +49,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   bool _reachedHandled = false;
   bool _closingAfterReached = false;
 
-  /// Location used for the route request currently in progress.
-  LatLng? _routeLocationInFlight;
-
-  /// Latest location received while a route request was in progress.
-  LatLng? _pendingRouteLocation;
-
-  /// Last Walker location for which a route was successfully/requested.
+  /// Last Walker location for which a route request
+  /// was successfully completed.
   LatLng? _lastRouteWalkerLocation;
 
-  /// Do not request a new route for every 10m GPS update.
-  /// The marker still moves on every Firestore update.
+  /// Do not request a new route for every GPS update.
+  /// Walker marker still updates on every Firestore snapshot.
   static const double _routeRefreshDistanceMeters = 50.0;
 
   static const Distance _distance = Distance();
@@ -74,11 +70,17 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   }
 
   // ============================================================
+  // REQUEST ID
+  // ============================================================
+
+  String get _requestId => widget.requestId.trim();
+
+  // ============================================================
   // FIRESTORE REALTIME LISTENER
   // ============================================================
 
   void _listenToRequest() {
-    final requestId = widget.requestId.trim();
+    final requestId = _requestId;
 
     if (requestId.isEmpty) {
       debugPrint(
@@ -87,7 +89,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
-    _requestSubscription = _acceptService.watchRequest(requestId).listen(
+    _requestSubscription =
+        _acceptService.watchRequest(requestId).listen(
       (WalkerAcceptData? data) {
         if (!mounted || data == null) {
           return;
@@ -97,14 +100,17 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           _data = data;
         });
 
-        // Reached handling must happen before route work.
+        // Reached flow must be checked before route work.
         _checkReached(data);
 
         if (!data.isReached && !_reachedHandled) {
           _refreshRoute(data);
         }
       },
-      onError: (Object error, StackTrace stackTrace) {
+      onError: (
+        Object error,
+        StackTrace stackTrace,
+      ) {
         debugPrint(
           '[WalkerAcceptScreen] Firestore listener error: $error',
         );
@@ -116,7 +122,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // REACHED FLOW
   // ============================================================
 
-  void _checkReached(WalkerAcceptData data) {
+  void _checkReached(
+    WalkerAcceptData data,
+  ) {
     if (!data.isReached ||
         _reachedHandled ||
         _closingAfterReached) {
@@ -126,8 +134,6 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     _reachedHandled = true;
     _closingAfterReached = true;
 
-    // Stop listening to the accepted-request screen once
-    // the Walker has reached the Owner.
     _requestSubscription?.cancel();
     _requestSubscription = null;
 
@@ -142,10 +148,17 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         return;
       }
 
+      final requestId = _requestId;
+
+      if (requestId.isEmpty) {
+        Navigator.of(context).maybePop();
+        return;
+      }
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => LiveWalkScreen(
-            activeWalkId: widget.requestId.trim(),
+            activeWalkId: requestId,
             isWalker: false,
           ),
         ),
@@ -157,7 +170,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // ROUTE REFRESH
   // ============================================================
 
-  void _refreshRoute(WalkerAcceptData data) {
+  void _refreshRoute(
+    WalkerAcceptData data,
+  ) {
     if (!mounted ||
         _reachedHandled ||
         data.isReached ||
@@ -166,47 +181,61 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
-    final walkerLocation = _walkerLatLngFromData(data);
-    final ownerLocation = _ownerLatLngFromData(data);
+    final walkerLocation =
+        _walkerLatLngFromData(data);
 
-    if (walkerLocation == null || ownerLocation == null) {
+    final ownerLocation =
+        _ownerLatLngFromData(data);
+
+    if (walkerLocation == null ||
+        ownerLocation == null) {
       return;
     }
 
-    // If a route request is already running, remember the latest
-    // Walker location. After the current request finishes, another
-    // route will be requested if needed.
+    // Do not start another route request while one
+    // is already running.
     if (_loadingRoute) {
-      _pendingRouteLocation = walkerLocation;
       return;
     }
 
-    // First route should always be requested.
-    if (_lastRouteWalkerLocation == null) {
-      _loadRoute(
-        walkerLocation: walkerLocation,
-        ownerLocation: ownerLocation,
+    // First valid Walker location:
+    // always request the first route.
+    final lastRouteLocation =
+        _lastRouteWalkerLocation;
+
+    if (lastRouteLocation == null) {
+      unawaited(
+        _loadRoute(
+          walkerLocation: walkerLocation,
+          ownerLocation: ownerLocation,
+        ),
       );
       return;
     }
 
     final movedMeters = _distance.as(
       LengthUnit.Meter,
-      _lastRouteWalkerLocation!,
+      lastRouteLocation,
       walkerLocation,
     );
 
-    // Marker updates are realtime regardless of this threshold.
-    // We only throttle route API requests.
-    if (movedMeters < _routeRefreshDistanceMeters) {
+    // Marker is realtime. Route API is throttled to 50m.
+    if (movedMeters <
+        _routeRefreshDistanceMeters) {
       return;
     }
 
-    _loadRoute(
-      walkerLocation: walkerLocation,
-      ownerLocation: ownerLocation,
+    unawaited(
+      _loadRoute(
+        walkerLocation: walkerLocation,
+        ownerLocation: ownerLocation,
+      ),
     );
   }
+
+  // ============================================================
+  // LOAD ROUTE
+  // ============================================================
 
   Future<void> _loadRoute({
     required LatLng walkerLocation,
@@ -221,15 +250,10 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     }
 
     _loadingRoute = true;
-    _routeLocationInFlight = walkerLocation;
-    _pendingRouteLocation = null;
-
-    // Mark this location immediately so repeated Firestore snapshots
-    // do not start duplicate route requests.
-    _lastRouteWalkerLocation = walkerLocation;
 
     try {
-      final result = await _routeService.getRoute(
+      final result =
+          await _routeService.getRoute(
         walkerLocation: walkerLocation,
         ownerLocation: ownerLocation,
       );
@@ -238,10 +262,21 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         return;
       }
 
-      setState(() {
-        _route = result;
-      });
-    } catch (error, stackTrace) {
+      if (result != null) {
+        setState(() {
+          _route = result;
+        });
+
+        // Only mark the location after a successful
+        // route response. This allows retry if the
+        // route request fails.
+        _lastRouteWalkerLocation =
+            walkerLocation;
+      }
+    } catch (
+      Object error,
+      StackTrace stackTrace,
+    ) {
       debugPrint(
         '[WalkerAcceptScreen] Route error: $error',
       );
@@ -251,52 +286,61 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       );
     } finally {
       _loadingRoute = false;
-      _routeLocationInFlight = null;
 
       if (!mounted || _reachedHandled) {
         return;
       }
 
-      // Check the latest Firestore location after the current
-      // route request completes.
+      // Check the newest Firestore location after
+      // the route request finishes.
       final latestData = _data;
 
-      if (latestData != null &&
-          !latestData.isReached &&
-          latestData.hasWalkerLocation &&
-          latestData.hasOwnerLocation) {
-        final latestWalker =
-            _walkerLatLngFromData(latestData);
+      if (latestData == null ||
+          latestData.isReached ||
+          !latestData.hasWalkerLocation ||
+          !latestData.hasOwnerLocation) {
+        return;
+      }
 
-        final latestOwner =
-            _ownerLatLngFromData(latestData);
+      final latestWalker =
+          _walkerLatLngFromData(latestData);
 
-        if (latestWalker != null &&
-            latestOwner != null) {
-          final lastRouteLocation =
-              _lastRouteWalkerLocation;
+      final latestOwner =
+          _ownerLatLngFromData(latestData);
 
-          if (lastRouteLocation == null) {
-            _loadRoute(
-              walkerLocation: latestWalker,
-              ownerLocation: latestOwner,
-            );
-          } else {
-            final movedMeters = _distance.as(
-              LengthUnit.Meter,
-              lastRouteLocation,
-              latestWalker,
-            );
+      if (latestWalker == null ||
+          latestOwner == null) {
+        return;
+      }
 
-            if (movedMeters >=
-                _routeRefreshDistanceMeters) {
-              _loadRoute(
-                walkerLocation: latestWalker,
-                ownerLocation: latestOwner,
-              );
-            }
-          }
-        }
+      final lastRouteLocation =
+          _lastRouteWalkerLocation;
+
+      // If route failed, retry using the latest location.
+      if (lastRouteLocation == null) {
+        unawaited(
+          _loadRoute(
+            walkerLocation: latestWalker,
+            ownerLocation: latestOwner,
+          ),
+        );
+        return;
+      }
+
+      final movedMeters = _distance.as(
+        LengthUnit.Meter,
+        lastRouteLocation,
+        latestWalker,
+      );
+
+      if (movedMeters >=
+          _routeRefreshDistanceMeters) {
+        unawaited(
+          _loadRoute(
+            walkerLocation: latestWalker,
+            ownerLocation: latestOwner,
+          ),
+        );
       }
     }
   }
@@ -314,14 +358,20 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return null;
     }
 
-    final lat = location.latitude.toDouble();
-    final lng = location.longitude.toDouble();
+    final latitude = location.latitude.toDouble();
+    final longitude = location.longitude.toDouble();
 
-    if (!_isValidCoordinates(lat, lng)) {
+    if (!_isValidCoordinates(
+      latitude,
+      longitude,
+    )) {
       return null;
     }
 
-    return LatLng(lat, lng);
+    return LatLng(
+      latitude,
+      longitude,
+    );
   }
 
   LatLng? _walkerLatLngFromData(
@@ -333,38 +383,49 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return null;
     }
 
-    final lat = location.latitude.toDouble();
-    final lng = location.longitude.toDouble();
+    final latitude = location.latitude.toDouble();
+    final longitude = location.longitude.toDouble();
 
-    // Firestore may contain GeoPoint(0, 0) before the first
-    // valid Walker GPS update. Never show that as a real location.
-    if (!_isValidCoordinates(lat, lng)) {
+    // Never display Firestore GeoPoint(0,0)
+    // as a real Walker location.
+    if (!_isValidCoordinates(
+      latitude,
+      longitude,
+    )) {
       return null;
     }
 
-    return LatLng(lat, lng);
+    return LatLng(
+      latitude,
+      longitude,
+    );
   }
 
   bool _isValidCoordinates(
     double latitude,
     double longitude,
   ) {
-    if (latitude == 0.0 && longitude == 0.0) {
+    if (latitude == 0.0 &&
+        longitude == 0.0) {
       return false;
     }
 
-    if (latitude < -90.0 || latitude > 90.0) {
+    if (latitude < -90.0 ||
+        latitude > 90.0) {
       return false;
     }
 
-    if (longitude < -180.0 || longitude > 180.0) {
+    if (longitude < -180.0 ||
+        longitude > 180.0) {
       return false;
     }
 
     return true;
   }
 
-  bool _isValidLatLng(LatLng location) {
+  bool _isValidLatLng(
+    LatLng location,
+  ) {
     return _isValidCoordinates(
       location.latitude,
       location.longitude,
@@ -376,8 +437,6 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // ============================================================
 
   void _recenterOwner() {
-    // WalkerAcceptMap owns the actual MapController.
-    // This callback is kept for the map's existing API.
     debugPrint(
       '[WalkerAcceptScreen] Recenter requested.',
     );
@@ -388,7 +447,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final data = _data;
 
     if (data == null) {
@@ -419,10 +480,13 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               child: WalkerAcceptMap(
                 ownerLocation: ownerLocation,
                 walkerLocation: walkerLocation,
-                walkerImageUrl: data.walkerProfileImage,
+                walkerImageUrl:
+                    data.walkerProfileImage,
                 routePoints:
-                    _route?.points ?? const <LatLng>[],
-                walkerHeading: data.walkerHeading,
+                    _route?.points ??
+                    const <LatLng>[],
+                walkerHeading:
+                    data.walkerHeading,
                 onMyLocationPressed:
                     _recenterOwner,
               ),
@@ -432,7 +496,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
             _buildBottomPanel(
               data: data,
-              walkerLocation: walkerLocation,
+              walkerLocation:
+                  walkerLocation,
             ),
           ],
         ),
@@ -447,16 +512,21 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   Widget _buildTopHeader(
     WalkerAcceptData data,
   ) {
+    final walkerName =
+        data.walkerName.trim();
+
     return Positioned(
       top: 12,
       left: 16,
       right: 16,
       child: Material(
         elevation: 6,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
         color: Colors.white,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 13,
           ),
@@ -465,17 +535,23 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Container(
                 width: 42,
                 height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.orange.shade50,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.directions_walk_rounded,
-                  color: Colors.orange.shade800,
+                  Icons
+                      .directions_walk_rounded,
+                  color:
+                      Colors.orange.shade800,
                   size: 23,
                 ),
               ),
+
               const SizedBox(width: 12),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -485,42 +561,53 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                       'Walker is on the way',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight:
+                            FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      data.walkerName.isNotEmpty
-                          ? data.walkerName
+                      walkerName.isNotEmpty
+                          ? walkerName
                           : 'Your Walker',
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
+                        color:
+                            Colors.grey.shade700,
+                        fontWeight:
+                            FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
+
               Container(
-                padding: const EdgeInsets.symmetric(
+                padding:
+                    const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 7,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.green.shade50,
+                  borderRadius:
+                      BorderRadius.circular(12),
                 ),
                 child: Text(
                   data.isReached
                       ? 'Arrived'
                       : 'Accepted',
                   style: TextStyle(
-                    color: Colors.green.shade700,
+                    color:
+                        Colors.green.shade700,
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight:
+                        FontWeight.w800,
                   ),
                 ),
               ),
@@ -542,6 +629,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     final hasWalkerLocation =
         walkerLocation != null;
 
+    final walkerName =
+        data.walkerName.trim();
+
+    final walkerPhone =
+        data.walkerPhone.trim();
+
     return Positioned(
       left: 0,
       right: 0,
@@ -549,26 +642,31 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       child: Material(
         elevation: 12,
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(
+        borderRadius:
+            const BorderRadius.vertical(
           top: Radius.circular(28),
         ),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
+            padding:
+                const EdgeInsets.fromLTRB(
               18,
               14,
               18,
               16,
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 Container(
                   width: 42,
                   height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        Colors.grey.shade300,
                     borderRadius:
                         BorderRadius.circular(20),
                   ),
@@ -588,13 +686,14 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                             CrossAxisAlignment.start,
                         children: [
                           Text(
-                            data.walkerName.isNotEmpty
-                                ? data.walkerName
+                            walkerName.isNotEmpty
+                                ? walkerName
                                 : 'Your Walker',
                             maxLines: 1,
                             overflow:
                                 TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style:
+                                const TextStyle(
                               fontSize: 17,
                               fontWeight:
                                   FontWeight.w800,
@@ -607,9 +706,14 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                                 : 'Waiting for Walker location…',
                             style: TextStyle(
                               fontSize: 12.5,
-                              color: hasWalkerLocation
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade600,
+                              color:
+                                  hasWalkerLocation
+                                      ? Colors
+                                          .green
+                                          .shade700
+                                      : Colors
+                                          .grey
+                                          .shade600,
                               fontWeight:
                                   FontWeight.w600,
                             ),
@@ -618,12 +722,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                       ),
                     ),
 
-                    if (data.walkerPhone
-                        .trim()
-                        .isNotEmpty)
+                    if (walkerPhone.isNotEmpty)
                       _buildCircleAction(
-                        icon: Icons.call_rounded,
-                        onTap: widget.onCall,
+                        icon:
+                            Icons.call_rounded,
+                        onTap:
+                            widget.onCall,
                       ),
                   ],
                 ),
@@ -643,7 +747,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                             CircularProgressIndicator(
                           strokeWidth: 2,
                           color:
-                              Colors.orange.shade700,
+                              Colors
+                                  .orange
+                                  .shade700,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -652,7 +758,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           color:
-                              Colors.grey.shade600,
+                              Colors
+                                  .grey
+                                  .shade600,
                           fontWeight:
                               FontWeight.w600,
                         ),
@@ -666,18 +774,24 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildActionButton(
-                        icon: Icons.chat_bubble_outline_rounded,
+                      child:
+                          _buildActionButton(
+                        icon: Icons
+                            .chat_bubble_outline_rounded,
                         label: 'Chat',
-                        onTap: widget.onChat,
+                        onTap:
+                            widget.onChat,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _buildActionButton(
-                        icon: Icons.help_outline_rounded,
+                      child:
+                          _buildActionButton(
+                        icon: Icons
+                            .help_outline_rounded,
                         label: 'Help',
-                        onTap: widget.onHelp,
+                        onTap:
+                            widget.onHelp,
                       ),
                     ),
                   ],
@@ -703,11 +817,14 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     return Container(
       width: 52,
       height: 52,
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.orange.shade50,
+        color:
+            Colors.orange.shade50,
         border: Border.all(
-          color: Colors.orange.shade200,
+          color:
+              Colors.orange.shade200,
           width: 1.5,
         ),
       ),
@@ -717,7 +834,11 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder:
-                    (_, __, ___) {
+                    (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                ) {
                   return Icon(
                     Icons.person_rounded,
                     color:
@@ -728,7 +849,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               )
             : Icon(
                 Icons.person_rounded,
-                color: Colors.orange.shade700,
+                color:
+                    Colors.orange.shade700,
                 size: 28,
               ),
       ),
@@ -742,6 +864,15 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   Widget _buildTravelInfo(
     WalkerAcceptData data,
   ) {
+    /*
+     * Using `is num` here intentionally makes this compatible
+     * whether the model exposes these values as int, double,
+     * or nullable numeric values.
+     *
+     * It also avoids unnecessary null-comparison analyzer
+     * warnings when a model field is non-nullable.
+     */
+
     final distanceMeters =
         data.distanceMeters;
 
@@ -752,47 +883,65 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         data.etaMinutes;
 
     final hasDistance =
-        distanceMeters != null ||
-        distanceKm != null;
+        distanceMeters is num ||
+        distanceKm is num;
 
     final hasEta =
-        etaMinutes != null;
+        etaMinutes is num;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 14,
         vertical: 13,
       ),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(18),
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.grey.shade50,
+        borderRadius:
+            BorderRadius.circular(18),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color:
+              Colors.grey.shade200,
         ),
       ),
       child: Row(
         children: [
           Expanded(
             child: _buildInfoItem(
-              icon: Icons.route_rounded,
+              icon:
+                  Icons.route_rounded,
               title: 'Distance',
               value: hasDistance
                   ? _formatDistance(
-                      meters: distanceMeters,
-                      km: distanceKm,
+                      meters:
+                          distanceMeters
+                              is num
+                          ? distanceMeters
+                          : null,
+                      km:
+                          distanceKm
+                              is num
+                          ? distanceKm
+                          : null,
                     )
                   : '--',
             ),
           ),
+
           Container(
             width: 1,
             height: 38,
-            color: Colors.grey.shade200,
+            color:
+                Colors.grey.shade200,
           ),
+
           Expanded(
             child: _buildInfoItem(
-              icon: Icons.schedule_rounded,
+              icon:
+                  Icons.schedule_rounded,
               title: 'ETA',
               value: hasEta
                   ? '${etaMinutes} min'
@@ -805,23 +954,29 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   }
 
   String _formatDistance({
-    double? meters,
-    double? km,
+    num? meters,
+    num? km,
   }) {
     if (meters != null) {
-      if (meters < 1000) {
-        return '${meters.round()} m';
+      final metersValue =
+          meters.toDouble();
+
+      if (metersValue < 1000) {
+        return '${metersValue.round()} m';
       }
 
-      return '${(meters / 1000).toStringAsFixed(1)} km';
+      return '${(metersValue / 1000).toStringAsFixed(1)} km';
     }
 
     if (km != null) {
-      if (km < 1) {
-        return '${(km * 1000).round()} m';
+      final kmValue =
+          km.toDouble();
+
+      if (kmValue < 1) {
+        return '${(kmValue * 1000).round()} m';
       }
 
-      return '${km.toStringAsFixed(1)} km';
+      return '${kmValue.toStringAsFixed(1)} km';
     }
 
     return '--';
@@ -837,23 +992,28 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         Icon(
           icon,
           size: 20,
-          color: Colors.orange.shade700,
+          color:
+              Colors.orange.shade700,
         ),
         const SizedBox(height: 5),
         Text(
           title,
           style: TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w600,
+            color:
+                Colors.grey.shade600,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(
+          style:
+              const TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w800,
+            fontWeight:
+                FontWeight.w800,
           ),
         ),
       ],
@@ -861,7 +1021,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   }
 
   // ============================================================
-  // ACTION BUTTONS
+  // CIRCLE ACTION
   // ============================================================
 
   Widget _buildCircleAction({
@@ -869,22 +1029,31 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     VoidCallback? onTap,
   }) {
     return Material(
-      color: Colors.orange.shade50,
-      shape: const CircleBorder(),
+      color:
+          Colors.orange.shade50,
+      shape:
+          const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
+        customBorder:
+            const CircleBorder(),
+        child: const Padding(
+          padding:
+              EdgeInsets.all(11),
           child: Icon(
-            icon,
+            Icons.call_rounded,
             size: 20,
-            color: Colors.orange.shade800,
+            color:
+                Colors.deepOrange,
           ),
         ),
       ),
     );
   }
+
+  // ============================================================
+  // ACTION BUTTON
+  // ============================================================
 
   Widget _buildActionButton({
     required IconData icon,
@@ -901,16 +1070,22 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         ),
         label: Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
+          style:
+              const TextStyle(
+            fontWeight:
+                FontWeight.w700,
           ),
         ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.orange.shade800,
+        style:
+            OutlinedButton.styleFrom(
+          foregroundColor:
+              Colors.orange.shade800,
           side: BorderSide(
-            color: Colors.orange.shade200,
+            color:
+                Colors.orange.shade200,
           ),
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(14),
           ),
@@ -925,21 +1100,27 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
   Widget _buildLocationUnavailable() {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor:
+          Colors.white,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor:
+            Colors.white,
+        foregroundColor:
+            Colors.black,
         title: const Text(
           'Walker',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
+          style:
+              TextStyle(
+            fontWeight:
+                FontWeight.w800,
           ),
         ),
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding:
+              const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment:
                 MainAxisAlignment.center,
@@ -947,32 +1128,47 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Container(
                 width: 72,
                 height: 72,
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  shape: BoxShape.circle,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.orange.shade50,
+                  shape:
+                      BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.location_off_rounded,
+                  Icons
+                      .location_off_rounded,
                   size: 34,
-                  color: Colors.orange.shade700,
+                  color:
+                      Colors.orange.shade700,
                 ),
               ),
+
               const SizedBox(height: 18),
+
               const Text(
                 'Owner location is unavailable.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
+                textAlign:
+                    TextAlign.center,
+                style:
+                    TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
+
               const SizedBox(height: 8),
+
               Text(
                 'We could not load the pickup location for this request.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
+                textAlign:
+                    TextAlign.center,
+                style:
+                    TextStyle(
                   fontSize: 13,
-                  color: Colors.grey.shade600,
+                  color:
+                      Colors.grey.shade600,
                 ),
               ),
             ],
