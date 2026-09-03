@@ -9,6 +9,11 @@ part of '../controllers/insta_walk_container.dart';
 // Navigation is handled ONLY by:
 // _InstaWalkContainerState._handleAccepted()
 //
+// IMPORTANT:
+// - Do not navigate from this extension.
+// - Do not set active state here.
+// - Do not cancel/delete the Firestore request here.
+// - Container handler controls radar + listener shutdown.
 // ============================================================
 
 extension _WalkerAcceptedRole on _InstaWalkContainerState {
@@ -41,10 +46,16 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     // REQUEST ID
     // ==========================================================
 
+    final String acceptedRequestId =
+        accepted.requestId.trim();
+
+    final String currentRequestId =
+        (_requestId ?? '').trim();
+
     final String requestId =
-        accepted.requestId.trim().isNotEmpty
-            ? accepted.requestId.trim()
-            : (_requestId ?? '').trim();
+        acceptedRequestId.isNotEmpty
+            ? acceptedRequestId
+            : currentRequestId;
 
     debugPrint(
       'requestId = $requestId',
@@ -97,24 +108,17 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
     _requestId = requestId;
 
     // ==========================================================
-    // IMPORTANT
+    // ACCEPTED HANDLER
     // ==========================================================
     //
-    // Do NOT call:
+    // The container handler is the single source of truth for:
     //
-    // _setActive(true)
+    // 1. Stopping radar
+    // 2. Stopping Firestore listener
+    // 3. Turning searching OFF
+    // 4. Opening WalkerAcceptScreen
     //
-    // here.
-    //
-    // The accepted flow is already transitioning away from
-    // the search screen. Changing active state here can trigger
-    // the parent to rebuild/dispose this container before the
-    // navigation frame executes.
-    //
-    // ==========================================================
-
-    // ==========================================================
-    // INTERNAL ACCEPTED HANDLER
+    // Do NOT duplicate those actions here.
     // ==========================================================
 
     debugPrint(
