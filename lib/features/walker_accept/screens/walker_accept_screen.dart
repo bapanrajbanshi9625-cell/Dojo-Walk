@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../screens/live_walk_screen.dart';
@@ -9,10 +8,6 @@ import '../models/walker_accept_data.dart';
 import '../services/walker_accept_service.dart';
 import '../services/walker_route_service.dart';
 import '../widgets/walker_accept_map.dart';
-import '../widgets/walker_accept_status.dart';
-import '../widgets/walker_contact_buttons.dart';
-import '../widgets/walker_eta_distance.dart';
-import '../widgets/walker_info_card.dart';
 
 class WalkerAcceptScreen extends StatefulWidget {
   const WalkerAcceptScreen({
@@ -25,15 +20,13 @@ class WalkerAcceptScreen extends StatefulWidget {
   });
 
   final String requestId;
-
   final ValueChanged<WalkerAcceptData>? onReached;
   final VoidCallback? onCall;
   final VoidCallback? onChat;
   final VoidCallback? onHelp;
 
   @override
-  State<WalkerAcceptScreen> createState() =>
-      _WalkerAcceptScreenState();
+  State<WalkerAcceptScreen> createState() => _WalkerAcceptScreenState();
 }
 
 class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
@@ -47,17 +40,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
   bool _loadingRoute = false;
   bool _reachedHandled = false;
-  bool _closingAfterReached = false;
 
-  /// Last Walker location for which a route request
-  /// was successfully completed.
   LatLng? _lastRouteWalkerLocation;
 
-  /// Do not request a new route for every GPS update.
-  /// Walker marker still updates on every Firestore snapshot.
   static const double _routeRefreshDistanceMeters = 50.0;
 
-  static const Distance _distance = Distance();
+  final Distance _distance = const Distance();
 
   @override
   void initState() {
@@ -69,30 +57,22 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     _listenToRequest();
   }
 
-  // ============================================================
-  // REQUEST ID
-  // ============================================================
-
-  String get _requestId => widget.requestId.trim();
-
-  // ============================================================
-  // FIRESTORE REALTIME LISTENER
-  // ============================================================
-
   void _listenToRequest() {
-    final requestId = _requestId;
+    final String requestId = widget.requestId.trim();
 
     if (requestId.isEmpty) {
-      debugPrint(
-        '[WalkerAcceptScreen] Empty requestId.',
-      );
       return;
     }
 
     _requestSubscription =
         _acceptService.watchRequest(requestId).listen(
       (WalkerAcceptData? data) {
-        if (!mounted || data == null) {
+        if (!mounted) return;
+
+        if (data == null) {
+          setState(() {
+            _data = null;
+          });
           return;
         }
 
@@ -100,129 +80,77 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           _data = data;
         });
 
-        // Reached flow must be checked before route work.
         _checkReached(data);
 
-        if (!data.isReached && !_reachedHandled) {
+        if (!data.isReached) {
           _refreshRoute(data);
         }
       },
-      onError: (
-        Object error,
-        StackTrace stackTrace,
-      ) {
+      onError: (Object error, StackTrace stackTrace) {
+        if (!mounted) return;
+
         debugPrint(
-          '[WalkerAcceptScreen] Firestore listener error: $error',
+          'WalkerAcceptScreen request stream error: $error',
         );
       },
     );
   }
 
-  // ============================================================
-  // REACHED FLOW
-  // ============================================================
-
-  void _checkReached(
-    WalkerAcceptData data,
-  ) {
-    if (!data.isReached ||
-        _reachedHandled ||
-        _closingAfterReached) {
+  void _checkReached(WalkerAcceptData data) {
+    if (_reachedHandled || !data.isReached) {
       return;
     }
 
     _reachedHandled = true;
-    _closingAfterReached = true;
-
-    _requestSubscription?.cancel();
-    _requestSubscription = null;
 
     widget.onReached?.call(data);
 
-    if (!mounted) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      final requestId = _requestId;
-
-      if (requestId.isEmpty) {
-        Navigator.of(context).maybePop();
-        return;
-      }
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => LiveWalkScreen(
-            activeWalkId: requestId,
-            isWalker: false,
-          ),
-        ),
-      );
-    });
+    unawaited(_openLiveWalk(data.requestId));
   }
 
-  // ============================================================
-  // ROUTE REFRESH
-  // ============================================================
+  Future<void> _openLiveWalk(String requestId) async {
+    await _requestSubscription?.cancel();
+    _requestSubscription = null;
 
-  void _refreshRoute(
-    WalkerAcceptData data,
-  ) {
-    if (!mounted ||
-        _reachedHandled ||
-        data.isReached ||
-        !data.hasWalkerLocation ||
-        !data.hasOwnerLocation) {
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => LiveWalkScreen(
+          activeWalkId: requestId,
+          isWalker: false,
+        ),
+      ),
+    );
+  }
+
+  void _refreshRoute(WalkerAcceptData data) {
+    final LatLng? walkerLocation =
+        _latLngFromGeoPoint(data.walkerLocation);
+
+    final LatLng? ownerLocation =
+        _latLngFromGeoPoint(data.ownerLocation);
+
+    if (walkerLocation == null || ownerLocation == null) {
       return;
     }
 
-    final walkerLocation =
-        _walkerLatLngFromData(data);
-
-    final ownerLocation =
-        _ownerLatLngFromData(data);
-
-    if (walkerLocation == null ||
-        ownerLocation == null) {
-      return;
-    }
-
-    // Do not start another route request while one
-    // is already running.
     if (_loadingRoute) {
       return;
     }
 
-    // First valid Walker location:
-    // always request the first route.
-    final lastRouteLocation =
-        _lastRouteWalkerLocation;
+    final LatLng? previous = _lastRouteWalkerLocation;
 
-    if (lastRouteLocation == null) {
-      unawaited(
-        _loadRoute(
-          walkerLocation: walkerLocation,
-          ownerLocation: ownerLocation,
-        ),
+    if (previous != null) {
+      final double movedMeters = _distance.as(
+        LengthUnit.Meter,
+        previous,
+        walkerLocation,
       );
-      return;
-    }
 
-    final movedMeters = _distance.as(
-      LengthUnit.Meter,
-      lastRouteLocation,
-      walkerLocation,
-    );
-
-    // Marker is realtime. Route API is throttled to 50m.
-    if (movedMeters <
-        _routeRefreshDistanceMeters) {
-      return;
+      if (movedMeters < _routeRefreshDistanceMeters) {
+        return;
+      }
     }
 
     unawaited(
@@ -233,300 +161,199 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     );
   }
 
-  // ============================================================
-  // LOAD ROUTE
-  // ============================================================
-
   Future<void> _loadRoute({
     required LatLng walkerLocation,
     required LatLng ownerLocation,
   }) async {
-    if (!mounted ||
-        _loadingRoute ||
-        _reachedHandled ||
-        !_isValidLatLng(walkerLocation) ||
-        !_isValidLatLng(ownerLocation)) {
+    if (_loadingRoute) {
       return;
     }
 
-    _loadingRoute = true;
+    setState(() {
+      _loadingRoute = true;
+    });
 
     try {
-      final result =
+      final WalkerRouteResult? result =
           await _routeService.getRoute(
         walkerLocation: walkerLocation,
         ownerLocation: ownerLocation,
       );
 
-      if (!mounted || _reachedHandled) {
-        return;
-      }
+      if (!mounted) return;
 
       if (result != null) {
         setState(() {
           _route = result;
+          _lastRouteWalkerLocation = walkerLocation;
         });
 
-        // Only mark the location after a successful
-        // route response. This allows retry if the
-        // route request fails.
-        _lastRouteWalkerLocation =
-            walkerLocation;
-      }
-    } catch (
-      Object error,
-      StackTrace stackTrace,
-    ) {
-      debugPrint(
-        '[WalkerAcceptScreen] Route error: $error',
-      );
+        // Firestore may have changed while the route was loading.
+        final WalkerAcceptData? latestData = _data;
 
+        if (latestData != null && !latestData.isReached) {
+          final LatLng? latestWalker =
+              _latLngFromGeoPoint(latestData.walkerLocation);
+
+          if (latestWalker != null) {
+            final LatLng? lastRoute =
+                _lastRouteWalkerLocation;
+
+            if (lastRoute != null) {
+              final double movedMeters = _distance.as(
+                LengthUnit.Meter,
+                lastRoute,
+                latestWalker,
+              );
+
+              if (movedMeters >= _routeRefreshDistanceMeters) {
+                unawaited(_loadRouteForLatestData(latestData));
+              }
+            }
+          }
+        }
+      }
+    } catch (error, stackTrace) {
       debugPrint(
-        '$stackTrace',
+        'WalkerAcceptScreen route error: $error',
+      );
+      debugPrint(
+        stackTrace.toString(),
       );
     } finally {
-      _loadingRoute = false;
-
-      if (!mounted || _reachedHandled) {
-        return;
-      }
-
-      // Check the newest Firestore location after
-      // the route request finishes.
-      final latestData = _data;
-
-      if (latestData == null ||
-          latestData.isReached ||
-          !latestData.hasWalkerLocation ||
-          !latestData.hasOwnerLocation) {
-        return;
-      }
-
-      final latestWalker =
-          _walkerLatLngFromData(latestData);
-
-      final latestOwner =
-          _ownerLatLngFromData(latestData);
-
-      if (latestWalker == null ||
-          latestOwner == null) {
-        return;
-      }
-
-      final lastRouteLocation =
-          _lastRouteWalkerLocation;
-
-      // If route failed, retry using the latest location.
-      if (lastRouteLocation == null) {
-        unawaited(
-          _loadRoute(
-            walkerLocation: latestWalker,
-            ownerLocation: latestOwner,
-          ),
-        );
-        return;
-      }
-
-      final movedMeters = _distance.as(
-        LengthUnit.Meter,
-        lastRouteLocation,
-        latestWalker,
-      );
-
-      if (movedMeters >=
-          _routeRefreshDistanceMeters) {
-        unawaited(
-          _loadRoute(
-            walkerLocation: latestWalker,
-            ownerLocation: latestOwner,
-          ),
-        );
+      if (mounted) {
+        setState(() {
+          _loadingRoute = false;
+        });
       }
     }
   }
 
-  // ============================================================
-  // LOCATION HELPERS
-  // ============================================================
-
-  LatLng? _ownerLatLngFromData(
+  Future<void> _loadRouteForLatestData(
     WalkerAcceptData data,
-  ) {
-    final location = data.ownerLocation;
+  ) async {
+    final LatLng? walkerLocation =
+        _latLngFromGeoPoint(data.walkerLocation);
 
-    if (location == null) {
-      return null;
+    final LatLng? ownerLocation =
+        _latLngFromGeoPoint(data.ownerLocation);
+
+    if (walkerLocation == null || ownerLocation == null) {
+      return;
     }
 
-    final latitude = location.latitude.toDouble();
-    final longitude = location.longitude.toDouble();
-
-    if (!_isValidCoordinates(
-      latitude,
-      longitude,
-    )) {
-      return null;
-    }
-
-    return LatLng(
-      latitude,
-      longitude,
+    await _loadRoute(
+      walkerLocation: walkerLocation,
+      ownerLocation: ownerLocation,
     );
   }
 
-  LatLng? _walkerLatLngFromData(
-    WalkerAcceptData data,
-  ) {
-    final location = data.walkerLocation;
-
-    if (location == null) {
+  LatLng? _latLngFromGeoPoint(dynamic point) {
+    if (point == null) {
       return null;
     }
 
-    final latitude = location.latitude.toDouble();
-    final longitude = location.longitude.toDouble();
+    final double latitude = point.latitude;
+    final double longitude = point.longitude;
 
-    // Never display Firestore GeoPoint(0,0)
-    // as a real Walker location.
-    if (!_isValidCoordinates(
-      latitude,
-      longitude,
-    )) {
+    if (!_isValidCoordinate(latitude, longitude)) {
       return null;
     }
 
-    return LatLng(
-      latitude,
-      longitude,
-    );
+    return LatLng(latitude, longitude);
   }
 
-  bool _isValidCoordinates(
+  bool _isValidCoordinate(
     double latitude,
     double longitude,
   ) {
-    if (latitude == 0.0 &&
-        longitude == 0.0) {
+    if (latitude == 0 && longitude == 0) {
       return false;
     }
 
-    if (latitude < -90.0 ||
-        latitude > 90.0) {
+    if (latitude < -90 || latitude > 90) {
       return false;
     }
 
-    if (longitude < -180.0 ||
-        longitude > 180.0) {
+    if (longitude < -180 || longitude > 180) {
       return false;
     }
 
     return true;
   }
 
-  bool _isValidLatLng(
-    LatLng location,
-  ) {
-    return _isValidCoordinates(
-      location.latitude,
-      location.longitude,
-    );
+  @override
+  void dispose() {
+    unawaited(_requestSubscription?.cancel());
+
+    super.dispose();
   }
-
-  // ============================================================
-  // MAP ACTIONS
-  // ============================================================
-
-  void _recenterOwner() {
-    debugPrint(
-      '[WalkerAcceptScreen] Recenter requested.',
-    );
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final data = _data;
+  Widget build(BuildContext context) {
+    final WalkerAcceptData? data = _data;
 
     if (data == null) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F6F8),
+        appBar: AppBar(
+          title: const Text('Walker'),
+          elevation: 0,
+        ),
+        body: const Center(
           child: CircularProgressIndicator(),
         ),
       );
     }
 
-    final ownerLocation =
-        _ownerLatLngFromData(data);
+    final LatLng? ownerLocation =
+        _latLngFromGeoPoint(data.ownerLocation);
 
-    final walkerLocation =
-        _walkerLatLngFromData(data);
-
-    if (ownerLocation == null) {
-      return _buildLocationUnavailable();
-    }
+    final LatLng? walkerLocation =
+        _latLngFromGeoPoint(data.walkerLocation);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F6F8),
       body: SafeArea(
         child: Stack(
           children: [
             Positioned.fill(
               child: WalkerAcceptMap(
-                ownerLocation: ownerLocation,
+                ownerLocation:
+                    ownerLocation ??
+                    const LatLng(0, 0),
                 walkerLocation: walkerLocation,
                 walkerImageUrl:
-                    data.walkerProfileImage,
+                    data.walkerProfileImage?.trim(),
                 routePoints:
-                    _route?.points ??
-                    const <LatLng>[],
-                walkerHeading:
-                    data.walkerHeading,
-                onMyLocationPressed:
-                    _recenterOwner,
+                    _route?.routePoints ?? const <LatLng>[],
+                walkerHeading: data.walkerHeading,
+                onMyLocationPressed: () {
+                  // Map handles the live walker marker.
+                },
               ),
             ),
 
             _buildTopHeader(data),
 
-            _buildBottomPanel(
-              data: data,
-              walkerLocation:
-                  walkerLocation,
-            ),
+            _buildBottomPanel(data),
           ],
         ),
       ),
     );
   }
 
-  // ============================================================
-  // TOP HEADER
-  // ============================================================
-
-  Widget _buildTopHeader(
-    WalkerAcceptData data,
-  ) {
-    final walkerName =
-        data.walkerName.trim();
-
+  Widget _buildTopHeader(WalkerAcceptData data) {
     return Positioned(
       top: 12,
       left: 16,
       right: 16,
       child: Material(
-        elevation: 6,
-        borderRadius:
-            BorderRadius.circular(18),
+        elevation: 5,
+        borderRadius: BorderRadius.circular(18),
         color: Colors.white,
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 13,
           ),
@@ -535,82 +362,45 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Container(
                 width: 42,
                 height: 42,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      Colors.orange.shade50,
-                  shape: BoxShape.circle,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1E8),
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(
-                  Icons
-                      .directions_walk_rounded,
-                  color:
-                      Colors.orange.shade800,
+                child: const Icon(
+                  Icons.pets_rounded,
+                  color: Color(0xFFFF7A00),
                   size: 23,
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Walker is on the way',
+                      'Your Walker is on the way',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight:
-                            FontWeight.w800,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6B7280),
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
-                      walkerName.isNotEmpty
-                          ? walkerName
-                          : 'Your Walker',
+                      data.walkerName,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color:
-                            Colors.grey.shade700,
-                        fontWeight:
-                            FontWeight.w500,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF171717),
                       ),
                     ),
                   ],
                 ),
               ),
-
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration:
-                    BoxDecoration(
-                  color:
-                      Colors.green.shade50,
-                  borderRadius:
-                      BorderRadius.circular(12),
-                ),
-                child: Text(
-                  data.isReached
-                      ? 'Arrived'
-                      : 'Accepted',
-                  style: TextStyle(
-                    color:
-                        Colors.green.shade700,
-                    fontSize: 12,
-                    fontWeight:
-                        FontWeight.w800,
-                  ),
-                ),
-              ),
+              _buildLiveBadge(),
             ],
           ),
         ),
@@ -618,334 +408,32 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     );
   }
 
-  // ============================================================
-  // BOTTOM PANEL
-  // ============================================================
-
-  Widget _buildBottomPanel({
-    required WalkerAcceptData data,
-    required LatLng? walkerLocation,
-  }) {
-    final hasWalkerLocation =
-        walkerLocation != null;
-
-    final walkerName =
-        data.walkerName.trim();
-
-    final walkerPhone =
-        data.walkerPhone.trim();
-
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Material(
-        elevation: 12,
-        color: Colors.white,
-        borderRadius:
-            const BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding:
-                const EdgeInsets.fromLTRB(
-              18,
-              14,
-              18,
-              16,
-            ),
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        Colors.grey.shade300,
-                    borderRadius:
-                        BorderRadius.circular(20),
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                Row(
-                  children: [
-                    _buildWalkerAvatar(data),
-
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            walkerName.isNotEmpty
-                                ? walkerName
-                                : 'Your Walker',
-                            maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
-                            style:
-                                const TextStyle(
-                              fontSize: 17,
-                              fontWeight:
-                                  FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            hasWalkerLocation
-                                ? 'Live location is updating'
-                                : 'Waiting for Walker location…',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color:
-                                  hasWalkerLocation
-                                      ? Colors
-                                          .green
-                                          .shade700
-                                      : Colors
-                                          .grey
-                                          .shade600,
-                              fontWeight:
-                                  FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    if (walkerPhone.isNotEmpty)
-                      _buildCircleAction(
-                        icon:
-                            Icons.call_rounded,
-                        onTap:
-                            widget.onCall,
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                _buildTravelInfo(data),
-
-                if (_loadingRoute) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color:
-                              Colors
-                                  .orange
-                                  .shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Updating route…',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color:
-                              Colors
-                                  .grey
-                                  .shade600,
-                          fontWeight:
-                              FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-
-                const SizedBox(height: 14),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child:
-                          _buildActionButton(
-                        icon: Icons
-                            .chat_bubble_outline_rounded,
-                        label: 'Chat',
-                        onTap:
-                            widget.onChat,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child:
-                          _buildActionButton(
-                        icon: Icons
-                            .help_outline_rounded,
-                        label: 'Help',
-                        onTap:
-                            widget.onHelp,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // WALKER AVATAR
-  // ============================================================
-
-  Widget _buildWalkerAvatar(
-    WalkerAcceptData data,
-  ) {
-    final imageUrl =
-        data.walkerProfileImage.trim();
-
+  Widget _buildLiveBadge() {
     return Container(
-      width: 52,
-      height: 52,
-      decoration:
-          BoxDecoration(
-        shape: BoxShape.circle,
-        color:
-            Colors.orange.shade50,
-        border: Border.all(
-          color:
-              Colors.orange.shade200,
-          width: 1.5,
-        ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
       ),
-      child: ClipOval(
-        child: imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder:
-                    (
-                  BuildContext context,
-                  Object error,
-                  StackTrace? stackTrace,
-                ) {
-                  return Icon(
-                    Icons.person_rounded,
-                    color:
-                        Colors.orange.shade700,
-                    size: 28,
-                  );
-                },
-              )
-            : Icon(
-                Icons.person_rounded,
-                color:
-                    Colors.orange.shade700,
-                size: 28,
-              ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF8EF),
+        borderRadius: BorderRadius.circular(20),
       ),
-    );
-  }
-
-  // ============================================================
-  // TRAVEL INFO
-  // ============================================================
-
-  Widget _buildTravelInfo(
-    WalkerAcceptData data,
-  ) {
-    /*
-     * Using `is num` here intentionally makes this compatible
-     * whether the model exposes these values as int, double,
-     * or nullable numeric values.
-     *
-     * It also avoids unnecessary null-comparison analyzer
-     * warnings when a model field is non-nullable.
-     */
-
-    final distanceMeters =
-        data.distanceMeters;
-
-    final distanceKm =
-        data.distanceKm;
-
-    final etaMinutes =
-        data.etaMinutes;
-
-    final hasDistance =
-        distanceMeters is num ||
-        distanceKm is num;
-
-    final hasEta =
-        etaMinutes is num;
-
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 13,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            Colors.grey.shade50,
-        borderRadius:
-            BorderRadius.circular(18),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-      child: Row(
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: _buildInfoItem(
-              icon:
-                  Icons.route_rounded,
-              title: 'Distance',
-              value: hasDistance
-                  ? _formatDistance(
-                      meters:
-                          distanceMeters
-                              is num
-                          ? distanceMeters
-                          : null,
-                      km:
-                          distanceKm
-                              is num
-                          ? distanceKm
-                          : null,
-                    )
-                  : '--',
-            ),
+          Icon(
+            Icons.circle,
+            size: 8,
+            color: Color(0xFF1FA463),
           ),
-
-          Container(
-            width: 1,
-            height: 38,
-            color:
-                Colors.grey.shade200,
-          ),
-
-          Expanded(
-            child: _buildInfoItem(
-              icon:
-                  Icons.schedule_rounded,
-              title: 'ETA',
-              value: hasEta
-                  ? '${etaMinutes} min'
-                  : '--',
+          SizedBox(width: 5),
+          Text(
+            'LIVE',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1FA463),
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -953,222 +441,326 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     );
   }
 
-  String _formatDistance({
-    num? meters,
-    num? km,
+  Widget _buildBottomPanel(WalkerAcceptData data) {
+    final String walkerPhone =
+        data.walkerPhone?.trim() ?? '';
+
+    final bool hasDistance =
+        data.distanceMeters > 0 ||
+        data.distanceKm > 0;
+
+    final bool hasEta =
+        data.etaMinutes > 0;
+
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: 12,
+      child: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            14,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  _buildWalkerAvatar(data),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.walkerName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF171717),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              walkerPhone.isNotEmpty
+                                  ? Icons.phone_rounded
+                                  : Icons.location_on_rounded,
+                              size: 14,
+                              color: const Color(0xFF7A7A7A),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                walkerPhone.isNotEmpty
+                                    ? walkerPhone
+                                    : 'Walker is approaching',
+                                maxLines: 1,
+                                overflow:
+                                    TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF777777),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  _buildCallButton(data),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              _buildTravelInfo(
+                data: data,
+                hasDistance: hasDistance,
+                hasEta: hasEta,
+              ),
+
+              const SizedBox(height: 12),
+
+              if (_loadingRoute)
+                _buildRouteUpdating(),
+
+              const SizedBox(height: 4),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: 'Chat',
+                      onTap: widget.onChat,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.help_outline_rounded,
+                      label: 'Help',
+                      onTap: widget.onHelp,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWalkerAvatar(WalkerAcceptData data) {
+    final String imageUrl =
+        data.walkerProfileImage?.trim() ?? '';
+
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F1F3),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl.isNotEmpty
+          ? Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder:
+                  (context, error, stackTrace) {
+                return const Icon(
+                  Icons.person_rounded,
+                  size: 30,
+                  color: Color(0xFF858585),
+                );
+              },
+            )
+          : const Icon(
+              Icons.person_rounded,
+              size: 30,
+              color: Color(0xFF858585),
+            ),
+    );
+  }
+
+  Widget _buildCallButton(WalkerAcceptData data) {
+    return Material(
+      color: const Color(0xFFFF7A00),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: widget.onCall,
+        borderRadius: BorderRadius.circular(14),
+        child: const SizedBox(
+          width: 46,
+          height: 46,
+          child: Icon(
+            Icons.call_rounded,
+            color: Colors.white,
+            size: 21,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTravelInfo({
+    required WalkerAcceptData data,
+    required bool hasDistance,
+    required bool hasEta,
   }) {
-    if (meters != null) {
-      final metersValue =
-          meters.toDouble();
-
-      if (metersValue < 1000) {
-        return '${metersValue.round()} m';
-      }
-
-      return '${(metersValue / 1000).toStringAsFixed(1)} km';
-    }
-
-    if (km != null) {
-      final kmValue =
-          km.toDouble();
-
-      if (kmValue < 1) {
-        return '${(kmValue * 1000).round()} m';
-      }
-
-      return '${kmValue.toStringAsFixed(1)} km';
-    }
-
-    return '--';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F8),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildInfoItem(
+              icon: Icons.route_rounded,
+              label: 'Distance',
+              value: hasDistance
+                  ? _formatDistance(
+                      meters: data.distanceMeters,
+                      km: data.distanceKm,
+                    )
+                  : '--',
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 34,
+            color: const Color(0xFFE1E1E1),
+          ),
+          Expanded(
+            child: _buildInfoItem(
+              icon: Icons.schedule_rounded,
+              label: 'ETA',
+              value: hasEta
+                  ? data.etaLabel
+                  : 'Calculating',
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildInfoItem({
     required IconData icon,
-    required String title,
+    required String label,
     required String value,
   }) {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
           icon,
           size: 20,
-          color:
-              Colors.orange.shade700,
+          color: const Color(0xFFFF7A00),
         ),
-        const SizedBox(height: 5),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 11,
-            color:
-                Colors.grey.shade600,
-            fontWeight:
-                FontWeight.w600,
+        const SizedBox(width: 9),
+        Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF8A8A8A),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF202020),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRouteUpdating() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.8,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Color(0xFFFF7A00),
+            ),
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(width: 7),
         Text(
-          value,
-          style:
-              const TextStyle(
-            fontSize: 14,
-            fontWeight:
-                FontWeight.w800,
+          'Updating route...',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade600,
           ),
         ),
       ],
     );
   }
 
-  // ============================================================
-  // CIRCLE ACTION
-  // ============================================================
-
-  Widget _buildCircleAction({
-    required IconData icon,
-    VoidCallback? onTap,
-  }) {
-    return Material(
-      color:
-          Colors.orange.shade50,
-      shape:
-          const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder:
-            const CircleBorder(),
-        child: const Padding(
-          padding:
-              EdgeInsets.all(11),
-          child: Icon(
-            Icons.call_rounded,
-            size: 20,
-            color:
-                Colors.deepOrange,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // ACTION BUTTON
-  // ============================================================
-
   Widget _buildActionButton({
     required IconData icon,
     required String label,
-    VoidCallback? onTap,
+    required VoidCallback? onTap,
   }) {
-    return SizedBox(
-      height: 46,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(
-          icon,
-          size: 19,
-        ),
-        label: Text(
-          label,
-          style:
-              const TextStyle(
-            fontWeight:
-                FontWeight.w700,
-          ),
-        ),
-        style:
-            OutlinedButton.styleFrom(
-          foregroundColor:
-              Colors.orange.shade800,
-          side: BorderSide(
-            color:
-                Colors.orange.shade200,
-          ),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // LOCATION ERROR
-  // ============================================================
-
-  Widget _buildLocationUnavailable() {
-    return Scaffold(
-      backgroundColor:
-          Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor:
-            Colors.white,
-        foregroundColor:
-            Colors.black,
-        title: const Text(
-          'Walker',
-          style:
-              TextStyle(
-            fontWeight:
-                FontWeight.w800,
-          ),
-        ),
-      ),
-      body: Center(
-        child: Padding(
-          padding:
-              const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
+    return Material(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      Colors.orange.shade50,
-                  shape:
-                      BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons
-                      .location_off_rounded,
-                  size: 34,
-                  color:
-                      Colors.orange.shade700,
-                ),
+              Icon(
+                icon,
+                size: 18,
+                color: const Color(0xFF333333),
               ),
-
-              const SizedBox(height: 18),
-
-              const Text(
-                'Owner location is unavailable.',
-                textAlign:
-                    TextAlign.center,
-                style:
-                    TextStyle(
-                  fontSize: 18,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
+              const SizedBox(width: 7),
               Text(
-                'We could not load the pickup location for this request.',
-                textAlign:
-                    TextAlign.center,
-                style:
-                    TextStyle(
+                label,
+                style: const TextStyle(
                   fontSize: 13,
-                  color:
-                      Colors.grey.shade600,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF333333),
                 ),
               ),
             ],
@@ -1178,17 +770,32 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     );
   }
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
+  String _formatDistance({
+    int? meters,
+    double? km,
+  }) {
+    double valueMeters =
+        (meters ?? 0).toDouble();
 
-  @override
-  void dispose() {
-    _requestSubscription?.cancel();
-    _requestSubscription = null;
+    if (valueMeters <= 0 && (km ?? 0) > 0) {
+      valueMeters = (km ?? 0) * 1000;
+    }
 
-    _routeService.dispose();
+    if (valueMeters <= 0) {
+      return '--';
+    }
 
-    super.dispose();
+    if (valueMeters >= 1000) {
+      final double kilometers =
+          valueMeters / 1000;
+
+      if (kilometers >= 10) {
+        return '${kilometers.toStringAsFixed(0)} km';
+      }
+
+      return '${kilometers.toStringAsFixed(1)} km';
+    }
+
+    return '${valueMeters.round()} m';
   }
 }
