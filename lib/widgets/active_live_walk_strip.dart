@@ -25,7 +25,15 @@ class ActiveLiveWalkStrip extends StatefulWidget {
 
 class _ActiveLiveWalkStripState
     extends State<ActiveLiveWalkStrip> {
-  static const String collectionName = 'walk_request';
+  // ===========================================================
+  // COLLECTIONS
+  // ===========================================================
+
+  static const String _walkRequestCollection =
+      'walk_request';
+
+  static const String _liveWalkSessionCollection =
+      'liveWalkSessions';
 
   // ===========================================================
   // ACTIVE STATUSES
@@ -59,9 +67,31 @@ class _ActiveLiveWalkStripState
     'closed',
   };
 
+  // ===========================================================
+  // SUBSCRIPTIONS
+  // ===========================================================
+
   StreamSubscription<
           QuerySnapshot<Map<String, dynamic>>>?
-      _requestSubscription;
+      _walkRequestSubscription;
+
+  StreamSubscription<
+          QuerySnapshot<Map<String, dynamic>>>?
+      _liveSessionSubscription;
+
+  // ===========================================================
+  // SNAPSHOTS
+  // ===========================================================
+
+  QuerySnapshot<Map<String, dynamic>>?
+      _walkRequestSnapshot;
+
+  QuerySnapshot<Map<String, dynamic>>?
+      _liveSessionSnapshot;
+
+  // ===========================================================
+  // CURRENT UI STATE
+  // ===========================================================
 
   String? _requestId;
 
@@ -72,20 +102,30 @@ class _ActiveLiveWalkStripState
 
   bool _loading = true;
 
+  // ===========================================================
+  // INIT
+  // ===========================================================
+
   @override
   void initState() {
     super.initState();
     _listenToActiveWalk();
   }
 
+  // ===========================================================
+  // DISPOSE
+  // ===========================================================
+
   @override
   void dispose() {
-    _requestSubscription?.cancel();
+    _walkRequestSubscription?.cancel();
+    _liveSessionSubscription?.cancel();
+
     super.dispose();
   }
 
   // ===========================================================
-  // FIRESTORE LISTENER
+  // FIRESTORE LISTENERS
   // ===========================================================
 
   void _listenToActiveWalk() {
@@ -105,62 +145,129 @@ class _ActiveLiveWalkStripState
 
     final String uid = user.uid;
 
-    final String field =
-        widget.isWalker
-            ? 'walkerUid'
-            : 'ownerAuthUid';
+    // =========================================================
+    // OWNER SIDE
+    //
+    // walk_request is identified using ownerAuthUid.
+    //
+    // liveWalkSessions can use ownerAuthUid OR ownerId.
+    // We listen using ownerAuthUid first because that is the
+    // owner identity used by the walk_request collection.
+    // =========================================================
 
-    _requestSubscription =
+    final String ownerField =
+        'ownerAuthUid';
+
+    _walkRequestSubscription =
         FirebaseFirestore.instance
-            .collection(collectionName)
+            .collection(
+              _walkRequestCollection,
+            )
             .where(
-              field,
+              ownerField,
               isEqualTo: uid,
             )
             .snapshots()
             .listen(
-              _onSnapshot,
-              onError: _onError,
+              (snapshot) {
+                _walkRequestSnapshot =
+                    snapshot;
+
+                _processSnapshots();
+              },
+              onError: (Object error) {
+                _onFirestoreError(
+                  _walkRequestCollection,
+                  error,
+                );
+              },
+            );
+
+    // =========================================================
+    // LIVE WALK SESSION
+    //
+    // IMPORTANT:
+    // We query ownerAuthUid here too.
+    //
+    // If your liveWalkSessions document uses ownerId instead,
+    // the fallback below is handled by the separate listener.
+    // =========================================================
+
+    _liveSessionSubscription =
+        FirebaseFirestore.instance
+            .collection(
+              _liveWalkSessionCollection,
+            )
+            .where(
+              ownerField,
+              isEqualTo: uid,
+            )
+            .snapshots()
+            .listen(
+              (snapshot) {
+                _liveSessionSnapshot =
+                    snapshot;
+
+                _processSnapshots();
+              },
+              onError: (Object error) {
+                _onFirestoreError(
+                  _liveWalkSessionCollection,
+                  error,
+                );
+              },
             );
   }
 
   // ===========================================================
-  // SNAPSHOT
+  // PROCESS BOTH COLLECTIONS
   // ===========================================================
 
-  void _onSnapshot(
-    QuerySnapshot<Map<String, dynamic>> snapshot,
-  ) {
+  void _processSnapshots() {
+    if (!mounted) return;
+
+    final QuerySnapshot<Map<String, dynamic>>?
+        requestSnapshot =
+        _walkRequestSnapshot;
+
+    final QuerySnapshot<Map<String, dynamic>>?
+        liveSnapshot =
+        _liveSessionSnapshot;
+
+    // =========================================================
+    // WAIT UNTIL REQUEST DATA IS AVAILABLE
+    // =========================================================
+
+    if (requestSnapshot == null) {
+      return;
+    }
+
+    // =========================================================
+    // STEP 1
+    //
+    // Find active walk_request.
+    // =========================================================
+
     QueryDocumentSnapshot<
             Map<String, dynamic>>?
-        selected;
+        selectedRequest;
 
-    DateTime latestTime =
+    DateTime latestRequestTime =
         DateTime.fromMillisecondsSinceEpoch(0);
 
-    for (final doc in snapshot.docs) {
+    for (final doc in requestSnapshot.docs) {
       final Map<String, dynamic> data =
           doc.data();
 
       final String status =
-          (data['status'] ?? '')
-              .toString()
-              .trim()
-              .toLowerCase();
+          _readStatus(data);
 
-      // =======================================================
-      // IMPORTANT:
-      // COMPLETED / CLOSED WALK MUST NEVER REMAIN IN STRIP
-      // =======================================================
-
+      // Closed request is never shown.
       if (_closedStatuses.contains(status)) {
         continue;
       }
 
-      // =======================================================
-      // ONLY ACTIVE WALK STATUSES
-      // =======================================================
-
+      // Only active statuses.
       if (!_activeStatuses.contains(status)) {
         continue;
       }
@@ -168,24 +275,95 @@ class _ActiveLiveWalkStripState
       final DateTime time =
           _getLatestTime(data);
 
-      if (selected == null ||
-          time.isAfter(latestTime)) {
-        selected = doc;
-        latestTime = time;
+      if (selectedRequest == null ||
+          time.isAfter(latestRequestTime)) {
+        selectedRequest = doc;
+        latestRequestTime = time;
       }
     }
 
-    if (!mounted) return;
-
     // =========================================================
-    // NO ACTIVE WALK
-    //
-    // This also happens immediately when Firestore changes:
-    // accepted/active/...  ->  completed
-    //
+    // NO ACTIVE REQUEST
     // =========================================================
 
-    if (selected == null) {
+    if (selectedRequest == null) {
+      setState(() {
+        _loading = false;
+        _clearWalk();
+      });
+
+      return;
+    }
+
+    final Map<String, dynamic> requestData =
+        selectedRequest.data();
+
+    final String requestStatus =
+        _readStatus(requestData);
+
+    // =========================================================
+    // STEP 2
+    //
+    // Find matching liveWalkSession.
+    //
+    // Match using requestId first.
+    // =========================================================
+
+    Map<String, dynamic>? matchingLiveSession;
+
+    if (liveSnapshot != null) {
+      for (final doc in liveSnapshot.docs) {
+        final Map<String, dynamic> data =
+            doc.data();
+
+        final bool matches =
+            _sessionMatchesRequest(
+          data,
+          selectedRequest.id,
+        );
+
+        if (!matches) {
+          continue;
+        }
+
+        matchingLiveSession = data;
+        break;
+      }
+    }
+
+    // =========================================================
+    // STEP 3
+    //
+    // LIVE SESSION HAS PRIORITY.
+    //
+    // If liveWalkSessions says completed, the strip MUST
+    // disappear even if walk_request still says accepted.
+    // =========================================================
+
+    if (matchingLiveSession != null) {
+      final String liveStatus =
+          _readStatus(matchingLiveSession);
+
+      if (_closedStatuses.contains(liveStatus) ||
+          liveStatus == 'completed' ||
+          liveStatus == 'complete') {
+        setState(() {
+          _loading = false;
+          _clearWalk();
+        });
+
+        return;
+      }
+    }
+
+    // =========================================================
+    // STEP 4
+    //
+    // Extra safety on request itself.
+    // =========================================================
+
+    if (_closedStatuses.contains(requestStatus) ||
+        !_activeStatuses.contains(requestStatus)) {
       setState(() {
         _loading = false;
         _clearWalk();
@@ -195,22 +373,32 @@ class _ActiveLiveWalkStripState
     }
 
     // =========================================================
-    // ACTIVE WALK FOUND
+    // STEP 5
+    //
+    // Decide final status.
+    //
+    // If a live session exists with an active status,
+    // use the live session status.
+    // Otherwise use walk_request status.
     // =========================================================
 
-    final Map<String, dynamic> data =
-        selected.data();
+    String finalStatus = requestStatus;
 
-    final String status =
-        (data['status'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
+    if (matchingLiveSession != null) {
+      final String liveStatus =
+          _readStatus(matchingLiveSession);
 
-    // Extra safety:
-    // Never allow a closed status to enter local UI state.
-    if (_closedStatuses.contains(status) ||
-        !_activeStatuses.contains(status)) {
+      if (_activeStatuses.contains(liveStatus)) {
+        finalStatus = liveStatus;
+      }
+    }
+
+    // =========================================================
+    // FINAL SAFETY
+    // =========================================================
+
+    if (_closedStatuses.contains(finalStatus) ||
+        !_activeStatuses.contains(finalStatus)) {
       setState(() {
         _loading = false;
         _clearWalk();
@@ -218,34 +406,114 @@ class _ActiveLiveWalkStripState
 
       return;
     }
+
+    // =========================================================
+    // DATA
+    //
+    // Prefer live session data when available.
+    // Fall back to walk_request.
+    // =========================================================
+
+    final Map<String, dynamic> displayData =
+        matchingLiveSession ?? requestData;
+
+    final String dogName =
+        _firstNonEmpty([
+      displayData['dogName'],
+      requestData['dogName'],
+    ]);
+
+    final String dogBreed =
+        _firstNonEmpty([
+      displayData['dogBreed'],
+      requestData['dogBreed'],
+    ]);
+
+    final String walkerName =
+        _firstNonEmpty([
+      displayData['walkerName'],
+      requestData['walkerName'],
+    ]);
+
+    // =========================================================
+    // UPDATE UI
+    // =========================================================
 
     setState(() {
       _loading = false;
 
-      // Firestore document ID
-      _requestId = selected!.id;
+      // IMPORTANT:
+      // Navigation still uses walk_request document ID.
+      _requestId = selectedRequest.id;
 
-      _status = status;
+      _status = finalStatus;
 
-      _dogName =
-          (data['dogName'] ?? '')
-              .toString()
-              .trim();
-
-      _dogBreed =
-          (data['dogBreed'] ?? '')
-              .toString()
-              .trim();
-
-      _walkerName =
-          (data['walkerName'] ?? '')
-              .toString()
-              .trim();
+      _dogName = dogName;
+      _dogBreed = dogBreed;
+      _walkerName = walkerName;
     });
   }
 
   // ===========================================================
-  // CLEAR CURRENT WALK
+  // MATCH LIVE SESSION TO REQUEST
+  // ===========================================================
+
+  bool _sessionMatchesRequest(
+    Map<String, dynamic> data,
+    String requestId,
+  ) {
+    final List<dynamic> possibleIds = [
+      data['requestId'],
+      data['walkRequestId'],
+      data['walkId'],
+      data['requestID'],
+    ];
+
+    for (final value in possibleIds) {
+      if (value == null) continue;
+
+      if (value.toString().trim() == requestId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // ===========================================================
+  // READ STATUS
+  // ===========================================================
+
+  String _readStatus(
+    Map<String, dynamic> data,
+  ) {
+    return (data['status'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+  }
+
+  // ===========================================================
+  // FIRST NON-EMPTY VALUE
+  // ===========================================================
+
+  String _firstNonEmpty(
+    List<dynamic> values,
+  ) {
+    for (final value in values) {
+      final String text =
+          (value ?? '').toString().trim();
+
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return '';
+  }
+
+  // ===========================================================
+  // CLEAR WALK
   // ===========================================================
 
   void _clearWalk() {
@@ -266,6 +534,7 @@ class _ActiveLiveWalkStripState
     final dynamic value =
         data['updatedAt'] ??
         data['acceptedAt'] ??
+        data['startedAt'] ??
         data['createdAt'];
 
     if (value is Timestamp) {
@@ -276,23 +545,34 @@ class _ActiveLiveWalkStripState
       return value;
     }
 
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        value,
+      );
+    }
+
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   // ===========================================================
-  // ERROR
+  // FIRESTORE ERROR
   // ===========================================================
 
-  void _onError(Object error) {
+  void _onFirestoreError(
+    String collection,
+    Object error,
+  ) {
     debugPrint(
-      'ActiveLiveWalkStrip Firestore error: $error',
+      'ActiveLiveWalkStrip Firestore error '
+      '[$collection]: $error',
     );
 
     if (!mounted) return;
 
+    // Do not destroy valid UI state because one listener
+    // temporarily reports an error.
     setState(() {
       _loading = false;
-      _clearWalk();
     });
   }
 
@@ -402,7 +682,7 @@ class _ActiveLiveWalkStripState
     final String walkId = id.trim();
 
     // =========================================================
-    // OWNER SIDE
+    // OWNER
     // =========================================================
 
     if (!widget.isWalker) {
@@ -429,7 +709,7 @@ class _ActiveLiveWalkStripState
     }
 
     // =========================================================
-    // WALKER SIDE
+    // WALKER
     // =========================================================
 
     Navigator.of(context).push(
@@ -451,16 +731,17 @@ class _ActiveLiveWalkStripState
     BuildContext context,
   ) {
     // =========================================================
-    // NO ACTIVE WALK = NO STRIP
+    // NO ACTIVE WALK
     // =========================================================
 
     if (_loading || _requestId == null) {
       return const SizedBox.shrink();
     }
 
-    // Extra UI-level safety.
-    // Even if local state somehow becomes closed,
-    // absolutely nothing should be rendered.
+    // =========================================================
+    // UI SAFETY
+    // =========================================================
+
     if (_closedStatuses.contains(_status) ||
         !_activeStatuses.contains(_status)) {
       return const SizedBox.shrink();
@@ -527,7 +808,7 @@ class _ActiveLiveWalkStripState
               child: Row(
                 children: [
                   // =================================================
-                  // PAW / WALK ICON
+                  // ICON
                   // =================================================
 
                   Container(
