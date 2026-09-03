@@ -3,13 +3,13 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../screens/address_screen.dart';
 import '../change_mobile/change_mobile_flow.dart';
-import '../widgets/address_card.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/pet_details_card.dart';
 
@@ -29,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   bool _isLoading = true;
+  bool _uploadingProfilePhoto = false;
 
   String _ownerId = '';
   String _ownerName = '';
@@ -37,18 +38,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _ownerGender = '';
   String _memberSince = '';
 
+  String _profileImageUrl = '';
+
   bool _isActive = true;
-
-  // ============================================================
-  // ADDRESS
-  // ============================================================
-
-  String _addressLine1 = '';
-  String _streetRoad = '';
-  String _area = '';
-  String _city = '';
-  String _state = '';
-  String _pincode = '';
 
   // ============================================================
   // PETS
@@ -74,7 +66,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   //
   // Canonical collection = owners
   //
-  // Document ID is ownerId, NOT necessarily Firebase UID.
+  // Document ID can be ownerId.
+  // authUid is used to find the current owner.
   // ============================================================
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
@@ -104,9 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     // ----------------------------------------------------------
-    // 2. Direct UID document fallback
-    //
-    // Some older owner documents may use UID as document ID.
+    // 2. UID document fallback
     // ----------------------------------------------------------
 
     final DocumentSnapshot<Map<String, dynamic>>
@@ -181,12 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _ownerGender = '';
           _memberSince = '';
 
-          _addressLine1 = '';
-          _streetRoad = '';
-          _area = '';
-          _city = '';
-          _state = '';
-          _pincode = '';
+          _profileImageUrl = '';
 
           _pets =
               <Map<String, dynamic>>[];
@@ -276,152 +262,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       // ========================================================
-      // ADDRESS
+      // PROFILE PHOTO
       // ========================================================
 
-      final Map<String, dynamic>
-          address =
-          _readCanonicalAddress(data);
-
-      String addressLine1 =
+      final String profileImageUrl =
           _firstNonEmpty([
-        address['flatNumber'],
-        address['flatHouseNo'],
-        address['houseNo'],
-        address['houseNumber'],
+        data['profileImageUrl'],
+        data['profilePhotoUrl'],
+        data['photoUrl'],
+        data['profileImage'],
       ]);
-
-      String streetRoad =
-          _firstNonEmpty([
-        address['addressLine1'],
-        address['streetRoad'],
-        address['street'],
-        address['road'],
-      ]);
-
-      final String addressLine2 =
-          _stringValue(
-        address['addressLine2'],
-      );
-
-      if (addressLine2.isNotEmpty) {
-        if (streetRoad.isEmpty) {
-          streetRoad = addressLine2;
-        } else if (!streetRoad
-            .contains(addressLine2)) {
-          streetRoad =
-              '$streetRoad, $addressLine2';
-        }
-      }
-
-      String area =
-          _firstNonEmpty([
-        address['area'],
-        address['subLocality'],
-        address['locality'],
-      ]);
-
-      String city =
-          _firstNonEmpty([
-        address['city'],
-        address['town'],
-      ]);
-
-      String state =
-          _firstNonEmpty([
-        address['state'],
-        address['administrativeArea'],
-      ]);
-
-      String pincode =
-          _firstNonEmpty([
-        address['pincode'],
-        address['Pincode'],
-        address['postalCode'],
-      ]);
-
-      // ========================================================
-      // SAVED ADDRESS COMPATIBILITY
-      //
-      // Canonical address above remains primary.
-      // savedAddresses is only a compatibility fallback.
-      // ========================================================
-
-      if (addressLine1.isEmpty ||
-          streetRoad.isEmpty ||
-          area.isEmpty ||
-          city.isEmpty ||
-          state.isEmpty ||
-          pincode.isEmpty) {
-        final Map<String, dynamic>?
-            savedAddress =
-            _getSavedAddress(data);
-
-        if (savedAddress != null) {
-          if (addressLine1.isEmpty) {
-            addressLine1 =
-                _firstNonEmpty([
-              savedAddress['flatNumber'],
-              savedAddress['flatHouseNo'],
-              savedAddress['flat'],
-              savedAddress['houseNo'],
-              savedAddress['houseNumber'],
-            ]);
-          }
-
-          if (streetRoad.isEmpty) {
-            streetRoad =
-                _firstNonEmpty([
-              savedAddress['addressLine1'],
-              savedAddress['streetRoad'],
-              savedAddress['street'],
-              savedAddress['road'],
-              savedAddress['addressLine2'],
-            ]);
-          }
-
-          if (area.isEmpty) {
-            area =
-                _firstNonEmpty([
-              savedAddress['area'],
-              savedAddress['subLocality'],
-              savedAddress['locality'],
-            ]);
-          }
-
-          if (city.isEmpty) {
-            city =
-                _firstNonEmpty([
-              savedAddress['city'],
-              savedAddress['town'],
-            ]);
-          }
-
-          if (state.isEmpty) {
-            state =
-                _firstNonEmpty([
-              savedAddress['state'],
-              savedAddress['administrativeArea'],
-            ]);
-          }
-
-          if (pincode.isEmpty) {
-            pincode =
-                _firstNonEmpty([
-              savedAddress['pincode'],
-              savedAddress['Pincode'],
-              savedAddress['postalCode'],
-            ]);
-          }
-        }
-      }
 
       // ========================================================
       // PETS
       // ========================================================
 
       final List<Map<String, dynamic>> pets =
-          _readPets(data['pets']);
+          _readPets(
+        data['pets'],
+      );
 
       // ========================================================
       // ACTIVE STATUS
@@ -458,16 +317,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _ownerGender = gender;
         _memberSince = memberSince;
 
-        _addressLine1 =
-            addressLine1;
-
-        _streetRoad =
-            streetRoad;
-
-        _area = area;
-        _city = city;
-        _state = state;
-        _pincode = pincode;
+        _profileImageUrl =
+            profileImageUrl;
 
         _pets = pets;
 
@@ -497,6 +348,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _mobileNumber =
             _firebasePhone(currentUser);
 
+        _profileImageUrl = '';
+
+        _pets =
+            <Map<String, dynamic>>[];
+
         _isLoading = false;
       });
 
@@ -507,75 +363,433 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // READ CANONICAL ADDRESS
+  // CHANGE / UPLOAD PROFILE PHOTO
   // ============================================================
 
-  Map<String, dynamic> _readCanonicalAddress(
-    Map<String, dynamic> data,
-  ) {
-    final dynamic value =
-        data['address'];
+  Future<void> _changeProfilePhoto() async {
+    if (_uploadingProfilePhoto) {
+      return;
+    }
 
-    if (value is Map) {
-      return Map<String, dynamic>.from(
-        value,
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showMessage(
+        'Please login again.',
+      );
+      return;
+    }
+
+    try {
+      final ImagePicker picker =
+          ImagePicker();
+
+      final XFile? pickedFile =
+          await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+
+      if (pickedFile == null) {
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _uploadingProfilePhoto = true;
+      });
+
+      // ========================================================
+      // FIND OWNER DOCUMENT
+      // ========================================================
+
+      final DocumentSnapshot<
+              Map<String, dynamic>>?
+          ownerDoc =
+          await _findOwnerDocument(
+        user.uid.trim(),
+      );
+
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
+        if (mounted) {
+          setState(() {
+            _uploadingProfilePhoto = false;
+          });
+        }
+
+        _showMessage(
+          'Owner profile not found.',
+        );
+        return;
+      }
+
+      // ========================================================
+      // READ IMAGE
+      // ========================================================
+
+      final Uint8List imageBytes =
+          await pickedFile.readAsBytes();
+
+      // ========================================================
+      // FIREBASE STORAGE
+      //
+      // One profile image per owner.
+      // ========================================================
+
+      final Reference storageRef =
+          FirebaseStorage.instance
+              .ref()
+              .child(
+                'owner_profiles',
+              )
+              .child(
+                ownerDoc.id,
+              )
+              .child(
+                'profile.jpg',
+              );
+
+      await storageRef.putData(
+        imageBytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl:
+              'public,max-age=3600',
+        ),
+      );
+
+      // ========================================================
+      // GET DOWNLOAD URL
+      // ========================================================
+
+      final String downloadUrl =
+          await storageRef.getDownloadURL();
+
+      // ========================================================
+      // SAVE URL IN OWNERS
+      // ========================================================
+
+      await ownerDoc.reference.set(
+        {
+          'profileImageUrl':
+              downloadUrl,
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      // ========================================================
+      // UPDATE UI
+      // ========================================================
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _profileImageUrl =
+            downloadUrl;
+        _uploadingProfilePhoto = false;
+      });
+
+      _showMessage(
+        'Profile photo updated successfully.',
+      );
+    } catch (e) {
+      debugPrint(
+        'Profile Photo Upload Error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _uploadingProfilePhoto = false;
+      });
+
+      _showMessage(
+        'Unable to update profile photo.',
       );
     }
-
-    return <String, dynamic>{};
   }
 
   // ============================================================
-  // GET SAVED ADDRESS
+  // OWNER PROFILE PHOTO CARD
   // ============================================================
 
-  Map<String, dynamic>? _getSavedAddress(
-    Map<String, dynamic> data,
-  ) {
-    final dynamic value =
-        data['savedAddresses'];
+  Widget _buildOwnerProfileCard() {
+    final bool hasPhoto =
+        _profileImageUrl.trim().isNotEmpty;
 
-    if (value is! List ||
-        value.isEmpty) {
-      return null;
-    }
+    return Container(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius:
+            BorderRadius.circular(18),
+        border: Border.all(
+          color:
+              AppColors.orange.withValues(
+            alpha: 0.10,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                AppColors.navy.withValues(
+              alpha: 0.04,
+            ),
+            blurRadius: 12,
+            offset:
+                const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // ======================================================
+          // PROFILE PHOTO
+          // ======================================================
 
-    for (final dynamic item in value) {
-      if (item is Map) {
-        final Map<String, dynamic>
-            address =
-            Map<String, dynamic>.from(
-          item,
-        );
+          Stack(
+            clipBehavior:
+                Clip.none,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration:
+                    BoxDecoration(
+                  shape:
+                      BoxShape.circle,
+                  color:
+                      AppColors.orange
+                          .withValues(
+                    alpha: 0.10,
+                  ),
+                  border:
+                      Border.all(
+                    color:
+                        AppColors.orange
+                            .withValues(
+                      alpha: 0.20,
+                    ),
+                    width: 1.5,
+                  ),
+                ),
+                child: ClipOval(
+                  child: hasPhoto
+                      ? Image.network(
+                          _profileImageUrl,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (
+                            context,
+                            error,
+                            stackTrace,
+                          ) {
+                            return const Icon(
+                              Icons
+                                  .person_rounded,
+                              color:
+                                  AppColors.orange,
+                              size: 30,
+                            );
+                          },
+                        )
+                      : const Icon(
+                          Icons
+                              .person_rounded,
+                          color:
+                              AppColors.orange,
+                          size: 30,
+                        ),
+                ),
+              ),
 
-        if (_hasAddressData(address)) {
-          return address;
-        }
-      }
-    }
+              // ==================================================
+              // CAMERA BUTTON
+              // ==================================================
 
-    return null;
-  }
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Material(
+                  color:
+                      AppColors.orange,
+                  shape:
+                      const CircleBorder(),
+                  child: InkWell(
+                    customBorder:
+                        const CircleBorder(),
+                    onTap:
+                        _uploadingProfilePhoto
+                            ? null
+                            : _changeProfilePhoto,
+                    child: SizedBox(
+                      width: 25,
+                      height: 25,
+                      child:
+                          _uploadingProfilePhoto
+                              ? const Padding(
+                                  padding:
+                                      EdgeInsets.all(
+                                    6,
+                                  ),
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth:
+                                        2,
+                                    color:
+                                        AppColors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons
+                                      .camera_alt_rounded,
+                                  size: 14,
+                                  color:
+                                      AppColors.white,
+                                ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
-  // ============================================================
-  // CHECK ADDRESS DATA
-  // ============================================================
+          const SizedBox(
+            width: 13,
+          ),
 
-  bool _hasAddressData(
-    Map<String, dynamic> address,
-  ) {
-    final String combined =
-        _firstNonEmpty([
-      address['flatNumber'],
-      address['addressLine1'],
-      address['addressLine2'],
-      address['area'],
-      address['city'],
-      address['state'],
-      address['pincode'],
-    ]);
+          // ======================================================
+          // OWNER NAME
+          // ======================================================
 
-    return combined.isNotEmpty;
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Owner Profile',
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        AppColors.orange,
+                    fontSize: 11,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 2,
+                ),
+
+                Text(
+                  _ownerName.isEmpty
+                      ? 'Owner'
+                      : _ownerName,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.navy,
+                    fontSize: 16,
+                    fontWeight:
+                        FontWeight.w900,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 2,
+                ),
+
+                Text(
+                  hasPhoto
+                      ? 'Profile photo'
+                      : 'Add your profile photo',
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(
+                    color:
+                        Colors.grey,
+                    fontSize: 11,
+                    fontWeight:
+                        FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(
+            width: 8,
+          ),
+
+          // ======================================================
+          // CHANGE BUTTON
+          // ======================================================
+
+          TextButton(
+            onPressed:
+                _uploadingProfilePhoto
+                    ? null
+                    : _changeProfilePhoto,
+            style:
+                TextButton.styleFrom(
+              foregroundColor:
+                  AppColors.orange,
+              padding:
+                  const EdgeInsets
+                      .symmetric(
+                horizontal: 9,
+                vertical: 7,
+              ),
+              minimumSize:
+                  Size.zero,
+              tapTargetSize:
+                  MaterialTapTargetSize
+                      .shrinkWrap,
+            ),
+            child: Text(
+              hasPhoto
+                  ? 'Change'
+                  : 'Upload',
+              style:
+                  const TextStyle(
+                fontSize: 12,
+                fontWeight:
+                    FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ============================================================
@@ -1017,13 +1231,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final String uid =
-          user.uid.trim();
-
       final DocumentSnapshot<
               Map<String, dynamic>>?
           ownerDoc =
-          await _findOwnerDocument(uid);
+          await _findOwnerDocument(
+        user.uid.trim(),
+      );
 
       if (ownerDoc == null ||
           !ownerDoc.exists) {
@@ -1064,8 +1277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       currentPets.add(newPet);
 
-      await ownerDoc.reference
-          .set(
+      await ownerDoc.reference.set(
         {
           'pets': currentPets,
           'updatedAt':
@@ -1480,8 +1692,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             behaviour.trim(),
       };
 
-      await ownerDoc.reference
-          .set(
+      await ownerDoc.reference.set(
         {
           'pets': updatedPets,
           'updatedAt':
@@ -1631,8 +1842,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       updatedPets.removeAt(index);
 
-      await ownerDoc.reference
-          .set(
+      await ownerDoc.reference.set(
         {
           'pets': updatedPets,
           'updatedAt':
@@ -1875,25 +2085,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // EDIT ADDRESS
-  // ============================================================
-
-  Future<void> _editAddress() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            const AddressScreen(),
-      ),
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    await _loadProfile();
-  }
-
-  // ============================================================
   // MESSAGE
   // ============================================================
 
@@ -2002,6 +2193,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CrossAxisAlignment.start,
               children: [
                 // ==================================================
+                // SMALL OWNER PROFILE CARD
+                // ==================================================
+
+                _buildOwnerProfileCard(),
+
+                const SizedBox(
+                  height: 14,
+                ),
+
+                // ==================================================
                 // OWNER INFORMATION
                 // ==================================================
 
@@ -2031,7 +2232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
                 // ==================================================
-                // PET PROFILE
+                // PET PROFILE HEADER
                 // ==================================================
 
                 Row(
@@ -2293,31 +2494,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-
-                const SizedBox(
-                  height: 20,
-                ),
-
-                // ==================================================
-                // MY ADDRESS
-                // ==================================================
-
-                AddressCard(
-                  flatHouseNo:
-                      _addressLine1,
-                  streetRoad:
-                      _streetRoad,
-                  area:
-                      _area,
-                  city:
-                      _city,
-                  state:
-                      _state,
-                  pincode:
-                      _pincode,
-                  onEditAddress:
-                      _editAddress,
-                ),
 
                 const SizedBox(
                   height: 20,
