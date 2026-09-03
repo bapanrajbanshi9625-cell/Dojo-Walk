@@ -24,8 +24,7 @@ class GenerateQRButton extends StatefulWidget {
   });
 
   @override
-  State<GenerateQRButton> createState() =>
-      _GenerateQRButtonState();
+  State<GenerateQRButton> createState() => _GenerateQRButtonState();
 }
 
 class _GenerateQRButtonState extends State<GenerateQRButton> {
@@ -67,8 +66,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
       // GENERATE QR
       // --------------------------------------------------------
 
-      final QRData qr =
-          await QRService.instance.createOwnerQR();
+      final QRData qr = await QRService.instance.createOwnerQR();
 
       if (!mounted) {
         return;
@@ -85,9 +83,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
       // WATCH WALKER CONNECTION
       // --------------------------------------------------------
 
-      _scanSubscription = QRService.instance
-          .watchScan(qr.ownerId)
-          .listen(
+      _scanSubscription = QRService.instance.watchScan(qr.ownerId).listen(
         (QRScanState state) async {
           if (!mounted) {
             return;
@@ -109,8 +105,9 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
           // OPEN OWNER LIVE WALK SCREEN
           // ------------------------------------------------------
 
-          if (state.walkId.trim().isNotEmpty &&
-              !_liveScreenOpened) {
+          final String walkId = state.walkId.trim();
+
+          if (walkId.isNotEmpty && !_liveScreenOpened) {
             _liveScreenOpened = true;
 
             // Close QR bottom sheet first.
@@ -128,9 +125,9 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             }
 
             await Navigator.of(context).push(
-              MaterialPageRoute(
+              MaterialPageRoute<void>(
                 builder: (_) => LiveWalkScreen(
-                  activeWalkId: state.walkId.trim(),
+                  walkId: walkId,
                   isWalker: false,
                 ),
               ),
@@ -176,9 +173,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
         return;
       }
 
-      final String message = e
-          .toString()
-          .replaceFirst(
+      final String message = e.toString().replaceFirst(
             'Exception: ',
             '',
           );
@@ -270,8 +265,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
               const Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Generate QR Code',
