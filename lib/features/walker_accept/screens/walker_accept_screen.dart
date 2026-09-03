@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../screens/live_walk_screen.dart';
+import '../../live_walk/screens/live_walk_screen.dart';
 import '../models/walker_accept_data.dart';
 import '../services/walker_accept_service.dart';
 import '../services/walker_route_service.dart';
