@@ -27,6 +27,10 @@ class _ActiveLiveWalkStripState
     extends State<ActiveLiveWalkStrip> {
   static const String collectionName = 'walk_request';
 
+  // ===========================================================
+  // ONLY THESE STATUSES ARE ALLOWED TO SHOW THE STRIP
+  // ===========================================================
+
   static const Set<String> _activeStatuses = {
     'accepted',
     'active',
@@ -39,11 +43,26 @@ class _ActiveLiveWalkStripState
     'live',
   };
 
+  // Explicitly completed/closed states.
+  // These will NEVER show the strip.
+  static const Set<String> _closedStatuses = {
+    'completed',
+    'complete',
+    'cancelled',
+    'canceled',
+    'rejected',
+    'declined',
+    'expired',
+    'finished',
+    'closed',
+  };
+
   StreamSubscription<
           QuerySnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   String? _requestId;
+
   String _status = '';
   String _dogName = '';
   String _dogBreed = '';
@@ -75,7 +94,7 @@ class _ActiveLiveWalkStripState
       if (mounted) {
         setState(() {
           _loading = false;
-          _requestId = null;
+          _clearWalk();
         });
       }
       return;
@@ -126,6 +145,18 @@ class _ActiveLiveWalkStripState
               .trim()
               .toLowerCase();
 
+      // =======================================================
+      // COMPLETED / CLOSED WALK
+      // =======================================================
+
+      if (_closedStatuses.contains(status)) {
+        continue;
+      }
+
+      // =======================================================
+      // ONLY VALID ACTIVE WALK STATUSES
+      // =======================================================
+
       if (!_activeStatuses.contains(status)) {
         continue;
       }
@@ -142,32 +173,38 @@ class _ActiveLiveWalkStripState
 
     if (!mounted) return;
 
+    // =========================================================
+    // NO ACTIVE WALK
+    // =========================================================
+
     if (selected == null) {
       setState(() {
         _loading = false;
-        _requestId = null;
-        _status = '';
-        _dogName = '';
-        _dogBreed = '';
-        _walkerName = '';
+        _clearWalk();
       });
       return;
     }
 
+    // =========================================================
+    // ACTIVE WALK FOUND
+    // =========================================================
+
     final Map<String, dynamic> data =
         selected.data();
+
+    final String status =
+        (data['status'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
 
     setState(() {
       _loading = false;
 
-      // Firestore document ID = walk ID
+      // Firestore document ID = walk/request ID
       _requestId = selected!.id;
 
-      _status =
-          (data['status'] ?? '')
-              .toString()
-              .trim()
-              .toLowerCase();
+      _status = status;
 
       _dogName =
           (data['dogName'] ?? '')
@@ -184,6 +221,18 @@ class _ActiveLiveWalkStripState
               .toString()
               .trim();
     });
+  }
+
+  // ===========================================================
+  // CLEAR CURRENT WALK
+  // ===========================================================
+
+  void _clearWalk() {
+    _requestId = null;
+    _status = '';
+    _dogName = '';
+    _dogBreed = '';
+    _walkerName = '';
   }
 
   // ===========================================================
@@ -324,12 +373,11 @@ class _ActiveLiveWalkStripState
   void _openWalk() {
     final String? id = _requestId;
 
-    if (id == null ||
-        id.trim().isEmpty) {
+    if (id == null || id.trim().isEmpty) {
       return;
     }
 
-    // This is the actual walk ID.
+    // Actual walk/request document ID.
     final String walkId = id.trim();
 
     // =========================================================
@@ -381,8 +429,8 @@ class _ActiveLiveWalkStripState
   Widget build(
     BuildContext context,
   ) {
-    if (_loading ||
-        _requestId == null) {
+    // No loading UI and no active request = no strip.
+    if (_loading || _requestId == null) {
       return const SizedBox.shrink();
     }
 
@@ -399,7 +447,6 @@ class _ActiveLiveWalkStripState
         _isLive ? success : orange;
 
     return Padding(
-      // HEIGHT REDUCED
       padding: const EdgeInsets.fromLTRB(
         12,
         6,
@@ -422,7 +469,6 @@ class _ActiveLiveWalkStripState
               borderRadius:
                   BorderRadius.circular(20),
 
-              // FULL CARD COLOR
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -438,14 +484,14 @@ class _ActiveLiveWalkStripState
               ),
 
               border: Border.all(
-                color: Colors.white.withValues(
+                color:
+                    Colors.white.withValues(
                   alpha: 0.18,
                 ),
                 width: 1,
               ),
             ),
 
-            // REDUCED INNER PADDING
             child: Padding(
               padding:
                   const EdgeInsets.all(11),
@@ -518,7 +564,6 @@ class _ActiveLiveWalkStripState
                               width: 7,
                             ),
 
-                            // STATUS DOT
                             Container(
                               width: 7,
                               height: 7,
