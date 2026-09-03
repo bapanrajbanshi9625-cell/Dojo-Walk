@@ -17,7 +17,8 @@ class InstaWalkSearchService {
     FirebaseAuth? auth,
   })  : _firestore =
             firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance,
+        _auth =
+            auth ?? FirebaseAuth.instance,
         _helper = InstaWalkFirestoreHelper(
           firestore:
               firestore ?? FirebaseFirestore.instance,
@@ -147,18 +148,9 @@ class InstaWalkSearchService {
     required String ownerName,
     required String address,
     required GeoPoint ownerLocation,
-
-    // ========================================================
-    // DOG / PET
-    // ========================================================
-
     String dogName = '',
     String dogBreed = '',
   }) async {
-    // ========================================================
-    // AUTH
-    // ========================================================
-
     final User? user =
         _auth.currentUser;
 
@@ -168,10 +160,6 @@ class InstaWalkSearchService {
         errorCode: 'unauthenticated',
       );
     }
-
-    // ========================================================
-    // CLEAN DATA
-    // ========================================================
 
     final String cleanOwnerId =
         ownerId.trim();
@@ -192,10 +180,6 @@ class InstaWalkSearchService {
     final String cleanDogBreed =
         dogBreed.trim();
 
-    // ========================================================
-    // VALIDATION
-    // ========================================================
-
     if (cleanOwnerId.isEmpty) {
       return const InstaWalkSearchResult.failure(
         message: 'Owner ID missing.',
@@ -211,10 +195,6 @@ class InstaWalkSearchService {
     }
 
     try {
-      // ======================================================
-      // VERIFY OWNER PROFILE
-      // ======================================================
-
       final DocumentSnapshot<
           Map<String, dynamic>>? profile =
           await findOwnerProfile();
@@ -274,47 +254,20 @@ class InstaWalkSearchService {
           Map<String, dynamic>> ref =
           await _helper.createRequest(
         data: <String, dynamic>{
-          // --------------------------------------------------
-          // REQUEST
-          // --------------------------------------------------
-
           'status': 'searching',
-
           'searchType': 'insta_walk',
-
           'senderRole': 'owner',
 
-          // --------------------------------------------------
-          // AUTH
-          // --------------------------------------------------
-
           'senderUid': user.uid,
-
           'ownerAuthUid': user.uid,
 
-          // --------------------------------------------------
-          // OWNER
-          // --------------------------------------------------
-
           'ownerId': cleanOwnerId,
-
           'businessId': cleanOwnerId,
-
           'ownerName': cleanOwnerName,
-
           'address': cleanAddress,
 
-          // --------------------------------------------------
-          // DOG / PET
-          // --------------------------------------------------
-
           'dogName': cleanDogName,
-
           'dogBreed': cleanDogBreed,
-
-          // --------------------------------------------------
-          // LOCATION
-          // --------------------------------------------------
 
           'ownerLocation':
               ownerLocation,
@@ -325,38 +278,18 @@ class InstaWalkSearchService {
           'searchRadiusKm':
               searchRadiusKm,
 
-          // --------------------------------------------------
-          // WALKER
-          // --------------------------------------------------
-
           'walkerUid': null,
-
           'walkerId': null,
-
           'walkerName': null,
-
           'walkerPhone': null,
 
-          // --------------------------------------------------
-          // ACCEPTED
-          // --------------------------------------------------
-
           'acceptedBy': null,
-
           'acceptedAt': null,
-
-          // --------------------------------------------------
-          // CREATED
-          // --------------------------------------------------
 
           'createdAt':
               FieldValue.serverTimestamp(),
         },
       );
-
-      // ======================================================
-      // SAVE ACTIVE REQUEST ID
-      // ======================================================
 
       _activeRequestId =
           ref.id;
@@ -397,9 +330,6 @@ class InstaWalkSearchService {
         InstaWalkRequestState.notFound(),
       );
     }
-
-    _requestSubscription?.cancel();
-    _requestSubscription = null;
 
     _activeRequestId =
         cleanRequestId;
@@ -444,15 +374,72 @@ class InstaWalkSearchService {
     ) onData,
     void Function(Object error)? onError,
   }) {
-    _requestSubscription?.cancel();
+    // --------------------------------------------------------
+    // ALWAYS CANCEL OLD LISTENER FIRST
+    // --------------------------------------------------------
+
+    stopListening();
+
+    final String cleanRequestId =
+        requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      return;
+    }
+
+    _activeRequestId =
+        cleanRequestId;
 
     _requestSubscription =
         listenForRequest(
-      requestId,
+      cleanRequestId,
     ).listen(
-      onData,
+      (
+        InstaWalkRequestState state,
+      ) {
+        // ----------------------------------------------------
+        // Ignore events from a listener that has already
+        // been cancelled/replaced.
+        // ----------------------------------------------------
+
+        if (_requestSubscription == null) {
+          return;
+        }
+
+        onData(state);
+      },
       onError: onError,
+      cancelOnError: false,
     );
+  }
+
+  // ==========================================================
+  // STOP LISTENING
+  // ==========================================================
+  //
+  // IMPORTANT:
+  // This ONLY stops the local realtime listener.
+  //
+  // It DOES NOT:
+  // - cancel Firestore request
+  // - change status
+  // - delete document
+  // - modify walker data
+  //
+  // ==========================================================
+
+  void stopListening() {
+    final StreamSubscription<
+        InstaWalkRequestState>? subscription =
+        _requestSubscription;
+
+    _requestSubscription = null;
+
+    if (subscription != null) {
+      unawaited(
+        subscription.cancel(),
+      );
+    }
   }
 
   // ==========================================================
@@ -694,8 +681,7 @@ class InstaWalkSearchService {
             <String, dynamic>{
               'status': 'cancelled',
               'cancelledAt':
-                  FieldValue
-                      .serverTimestamp(),
+                  FieldValue.serverTimestamp(),
               'cancelledBy': user.uid,
             },
           );
@@ -740,7 +726,7 @@ class InstaWalkSearchService {
   // ==========================================================
 
   void dispose() {
-    _requestSubscription?.cancel();
-    _requestSubscription = null;
+    stopListening();
+    _activeRequestId = null;
   }
 }
