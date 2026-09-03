@@ -141,10 +141,16 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
+    final String walkId = requestId.trim();
+
+    if (walkId.isEmpty) {
+      return;
+    }
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => LiveWalkScreen(
-          activeWalkId: requestId,
+          walkId: walkId,
           isWalker: false,
         ),
       ),
@@ -172,8 +178,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
-    final LatLng? previous =
-        _lastRouteWalkerLocation;
+    final LatLng? previous = _lastRouteWalkerLocation;
 
     // First valid location loads the route.
     if (previous != null) {
@@ -233,8 +238,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           _route = result;
 
           // Move checkpoint only after successful route response.
-          _lastRouteWalkerLocation =
-              walkerLocation;
+          _lastRouteWalkerLocation = walkerLocation;
         });
       }
     } catch (error, stackTrace) {
@@ -440,8 +444,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                 walkerLocation:
                     walkerLocation,
                 walkerImageUrl:
-                    data.walkerProfileImage
-                        ?.trim(),
+                    data.walkerProfileImage?.trim(),
                 routePoints:
                     _route?.points ??
                     const <LatLng>[],
@@ -483,10 +486,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       right: 16,
       child: Material(
         elevation: 5,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
         color: Colors.white,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 13,
           ),
@@ -495,14 +500,17 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Container(
                 width: 42,
                 height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1E8),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      const Color(0xFFFFF1E8),
                   borderRadius:
                       BorderRadius.circular(13),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: Color(0xFFFF7A00),
+                  color:
+                      Color(0xFFFF7A00),
                   size: 23,
                 ),
               ),
@@ -520,7 +528,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                         fontSize: 14,
                         fontWeight:
                             FontWeight.w600,
-                        color: Color(0xFF6B7280),
+                        color:
+                            Color(0xFF6B7280),
                       ),
                     ),
 
@@ -531,11 +540,13 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:
+                          const TextStyle(
                         fontSize: 17,
                         fontWeight:
                             FontWeight.w800,
-                        color: Color(0xFF171717),
+                        color:
+                            Color(0xFF171717),
                       ),
                     ),
                   ],
@@ -556,22 +567,27 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
   Widget _buildLiveBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 10,
         vertical: 6,
       ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF8EF),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(0xFFEAF8EF),
         borderRadius:
             BorderRadius.circular(20),
       ),
       child: const Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
           Icon(
             Icons.circle,
             size: 8,
-            color: Color(0xFF1FA463),
+            color:
+                Color(0xFF1FA463),
           ),
           SizedBox(width: 5),
           Text(
@@ -580,7 +596,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               fontSize: 10,
               fontWeight:
                   FontWeight.w800,
-              color: Color(0xFF1FA463),
+              color:
+                  Color(0xFF1FA463),
               letterSpacing: 0.5,
             ),
           ),
@@ -616,14 +633,16 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
             BorderRadius.circular(24),
         color: Colors.white,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
+          padding:
+              const EdgeInsets.fromLTRB(
             16,
             16,
             16,
             14,
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize:
+                MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -641,7 +660,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                           maxLines: 1,
                           overflow:
                               TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style:
+                              const TextStyle(
                             fontSize: 17,
                             fontWeight:
                                 FontWeight.w800,
@@ -668,7 +688,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                               ),
                             ),
 
-                            const SizedBox(width: 5),
+                            const SizedBox(
+                                width: 5),
 
                             Expanded(
                               child: Text(
@@ -719,22 +740,26 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildActionButton(
+                    child:
+                        _buildActionButton(
                       icon: Icons
                           .chat_bubble_outline_rounded,
                       label: 'Chat',
-                      onTap: widget.onChat,
+                      onTap:
+                          widget.onChat,
                     ),
                   ),
 
                   const SizedBox(width: 10),
 
                   Expanded(
-                    child: _buildActionButton(
+                    child:
+                        _buildActionButton(
                       icon: Icons
                           .help_outline_rounded,
                       label: 'Help',
-                      onTap: widget.onHelp,
+                      onTap:
+                          widget.onHelp,
                     ),
                   ),
                 ],
@@ -759,12 +784,15 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     return Container(
       width: 58,
       height: 58,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F1F3),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(0xFFF0F1F3),
         borderRadius:
             BorderRadius.circular(18),
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior:
+          Clip.antiAlias,
       child: imageUrl.isNotEmpty
           ? Image.network(
               imageUrl,
@@ -777,14 +805,16 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                 return const Icon(
                   Icons.person_rounded,
                   size: 30,
-                  color: Color(0xFF858585),
+                  color:
+                      Color(0xFF858585),
                 );
               },
             )
           : const Icon(
               Icons.person_rounded,
               size: 30,
-              color: Color(0xFF858585),
+              color:
+                  Color(0xFF858585),
             ),
     );
   }
@@ -795,7 +825,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
   Widget _buildCallButton() {
     return Material(
-      color: const Color(0xFFFF7A00),
+      color:
+          const Color(0xFFFF7A00),
       borderRadius:
           BorderRadius.circular(14),
       child: InkWell(
@@ -826,12 +857,15 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 12,
       ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F8),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(0xFFF7F7F8),
         borderRadius:
             BorderRadius.circular(16),
       ),
@@ -845,7 +879,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                   ? _formatDistance(
                       meters:
                           data.distanceMeters,
-                      km: data.distanceKm,
+                      km:
+                          data.distanceKm,
                     )
                   : '--',
             ),
@@ -854,12 +889,14 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           Container(
             width: 1,
             height: 34,
-            color: const Color(0xFFE1E1E1),
+            color:
+                const Color(0xFFE1E1E1),
           ),
 
           Expanded(
             child: _buildInfoItem(
-              icon: Icons.schedule_rounded,
+              icon:
+                  Icons.schedule_rounded,
               label: 'ETA',
               value: hasEta
                   ? data.etaLabel
@@ -887,7 +924,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         Icon(
           icon,
           size: 20,
-          color: const Color(0xFFFF7A00),
+          color:
+              const Color(0xFFFF7A00),
         ),
 
         const SizedBox(width: 9),
@@ -900,7 +938,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               label,
               style: const TextStyle(
                 fontSize: 10,
-                color: Color(0xFF8A8A8A),
+                color:
+                    Color(0xFF8A8A8A),
                 fontWeight:
                     FontWeight.w600,
               ),
@@ -910,9 +949,11 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
             Text(
               value,
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 fontSize: 14,
-                color: Color(0xFF202020),
+                color:
+                    Color(0xFF202020),
                 fontWeight:
                     FontWeight.w800,
               ),
@@ -935,10 +976,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         const SizedBox(
           width: 12,
           height: 12,
-          child: CircularProgressIndicator(
+          child:
+              CircularProgressIndicator(
             strokeWidth: 1.8,
             valueColor:
-                AlwaysStoppedAnimation<Color>(
+                AlwaysStoppedAnimation<
+                    Color>(
               Color(0xFFFF7A00),
             ),
           ),
@@ -952,7 +995,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
             fontSize: 11,
             fontWeight:
                 FontWeight.w600,
-            color: Colors.grey.shade600,
+            color:
+                Colors.grey.shade600,
           ),
         ),
       ],
@@ -969,7 +1013,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     required VoidCallback? onTap,
   }) {
     return Material(
-      color: const Color(0xFFF3F4F6),
+      color:
+          const Color(0xFFF3F4F6),
       borderRadius:
           BorderRadius.circular(14),
       child: InkWell(
@@ -985,18 +1030,21 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Icon(
                 icon,
                 size: 18,
-                color: const Color(0xFF333333),
+                color:
+                    const Color(0xFF333333),
               ),
 
               const SizedBox(width: 7),
 
               Text(
                 label,
-                style: const TextStyle(
+                style:
+                    const TextStyle(
                   fontSize: 13,
                   fontWeight:
                       FontWeight.w700,
-                  color: Color(0xFF333333),
+                  color:
+                      Color(0xFF333333),
                 ),
               ),
             ],
