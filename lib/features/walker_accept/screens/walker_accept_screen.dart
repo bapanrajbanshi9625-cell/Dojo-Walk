@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../screens/live_walk_screen.dart';
 import '../models/walker_accept_data.dart';
 import '../services/walker_accept_service.dart';
 import '../services/walker_route_service.dart';
@@ -89,8 +90,9 @@ class _WalkerAcceptScreenState
 
         _checkReached(data);
 
-        // Once reached, there is no reason to keep
-        // requesting routes for the accept screen.
+        // Once the walker reaches the owner,
+        // the accept screen no longer needs
+        // route updates.
         if (!data.isReached) {
           _refreshRoute(data);
         }
@@ -123,27 +125,53 @@ class _WalkerAcceptScreenState
       'WalkerAcceptScreen: Walker reached Owner.',
     );
 
-    // Stop Firestore listener before leaving this screen.
+    // Stop listening to the request.
     _requestSubscription?.cancel();
+    _requestSubscription = null;
 
-    // Tell parent that Walker has reached.
+    // Keep the existing callback working
+    // for any parent that already uses it.
     widget.onReached?.call(data);
 
     if (!mounted) {
       return;
     }
 
-    // Remove this Accept/On-the-way screen.
+    // --------------------------------------------------------
+    // WALKER REACHED OWNER
     //
-    // The parent should use onReached to open the
-    // next Live/Active Walk screen.
+    // Replace the Accept Screen with the existing
+    // LiveWalkScreen.
+    //
+    // This prevents the Accept Screen from remaining
+    // underneath the Live Walk Screen.
+    // --------------------------------------------------------
+
     WidgetsBinding.instance.addPostFrameCallback(
       (_) {
         if (!mounted) {
           return;
         }
 
-        Navigator.of(context).pop();
+        final String walkId =
+            widget.requestId.trim();
+
+        if (walkId.isEmpty) {
+          debugPrint(
+            'WalkerAcceptScreen: Cannot open LiveWalkScreen '
+            'because requestId is empty.',
+          );
+          return;
+        }
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => LiveWalkScreen(
+              activeWalkId: walkId,
+              isWalker: false,
+            ),
+          ),
+        );
       },
     );
   }
