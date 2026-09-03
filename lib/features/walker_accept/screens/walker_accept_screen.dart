@@ -4,14 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../models/walker_accept_data.dart';
-import '../services/walker_accept_service.dart';
-import '../services/walker_route_service.dart';
-import '../widgets/walker_accept_map.dart';
-
-// Keep your existing LiveWalkScreen import if it is located elsewhere.
-// Update this import path only if your project uses a different location.
-import '../../live_walk/screens/live_walk_screen.dart';
+import '../../../screens/live_walk_screen.dart';  
+import '../models/walker_accept_data.dart';  
+import '../services/walker_accept_service.dart';  
+import '../services/walker_route_service.dart';  
+import '../widgets/walker_accept_map.dart';  
+import '../widgets/walker_accept_status.dart';  
+import '../widgets/walker_contact_buttons.dart';  
+import '../widgets/walker_eta_distance.dart';  
+import '../widgets/walker_info_card.dart';  
 
 class WalkerAcceptScreen extends StatefulWidget {
   const WalkerAcceptScreen({
