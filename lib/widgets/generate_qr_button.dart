@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/qr_service.dart';
-import '../screens/live_walk_screen.dart';
+import '../features/live_walk/screens/live_walk_screen.dart';
 
 class GenerateQRButton extends StatefulWidget {
   final bool isLiveWalk;
