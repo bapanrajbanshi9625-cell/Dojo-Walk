@@ -16,12 +16,16 @@ class ActiveLiveWalkStrip extends StatefulWidget {
   });
 
   @override
-  State<ActiveLiveWalkStrip> createState() => _ActiveLiveWalkStripState();
+  State<ActiveLiveWalkStrip> createState() =>
+      _ActiveLiveWalkStripState();
 }
 
 class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _walkRequestSubscription;
@@ -51,6 +55,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     super.dispose();
   }
 
+  // ============================================================
+  // START LISTENERS
+  // ============================================================
+
   void _startListeners() {
     final user = _auth.currentUser;
 
@@ -72,7 +80,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     _walkRequestSubscription = _firestore
         .collection('walk_request')
-        .where('ownerAuthUid', isEqualTo: uid)
+        .where(
+          'ownerAuthUid',
+          isEqualTo: uid,
+        )
         .snapshots()
         .listen(
       _processWalkRequests,
@@ -91,15 +102,22 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      final status = _readStatus(data['status']);
+
+      final status = _readStatus(
+        data['status'],
+      );
 
       if (!_isAcceptedStatus(status)) {
         continue;
       }
 
       if (selected == null ||
-          _getLatestTime(doc.data()).isAfter(
-            _getLatestTime(selected.data()),
+          _getLatestTime(
+            doc.data(),
+          ).isAfter(
+            _getLatestTime(
+              selected.data(),
+            ),
           )) {
         selected = doc;
       }
@@ -108,6 +126,7 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     if (selected == null) {
       _hasAcceptedRequest = false;
       _requestId = null;
+
       _recalculateVisibility();
       return;
     }
@@ -127,7 +146,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     _liveSessionSubscription = _firestore
         .collection('liveWalkSessions')
-        .where('ownerAuthUid', isEqualTo: uid)
+        .where(
+          'ownerAuthUid',
+          isEqualTo: uid,
+        )
         .snapshots()
         .listen(
       _processLiveSessions,
@@ -146,40 +168,52 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     final currentRequestId = _requestId;
 
-    /*
-     * If we already know the accepted walk request,
-     * only use its matching live session.
-     *
-     * Matching field:
-     * liveWalkSessions.walkRequestId
-     *
-     * Also supports requestId/requestID if present.
-     */
+    // ------------------------------------------------------------
+    // If there is no accepted request yet, don't attach a random
+    // live session to the strip.
+    // ------------------------------------------------------------
+
+    if (currentRequestId == null ||
+        currentRequestId.isEmpty) {
+      _sessionStatus = '';
+      _walkId = null;
+      _isLive = false;
+
+      _recalculateVisibility();
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // Find the live session belonging to the current request.
+    // Primary field:
+    //     walkRequestId
+    //
+    // Also supports:
+    //     requestId
+    //     requestID
+    // ------------------------------------------------------------
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
 
-      if (currentRequestId != null &&
-          !_sessionMatchesRequest(
-            data,
-            currentRequestId,
-          )) {
+      if (!_sessionMatchesRequest(
+        data,
+        currentRequestId,
+      )) {
         continue;
       }
 
-      /*
-       * A completed matching session has highest priority.
-       * This makes the strip disappear immediately even if
-       * walk_request still says accepted.
-       */
-      if (currentRequestId != null &&
-          _sessionMatchesRequest(
-            data,
-            currentRequestId,
-          ) &&
-          _isCompletedSession(data)) {
+      // ----------------------------------------------------------
+      // COMPLETED SESSION HAS HIGHEST PRIORITY
+      // ----------------------------------------------------------
+
+      if (_isCompletedSession(data)) {
         _sessionStatus = 'completed';
-        _walkId = _readString(data['walkId']);
+
+        _walkId = _readString(
+          data['walkId'],
+        );
+
         _isLive = false;
 
         _recalculateVisibility();
@@ -187,12 +221,20 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       }
 
       if (selected == null ||
-          _getLatestTime(doc.data()).isAfter(
-            _getLatestTime(selected.data()),
+          _getLatestTime(
+            doc.data(),
+          ).isAfter(
+            _getLatestTime(
+              selected.data(),
+            ),
           )) {
         selected = doc;
       }
     }
+
+    // ------------------------------------------------------------
+    // No matching live session
+    // ------------------------------------------------------------
 
     if (selected == null) {
       _sessionStatus = '';
@@ -203,12 +245,23 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return;
     }
 
+    // ------------------------------------------------------------
+    // Matching session found
+    // ------------------------------------------------------------
+
     final data = selected.data();
 
-    _sessionStatus = _readStatus(data['status']);
-    _walkId = _readString(data['walkId']);
+    _sessionStatus = _readStatus(
+      data['status'],
+    );
 
-    _isLive = _isLiveStatus(_sessionStatus);
+    _walkId = _readString(
+      data['walkId'],
+    );
+
+    _isLive = _isLiveStatus(
+      _sessionStatus,
+    );
 
     _recalculateVisibility();
   }
@@ -249,7 +302,8 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       data['status'],
     );
 
-    final completedAt = data['completedAt'];
+    final completedAt =
+        data['completedAt'];
 
     final trackingEnded =
         data['trackingEnded'] == true;
@@ -272,10 +326,12 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   }
 
   // ============================================================
-  // STATUS
+  // ACCEPTED STATUS
   // ============================================================
 
-  bool _isAcceptedStatus(String status) {
+  bool _isAcceptedStatus(
+    String status,
+  ) {
     return status == 'accepted' ||
         status == 'active' ||
         status == 'on_the_way' ||
@@ -287,7 +343,13 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
         status == 'live';
   }
 
-  bool _isLiveStatus(String status) {
+  // ============================================================
+  // LIVE STATUS
+  // ============================================================
+
+  bool _isLiveStatus(
+    String status,
+  ) {
     return status == 'active' ||
         status == 'walking' ||
         status == 'in_progress' ||
@@ -296,7 +358,13 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
         status == 'live';
   }
 
-  String _readStatus(dynamic value) {
+  // ============================================================
+  // STATUS READER
+  // ============================================================
+
+  String _readStatus(
+    dynamic value,
+  ) {
     if (value == null) {
       return '';
     }
@@ -307,12 +375,19 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
         .toLowerCase();
   }
 
-  String? _readString(dynamic value) {
+  // ============================================================
+  // STRING READER
+  // ============================================================
+
+  String? _readString(
+    dynamic value,
+  ) {
     if (value == null) {
       return null;
     }
 
-    final result = value.toString().trim();
+    final result =
+        value.toString().trim();
 
     if (result.isEmpty) {
       return null;
@@ -322,13 +397,14 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   }
 
   // ============================================================
-  // TIME
+  // LATEST TIME
   // ============================================================
 
   DateTime _getLatestTime(
     Map<String, dynamic> data,
   ) {
-    final updatedAt = _timestampToDate(
+    final updatedAt =
+        _timestampToDate(
       data['updatedAt'],
     );
 
@@ -336,7 +412,8 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return updatedAt;
     }
 
-    final acceptedAt = _timestampToDate(
+    final acceptedAt =
+        _timestampToDate(
       data['acceptedAt'],
     );
 
@@ -344,7 +421,8 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return acceptedAt;
     }
 
-    final createdAt = _timestampToDate(
+    final createdAt =
+        _timestampToDate(
       data['createdAt'],
     );
 
@@ -352,10 +430,14 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return createdAt;
     }
 
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    return DateTime.fromMillisecondsSinceEpoch(
+      0,
+    );
   }
 
-  DateTime? _timestampToDate(dynamic value) {
+  DateTime? _timestampToDate(
+    dynamic value,
+  ) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -368,7 +450,7 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   }
 
   // ============================================================
-  // STATE
+  // VISIBILITY
   // ============================================================
 
   void _recalculateVisibility() {
@@ -379,12 +461,13 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     setState(() {
       _loading = false;
 
-      /*
-       * Completed session always wins.
-       *
-       * Even if walk_request remains "accepted",
-       * the strip must disappear.
-       */
+      // ----------------------------------------------------------
+      // Completed session ALWAYS wins.
+      //
+      // Even if walk_request remains "accepted",
+      // the strip disappears.
+      // ----------------------------------------------------------
+
       if (_sessionStatus == 'completed' ||
           _sessionStatus == 'complete' ||
           _sessionStatus == 'finished' ||
@@ -402,6 +485,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     });
   }
 
+  // ============================================================
+  // CLEAR
+  // ============================================================
+
   void _clearWalk() {
     if (!mounted) {
       return;
@@ -418,7 +505,7 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   }
 
   // ============================================================
-  // TEXT
+  // MAIN TITLE
   // ============================================================
 
   String get _mainTitle {
@@ -428,6 +515,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     return 'WALK ACCEPTED';
   }
+
+  // ============================================================
+  // SECONDARY TEXT
+  // ============================================================
 
   String get _secondaryText {
     if (_isLive) {
@@ -441,6 +532,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     return 'Your walker has accepted the walk';
   }
 
+  // ============================================================
+  // STATUS TITLE
+  // ============================================================
+
   String get _statusTitle {
     if (_isLive) {
       return 'LIVE WALK';
@@ -452,6 +547,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     return 'ACCEPTED';
   }
+
+  // ============================================================
+  // STATUS SUBTITLE
+  // ============================================================
 
   String get _statusSubtitle {
     if (_isLive) {
@@ -472,7 +571,8 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   Future<void> _openWalk() async {
     final requestId = _requestId;
 
-    if (requestId == null || requestId.isEmpty) {
+    if (requestId == null ||
+        requestId.isEmpty) {
       return;
     }
 
@@ -507,130 +607,161 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   // ============================================================
 
   @override
-Widget build(BuildContext context) {
-  if (_loading) {
-    return const SizedBox.shrink();
-  }
+  Widget build(
+    BuildContext context,
+  ) {
+    if (_loading) {
+      return const SizedBox.shrink();
+    }
 
-  if (!_hasAcceptedRequest) {
-    return const SizedBox.shrink();
-  }
+    if (!_hasAcceptedRequest) {
+      return const SizedBox.shrink();
+    }
 
-  return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: _openWalk,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        margin: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.primary,
-              AppColors.primary,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openWalk,
+        borderRadius:
+            BorderRadius.circular(18),
+        child: Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
           ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-              color: Colors.black.withValues(
-                alpha: 0.12,
-              ),
+          padding:
+              const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary,
+                AppColors.primary,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(
-                  alpha: 0.16,
+            borderRadius:
+                BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 14,
+                offset:
+                    const Offset(0, 6),
+                color:
+                    Colors.black.withValues(
+                  alpha: 0.12,
                 ),
-                shape: BoxShape.circle,
               ),
-              child: Icon(
-                _isLive
-                    ? Icons.directions_walk_rounded
-                    : Icons.pets_rounded,
-                color: Colors.white,
-                size: 26,
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.white.withValues(
+                    alpha: 0.16,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isLive
+                      ? Icons
+                          .directions_walk_rounded
+                      : Icons.pets_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+              const SizedBox(
+                width: 12,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _mainTitle,
+                      style:
+                          const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 3,
+                    ),
+                    Text(
+                      _secondaryText,
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style:
+                          TextStyle(
+                        color:
+                            Colors.white.withValues(
+                          alpha: 0.88,
+                        ),
+                        fontSize: 12,
+                        fontWeight:
+                            FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(
+                width: 10,
+              ),
+              Column(
                 crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                    CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _mainTitle,
-                    style: const TextStyle(
+                    _statusTitle,
+                    style:
+                        const TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
+                      fontSize: 11,
+                      fontWeight:
+                          FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(
+                    height: 3,
+                  ),
                   Text(
-                    _secondaryText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(
-                        alpha: 0.88,
+                    _statusSubtitle,
+                    style:
+                        TextStyle(
+                      color:
+                          Colors.white.withValues(
+                        alpha: 0.78,
                       ),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 9,
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _statusTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _statusSubtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(
-                      alpha: 0.78,
-                    ),
-                    fontSize: 9,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 6),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-          ],
+              const SizedBox(
+                width: 6,
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
