@@ -13,7 +13,7 @@ class CloudinaryService {
     required File file,
     String? folder,
   }) async {
-    if (cloudName == 'YOUR_CLOUD_NAME') {
+    if (cloudName == 'kdkwevh4') {
       throw Exception('Cloudinary Cloud Name is not configured.');
     }
 
