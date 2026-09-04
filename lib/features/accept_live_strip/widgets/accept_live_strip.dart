@@ -20,8 +20,7 @@ class AcceptLiveStrip extends StatefulWidget {
 
 class _AcceptLiveStripState
     extends State<AcceptLiveStrip> {
-  late final AcceptLiveStripService
-      _service;
+  late final AcceptLiveStripService _service;
 
   StreamSubscription<AcceptLiveStripData>?
       _subscription;
@@ -31,10 +30,6 @@ class _AcceptLiveStripState
 
   bool _loading = true;
   bool _opening = false;
-
-  // ==========================================================
-  // INIT
-  // ==========================================================
 
   @override
   void initState() {
@@ -65,10 +60,6 @@ class _AcceptLiveStripState
     );
   }
 
-  // ==========================================================
-  // DISPOSE
-  // ==========================================================
-
   @override
   void dispose() {
     _subscription?.cancel();
@@ -90,7 +81,7 @@ class _AcceptLiveStripState
   }
 
   // ==========================================================
-  // SECONDARY TEXT
+  // SECONDARY
   // ==========================================================
 
   String get _secondaryText {
@@ -110,7 +101,7 @@ class _AcceptLiveStripState
   }
 
   // ==========================================================
-  // STATUS TITLE
+  // STATUS
   // ==========================================================
 
   String get _statusTitle {
@@ -129,10 +120,6 @@ class _AcceptLiveStripState
     return 'ACCEPTED';
   }
 
-  // ==========================================================
-  // STATUS SUBTITLE
-  // ==========================================================
-
   String get _statusSubtitle {
     if (_data.isLive) {
       return 'Tap to view live walk';
@@ -150,7 +137,7 @@ class _AcceptLiveStripState
   }
 
   // ==========================================================
-  // OPEN WALK
+  // OPEN
   // ==========================================================
 
   Future<void> _openWalk() async {
@@ -229,33 +216,21 @@ class _AcceptLiveStripState
       color: Colors.transparent,
       child: InkWell(
         onTap: _openWalk,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
           margin: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 8,
           ),
-          padding:
-              const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary,
-                AppColors.primary,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius:
-                BorderRadius.circular(18),
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
                 blurRadius: 14,
-                offset:
-                    const Offset(0, 6),
-                color:
-                    Colors.black.withValues(
+                offset: const Offset(0, 6),
+                color: Colors.black.withValues(
                   alpha: 0.12,
                 ),
               ),
@@ -267,16 +242,14 @@ class _AcceptLiveStripState
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color:
-                      Colors.white.withValues(
+                  color: Colors.white.withValues(
                     alpha: 0.16,
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   _data.isLive
-                      ? Icons
-                          .directions_walk_rounded
+                      ? Icons.directions_walk_rounded
                       : Icons.pets_rounded,
                   color: Colors.white,
                   size: 26,
@@ -292,12 +265,12 @@ class _AcceptLiveStripState
                   children: [
                     Text(
                       _mainTitle,
-                      style:
-                          const TextStyle(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.w800,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -307,16 +280,13 @@ class _AcceptLiveStripState
                     Text(
                       _secondaryText,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color:
-                            Colors.white.withValues(
+                        color: Colors.white.withValues(
                           alpha: 0.88,
                         ),
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w500,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -326,17 +296,16 @@ class _AcceptLiveStripState
               const SizedBox(width: 10),
 
               Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment:
                     CrossAxisAlignment.end,
                 children: [
                   Text(
                     _statusTitle,
-                    style:
-                        const TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
 
@@ -344,9 +313,9 @@ class _AcceptLiveStripState
 
                   Text(
                     _statusSubtitle,
+                    textAlign: TextAlign.right,
                     style: TextStyle(
-                      color:
-                          Colors.white.withValues(
+                      color: Colors.white.withValues(
                         alpha: 0.78,
                       ),
                       fontSize: 9,
