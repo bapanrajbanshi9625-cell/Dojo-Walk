@@ -23,9 +23,7 @@ class AddressScreenWidgets {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(
-              alpha: .20,
-            ),
+            color: AppColors.primary.withValues(alpha: .20),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -37,11 +35,8 @@ class AddressScreenWidgets {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(
-                alpha: .18,
-              ),
-              borderRadius:
-                  BorderRadius.circular(16),
+              color: Colors.white.withValues(alpha: .18),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.location_on_rounded,
@@ -52,8 +47,7 @@ class AddressScreenWidgets {
           const SizedBox(width: 13),
           const Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Where should we walk?',
@@ -65,7 +59,7 @@ class AddressScreenWidgets {
                 ),
                 SizedBox(height: 5),
                 Text(
-                  'Choose a saved address or use your current location.',
+                  'Choose a pickup location for your dog walk.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -81,7 +75,7 @@ class AddressScreenWidgets {
   }
 
   // =========================================================
-  // CURRENT LOCATION CARD
+  // PICKUP LOCATION CARD
   // =========================================================
 
   static Widget currentLocationCard({
@@ -98,20 +92,22 @@ class AddressScreenWidgets {
           width: double.infinity,
           padding: const EdgeInsets.all(17),
           decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.primary.withValues(
-                alpha: .18,
-              ),
+            gradient: const LinearGradient(
+              colors: [
+                AppColors.primary,
+                Color(0xFFFF7A33),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: .035,
+                color: AppColors.primary.withValues(
+                  alpha: .22,
                 ),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -121,26 +117,23 @@ class AddressScreenWidgets {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(
-                    alpha: .10,
+                  color: Colors.white.withValues(
+                    alpha: .18,
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: gettingLocation
                     ? const Padding(
                         padding: EdgeInsets.all(14),
-                        child:
-                            CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          color:
-                              AppColors.primary,
+                          color: Colors.white,
                         ),
                       )
                     : const Icon(
-                        Icons.my_location_rounded,
-                        color:
-                            AppColors.primary,
-                        size: 25,
+                        Icons.location_on_rounded,
+                        color: Colors.white,
+                        size: 27,
                       ),
               ),
               const SizedBox(width: 13),
@@ -150,29 +143,39 @@ class AddressScreenWidgets {
                       CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Use Current Location',
+                      'Pickup Location',
                       style: TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 15,
-                        fontWeight:
-                            FontWeight.w800,
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Automatically detect your address',
+                      'Choose where your dog will be picked up',
                       style: TextStyle(
-                        color: AppColors.slate,
+                        color: Colors.white70,
                         fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: AppColors.slate,
-                size: 16,
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(
+                    alpha: .16,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 15,
+                ),
               ),
             ],
           ),
