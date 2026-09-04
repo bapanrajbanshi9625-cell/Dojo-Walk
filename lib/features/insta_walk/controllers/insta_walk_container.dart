@@ -104,13 +104,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ACCEPTED STATE
   // ==========================================================
   //
-  // IMPORTANT:
-  // This is the permanent UI guard for this mounted
-  // InstaWalkContainer instance.
+  // true while this container is handling an accepted walk.
   //
-  // Once Firestore says accepted, normal Insta Walk
-  // searching UI must never come back during this
-  // container lifecycle.
+  // IMPORTANT:
+  // This lock is cleared ONLY after the Live Walk screen
+  // reports that the walk has actually completed.
   //
 
   bool _acceptedNavigationStarted = false;
@@ -162,6 +160,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
+    // --------------------------------------------------------
+    // Prevent duplicate navigation.
+    // --------------------------------------------------------
+
     if (_acceptedNavigationStarted) {
       debugPrint(
         'InstaWalkContainer: accepted navigation already started.',
@@ -201,10 +203,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // LOCK ACCEPTED STATE FIRST
     // --------------------------------------------------------
     //
-    // IMPORTANT:
-    // Set this BEFORE stopping listeners/state updates.
-    // This prevents a rebuild from rendering the normal
-    // Insta Walk search UI again.
+    // This MUST happen before stopping listeners so that
+    // no rebuild can bring back the normal search UI.
     //
 
     _acceptedNavigationStarted = true;
@@ -222,7 +222,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _stopRadar();
 
     // --------------------------------------------------------
-    // STOP FIRESTORE LISTENER
+    // STOP FIRESTORE SEARCH LISTENER
     // --------------------------------------------------------
 
     _service.stopListening();
@@ -238,10 +238,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _searchFinished = false;
       _checkingAddress = false;
       _recovering = false;
+      _stopping = false;
     });
 
     // --------------------------------------------------------
-    // DO NOT REPORT SEARCH AS ACTIVE
+    // SEARCH IS NO LONGER ACTIVE
     // --------------------------------------------------------
 
     _setActive(false);
@@ -284,10 +285,20 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // OPEN OWNER WALKER ACCEPT SCREEN
   // ==========================================================
+  //
+  // IMPORTANT:
+  //
+  // WalkerAcceptScreen eventually replaces itself with
+  // LiveWalkScreen.
+  //
+  // LiveWalkScreen returns true when the walk is completed.
+  //
+  // That true comes back to this Navigator.push().
+  //
 
-  void _openOwnerAcceptedScreen(
+  Future<void> _openOwnerAcceptedScreen(
     String requestId,
-  ) {
+  ) async {
     if (!mounted) {
       return;
     }
@@ -310,14 +321,109 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       'requestId = $cleanRequestId',
     );
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final dynamic result =
+        await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
         builder: (_) {
           return WalkerAcceptScreen(
             requestId: cleanRequestId,
           );
         },
       ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    debugPrint(
+      'OWNER WALK FLOW → WalkerAcceptScreen returned: $result',
+    );
+
+    // --------------------------------------------------------
+    // WALK COMPLETED
+    // --------------------------------------------------------
+    //
+    // LiveWalkScreen returns true when Firestore reports
+    // session.isCompleted.
+    //
+
+    if (result == true) {
+      debugPrint(
+        '✅ OWNER WALK FLOW → walk completed.',
+      );
+
+      _resetAfterWalkCompleted();
+    }
+  }
+
+  // ==========================================================
+  // RESET AFTER WALK COMPLETION
+  // ==========================================================
+  //
+  // This is the important part that allows a NEW walk request.
+  //
+
+  void _resetAfterWalkCompleted() {
+    if (!mounted) {
+      return;
+    }
+
+    debugPrint('');
+    debugPrint(
+      '==============================================',
+    );
+    debugPrint(
+      '✅ OWNER INSTA WALK: RESET AFTER COMPLETION',
+    );
+    debugPrint(
+      '==============================================',
+    );
+
+    // --------------------------------------------------------
+    // Stop anything left from the previous search.
+    // --------------------------------------------------------
+
+    _stopRadar();
+    _service.stopListening();
+
+    // --------------------------------------------------------
+    // Clear old request data.
+    // --------------------------------------------------------
+
+    _requestId = null;
+    _ownerPosition = null;
+
+    // --------------------------------------------------------
+    // IMPORTANT:
+    //
+    // Remove the accepted lock.
+    //
+    // This makes InstaWalkContainer visible again.
+    // --------------------------------------------------------
+
+    _acceptedNavigationStarted = false;
+
+    // --------------------------------------------------------
+    // Restore normal idle state.
+    // --------------------------------------------------------
+
+    _updateState(() {
+      _searching = false;
+      _searchFinished = false;
+      _checkingAddress = false;
+      _recovering = false;
+      _stopping = false;
+    });
+
+    // --------------------------------------------------------
+    // Search is inactive.
+    // --------------------------------------------------------
+
+    _setActive(false);
+
+    debugPrint(
+      '✅ InstaWalkContainer ready for a NEW walk request.',
     );
   }
 
@@ -409,7 +515,12 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
     // --------------------------------------------------------
     // IMPORTANT:
-    // Do not unlock an already accepted request.
+    //
+    // If a walker has already accepted the request,
+    // never restore normal search UI.
+    //
+    // The accepted lock is cleared only by
+    // _resetAfterWalkCompleted().
     // --------------------------------------------------------
 
     if (_acceptedNavigationStarted) {
@@ -450,7 +561,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     String? message,
   }) {
     // --------------------------------------------------------
-    // Never finish/reopen normal search UI after acceptance.
+    // Never show normal search/cancel UI after acceptance.
     // --------------------------------------------------------
 
     if (_acceptedNavigationStarted) {
@@ -502,6 +613,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
 
   Future<void> _retrySearch() async {
+    // --------------------------------------------------------
+    // Never retry an already accepted walk.
+    // --------------------------------------------------------
+
     if (_acceptedNavigationStarted) {
       return;
     }
@@ -597,6 +712,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     final dynamic value =
         data['ownerLocation'];
 
+    // --------------------------------------------------------
+    // GeoPoint
+    // --------------------------------------------------------
+
     if (value is GeoPoint) {
       return Position(
         longitude: value.longitude,
@@ -611,6 +730,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
         speedAccuracy: 0,
       );
     }
+
+    // --------------------------------------------------------
+    // Map
+    // --------------------------------------------------------
 
     if (value is Map) {
       final dynamic lat =
