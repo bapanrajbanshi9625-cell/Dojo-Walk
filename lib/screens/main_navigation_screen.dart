@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import '../features/walker_accept/screens/walker_accept_entry.dart';
 import '../widgets/active_live_walk_strip.dart';
 
 import 'home_screen.dart';
@@ -76,21 +77,31 @@ class _MainNavigationScreenState
       // MAIN CONTENT
       // ========================================================
 
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
+          ),
+
+          // ======================================================
+          // WALKER ACCEPT ENTRY
+          //
+          // Invisible persistent listener.
+          //
+          // It independently checks walk_request and opens
+          // WalkerAcceptScreen when the current owner's walk
+          // becomes accepted.
+          //
+          // It has NO connection with InstaWalkContainer.
+          // ======================================================
+
+          const WalkerAcceptEntry(),
+        ],
       ),
 
       // ========================================================
       // BOTTOM AREA
-      //
-      // ActiveLiveWalkStrip:
-      // - Active होते ही दिखाई देगी
-      // - Accepted / On The Way / Reached / Walking /
-      //   In Progress के दौरान बनी रहेगी
-      // - Completed / Ended / Cancelled पर hide होगी
-      //
-      // Strip और navigation के बीच ZERO GAP.
       // ========================================================
 
       bottomNavigationBar: Column(
