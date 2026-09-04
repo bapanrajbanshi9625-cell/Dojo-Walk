@@ -1,3 +1,6 @@
+// File:
+// lib/features/insta_walk/widgets/insta_walk_recovery.dart
+
 part of '../controllers/insta_walk_container.dart';
 
 // ============================================================
@@ -15,6 +18,8 @@ part of '../controllers/insta_walk_container.dart';
 // ACCEPTED:
 //   - Restores accepted walker
 //   - Restores requestId from Firestore document ID
+//   - Closes Insta Walk search UI
+//   - Does NOT return to Find a Walker Now
 // ============================================================
 
 extension _RecoveryRole on _InstaWalkContainerState {
@@ -47,13 +52,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
     try {
       // ========================================================
       // FIND OWNER PROFILE
-      //
-      // Service now reads:
-      //
-      // owners
-      //
-      // using:
-      // authUid == FirebaseAuth.currentUser.uid
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
@@ -67,7 +65,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
       // PROFILE NOT FOUND
       // ========================================================
 
-      if (ownerDoc == null || !ownerDoc.exists) {
+      if (ownerDoc == null ||
+          !ownerDoc.exists) {
         _resetSearchState();
         return;
       }
@@ -77,15 +76,11 @@ extension _RecoveryRole on _InstaWalkContainerState {
       // ========================================================
 
       final Map<String, dynamic> ownerData =
-          ownerDoc.data() ?? <String, dynamic>{};
+          ownerDoc.data() ??
+              <String, dynamic>{};
 
       // ========================================================
       // PROFILE COMPLETION
-      //
-      // Firestore:
-      //
-      // owners/{documentId}
-      // profileCompleted = true
       // ========================================================
 
       final bool profileCompleted =
@@ -112,15 +107,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
       // ========================================================
       // PETS ARRAY FALLBACK
-      //
-      // Current structure:
-      //
-      // pets:
-      //   [
-      //     {
-      //       name: "Brono"
-      //     }
-      //   ]
       // ========================================================
 
       if (_petName.isEmpty) {
@@ -154,10 +140,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
       // ========================================================
       // OWNER ID
-      //
-      // Current Firestore structure:
-      //
-      // ownerId = OWN26GH0004
       // ========================================================
 
       String ownerId =
@@ -170,9 +152,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
       );
 
       // ========================================================
-      // FALLBACK
-      //
-      // If ownerId is missing, use the document ID.
+      // FALLBACK TO DOCUMENT ID
       // ========================================================
 
       if (ownerId.isEmpty) {
@@ -199,7 +179,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // NO ACTIVE SEARCH
+      // NO ACTIVE REQUEST
       // ========================================================
 
       if (active == null) {
@@ -273,6 +253,14 @@ extension _RecoveryRole on _InstaWalkContainerState {
   Future<void> _recoverSearchingRequest(
     InstaWalkRequestState active,
   ) async {
+    // ----------------------------------------------------------
+    // Never restore searching after accepted.
+    // ----------------------------------------------------------
+
+    if (_acceptedNavigationStarted) {
+      return;
+    }
+
     final String requestId =
         active.requestId.trim();
 
@@ -338,7 +326,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
           }
 
           // ====================================================
-          // WALKER ACCEPTED
+          // ACCEPTED
           // ====================================================
 
           if (state.isAccepted) {
@@ -374,12 +362,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
           // ====================================================
           // EXPIRED
-          //
-          // Only reacts to Firestore:
-          //
-          // status = expired
-          //
-          // No automatic expiry.
           // ====================================================
 
           if (state.isExpired) {
@@ -393,9 +375,10 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
           // ====================================================
           // SEARCHING
+          // ====================================================
           //
           // Keep searching.
-          // ====================================================
+          //
         },
         onError: (
           Object error,
@@ -416,16 +399,10 @@ extension _RecoveryRole on _InstaWalkContainerState {
         'Insta Walk listener Firebase error: '
         '${e.code} - ${e.message}',
       );
-
-      // IMPORTANT:
-      // Listener failure does NOT cancel Firestore request.
     } catch (e) {
       debugPrint(
         'Insta Walk listener setup error: $e',
       );
-
-      // IMPORTANT:
-      // Request remains in Firestore.
     }
 
     // ==========================================================
@@ -447,11 +424,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
             <String, dynamic>{};
 
     // ==========================================================
-    // IMPORTANT
-    //
-    // active.requestId is Firestore document ID.
-    //
-    // Do not depend on data['requestId'].
+    // ACCEPTED DATA
     // ==========================================================
 
     final InstaWalkAcceptedData accepted =
@@ -473,6 +446,24 @@ extension _RecoveryRole on _InstaWalkContainerState {
     }
 
     // ==========================================================
+    // 🔥 CRITICAL FIX
+    // ==========================================================
+    //
+    // Firestore says request is already accepted.
+    //
+    // Therefore:
+    //
+    // - Insta Walk search is OFF
+    // - Radar is OFF
+    // - "Find a Walker Now" must NOT return
+    // - normal idle state must NOT return
+    //
+    // This MUST happen before _updateState().
+    //
+
+    _acceptedNavigationStarted = true;
+
+    // ==========================================================
     // RESTORE OWNER LOCATION
     // ==========================================================
 
@@ -486,6 +477,17 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // ==========================================================
 
     _stopRadar();
+
+    // ==========================================================
+    // STOP SEARCH LISTENER
+    // ==========================================================
+    //
+    // Accepted request no longer needs the searching listener.
+    //
+    // This does NOT cancel or delete the Firestore request.
+    //
+
+    _service.stopListening();
 
     if (!mounted) {
       return;
@@ -504,10 +506,10 @@ extension _RecoveryRole on _InstaWalkContainerState {
     });
 
     // ==========================================================
-    // REQUEST IS STILL ACTIVE
+    // SEARCH IS NO LONGER ACTIVE
     // ==========================================================
 
-    _setActive(true);
+    _setActive(false);
 
     // ==========================================================
     // VALIDATE WALKER
@@ -538,7 +540,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // ==========================================================
 
     await _walkerAccepted(
-     accepted,
+      accepted,
     );
   }
 }
