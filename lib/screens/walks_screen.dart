@@ -25,10 +25,10 @@ class _WalksScreenState extends State<WalksScreen> {
       return;
     }
 
-    // Rebuild the complete Walks screen.
+    // Rebuild the complete Walks page.
     setState(() {});
 
-    // Allow the refresh indicator to complete smoothly.
+    // Keep the refresh animation smooth.
     await Future<void>.delayed(
       const Duration(milliseconds: 400),
     );
@@ -76,6 +76,7 @@ class _WalksScreenState extends State<WalksScreen> {
 
             // ==================================================
             // INSTA WALK
+            // Existing flow remains unchanged.
             // ==================================================
 
             const InstaWalkContainer(
