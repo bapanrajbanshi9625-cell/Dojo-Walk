@@ -30,22 +30,25 @@ class WalkerAcceptScreen extends StatefulWidget {
       _WalkerAcceptScreenState();
 }
 
-class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
+class _WalkerAcceptScreenState
+    extends State<WalkerAcceptScreen> {
   late final WalkerAcceptService _acceptService;
   late final WalkerRouteService _routeService;
 
-  StreamSubscription<WalkerAcceptData?>? _requestSubscription;
+  StreamSubscription<WalkerAcceptData?>?
+      _requestSubscription;
 
   WalkerAcceptData? _data;
   WalkerRouteResult? _route;
 
   bool _loadingRoute = false;
   bool _reachedHandled = false;
-  bool _liveWalkOpened = false;
+  bool _liveWalkOpening = false;
 
   LatLng? _lastRouteWalkerLocation;
 
-  static const double _routeRefreshDistanceMeters = 50.0;
+  static const double _routeRefreshDistanceMeters =
+      50.0;
 
   final Distance _distance = const Distance();
 
@@ -64,7 +67,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // ==========================================================
 
   void _listenToRequest() {
-    final String requestId = widget.requestId.trim();
+    final String requestId =
+        widget.requestId.trim();
 
     if (requestId.isEmpty) {
       return;
@@ -84,14 +88,15 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           return;
         }
 
-        // Every Firestore snapshot updates the UI immediately.
+        // Update UI immediately.
         setState(() {
           _data = data;
         });
 
-        // Reached has priority over route updates.
+        // Reached always gets priority.
         _checkReached(data);
 
+        // Route is only required before walker reaches owner.
         if (!data.isReached) {
           _refreshRoute(data);
         }
@@ -119,12 +124,18 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // REACHED
   // ==========================================================
 
-  void _checkReached(WalkerAcceptData data) {
+  void _checkReached(
+    WalkerAcceptData data,
+  ) {
     if (_reachedHandled || !data.isReached) {
       return;
     }
 
     _reachedHandled = true;
+
+    debugPrint(
+      '✅ WalkerAcceptScreen → Walker reached owner.',
+    );
 
     widget.onReached?.call(data);
 
@@ -139,36 +150,54 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   //
   // IMPORTANT:
   //
-  // DO NOT use pushReplacement here.
+  // pushReplacement is intentionally used here.
   //
-  // We need:
+  // BEFORE:
   //
-  // InstaWalkContainer
-  //       ↓
-  // WalkerAcceptScreen
-  //       ↓
-  // LiveWalkScreen
-  //       ↓
-  // completed
-  //       ↓
-  // true
-  //       ↓
-  // WalkerAcceptScreen
-  //       ↓
-  // true
-  //       ↓
-  // InstaWalkContainer
+  // InstaWalk
+  //     ↓
+  // Accept
+  //     ↓
+  // Live
   //
-  // Therefore LiveWalkScreen is pushed normally.
+  // Back from Live:
+  //     ↓
+  // Accept  ❌
+  //
+  //
+  // NOW:
+  //
+  // InstaWalk
+  //     ↓
+  // Accept
+  //     ↓
+  // Live
+  //
+  // pushReplacement removes Accept:
+  //
+  // InstaWalk
+  //     ↓
+  // Live
+  //
+  // Back from Live:
+  //     ↓
+  // InstaWalk  ✅
+  //
+  // When LiveWalk completes and returns true,
+  // LiveWalkScreen returns directly to the screen
+  // which originally opened AcceptScreen.
   //
 
-  Future<void> _openLiveWalk(String requestId) async {
-    if (_liveWalkOpened) {
+  Future<void> _openLiveWalk(
+    String requestId,
+  ) async {
+    if (_liveWalkOpening) {
       return;
     }
 
-    _liveWalkOpened = true;
+    _liveWalkOpening = true;
 
+    // Stop listening to the Accept request.
     await _requestSubscription?.cancel();
 
     _requestSubscription = null;
@@ -177,23 +206,29 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
-    final String walkId = requestId.trim();
+    final String walkId =
+        requestId.trim();
 
     if (walkId.isEmpty) {
-      _liveWalkOpened = false;
+      _liveWalkOpening = false;
       return;
     }
 
     debugPrint(
-      'WalkerAcceptScreen → opening LiveWalkScreen',
+      'WalkerAcceptScreen → replacing with LiveWalkScreen',
     );
 
     debugPrint(
       'walkId = $walkId',
     );
 
-    final dynamic result =
-        await Navigator.of(context).push<dynamic>(
+    //
+    // IMPORTANT:
+    // AcceptScreen is removed from navigation stack.
+    //
+    await Navigator.of(context).pushReplacement<
+        dynamic,
+        dynamic>(
       MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
@@ -204,59 +239,41 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       ),
     );
 
+    //
+    // Normally this State will no longer be mounted
+    // because AcceptScreen was replaced.
+    //
+    // This is intentionally left empty.
+    //
+    // LiveWalkScreen handles its own completion and
+    // returns the result directly to the previous route.
+    //
+
     if (!mounted) {
       return;
     }
 
     debugPrint(
-      'WalkerAcceptScreen → LiveWalkScreen returned: $result',
+      'WalkerAcceptScreen → replacement returned.',
     );
-
-    // --------------------------------------------------------
-    // WALK COMPLETED
-    // --------------------------------------------------------
-    //
-    // LiveWalkScreen returns true when the Firestore session
-    // becomes completed.
-    //
-
-    if (result == true) {
-      debugPrint(
-        '✅ WalkerAcceptScreen → walk completed.',
-      );
-
-      // Pass completion result to InstaWalkContainer.
-      Navigator.of(context).pop(true);
-
-      return;
-    }
-
-    // --------------------------------------------------------
-    // USER CAME BACK WITHOUT COMPLETING
-    // --------------------------------------------------------
-    //
-    // Allow the Live Walk screen to be opened again if the
-    // owner returns to this screen manually.
-    //
-
-    _liveWalkOpened = false;
-
-    // Resume request listener.
-    if (_requestSubscription == null) {
-      _listenToRequest();
-    }
   }
 
   // ==========================================================
   // ROUTE REFRESH
   // ==========================================================
 
-  void _refreshRoute(WalkerAcceptData data) {
+  void _refreshRoute(
+    WalkerAcceptData data,
+  ) {
     final LatLng? walkerLocation =
-        _latLngFromGeoPoint(data.walkerLocation);
+        _latLngFromGeoPoint(
+      data.walkerLocation,
+    );
 
     final LatLng? ownerLocation =
-        _latLngFromGeoPoint(data.ownerLocation);
+        _latLngFromGeoPoint(
+      data.ownerLocation,
+    );
 
     if (walkerLocation == null ||
         ownerLocation == null) {
@@ -273,7 +290,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
     // First valid location loads the route.
     if (previous != null) {
-      final double movedMeters = _distance.as(
+      final double movedMeters =
+          _distance.as(
         LengthUnit.Meter,
         previous,
         walkerLocation,
@@ -329,12 +347,16 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         setState(() {
           _route = result;
 
-          // Move checkpoint only after successful route response.
+          // Move checkpoint only after successful
+          // route response.
           _lastRouteWalkerLocation =
               walkerLocation;
         });
       }
-    } catch (error, stackTrace) {
+    } catch (
+        error,
+        stackTrace,
+      ) {
       debugPrint(
         'WalkerAcceptScreen route error: $error',
       );
@@ -383,7 +405,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
-    final double movedMeters = _distance.as(
+    final double movedMeters =
+        _distance.as(
       LengthUnit.Meter,
       lastRoute,
       latestWalker,
@@ -787,7 +810,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                               ),
                             ),
                             const SizedBox(
-                                width: 5),
+                              width: 5,
+                            ),
                             Expanded(
                               child: Text(
                                 walkerPhone
