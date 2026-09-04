@@ -33,7 +33,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
   // ============================================================
 
   Future<void> _recoverSearch() async {
-    final User? user = FirebaseAuth.instance.currentUser;
+    final User? user =
+        FirebaseAuth.instance.currentUser;
 
     // ==========================================================
     // NOT LOGGED IN
@@ -56,6 +57,21 @@ extension _RecoveryRole on _InstaWalkContainerState {
       return;
     }
 
+    // ==========================================================
+    // IMPORTANT
+    //
+    // If existing Accept flow already handled the request,
+    // recovery must not restore the search UI.
+    // ==========================================================
+
+    if (_acceptHandled) {
+      debugPrint(
+        '🛑 Insta Walk recovery ignored: '
+        'accept already handled.',
+      );
+      return;
+    }
+
     try {
       // ========================================================
       // FIND OWNER PROFILE
@@ -65,6 +81,18 @@ extension _RecoveryRole on _InstaWalkContainerState {
           await _service.findOwnerProfile();
 
       if (!mounted) {
+        return;
+      }
+
+      // ========================================================
+      // ACCEPT GUARD AFTER ASYNC OPERATION
+      // ========================================================
+
+      if (_acceptHandled) {
+        debugPrint(
+          '🛑 Insta Walk recovery aborted after '
+          'owner profile lookup: accept handled.',
+        );
         return;
       }
 
@@ -115,13 +143,16 @@ extension _RecoveryRole on _InstaWalkContainerState {
       // ========================================================
 
       if (_petName.isEmpty) {
-        final dynamic pets = ownerData['pets'];
+        final dynamic pets =
+            ownerData['pets'];
 
         if (pets is List && pets.isNotEmpty) {
-          final dynamic firstPet = pets.first;
+          final dynamic firstPet =
+              pets.first;
 
           if (firstPet is Map) {
-            final dynamic petName = firstPet['name'];
+            final dynamic petName =
+                firstPet['name'];
 
             if (petName != null) {
               final String value =
@@ -178,6 +209,21 @@ extension _RecoveryRole on _InstaWalkContainerState {
       }
 
       // ========================================================
+      // ACCEPT GUARD AFTER ASYNC OPERATION
+      // ========================================================
+
+      if (_acceptHandled) {
+        debugPrint(
+          '🛑 Insta Walk recovery aborted after '
+          'active request lookup: accept handled.',
+        );
+
+        _stopRadar();
+        _service.stopListening();
+        return;
+      }
+
+      // ========================================================
       // NO ACTIVE REQUEST
       // ========================================================
 
@@ -219,6 +265,15 @@ extension _RecoveryRole on _InstaWalkContainerState {
         return;
       }
 
+      // Do not overwrite an already-handled accepted flow.
+      if (_acceptHandled) {
+        debugPrint(
+          '🛑 Recovery Firebase error ignored: '
+          'accept already handled.',
+        );
+        return;
+      }
+
       _resetSearchState();
 
       _message(
@@ -235,6 +290,14 @@ extension _RecoveryRole on _InstaWalkContainerState {
         return;
       }
 
+      if (_acceptHandled) {
+        debugPrint(
+          '🛑 Recovery error ignored: '
+          'accept already handled.',
+        );
+        return;
+      }
+
       _resetSearchState();
     }
   }
@@ -246,6 +309,21 @@ extension _RecoveryRole on _InstaWalkContainerState {
   Future<void> _recoverSearchingRequest(
     InstaWalkRequestState active,
   ) async {
+    // ==========================================================
+    // ACCEPT GUARD
+    // ==========================================================
+
+    if (_acceptHandled) {
+      debugPrint(
+        '🛑 Searching recovery ignored: '
+        'accept already handled.',
+      );
+
+      _stopRadar();
+      _service.stopListening();
+      return;
+    }
+
     final String requestId =
         active.requestId.trim();
 
@@ -273,6 +351,21 @@ extension _RecoveryRole on _InstaWalkContainerState {
     }
 
     // ==========================================================
+    // ACCEPT GUARD BEFORE RESTORING SEARCH UI
+    // ==========================================================
+
+    if (_acceptHandled) {
+      debugPrint(
+        '🛑 Searching UI restore cancelled: '
+        'accept already handled.',
+      );
+
+      _stopRadar();
+      _service.stopListening();
+      return;
+    }
+
+    // ==========================================================
     // RESTORE SEARCH UI
     // ==========================================================
 
@@ -284,13 +377,44 @@ extension _RecoveryRole on _InstaWalkContainerState {
       _stopping = false;
     });
 
+    // ==========================================================
+    // ACCEPT GUARD AFTER STATE UPDATE
+    // ==========================================================
+
+    if (_acceptHandled) {
+      debugPrint(
+        '🛑 Radar start cancelled: '
+        'accept handled during recovery.',
+      );
+
+      _stopRadar();
+      _service.stopListening();
+
+      _updateState(() {
+        _searching = false;
+        _recovering = false;
+        _checkingAddress = false;
+        _stopping = false;
+      });
+
+      _setActive(false);
+      return;
+    }
+
     _setActive(true);
 
     // ==========================================================
     // START RADAR
     // ==========================================================
 
-    _startRadar();
+    if (!_acceptHandled && _searching) {
+      _startRadar();
+    } else {
+      debugPrint(
+        '🛑 Radar NOT started during recovery.',
+      );
+      return;
+    }
 
     // ==========================================================
     // REALTIME FIRESTORE LISTENER
@@ -313,7 +437,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
           if (state.isAccepted) {
             final Map<String, dynamic> data =
-                state.data ?? <String, dynamic>{};
+                state.data ??
+                    <String, dynamic>{};
 
             final InstaWalkAcceptedData accepted =
                 InstaWalkAcceptedData.fromMap(
@@ -321,17 +446,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
               requestId: requestId,
             );
 
-            // --------------------------------------------------
-            // Hand off to normal accepted handler.
-            //
-            // _handleAccepted() is responsible for:
-            // - duplicate protection
-            // - radar stop
-            // - listener stop
-            // - container search reset
-            // - opening walker_accept flow
-            // --------------------------------------------------
-
+            // Existing Accept flow handles acceptance.
             _walkerAccepted(accepted);
             return;
           }
@@ -342,7 +457,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
           if (state.isCancelled) {
             _finishSearch(
-              message: 'Walk request was cancelled.',
+              message:
+                  'Walk request was cancelled.',
             );
             return;
           }
@@ -400,24 +516,13 @@ extension _RecoveryRole on _InstaWalkContainerState {
   // ============================================================
   // RECOVER ACCEPTED REQUEST
   // ============================================================
-  //
-  // This handles only recovery after app/screen restart.
-  //
-  // It does NOT:
-  // - lock the container
-  // - control LiveWalk
-  // - wait for walk completion
-  // - delete the request
-  // - cancel the request
-  //
-  // The accepted data is handed to _walkerAccepted().
-  // ============================================================
 
   Future<void> _recoverAcceptedRequest(
     InstaWalkRequestState active,
   ) async {
     final Map<String, dynamic> data =
-        active.data ?? <String, dynamic>{};
+        active.data ??
+            <String, dynamic>{};
 
     // ==========================================================
     // BUILD ACCEPTED DATA
@@ -437,7 +542,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
         active.requestId.trim();
 
     if (requestId.isEmpty) {
-      requestId = accepted.requestId.trim();
+      requestId =
+          accepted.requestId.trim();
     }
 
     if (requestId.isEmpty) {
@@ -467,12 +573,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     // ==========================================================
     // STOP SEARCH LISTENER
-    // ==========================================================
-    //
-    // Local listener only.
-    //
-    // Firestore request is NOT changed.
-    //
     // ==========================================================
 
     _service.stopListening();
@@ -527,13 +627,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // HAND OFF TO ACCEPTED-WALK FLOW
     // ==========================================================
     //
-    // IMPORTANT:
-    //
-    // Do NOT set any accepted-navigation lock here.
-    //
-    // _walkerAccepted() will route through the normal accepted
-    // handler, where duplicate protection and navigation are
-    // handled in ONE place.
+    // Existing accepted flow remains the owner of this lifecycle.
     //
     // ==========================================================
 
