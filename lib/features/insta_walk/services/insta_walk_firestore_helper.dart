@@ -23,13 +23,9 @@ class InstaWalkFirestoreHelper {
       createRequest({
     required Map<String, dynamic> data,
   }) async {
-    final CollectionReference<
-        Map<String, dynamic>> collection =
-        _firestore.collection(
-      walkRequestsCollection,
-    );
-
-    return collection.add(data);
+    return _firestore
+        .collection(walkRequestsCollection)
+        .add(data);
   }
 
   // ==========================================================
