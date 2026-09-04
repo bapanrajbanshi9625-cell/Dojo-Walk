@@ -75,7 +75,6 @@ class _InstaWalkMapRadarState
         width: double.infinity,
         child: Stack(
           children: [
-            //
             // ==================================================
             // MAP
             // ==================================================
@@ -121,14 +120,14 @@ class _InstaWalkMapRadarState
                           true,
                       color:
                           primary.withValues(
-                        alpha: .10,
+                        alpha: .045,
                       ),
                       borderColor:
                           primary.withValues(
-                        alpha: .55,
+                        alpha: .28,
                       ),
                       borderStrokeWidth:
-                          1.5,
+                          1.2,
                     ),
                   ],
                 ),
@@ -168,7 +167,7 @@ class _InstaWalkMapRadarState
                                   color:
                                       Colors.black
                                           .withValues(
-                                    alpha: .22,
+                                    alpha: .18,
                                   ),
                                   blurRadius:
                                       10,
@@ -211,7 +210,7 @@ class _InstaWalkMapRadarState
             ),
 
             // ==================================================
-            // RADAR OVERLAY
+            // LIGHT RADAR OVERLAY
             // ==================================================
 
             Positioned.fill(
@@ -253,7 +252,7 @@ class _InstaWalkMapRadarState
                 elevation: 4,
                 shadowColor:
                     Colors.black.withValues(
-                  alpha: .22,
+                  alpha: .18,
                 ),
                 borderRadius:
                     BorderRadius.circular(
@@ -279,7 +278,7 @@ class _InstaWalkMapRadarState
                       border: Border.all(
                         color:
                             primary.withValues(
-                          alpha: .18,
+                          alpha: .15,
                         ),
                       ),
                     ),
@@ -325,24 +324,28 @@ class RadarPainter extends CustomPainter {
       size.height / 2,
     );
 
+    // ========================================================
+    // RADAR SIZE
+    // ========================================================
+
     final double radius =
         math.min(
               size.width,
               size.height,
             ) *
-            .42;
+            .39;
 
     // ========================================================
-    // RADAR RINGS
+    // SOFT RADAR RINGS
     // ========================================================
 
     final Paint rings = Paint()
       ..style =
           PaintingStyle.stroke
-      ..strokeWidth = 1.2
+      ..strokeWidth = 1.0
       ..color =
           color.withValues(
-        alpha: .20,
+        alpha: .13,
       );
 
     for (int i = 1; i <= 3; i++) {
@@ -354,16 +357,16 @@ class RadarPainter extends CustomPainter {
     }
 
     // ========================================================
-    // OUTER RING
+    // SOFT OUTER RING
     // ========================================================
 
     final Paint outerRing = Paint()
       ..style =
           PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = 1.4
       ..color =
           color.withValues(
-        alpha: .12,
+        alpha: .18,
       );
 
     canvas.drawCircle(
@@ -373,21 +376,21 @@ class RadarPainter extends CustomPainter {
     );
 
     // ========================================================
-    // PULSE
+    // SOFT PULSE
     // ========================================================
 
     final double pulse =
         radius *
-        (.25 + progress * .75);
+        (.20 + progress * .80);
 
     final Paint pulsePaint = Paint()
       ..style =
           PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = 1.5
       ..color =
           glowColor.withValues(
         alpha:
-            (1 - progress) * .38,
+            (1 - progress) * .24,
       );
 
     canvas.drawCircle(
@@ -397,7 +400,7 @@ class RadarPainter extends CustomPainter {
     );
 
     // ========================================================
-    // RADAR SWEEP
+    // VERY LIGHT RADAR SWEEP
     // ========================================================
 
     final double angle =
@@ -408,17 +411,18 @@ class RadarPainter extends CustomPainter {
     final Paint sweep = Paint()
       ..shader = SweepGradient(
         startAngle:
-            angle - 1.15,
-        endAngle: angle,
+            angle - 1.00,
+        endAngle:
+            angle,
         colors: [
           color.withValues(
             alpha: 0,
           ),
           color.withValues(
-            alpha: .26,
+            alpha: .08,
           ),
           color.withValues(
-            alpha: .46,
+            alpha: .18,
           ),
         ],
       ).createShader(
@@ -435,18 +439,18 @@ class RadarPainter extends CustomPainter {
     );
 
     // ========================================================
-    // CENTER GLOW
+    // SOFT CENTER GLOW
     // ========================================================
 
     final Paint centerGlow = Paint()
       ..color =
           glowColor.withValues(
-        alpha: .10,
+        alpha: .06,
       );
 
     canvas.drawCircle(
       center,
-      18,
+      15,
       centerGlow,
     );
   }
