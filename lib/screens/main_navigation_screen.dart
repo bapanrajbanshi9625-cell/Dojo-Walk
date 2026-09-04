@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
 import '../features/walker_accept/screens/walker_accept_entry.dart';
-import '../widgets/active_live_walk_strip.dart';
 
 import 'home_screen.dart';
 import 'menu_screen.dart';
@@ -87,13 +86,8 @@ class _MainNavigationScreenState
           // ======================================================
           // WALKER ACCEPT ENTRY
           //
-          // Invisible persistent listener.
-          //
-          // It independently checks walk_request and opens
-          // WalkerAcceptScreen when the current owner's walk
-          // becomes accepted.
-          //
-          // It has NO connection with InstaWalkContainer.
+          // Persistent listener for accepted walk requests.
+          // Completely independent from Insta Walk.
           // ======================================================
 
           const WalkerAcceptEntry(),
@@ -101,75 +95,57 @@ class _MainNavigationScreenState
       ),
 
       // ========================================================
-      // BOTTOM AREA
+      // BOTTOM NAVIGATION
       // ========================================================
 
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ======================================================
-          // ACTIVE / LIVE WALK STRIP
-          // ======================================================
-
-          const SizedBox(
-            width: double.infinity,
-            child: ActiveLiveWalkStrip(),
-          ),
-
-          // ======================================================
-          // BOTTOM NAVIGATION
-          // ======================================================
-
-          SizedBox(
-            width: double.infinity,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(
-                    color: AppColors.border,
-                    width: 0.6,
-                  ),
-                ),
-              ),
-              child: BottomNavigationBar(
-                backgroundColor: Colors.white,
-                elevation: 0,
-                currentIndex: _currentIndex,
-                selectedItemColor: AppColors.primary,
-                unselectedItemColor: Colors.black54,
-                selectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                ),
-                type: BottomNavigationBarType.fixed,
-                onTap: _onNavigationTap,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(
-                      Icons.home_rounded,
-                    ),
-                    label: 'Home',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(
-                      Icons.directions_walk_rounded,
-                    ),
-                    label: 'Walks',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(
-                      Icons.menu_rounded,
-                    ),
-                    label: 'Menu',
-                  ),
-                ],
+      bottomNavigationBar: SizedBox(
+        width: double.infinity,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: AppColors.border,
+                width: 0.6,
               ),
             ),
           ),
-        ],
+          child: BottomNavigationBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            currentIndex: _currentIndex,
+            selectedItemColor: AppColors.primary,
+            unselectedItemColor: Colors.black54,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+            type: BottomNavigationBarType.fixed,
+            onTap: _onNavigationTap,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(
+                  Icons.home_rounded,
+                ),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(
+                  Icons.directions_walk_rounded,
+                ),
+                label: 'Walks',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(
+                  Icons.menu_rounded,
+                ),
+                label: 'Menu',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
