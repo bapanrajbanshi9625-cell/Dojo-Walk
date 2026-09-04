@@ -97,13 +97,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     }
 
     // =========================================================
-    // IMPORTANT FIX
-    //
     // Owner  → ownerUid == FirebaseAuth.currentUser.uid
     // Walker → walkerUid == FirebaseAuth.currentUser.uid
     //
-    // This prevents the service from doing an unrestricted
-    // direct document read before checking ownership.
+    // The service is responsible for applying the correct
+    // ownership filter before reading the live session.
     // =========================================================
 
     _subscription = _service
@@ -149,6 +147,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           _session = session;
 
           _stopDurationTimer();
+
+          // IMPORTANT:
+          // Return true only for a genuine completed walk.
+          // WalkerAcceptScreen and InstaWalkContainer use this
+          // result to restore the normal Insta Walk UI.
           _closeScreen();
 
           return;
@@ -366,7 +369,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       (_) {
         if (!mounted) return;
 
-        Navigator.of(context).pop();
+        // IMPORTANT:
+        // true = walk genuinely completed.
+        //
+        // This result is consumed by the previous screen so it
+        // can restore the Insta Walk / Find a Walker UI.
+        Navigator.of(context).pop(true);
       },
     );
   }
@@ -1097,6 +1105,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       await _service.completeWalk(
         session: session,
       );
+
+      // Do not pop here.
+      //
+      // Firestore listener will receive the completed session.
+      // Then _closeScreen() will return true.
     } catch (error) {
       debugPrint(
         'LIVE WALK → end walk error: $error',
