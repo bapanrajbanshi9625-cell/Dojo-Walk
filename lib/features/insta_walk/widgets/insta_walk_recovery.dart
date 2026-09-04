@@ -16,14 +16,22 @@ part of '../controllers/insta_walk_container.dart';
 //   - Recovers after app reopen
 //
 // ACCEPTED:
-//   - Restores accepted walker
+//   - Restores accepted walker data
 //   - Restores requestId
-//   - Stops radar/search listener
-//   - Opens accepted-walker screen
-//   - Does NOT cancel/delete Firestore request
+//   - Stops radar
+//   - Stops search listener
+//   - Hands accepted walk to walker_accept flow
+//
+// IMPORTANT:
+//   This file does NOT control the accepted walk lifecycle.
+//   walker_accept feature owns the accepted/live-walk flow.
 // ============================================================
 
 extension _RecoveryRole on _InstaWalkContainerState {
+  // ============================================================
+  // RECOVER SEARCH
+  // ============================================================
+
   Future<void> _recoverSearch() async {
     final User? user = FirebaseAuth.instance.currentUser;
 
@@ -116,7 +124,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
             final dynamic petName = firstPet['name'];
 
             if (petName != null) {
-              final String value = petName.toString().trim();
+              final String value =
+                  petName.toString().trim();
 
               if (value.isNotEmpty) {
                 _petName = value;
@@ -237,15 +246,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
   Future<void> _recoverSearchingRequest(
     InstaWalkRequestState active,
   ) async {
-    // ----------------------------------------------------------
-    // Never restore searching after accepted navigation started.
-    // ----------------------------------------------------------
-
-    if (_acceptedNavigationStarted) {
-      return;
-    }
-
-    final String requestId = active.requestId.trim();
+    final String requestId =
+        active.requestId.trim();
 
     if (requestId.isEmpty) {
       _resetSearchState();
@@ -319,6 +321,17 @@ extension _RecoveryRole on _InstaWalkContainerState {
               requestId: requestId,
             );
 
+            // --------------------------------------------------
+            // Hand off to normal accepted handler.
+            //
+            // _handleAccepted() is responsible for:
+            // - duplicate protection
+            // - radar stop
+            // - listener stop
+            // - container search reset
+            // - opening walker_accept flow
+            // --------------------------------------------------
+
             _walkerAccepted(accepted);
             return;
           }
@@ -328,14 +341,9 @@ extension _RecoveryRole on _InstaWalkContainerState {
           // ====================================================
 
           if (state.isCancelled) {
-            // IMPORTANT:
-            // This only handles an actual Firestore cancelled
-            // status. It is NOT triggered by local UI changes.
-
             _finishSearch(
               message: 'Walk request was cancelled.',
             );
-
             return;
           }
 
@@ -348,7 +356,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
               message:
                   'This Insta Walk request is no longer active.',
             );
-
             return;
           }
 
@@ -393,6 +400,18 @@ extension _RecoveryRole on _InstaWalkContainerState {
   // ============================================================
   // RECOVER ACCEPTED REQUEST
   // ============================================================
+  //
+  // This handles only recovery after app/screen restart.
+  //
+  // It does NOT:
+  // - lock the container
+  // - control LiveWalk
+  // - wait for walk completion
+  // - delete the request
+  // - cancel the request
+  //
+  // The accepted data is handed to _walkerAccepted().
+  // ============================================================
 
   Future<void> _recoverAcceptedRequest(
     InstaWalkRequestState active,
@@ -401,7 +420,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
         active.data ?? <String, dynamic>{};
 
     // ==========================================================
-    // ACCEPTED DATA
+    // BUILD ACCEPTED DATA
     // ==========================================================
 
     final InstaWalkAcceptedData accepted =
@@ -414,7 +433,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // RESTORE REQUEST ID
     // ==========================================================
 
-    String requestId = active.requestId.trim();
+    String requestId =
+        active.requestId.trim();
 
     if (requestId.isEmpty) {
       requestId = accepted.requestId.trim();
@@ -422,7 +442,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     if (requestId.isEmpty) {
       debugPrint(
-        'Accepted Insta Walk recovery failed: requestId missing.',
+        '❌ Accepted Insta Walk recovery failed: '
+        'requestId missing.',
       );
 
       _resetSearchState();
@@ -435,7 +456,8 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // RESTORE OWNER LOCATION
     // ==========================================================
 
-    _ownerPosition = _readOwnerPosition(data);
+    _ownerPosition =
+        _readOwnerPosition(data);
 
     // ==========================================================
     // STOP RADAR
@@ -447,13 +469,9 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // STOP SEARCH LISTENER
     // ==========================================================
     //
-    // IMPORTANT:
-    // This only stops the local listener.
+    // Local listener only.
     //
-    // It does NOT:
-    // - cancel request
-    // - delete request
-    // - change Firestore status
+    // Firestore request is NOT changed.
     //
     // ==========================================================
 
@@ -464,7 +482,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
     }
 
     // ==========================================================
-    // UPDATE UI
+    // CONTAINER SEARCH UI → NORMAL
     // ==========================================================
 
     _updateState(() {
@@ -476,7 +494,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
     });
 
     // ==========================================================
-    // SEARCH IS NO LONGER ACTIVE
+    // SEARCH IS NOT ACTIVE
     // ==========================================================
 
     _setActive(false);
@@ -491,9 +509,10 @@ extension _RecoveryRole on _InstaWalkContainerState {
     final String walkerUid =
         accepted.walkerUid.trim();
 
-    if (walkerId.isEmpty && walkerUid.isEmpty) {
+    if (walkerId.isEmpty &&
+        walkerUid.isEmpty) {
       debugPrint(
-        'Accepted request recovered, '
+        '❌ Accepted request recovered, '
         'but walker ID/UID is missing.',
       );
 
@@ -505,21 +524,16 @@ extension _RecoveryRole on _InstaWalkContainerState {
     }
 
     // ==========================================================
-    // 🔥 IMPORTANT FIX
+    // HAND OFF TO ACCEPTED-WALK FLOW
     // ==========================================================
     //
-    // DO NOT set:
+    // IMPORTANT:
     //
-    // _acceptedNavigationStarted = true;
+    // Do NOT set any accepted-navigation lock here.
     //
-    // here.
-    //
-    // _walkerAccepted() calls _handleAccepted().
-    // _handleAccepted() itself sets the navigation guard.
-    //
-    // Setting the guard here first would make _handleAccepted()
-    // return immediately and WalkerAcceptScreen would NOT open
-    // after app recovery.
+    // _walkerAccepted() will route through the normal accepted
+    // handler, where duplicate protection and navigation are
+    // handled in ONE place.
     //
     // ==========================================================
 
