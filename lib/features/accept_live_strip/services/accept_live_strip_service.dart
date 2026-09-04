@@ -203,7 +203,7 @@ class AcceptLiveStripService {
     final currentRequestId = _requestId;
 
     if (currentRequestId == null ||
-        currentRequestId!.isEmpty) {
+        currentRequestId.isEmpty) {
       _sessionStatus = '';
       _walkId = null;
       _isLive = false;
