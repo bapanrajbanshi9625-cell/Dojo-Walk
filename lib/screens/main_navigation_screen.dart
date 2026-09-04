@@ -30,37 +30,52 @@ class _MainNavigationScreenState
   int _currentIndex = 0;
 
   // ==========================================================
-  // MAIN SCREENS
+  // REFRESH VERSION
+  //
+  // Every tap increases the selected screen's version.
+  // Changing the key forces that screen to be recreated.
   // ==========================================================
 
-  late final List<Widget> _screens;
+  final List<int> _refreshVersions = <int>[0, 0, 0];
 
   // ==========================================================
-  // INIT
+  // CREATE SCREEN
   // ==========================================================
 
-  @override
-  void initState() {
-    super.initState();
+  Widget _buildScreen(int index) {
+    final Key key = ValueKey<String>(
+      '${index}_${_refreshVersions[index]}',
+    );
 
-    _screens = <Widget>[
-      const HomeScreen(),
-      const WalksScreen(),
-      const MenuScreen(),
-    ];
+    switch (index) {
+      case 0:
+        return HomeScreen(key: key);
+
+      case 1:
+        return WalksScreen(key: key);
+
+      case 2:
+        return MenuScreen(key: key);
+
+      default:
+        return HomeScreen(key: key);
+    }
   }
 
   // ==========================================================
-  // BOTTOM NAVIGATION
+  // NAVIGATION TAP
   // ==========================================================
 
   void _onNavigationTap(int index) {
-    if (!mounted || _currentIndex == index) {
+    if (!mounted) {
       return;
     }
 
     setState(() {
       _currentIndex = index;
+
+      // Refresh every time the tab is tapped.
+      _refreshVersions[index]++;
     });
   }
 
@@ -81,23 +96,23 @@ class _MainNavigationScreenState
         children: [
           // ======================================================
           // MAIN SCREENS
+          //
+          // Selected screen gets a new key on every tap.
           // ======================================================
 
           IndexedStack(
             index: _currentIndex,
-            children: _screens,
+            children: [
+              _buildScreen(0),
+              _buildScreen(1),
+              _buildScreen(2),
+            ],
           ),
 
           // ======================================================
           // ACCEPT / LIVE STRIP
           //
-          // Persistent across Home / Walks / Menu.
-          //
-          // Service automatically decides:
-          //
-          // ACCEPTED → visible
-          // LIVE     → visible
-          // COMPLETED → hidden
+          // Existing realtime listener remains untouched.
           // ======================================================
 
           const Positioned(
@@ -112,9 +127,6 @@ class _MainNavigationScreenState
 
           // ======================================================
           // WALKER ACCEPT ENTRY
-          //
-          // Persistent listener for accepted walk requests.
-          // Completely independent from Insta Walk.
           // ======================================================
 
           const WalkerAcceptEntry(),
