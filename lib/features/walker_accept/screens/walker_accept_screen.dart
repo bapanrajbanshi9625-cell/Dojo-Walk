@@ -317,68 +317,65 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   Future<void> _loadRoute({
-    required LatLng walkerLocation,
-    required LatLng ownerLocation,
-  }) async {
-    if (_loadingRoute) {
-      return;
-    }
+  required LatLng walkerLocation,
+  required LatLng ownerLocation,
+}) async {
+  if (_loadingRoute) {
+    return;
+  }
+
+  if (!mounted) {
+    return;
+  }
+
+  setState(() {
+    _loadingRoute = true;
+  });
+
+  try {
+    final WalkerRouteResult? result =
+        await _routeService.getRoute(
+      walkerLocation: walkerLocation,
+      ownerLocation: ownerLocation,
+    );
 
     if (!mounted) {
       return;
     }
 
+    if (result != null) {
+      setState(() {
+        _route = result;
+
+        // Move checkpoint only after successful
+        // route response.
+        _lastRouteWalkerLocation =
+            walkerLocation;
+      });
+    }
+  } catch (error, stackTrace) {
+    debugPrint(
+      'WalkerAcceptScreen route error: $error',
+    );
+
+    debugPrint(
+      stackTrace.toString(),
+    );
+  } finally {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
-      _loadingRoute = true;
+      _loadingRoute = false;
     });
 
-    try {
-      final WalkerRouteResult? result =
-          await _routeService.getRoute(
-        walkerLocation: walkerLocation,
-        ownerLocation: ownerLocation,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (result != null) {
-        setState(() {
-          _route = result;
-
-          // Move checkpoint only after successful
-          // route response.
-          _lastRouteWalkerLocation =
-              walkerLocation;
-        });
-      }
-    } catch (
-        error,
-        stackTrace,
-      ) {
-      debugPrint(
-        'WalkerAcceptScreen route error: $error',
-      );
-
-      debugPrint(
-        stackTrace.toString(),
-      );
-    } finally {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _loadingRoute = false;
-      });
-
-      // A newer Firestore location may have arrived
-      // while OSRM was loading.
-      _checkForNewerLocation();
-    }
+    // A newer Firestore location may have arrived
+    // while OSRM was loading.
+    _checkForNewerLocation();
   }
-
+}
+  
   // ==========================================================
   // CHECK NEWER LOCATION
   // ==========================================================
