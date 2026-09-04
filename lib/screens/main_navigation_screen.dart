@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import '../features/accept_live_strip/widgets/accept_live_strip.dart';
 import '../features/walker_accept/screens/walker_accept_entry.dart';
 
 import 'home_screen.dart';
@@ -78,9 +79,35 @@ class _MainNavigationScreenState
 
       body: Stack(
         children: [
+          // ======================================================
+          // MAIN SCREENS
+          // ======================================================
+
           IndexedStack(
             index: _currentIndex,
             children: _screens,
+          ),
+
+          // ======================================================
+          // ACCEPT / LIVE STRIP
+          //
+          // Persistent across Home / Walks / Menu.
+          //
+          // Service automatically decides:
+          //
+          // ACCEPTED → visible
+          // LIVE     → visible
+          // COMPLETED → hidden
+          // ======================================================
+
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: AcceptLiveStrip(),
+            ),
           ),
 
           // ======================================================
