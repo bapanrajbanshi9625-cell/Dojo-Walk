@@ -6,9 +6,9 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/services/cloudinary_service.dart';
 import '../../../models/pet_data.dart';
 import '../../../services/owner_id_service.dart';
 
@@ -25,9 +25,6 @@ class ProfileSetupService {
   static final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  static final FirebaseStorage _storage =
-      FirebaseStorage.instance;
-
   // ============================================================
   // COLLECTIONS
   // ============================================================
@@ -36,13 +33,6 @@ class ProfileSetupService {
 
   static const String _phoneAccountsCollection =
       'phoneAccounts';
-
-  // ============================================================
-  // STORAGE
-  // ============================================================
-
-  static const String _ownerProfilePhotosFolder =
-      'owner_profile_photos';
 
   // ============================================================
   // LIMITS
@@ -62,17 +52,14 @@ class ProfileSetupService {
       '',
     );
 
-    // Already international format.
     if (phone.startsWith('+')) {
       return phone;
     }
 
-    // Indian 10-digit number.
     if (phone.length == 10) {
       return '+91$phone';
     }
 
-    // 91XXXXXXXXXX without +.
     if (phone.length == 12 &&
         phone.startsWith('91')) {
       return '+$phone';
@@ -102,12 +89,6 @@ class ProfileSetupService {
 
   // ============================================================
   // CURRENT LOCATION
-  //
-  // IMPORTANT:
-  // This method is NOT called from saveProfile().
-  //
-  // It remains available for later features such as
-  // live location / walk tracking.
   // ============================================================
 
   static Future<Position?> _getCurrentLocation() async {
@@ -122,8 +103,7 @@ class ProfileSetupService {
       LocationPermission permission =
           await Geolocator.checkPermission();
 
-      if (permission ==
-          LocationPermission.denied) {
+      if (permission == LocationPermission.denied) {
         permission =
             await Geolocator.requestPermission();
       }
@@ -148,6 +128,10 @@ class ProfileSetupService {
 
   // ============================================================
   // UPLOAD OWNER PROFILE PHOTO
+  //
+  // CLOUDINARY
+  //
+  // Firebase Storage is NOT used here.
   // ============================================================
 
   static Future<String> uploadOwnerProfilePhoto({
@@ -156,7 +140,7 @@ class ProfileSetupService {
   }) async {
     if (!await imageFile.exists()) {
       throw FirebaseException(
-        plugin: 'firebase_storage',
+        plugin: 'cloudinary',
         code: 'file-not-found',
         message:
             'Profile photo file was not found.',
@@ -168,42 +152,39 @@ class ProfileSetupService {
 
     if (cleanUid.isEmpty) {
       throw FirebaseException(
-        plugin: 'firebase_storage',
+        plugin: 'cloudinary',
         code: 'invalid-uid',
         message:
             'Invalid Firebase UID.',
       );
     }
 
-    final String fileName =
-        '${cleanUid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-    final Reference storageReference =
-        _storage
-            .ref()
-            .child(
-              _ownerProfilePhotosFolder,
-            )
-            .child(cleanUid)
-            .child(fileName);
-
     try {
-      final UploadTask uploadTask =
-          storageReference.putFile(
-        imageFile,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-        ),
+      final String photoUrl =
+          await CloudinaryService.uploadImage(
+        file: imageFile,
+        folder:
+            'dojo_walker/owner_profiles/$cleanUid',
       );
 
-      final TaskSnapshot snapshot =
-          await uploadTask;
+      if (photoUrl.trim().isEmpty) {
+        throw FirebaseException(
+          plugin: 'cloudinary',
+          code: 'empty-url',
+          message:
+              'Cloudinary did not return an image URL.',
+        );
+      }
 
-      return await snapshot.ref
-          .getDownloadURL();
+      developer.log(
+        'Owner profile photo uploaded to Cloudinary.',
+        name: 'ProfileSetupService',
+      );
+
+      return photoUrl;
     } catch (e) {
       developer.log(
-        'Profile photo upload failed: $e',
+        'Cloudinary profile photo upload failed: $e',
         name: 'ProfileSetupService',
       );
 
@@ -213,12 +194,6 @@ class ProfileSetupService {
 
   // ============================================================
   // PET CONVERSION
-  //
-  // PetData contains only:
-  // name
-  // age
-  // breed
-  // behaviour
   // ============================================================
 
   static List<Map<String, dynamic>> _convertPets(
@@ -242,12 +217,6 @@ class ProfileSetupService {
 
   // ============================================================
   // SAVE PROFILE
-  //
-  // IMPORTANT:
-  // Profile Setup DOES NOT request location.
-  //
-  // requireLocation is retained for compatibility with the
-  // existing ProfileSetupScreen.
   // ============================================================
 
   static Future<void> saveProfile({
@@ -258,8 +227,6 @@ class ProfileSetupService {
     File? profilePhoto,
     bool requireLocation = false,
   }) async {
-    // Kept intentionally for compatibility.
-    // Location is disabled during Profile Setup.
     if (requireLocation) {
       developer.log(
         'Location requirement ignored during profile setup.',
@@ -350,40 +317,29 @@ class ProfileSetupService {
 
     // ==========================================================
     // PROFILE DATA
-    //
-    // NO LOCATION IS ADDED HERE.
     // ==========================================================
 
     final Map<String, dynamic> profileData =
         <String, dynamic>{
-      // Owner identity.
       'ownerId': ownerId,
 
-      // Firebase identity.
       'authUid': uid,
       'uid': uid,
 
-      // Phone.
       'phone': fullPhoneNumber,
       'mainPhone': fullPhoneNumber,
       'phoneNumber': fullPhoneNumber,
 
-      // Owner information.
       'ownerName': cleanOwnerName,
       'fullName': cleanOwnerName,
 
-      // Address kept only for schema compatibility.
-      // Profile Setup UI no longer collects it.
       'address': cleanAddress,
 
-      // Pets.
       'pets': petData,
 
-      // Role/status.
       'role': 'owner',
       'isActive': true,
 
-      // Completion.
       'profileCompleted': true,
 
       'updatedAt':
@@ -394,7 +350,7 @@ class ProfileSetupService {
     };
 
     // ==========================================================
-    // PROFILE PHOTO
+    // CLOUDINARY PROFILE PHOTO
     // ==========================================================
 
     if (profilePhoto != null) {
@@ -425,9 +381,6 @@ class ProfileSetupService {
 
     // ==========================================================
     // SAVE PHONE ACCOUNT
-    //
-    // Document ID = Firebase UID.
-    // Phone number is stored as a field.
     // ==========================================================
 
     final Map<String, dynamic>
@@ -687,10 +640,6 @@ class ProfileSetupService {
 
   // ============================================================
   // UPDATE CURRENT LOCATION
-  //
-  // This is separate from Profile Setup.
-  //
-  // Profile Setup NEVER calls this method.
   // ============================================================
 
   static Future<void>
