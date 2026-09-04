@@ -1,3 +1,6 @@
+// File:
+// lib/features/insta_walk/controllers/insta_walk_container.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -32,16 +35,6 @@ part '../widgets/insta_walk_view.dart';
 // ============================================================
 // INSTA WALK CONTAINER
 // ============================================================
-//
-// Owner-side Insta Walk.
-//
-// This file contains:
-// - Insta Walk controller/state
-// - Insta Walk screen wrapper
-// - Walker accepted navigation
-//
-// Existing part files remain inside widgets/.
-// ============================================================
 
 class InstaWalkContainer extends StatefulWidget {
   const InstaWalkContainer({
@@ -60,13 +53,6 @@ class InstaWalkContainer extends StatefulWidget {
   final bool fullScreen;
 
   final VoidCallback? onTap;
-
-  // ----------------------------------------------------------
-  // Optional external callback.
-  //
-  // Kept for compatibility with any existing caller.
-  // Internal accepted navigation is handled by State.
-  // ----------------------------------------------------------
 
   final ValueChanged<InstaWalkAcceptedData>? onAccepted;
 
@@ -115,8 +101,17 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   bool _activeReported = false;
 
   // ==========================================================
-  // ACCEPT NAVIGATION
+  // ACCEPTED STATE
   // ==========================================================
+  //
+  // IMPORTANT:
+  // This is the permanent UI guard for this mounted
+  // InstaWalkContainer instance.
+  //
+  // Once Firestore says accepted, normal Insta Walk
+  // searching UI must never come back during this
+  // container lifecycle.
+  //
 
   bool _acceptedNavigationStarted = false;
 
@@ -159,13 +154,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // WALKER ACCEPTED
   // ==========================================================
-  //
-  // This method is called directly from
-  // insta_walk_walker_accepted.dart.
-  //
-  // Do NOT try to expose this through widget.onAccepted.
-  //
-  // ==========================================================
 
   void _handleAccepted(
     InstaWalkAcceptedData accepted,
@@ -181,7 +169,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
-    final String requestId = accepted.requestId.trim();
+    final String requestId =
+        accepted.requestId.trim();
 
     debugPrint('');
     debugPrint(
@@ -198,7 +187,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
 
     // --------------------------------------------------------
-    // REQUEST ID IS REQUIRED
+    // REQUEST ID REQUIRED
     // --------------------------------------------------------
 
     if (requestId.isEmpty) {
@@ -207,6 +196,16 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       );
       return;
     }
+
+    // --------------------------------------------------------
+    // LOCK ACCEPTED STATE FIRST
+    // --------------------------------------------------------
+    //
+    // IMPORTANT:
+    // Set this BEFORE stopping listeners/state updates.
+    // This prevents a rebuild from rendering the normal
+    // Insta Walk search UI again.
+    //
 
     _acceptedNavigationStarted = true;
 
@@ -217,20 +216,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _requestId = requestId;
 
     // --------------------------------------------------------
-    // STOP LOCAL RADAR
+    // STOP RADAR
     // --------------------------------------------------------
 
     _stopRadar();
 
     // --------------------------------------------------------
     // STOP FIRESTORE LISTENER
-    //
-    // IMPORTANT:
-    // Walker has accepted the request.
-    // Owner no longer needs the searching listener.
-    //
-    // This does NOT cancel/delete the Firestore request.
-    // It only stops this owner's local realtime listener.
     // --------------------------------------------------------
 
     _service.stopListening();
@@ -238,7 +230,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _stopping = false;
 
     // --------------------------------------------------------
-    // IMMEDIATELY REMOVE SEARCH UI
+    // STOP SEARCH UI
     // --------------------------------------------------------
 
     _updateState(() {
@@ -248,10 +240,14 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _recovering = false;
     });
 
+    // --------------------------------------------------------
+    // DO NOT REPORT SEARCH AS ACTIVE
+    // --------------------------------------------------------
+
     _setActive(false);
 
     // --------------------------------------------------------
-    // PRESERVE EXTERNAL CALLBACK
+    // EXTERNAL CALLBACK
     // --------------------------------------------------------
 
     final ValueChanged<InstaWalkAcceptedData>? callback =
@@ -296,7 +292,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
-    final String cleanRequestId = requestId.trim();
+    final String cleanRequestId =
+        requestId.trim();
 
     if (cleanRequestId.isEmpty) {
       debugPrint(
@@ -330,18 +327,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
-    // --------------------------------------------------------
-    // Stop local radar animation only.
-    // --------------------------------------------------------
-
     _stopRadar();
-
-    // --------------------------------------------------------
-    // Dispose local service/listener.
-    //
-    // Service dispose must NOT delete/cancel the Firestore
-    // request itself.
-    // --------------------------------------------------------
 
     _service.dispose();
 
@@ -420,7 +406,26 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _requestId = null;
     _ownerPosition = null;
     _stopping = false;
-    _acceptedNavigationStarted = false;
+
+    // --------------------------------------------------------
+    // IMPORTANT:
+    // Do not unlock an already accepted request.
+    // --------------------------------------------------------
+
+    if (_acceptedNavigationStarted) {
+      if (mounted) {
+        _updateState(() {
+          _searching = false;
+          _searchFinished = false;
+          _checkingAddress = false;
+          _recovering = false;
+          _stopping = false;
+        });
+      }
+
+      _setActive(false);
+      return;
+    }
 
     if (!mounted) {
       _setActive(false);
@@ -444,6 +449,28 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _finishSearch({
     String? message,
   }) {
+    // --------------------------------------------------------
+    // Never finish/reopen normal search UI after acceptance.
+    // --------------------------------------------------------
+
+    if (_acceptedNavigationStarted) {
+      _stopRadar();
+      _service.stopListening();
+
+      if (mounted) {
+        _updateState(() {
+          _searching = false;
+          _searchFinished = false;
+          _checkingAddress = false;
+          _recovering = false;
+          _stopping = false;
+        });
+      }
+
+      _setActive(false);
+      return;
+    }
+
     _stopRadar();
 
     _requestId = null;
@@ -475,6 +502,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
 
   Future<void> _retrySearch() async {
+    if (_acceptedNavigationStarted) {
+      return;
+    }
+
     if (_searching ||
         _checkingAddress ||
         _recovering ||
@@ -541,7 +572,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
         continue;
       }
 
-      final String result = value.toString().trim();
+      final String result =
+          value.toString().trim();
 
       if (result.isNotEmpty) {
         return result;
@@ -562,7 +594,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return null;
     }
 
-    final dynamic value = data['ownerLocation'];
+    final dynamic value =
+        data['ownerLocation'];
 
     if (value is GeoPoint) {
       return Position(
@@ -581,14 +614,16 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
     if (value is Map) {
       final dynamic lat =
-          value['latitude'] ?? value['lat'];
+          value['latitude'] ??
+          value['lat'];
 
       final dynamic lng =
           value['longitude'] ??
           value['lng'] ??
           value['lon'];
 
-      if (lat is num && lng is num) {
+      if (lat is num &&
+          lng is num) {
         return Position(
           longitude: lng.toDouble(),
           latitude: lat.toDouble(),
@@ -610,36 +645,14 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // BUILD
   // ==========================================================
-  //
-  // IMPORTANT:
-  // WalksScreen already provides the main ListView.
-  //
-  // Therefore InstaWalkContainer MUST NOT create another
-  // SingleChildScrollView here.
-  //
-  // This prevents:
-  // - nested scrolling
-  // - Insta Walk moving behind the AppBar
-  // - strange scroll boundaries
-  // - content jumping upward
-  //
-  // ==========================================================
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    // ========================================================
-    // FULL SCREEN
-    // ========================================================
-
     if (widget.fullScreen) {
       return _buildFullScreen();
     }
-
-    // ========================================================
-    // COMPACT MODE
-    // ========================================================
 
     return _buildCompactPatti();
   }
