@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class CloudinaryService {
   CloudinaryService._();
 
-  static const String cloudName = 'YOUR_CLOUD_NAME';
+  static const String cloudName = 'kdkwevh4';
   static const String uploadPreset = 'dojo_walker';
 
   static Future<String> uploadImage({
