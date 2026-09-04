@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'core/network/network_monitor.dart';
 import 'core/theme/dojo_theme.dart';
+import 'features/accept_live_strip/widgets/accept_live_strip.dart';
 import 'screens/splash_screen.dart';
-import 'widgets/active_live_walk_strip.dart';
 
 class DojoWalk extends StatelessWidget {
   const DojoWalk({super.key});
@@ -25,7 +25,7 @@ class DojoWalk extends StatelessWidget {
       themeMode: ThemeMode.system,
 
       // ========================================================
-      // STATUS BAR
+      // STATUS BAR + GLOBAL ACCEPT / LIVE STRIP
       // ========================================================
 
       builder: (context, child) {
@@ -46,19 +46,25 @@ class DojoWalk extends StatelessWidget {
               ),
 
               // ==================================================
-              // FLOATING ACTIVE / LIVE WALK STRIP
+              // GLOBAL ACCEPT / LIVE WALK STRIP
               //
-              // Completely independent from
-              // MainNavigationScreen.
+              // Independent from MainNavigationScreen.
               //
-              // It stays just above the bottom navigation area.
+              // WALK ACCEPTED:
+              // Opens WalkerAcceptScreen
+              //
+              // LIVE WALK:
+              // Opens LiveWalkScreen
+              //
+              // COMPLETED:
+              // Strip automatically hides.
               // ==================================================
 
               const Positioned(
                 left: 0,
                 right: 0,
                 bottom: 80,
-                child: ActiveLiveWalkStrip(),
+                child: AcceptLiveStrip(),
               ),
             ],
           ),
