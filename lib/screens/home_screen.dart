@@ -34,6 +34,25 @@ class _HomeScreenState extends State<HomeScreen> {
       home_data.HomeDataService.instance;
 
   // =====================================================
+  // PULL TO REFRESH
+  // =====================================================
+
+  Future<void> _refreshHome() async {
+    if (!mounted) {
+      return;
+    }
+
+    // Rebuild the complete Home screen.
+    setState(() {});
+
+    // Small delay so the refresh indicator
+    // completes smoothly after the rebuild.
+    await Future<void>.delayed(
+      const Duration(milliseconds: 400),
+    );
+  }
+
+  // =====================================================
   // DETAILS DIALOG
   // =====================================================
 
@@ -104,143 +123,148 @@ class _HomeScreenState extends State<HomeScreen> {
       // BODY
       // ===================================================
 
-      body: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          15,
-          15,
-          15,
-          24,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // =============================================
-            // WELCOME
-            // =============================================
+      body: RefreshIndicator(
+        color: AppColors.orange,
+        backgroundColor: Colors.white,
+        onRefresh: _refreshHome,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            15,
+            15,
+            15,
+            24,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // =============================================
+              // WELCOME
+              // =============================================
 
-            const HomeWelcomeCard(),
+              const HomeWelcomeCard(),
 
-            // =============================================
-            // SCAN QR
-            // =============================================
+              // =============================================
+              // SCAN QR
+              // =============================================
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            const GenerateQRButton(),
+              const GenerateQRButton(),
 
-            // =============================================
-            // WEEKLY PROCESSING
-            // =============================================
+              // =============================================
+              // WEEKLY PROCESSING
+              // =============================================
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            const HomeSectionTitle(
-              title: 'This week processing',
-            ),
-
-            const SizedBox(height: 9),
-
-            HomeWeeklyProcessing(
-              onDetails: (title, content) {
-                _showDialog(
-                  context,
-                  title,
-                  content,
-                );
-              },
-            ),
-
-            // =============================================
-            // PAST WALK
-            // =============================================
-
-            const SizedBox(height: 19),
-
-            const HomeSectionTitle(
-              title: 'Past Walk',
-            ),
-
-            const SizedBox(height: 9),
-
-            // =============================================
-            // PAST WALK STREAM
-            // =============================================
-
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _homeDataService.pastWalksStream(
-                limit: 20,
+              const HomeSectionTitle(
+                title: 'This week processing',
               ),
-              builder: (context, snapshot) {
-                // =======================================
-                // ERROR
-                // =======================================
 
-                if (snapshot.hasError) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.border,
-                      ),
-                    ),
-                    child: const Text(
-                      'Unable to load past walks.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.slate,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+              const SizedBox(height: 9),
+
+              HomeWeeklyProcessing(
+                onDetails: (title, content) {
+                  _showDialog(
+                    context,
+                    title,
+                    content,
                   );
-                }
+                },
+              ),
 
-                // =======================================
-                // LOADING
-                // =======================================
+              // =============================================
+              // PAST WALK
+              // =============================================
 
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const SizedBox(
-                    height: 70,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.orange,
+              const SizedBox(height: 19),
+
+              const HomeSectionTitle(
+                title: 'Past Walk',
+              ),
+
+              const SizedBox(height: 9),
+
+              // =============================================
+              // PAST WALK STREAM
+              // =============================================
+
+              StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _homeDataService.pastWalksStream(
+                  limit: 20,
+                ),
+                builder: (context, snapshot) {
+                  // =======================================
+                  // ERROR
+                  // =======================================
+
+                  if (snapshot.hasError) {
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.border,
+                        ),
                       ),
-                    ),
-                  );
-                }
-
-                // =======================================
-                // DATA
-                // =======================================
-
-                final List<Map<String, dynamic>> walks =
-                    snapshot.data ??
-                        <Map<String, dynamic>>[];
-
-                // =======================================
-                // PAST WALK UI
-                // =======================================
-
-                return HomePastWalk(
-                  walks: walks,
-                  onDetails: (title, content) {
-                    _showDialog(
-                      context,
-                      title,
-                      content,
+                      child: const Text(
+                        'Unable to load past walks.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.slate,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     );
-                  },
-                );
-              },
-            ),
-          ],
+                  }
+
+                  // =======================================
+                  // LOADING
+                  // =======================================
+
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const SizedBox(
+                      height: 70,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.orange,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // =======================================
+                  // DATA
+                  // =======================================
+
+                  final List<Map<String, dynamic>> walks =
+                      snapshot.data ??
+                          <Map<String, dynamic>>[];
+
+                  // =======================================
+                  // PAST WALK UI
+                  // =======================================
+
+                  return HomePastWalk(
+                    walks: walks,
+                    onDetails: (title, content) {
+                      _showDialog(
+                        context,
+                        title,
+                        content,
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
