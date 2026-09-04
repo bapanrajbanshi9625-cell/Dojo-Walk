@@ -41,6 +41,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
 
   bool _loadingRoute = false;
   bool _reachedHandled = false;
+  bool _liveWalkOpened = false;
 
   LatLng? _lastRouteWalkerLocation;
 
@@ -132,7 +133,42 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     );
   }
 
+  // ==========================================================
+  // OPEN LIVE WALK
+  // ==========================================================
+  //
+  // IMPORTANT:
+  //
+  // DO NOT use pushReplacement here.
+  //
+  // We need:
+  //
+  // InstaWalkContainer
+  //       ↓
+  // WalkerAcceptScreen
+  //       ↓
+  // LiveWalkScreen
+  //       ↓
+  // completed
+  //       ↓
+  // true
+  //       ↓
+  // WalkerAcceptScreen
+  //       ↓
+  // true
+  //       ↓
+  // InstaWalkContainer
+  //
+  // Therefore LiveWalkScreen is pushed normally.
+  //
+
   Future<void> _openLiveWalk(String requestId) async {
+    if (_liveWalkOpened) {
+      return;
+    }
+
+    _liveWalkOpened = true;
+
     await _requestSubscription?.cancel();
 
     _requestSubscription = null;
@@ -144,17 +180,71 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     final String walkId = requestId.trim();
 
     if (walkId.isEmpty) {
+      _liveWalkOpened = false;
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => LiveWalkScreen(
-          walkId: walkId,
-          isWalker: false,
-        ),
+    debugPrint(
+      'WalkerAcceptScreen → opening LiveWalkScreen',
+    );
+
+    debugPrint(
+      'walkId = $walkId',
+    );
+
+    final dynamic result =
+        await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) {
+          return LiveWalkScreen(
+            walkId: walkId,
+            isWalker: false,
+          );
+        },
       ),
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    debugPrint(
+      'WalkerAcceptScreen → LiveWalkScreen returned: $result',
+    );
+
+    // --------------------------------------------------------
+    // WALK COMPLETED
+    // --------------------------------------------------------
+    //
+    // LiveWalkScreen returns true when the Firestore session
+    // becomes completed.
+    //
+
+    if (result == true) {
+      debugPrint(
+        '✅ WalkerAcceptScreen → walk completed.',
+      );
+
+      // Pass completion result to InstaWalkContainer.
+      Navigator.of(context).pop(true);
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // USER CAME BACK WITHOUT COMPLETING
+    // --------------------------------------------------------
+    //
+    // Allow the Live Walk screen to be opened again if the
+    // owner returns to this screen manually.
+    //
+
+    _liveWalkOpened = false;
+
+    // Resume request listener.
+    if (_requestSubscription == null) {
+      _listenToRequest();
+    }
   }
 
   // ==========================================================
@@ -178,7 +268,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       return;
     }
 
-    final LatLng? previous = _lastRouteWalkerLocation;
+    final LatLng? previous =
+        _lastRouteWalkerLocation;
 
     // First valid location loads the route.
     if (previous != null) {
@@ -189,7 +280,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       );
 
       // Less than 50m movement = keep current route.
-      if (movedMeters < _routeRefreshDistanceMeters) {
+      if (movedMeters <
+          _routeRefreshDistanceMeters) {
         return;
       }
     }
@@ -238,7 +330,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           _route = result;
 
           // Move checkpoint only after successful route response.
-          _lastRouteWalkerLocation = walkerLocation;
+          _lastRouteWalkerLocation =
+              walkerLocation;
         });
       }
     } catch (error, stackTrace) {
@@ -269,7 +362,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // ==========================================================
 
   void _checkForNewerLocation() {
-    final WalkerAcceptData? latestData = _data;
+    final WalkerAcceptData? latestData =
+        _data;
 
     if (latestData == null ||
         latestData.isReached) {
@@ -295,9 +389,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
       latestWalker,
     );
 
-    if (movedMeters >= _routeRefreshDistanceMeters) {
+    if (movedMeters >=
+        _routeRefreshDistanceMeters) {
       unawaited(
-        _loadRouteForLatestData(latestData),
+        _loadRouteForLatestData(
+          latestData,
+        ),
       );
     }
   }
@@ -330,7 +427,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // GEOPOINT → LATLNG
   // ==========================================================
 
-  LatLng? _latLngFromGeoPoint(dynamic point) {
+  LatLng? _latLngFromGeoPoint(
+    dynamic point,
+  ) {
     if (point == null) {
       return null;
     }
@@ -401,18 +500,23 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
   // ==========================================================
 
   @override
-  Widget build(BuildContext context) {
-    final WalkerAcceptData? data = _data;
+  Widget build(
+    BuildContext context,
+  ) {
+    final WalkerAcceptData? data =
+        _data;
 
     if (data == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F6F8),
+        backgroundColor:
+            const Color(0xFFF5F6F8),
         appBar: AppBar(
           title: const Text('Walker'),
           elevation: 0,
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child:
+              CircularProgressIndicator(),
         ),
       );
     }
@@ -428,7 +532,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor:
+          const Color(0xFFF5F6F8),
       body: SafeArea(
         child: Stack(
           children: [
@@ -444,7 +549,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                 walkerLocation:
                     walkerLocation,
                 walkerImageUrl:
-                    data.walkerProfileImage?.trim(),
+                    data.walkerProfileImage
+                        ?.trim(),
                 routePoints:
                     _route?.points ??
                     const <LatLng>[],
@@ -514,11 +620,11 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                   size: 23,
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
@@ -532,9 +638,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                             Color(0xFF6B7280),
                       ),
                     ),
-
                     const SizedBox(height: 2),
-
                     Text(
                       data.walkerName,
                       maxLines: 1,
@@ -552,7 +656,6 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                   ],
                 ),
               ),
-
               _buildLiveBadge(),
             ],
           ),
@@ -647,9 +750,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
               Row(
                 children: [
                   _buildWalkerAvatar(data),
-
                   const SizedBox(width: 12),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
@@ -669,9 +770,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                                 Color(0xFF171717),
                           ),
                         ),
-
                         const SizedBox(height: 4),
-
                         Row(
                           children: [
                             Icon(
@@ -687,10 +786,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                                 0xFF7A7A7A,
                               ),
                             ),
-
                             const SizedBox(
                                 width: 5),
-
                             Expanded(
                               child: Text(
                                 walkerPhone
@@ -716,27 +813,21 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                       ],
                     ),
                   ),
-
                   _buildCallButton(),
                 ],
               ),
-
               const SizedBox(height: 16),
-
               _buildTravelInfo(
                 data: data,
                 hasDistance:
                     hasDistance,
                 hasEta: hasEta,
               ),
-
               if (_loadingRoute) ...[
                 const SizedBox(height: 12),
                 _buildRouteUpdating(),
               ],
-
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   Expanded(
@@ -749,9 +840,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                           widget.onChat,
                     ),
                   ),
-
                   const SizedBox(width: 10),
-
                   Expanded(
                     child:
                         _buildActionButton(
@@ -779,7 +868,9 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
     WalkerAcceptData data,
   ) {
     final String imageUrl =
-        data.walkerProfileImage?.trim() ?? '';
+        data.walkerProfileImage
+                ?.trim() ??
+            '';
 
     return Container(
       width: 58,
@@ -873,7 +964,8 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
         children: [
           Expanded(
             child: _buildInfoItem(
-              icon: Icons.route_rounded,
+              icon:
+                  Icons.route_rounded,
               label: 'Distance',
               value: hasDistance
                   ? _formatDistance(
@@ -885,14 +977,12 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                   : '--',
             ),
           ),
-
           Container(
             width: 1,
             height: 34,
             color:
                 const Color(0xFFE1E1E1),
           ),
-
           Expanded(
             child: _buildInfoItem(
               icon:
@@ -927,9 +1017,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
           color:
               const Color(0xFFFF7A00),
         ),
-
         const SizedBox(width: 9),
-
         Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
@@ -944,9 +1032,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                     FontWeight.w600,
               ),
             ),
-
             const SizedBox(height: 2),
-
             Text(
               value,
               style:
@@ -986,9 +1072,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
             ),
           ),
         ),
-
         const SizedBox(width: 7),
-
         Text(
           'Updating route...',
           style: TextStyle(
@@ -1033,9 +1117,7 @@ class _WalkerAcceptScreenState extends State<WalkerAcceptScreen> {
                 color:
                     const Color(0xFF333333),
               ),
-
               const SizedBox(width: 7),
-
               Text(
                 label,
                 style:
