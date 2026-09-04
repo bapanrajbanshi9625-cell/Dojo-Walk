@@ -38,15 +38,16 @@ class AcceptLiveStripService {
 
   bool _started = false;
 
-  // Keeps the latest live-session snapshot independently.
   QuerySnapshot<Map<String, dynamic>>? _latestLiveSnapshot;
 
-  // Prevents a completed request from being shown again.
-  String? _completedRequestId;
+  // Completed request IDs are kept so that an accepted
+  // walk_request cannot make the strip reappear after
+  // the live session has completed.
+  final Set<String> _completedRequestIds = <String>{};
 
-  // ==========================================================
-  // PUBLIC STREAM
-  // ==========================================================
+  // =====================================================
+  // WATCH
+  // =====================================================
 
   Stream<AcceptLiveStripData> watch() {
     if (!_started) {
@@ -57,9 +58,9 @@ class AcceptLiveStripService {
     return _controller.stream;
   }
 
-  // ==========================================================
+  // =====================================================
   // AUTH
-  // ==========================================================
+  // =====================================================
 
   void _startAuthListener() {
     _authSubscription = _auth.authStateChanges().listen(
@@ -85,18 +86,14 @@ class AcceptLiveStripService {
     }
   }
 
-  // ==========================================================
+  // =====================================================
   // FIRESTORE LISTENERS
-  // ==========================================================
+  // =====================================================
 
   void _startFirestoreListeners(String uid) {
     _listenWalkRequests(uid);
     _listenLiveSessions(uid);
   }
-
-  // ==========================================================
-  // WALK REQUEST LISTENER
-  // ==========================================================
 
   void _listenWalkRequests(String uid) {
     _walkRequestSubscription?.cancel();
@@ -116,101 +113,6 @@ class AcceptLiveStripService {
     );
   }
 
-  // ==========================================================
-  // PROCESS WALK REQUESTS
-  // ==========================================================
-
-  void _processWalkRequests(
-    QuerySnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
-
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-
-      final status = _readStatus(
-        data['status'],
-      );
-
-      // --------------------------------------------------------
-      // Do not resurrect the request that already completed.
-      // --------------------------------------------------------
-
-      if (_completedRequestId == doc.id) {
-        continue;
-      }
-
-      if (!_isAcceptedStatus(status)) {
-        continue;
-      }
-
-      if (selected == null ||
-          _getLatestTime(data).isAfter(
-            _getLatestTime(selected.data()),
-          )) {
-        selected = doc;
-      }
-    }
-
-    // ==========================================================
-    // NO ACCEPTED REQUEST
-    // ==========================================================
-
-    if (selected == null) {
-      _requestId = null;
-      _hasAcceptedRequest = false;
-
-      _sessionStatus = '';
-      _walkId = null;
-      _isLive = false;
-
-      _emit();
-      return;
-    }
-
-    final selectedRequestId = selected.id;
-
-    // ==========================================================
-    // COMPLETED REQUEST SAFETY CHECK
-    // ==========================================================
-
-    if (_completedRequestId == selectedRequestId) {
-      _requestId = null;
-      _hasAcceptedRequest = false;
-
-      _sessionStatus = 'completed';
-      _walkId = null;
-      _isLive = false;
-
-      _emit();
-      return;
-    }
-
-    // ==========================================================
-    // ACCEPTED REQUEST
-    // ==========================================================
-
-    _requestId = selectedRequestId;
-    _hasAcceptedRequest = true;
-
-    // ----------------------------------------------------------
-    // Apply latest live-session snapshot immediately.
-    // ----------------------------------------------------------
-
-    final liveSnapshot = _latestLiveSnapshot;
-
-    if (liveSnapshot != null) {
-      _processLiveSessions(liveSnapshot);
-      return;
-    }
-
-    _emit();
-  }
-
-  // ==========================================================
-  // LIVE SESSION LISTENER
-  // ==========================================================
-
   void _listenLiveSessions(String uid) {
     _liveSessionSubscription?.cancel();
 
@@ -229,9 +131,89 @@ class AcceptLiveStripService {
     );
   }
 
-  // ==========================================================
-  // PROCESS LIVE SESSIONS
-  // ==========================================================
+  // =====================================================
+  // WALK REQUEST
+  // =====================================================
+
+  void _processWalkRequests(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      final requestId = doc.id;
+
+      // A completed request must NEVER become visible again.
+      if (_completedRequestIds.contains(requestId)) {
+        continue;
+      }
+
+      final status = _readStatus(
+        data['status'],
+      );
+
+      if (!_isAcceptedStatus(status)) {
+        continue;
+      }
+
+      if (selected == null ||
+          _getLatestTime(data).isAfter(
+            _getLatestTime(selected.data()),
+          )) {
+        selected = doc;
+      }
+    }
+
+    // No accepted request remains.
+    if (selected == null) {
+      _requestId = null;
+      _walkId = null;
+      _sessionStatus = '';
+
+      _hasAcceptedRequest = false;
+      _isLive = false;
+
+      _emit();
+      return;
+    }
+
+    final selectedRequestId = selected.id;
+
+    // Safety check.
+    if (_completedRequestIds.contains(selectedRequestId)) {
+      _requestId = null;
+      _walkId = null;
+      _sessionStatus = 'completed';
+
+      _hasAcceptedRequest = false;
+      _isLive = false;
+
+      _emit();
+      return;
+    }
+
+    _requestId = selectedRequestId;
+    _hasAcceptedRequest = true;
+
+    // Immediately re-check the latest live-session snapshot.
+    //
+    // This handles the case where liveWalkSessions updated
+    // before walk_request was processed.
+    final liveSnapshot = _latestLiveSnapshot;
+
+    if (liveSnapshot != null) {
+      _processLiveSessions(liveSnapshot);
+      return;
+    }
+
+    _emit();
+  }
+
+  // =====================================================
+  // LIVE SESSION
+  // =====================================================
 
   void _processLiveSessions(
     QuerySnapshot<Map<String, dynamic>> snapshot,
@@ -240,13 +222,8 @@ class AcceptLiveStripService {
 
     final currentRequestId = _requestId;
 
-    // ==========================================================
-    // NO ACTIVE REQUEST
-    // ==========================================================
-
     if (currentRequestId == null ||
-        currentRequestId.isEmpty ||
-        !_hasAcceptedRequest) {
+        currentRequestId.trim().isEmpty) {
       _sessionStatus = '';
       _walkId = null;
       _isLive = false;
@@ -255,11 +232,17 @@ class AcceptLiveStripService {
       return;
     }
 
-    QueryDocumentSnapshot<Map<String, dynamic>>? latestSession;
-
-    // ==========================================================
-    // FIND MATCHING SESSION
-    // ==========================================================
+    // ===================================================
+    // FIRST: CHECK COMPLETED SESSION
+    // ===================================================
+    //
+    // IMPORTANT:
+    // We check ALL matching sessions for completion BEFORE
+    // selecting the latest active session.
+    //
+    // This prevents an older completed session from being
+    // ignored when another session document is newer.
+    //
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
@@ -271,36 +254,35 @@ class AcceptLiveStripService {
         continue;
       }
 
-      // ========================================================
-      // IMPORTANT:
-      // Check completion BEFORE selecting latest session.
-      //
-      // If ANY matching session is completed, immediately hide
-      // the strip. This prevents an older active session from
-      // keeping the strip visible.
-      // ========================================================
-
       if (_isCompletedSession(data)) {
-        final walkId = _readString(
-          data['walkId'],
+        _markRequestCompleted(
+          requestId: currentRequestId,
+          data: data,
         );
 
-        _completedRequestId = currentRequestId;
-
-        _sessionStatus = 'completed';
-        _walkId = walkId;
-        _isLive = false;
-
-        _hasAcceptedRequest = false;
-        _requestId = null;
-
-        _emit();
         return;
       }
+    }
 
-      // ========================================================
-      // KEEP LATEST ACTIVE SESSION
-      // ========================================================
+    // ===================================================
+    // SECOND: FIND LATEST ACTIVE SESSION
+    // ===================================================
+
+    QueryDocumentSnapshot<Map<String, dynamic>>? latestSession;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      if (!_sessionMatchesRequest(
+        data,
+        currentRequestId,
+      )) {
+        continue;
+      }
+
+      if (_isCompletedSession(data)) {
+        continue;
+      }
 
       if (latestSession == null ||
           _getLatestTime(data).isAfter(
@@ -310,10 +292,7 @@ class AcceptLiveStripService {
       }
     }
 
-    // ==========================================================
-    // NO MATCHING SESSION
-    // ==========================================================
-
+    // No live session found.
     if (latestSession == null) {
       _sessionStatus = '';
       _walkId = null;
@@ -322,10 +301,6 @@ class AcceptLiveStripService {
       _emit();
       return;
     }
-
-    // ==========================================================
-    // ACTIVE / LIVE SESSION
-    // ==========================================================
 
     final data = latestSession.data();
 
@@ -344,9 +319,34 @@ class AcceptLiveStripService {
     _emit();
   }
 
-  // ==========================================================
-  // MATCH SESSION WITH REQUEST
-  // ==========================================================
+  // =====================================================
+  // MARK COMPLETED
+  // =====================================================
+
+  void _markRequestCompleted({
+    required String requestId,
+    required Map<String, dynamic> data,
+  }) {
+    _completedRequestIds.add(requestId);
+
+    final walkId = _readString(
+      data['walkId'],
+    );
+
+    _requestId = null;
+    _walkId = walkId;
+    _sessionStatus = 'completed';
+
+    _hasAcceptedRequest = false;
+    _isLive = false;
+
+    // This is the important realtime UI update.
+    _emit();
+  }
+
+  // =====================================================
+  // SESSION MATCHING
+  // =====================================================
 
   bool _sessionMatchesRequest(
     Map<String, dynamic> data,
@@ -374,9 +374,9 @@ class AcceptLiveStripService {
         walkId == requestId;
   }
 
-  // ==========================================================
+  // =====================================================
   // ACCEPTED STATUS
-  // ==========================================================
+  // =====================================================
 
   bool _isAcceptedStatus(
     String status,
@@ -392,9 +392,9 @@ class AcceptLiveStripService {
         status == 'live';
   }
 
-  // ==========================================================
+  // =====================================================
   // LIVE STATUS
-  // ==========================================================
+  // =====================================================
 
   bool _isLiveStatus(
     String status,
@@ -407,9 +407,9 @@ class AcceptLiveStripService {
         status == 'live';
   }
 
-  // ==========================================================
-  // COMPLETION
-  // ==========================================================
+  // =====================================================
+  // COMPLETION DETECTION
+  // =====================================================
 
   bool _isCompletedSession(
     Map<String, dynamic> data,
@@ -440,9 +440,9 @@ class AcceptLiveStripService {
         walkEnded;
   }
 
-  // ==========================================================
+  // =====================================================
   // EMIT
-  // ==========================================================
+  // =====================================================
 
   void _emit() {
     if (_controller.isClosed) {
@@ -460,9 +460,9 @@ class AcceptLiveStripService {
     );
   }
 
-  // ==========================================================
+  // =====================================================
   // RESET
-  // ==========================================================
+  // =====================================================
 
   void _resetForAuthChange() {
     _requestId = null;
@@ -473,14 +473,15 @@ class AcceptLiveStripService {
     _isLive = false;
 
     _latestLiveSnapshot = null;
-    _completedRequestId = null;
+
+    _completedRequestIds.clear();
 
     _emit();
   }
 
-  // ==========================================================
+  // =====================================================
   // STOP LISTENERS
-  // ==========================================================
+  // =====================================================
 
   void _stopFirestoreListeners() {
     _walkRequestSubscription?.cancel();
@@ -492,9 +493,9 @@ class AcceptLiveStripService {
     _latestLiveSnapshot = null;
   }
 
-  // ==========================================================
-  // STRING
-  // ==========================================================
+  // =====================================================
+  // STRING HELPERS
+  // =====================================================
 
   String? _readString(
     dynamic value,
@@ -512,10 +513,6 @@ class AcceptLiveStripService {
     return result;
   }
 
-  // ==========================================================
-  // STATUS
-  // ==========================================================
-
   String _readStatus(
     dynamic value,
   ) {
@@ -529,9 +526,9 @@ class AcceptLiveStripService {
         .toLowerCase();
   }
 
-  // ==========================================================
+  // =====================================================
   // LATEST TIME
-  // ==========================================================
+  // =====================================================
 
   DateTime _getLatestTime(
     Map<String, dynamic> data,
@@ -571,9 +568,9 @@ class AcceptLiveStripService {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  // ==========================================================
+  // =====================================================
   // TIMESTAMP
-  // ==========================================================
+  // =====================================================
 
   DateTime? _timestampToDate(
     dynamic value,
@@ -589,9 +586,9 @@ class AcceptLiveStripService {
     return null;
   }
 
-  // ==========================================================
+  // =====================================================
   // DISPOSE
-  // ==========================================================
+  // =====================================================
 
   Future<void> dispose() async {
     await _authSubscription?.cancel();
