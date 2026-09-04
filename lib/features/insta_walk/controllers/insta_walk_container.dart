@@ -149,16 +149,12 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // WALKER ACCEPTED
   // ==========================================================
   //
-  // Container responsibility:
+  // IMPORTANT:
+  // Accept checking is handled by the existing Insta Walk
+  // accepted flow.
   //
-  // 1. Stop search
-  // 2. Stop radar
-  // 3. Stop search listener
-  // 4. Reset container search UI
-  // 5. Notify parent
-  // 6. Open accepted-walk screen
-  //
-  // Accepted walk lifecycle belongs to walker_accept feature.
+  // This method only cleans up the Insta Walk UI/search state
+  // and opens the existing WalkerAcceptScreen.
   //
 
   void _handleAccepted(
@@ -188,6 +184,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
+    // --------------------------------------------------------
+    // Mark accepted event as handled.
+    // --------------------------------------------------------
+
     _acceptHandled = true;
 
     debugPrint('');
@@ -196,6 +196,15 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
     debugPrint(
       '🔥 OWNER INSTA WALK: WALKER ACCEPTED',
+    );
+    debugPrint(
+      '🛑 STOPPING INSTA WALK SEARCH UI',
+    );
+    debugPrint(
+      '🛑 STOPPING RADAR',
+    );
+    debugPrint(
+      '🛑 STOPPING SEARCH LISTENER',
     );
     debugPrint(
       '==============================================',
@@ -211,22 +220,19 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     _requestId = requestId;
 
     // --------------------------------------------------------
-    // CONTAINER RESPONSIBILITY:
     // STOP RADAR
     // --------------------------------------------------------
 
     _stopRadar();
 
     // --------------------------------------------------------
-    // CONTAINER RESPONSIBILITY:
     // STOP SEARCH LISTENER
     // --------------------------------------------------------
 
     _service.stopListening();
 
     // --------------------------------------------------------
-    // CONTAINER RESPONSIBILITY:
-    // RESET SEARCH UI
+    // RESET INSTA WALK SEARCH UI
     // --------------------------------------------------------
 
     _stopping = false;
@@ -263,7 +269,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     // --------------------------------------------------------
-    // OPEN ACCEPTED WALK SCREEN
+    // OPEN EXISTING ACCEPTED WALK SCREEN
     // --------------------------------------------------------
 
     WidgetsBinding.instance.addPostFrameCallback(
@@ -331,10 +337,16 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // --------------------------------------------------------
     // IMPORTANT:
     //
-    // Container does NOT care whether the walk completed,
-    // was cancelled, or the screen was simply closed.
+    // Container does NOT control the walk lifecycle.
     //
-    // Its only job is to become ready for a NEW search.
+    // Whether the walk:
+    // - completed
+    // - cancelled
+    // - screen closed
+    //
+    // is handled by the accepted-walk feature.
+    //
+    // Container only becomes ready for a NEW Insta Walk search.
     // --------------------------------------------------------
 
     _resetAfterAcceptedFlow();
@@ -344,7 +356,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // RESET AFTER ACCEPTED FLOW
   // ==========================================================
   //
-  // This resets ONLY the container's search state.
+  // Resets ONLY Insta Walk search state.
   //
   // It does NOT control the walk itself.
   //
@@ -454,19 +466,45 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
     _radarController.stop();
     _radarController.reset();
+
+    debugPrint(
+      '🛑 InstaWalk radar stopped.',
+    );
   }
 
   // ==========================================================
   // START RADAR
   // ==========================================================
+  //
+  // Radar is allowed ONLY while Insta Walk search is active.
+  //
+  // This prevents the radar from being restarted after the
+  // search has already been stopped.
+  //
 
   void _startRadar() {
     if (!mounted) {
       return;
     }
 
+    // --------------------------------------------------------
+    // IMPORTANT:
+    // Never run radar when search is not active.
+    // --------------------------------------------------------
+
+    if (!_searching) {
+      debugPrint(
+        '🛑 Radar start ignored: Insta Walk search inactive.',
+      );
+      return;
+    }
+
     if (!_radarController.isAnimating) {
       _radarController.repeat();
+
+      debugPrint(
+        '🔵 InstaWalk radar started.',
+      );
     }
   }
 
@@ -477,7 +515,15 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _resetSearchState({
     bool finished = false,
   }) {
+    // --------------------------------------------------------
+    // Stop radar first.
+    // --------------------------------------------------------
+
     _stopRadar();
+
+    // --------------------------------------------------------
+    // Clear request/search location.
+    // --------------------------------------------------------
 
     _requestId = null;
     _ownerPosition = null;
@@ -505,9 +551,21 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _finishSearch({
     String? message,
   }) {
+    // --------------------------------------------------------
+    // Stop radar.
+    // --------------------------------------------------------
+
     _stopRadar();
 
+    // --------------------------------------------------------
+    // Stop listener.
+    // --------------------------------------------------------
+
     _service.stopListening();
+
+    // --------------------------------------------------------
+    // Clear search data.
+    // --------------------------------------------------------
 
     _requestId = null;
     _ownerPosition = null;
@@ -527,6 +585,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     });
 
     _setActive(false);
+
+    // --------------------------------------------------------
+    // Optional message.
+    // --------------------------------------------------------
 
     if (message != null &&
         message.trim().isNotEmpty) {
@@ -549,6 +611,10 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     if (!mounted) {
       return;
     }
+
+    // --------------------------------------------------------
+    // New search = allow next accepted event.
+    // --------------------------------------------------------
 
     _acceptHandled = false;
 
