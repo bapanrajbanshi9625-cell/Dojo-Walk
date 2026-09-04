@@ -31,20 +31,12 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       '==============================================',
     );
 
-    // ==========================================================
-    // MOUNT CHECK
-    // ==========================================================
-
     if (!mounted) {
       debugPrint(
         '❌ InstaWalkContainer is not mounted.',
       );
       return;
     }
-
-    // ==========================================================
-    // REQUEST ID
-    // ==========================================================
 
     final String acceptedRequestId =
         accepted.requestId.trim();
@@ -67,10 +59,6 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       );
       return;
     }
-
-    // ==========================================================
-    // WALKER VALIDATION
-    // ==========================================================
 
     final String walkerId =
         accepted.walkerId.trim();
@@ -101,25 +89,7 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       return;
     }
 
-    // ==========================================================
-    // STORE REQUEST ID
-    // ==========================================================
-
     _requestId = requestId;
-
-    // ==========================================================
-    // ACCEPTED HANDLER
-    // ==========================================================
-    //
-    // The container handler is the single source of truth for:
-    //
-    // 1. Stopping radar
-    // 2. Stopping Firestore listener
-    // 3. Turning searching OFF
-    // 4. Opening WalkerAcceptScreen
-    //
-    // Do NOT duplicate those actions here.
-    // ==========================================================
 
     debugPrint(
       '🚀 Sending accepted request to Container handler...',
