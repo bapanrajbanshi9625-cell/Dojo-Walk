@@ -20,18 +20,33 @@ class ActiveLiveWalkStrip extends StatefulWidget {
       _ActiveLiveWalkStripState();
 }
 
-class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
+class _ActiveLiveWalkStripState
+    extends State<ActiveLiveWalkStrip> {
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
 
+  // ============================================================
+  // AUTH LISTENER
+  // ============================================================
+
+  StreamSubscription<User?>? _authSubscription;
+
+  // ============================================================
+  // FIRESTORE LISTENERS
+  // ============================================================
+
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _walkRequestSubscription;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _liveSessionSubscription;
+
+  // ============================================================
+  // CURRENT WALK
+  // ============================================================
 
   String? _requestId;
   String? _walkId;
@@ -42,33 +57,127 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   bool _hasAcceptedRequest = false;
   bool _loading = true;
 
+  // ============================================================
+  // INIT
+  // ============================================================
+
   @override
   void initState() {
     super.initState();
-    _startListeners();
+
+    _listenAuthState();
   }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _walkRequestSubscription?.cancel();
     _liveSessionSubscription?.cancel();
+
     super.dispose();
+  }
+
+  // ============================================================
+  // AUTH STATE
+  // ============================================================
+
+  void _listenAuthState() {
+    _authSubscription = _auth.authStateChanges().listen(
+      (user) {
+        if (!mounted) {
+          return;
+        }
+
+        debugPrint(
+          'ActiveLiveWalkStrip auth changed: '
+          '${user?.uid ?? 'logged_out'}',
+        );
+
+        _stopFirestoreListeners();
+
+        if (user == null) {
+          _clearWalk();
+          return;
+        }
+
+        _resetForNewUser();
+
+        _startListeners(user.uid);
+      },
+      onError: (error) {
+        debugPrint(
+          'ActiveLiveWalkStrip auth error: $error',
+        );
+      },
+    );
+
+    // ==========================================================
+    // IMPORTANT
+    // ==========================================================
+    //
+    // authStateChanges() normally emits the current user
+    // immediately, but we also check currentUser here so the
+    // strip works correctly even if the auth stream has already
+    // initialized.
+    //
+
+    final currentUser = _auth.currentUser;
+
+    if (currentUser != null) {
+      _startListeners(currentUser.uid);
+    }
   }
 
   // ============================================================
   // START LISTENERS
   // ============================================================
 
-  void _startListeners() {
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      _clearWalk();
+  void _startListeners(String uid) {
+    if (!mounted) {
       return;
     }
 
-    _listenWalkRequests(user.uid);
-    _listenLiveSessions(user.uid);
+    debugPrint(
+      'ActiveLiveWalkStrip → starting listeners for $uid',
+    );
+
+    _listenWalkRequests(uid);
+    _listenLiveSessions(uid);
+  }
+
+  // ============================================================
+  // STOP LISTENERS
+  // ============================================================
+
+  void _stopFirestoreListeners() {
+    _walkRequestSubscription?.cancel();
+    _liveSessionSubscription?.cancel();
+
+    _walkRequestSubscription = null;
+    _liveSessionSubscription = null;
+  }
+
+  // ============================================================
+  // RESET FOR NEW USER
+  // ============================================================
+
+  void _resetForNewUser() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _hasAcceptedRequest = false;
+      _requestId = null;
+      _walkId = null;
+      _sessionStatus = '';
+      _isLive = false;
+    });
   }
 
   // ============================================================
@@ -91,13 +200,29 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
         debugPrint(
           'ActiveLiveWalkStrip walk_request error: $error',
         );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _loading = false;
+        });
       },
     );
   }
 
+  // ============================================================
+  // PROCESS WALK REQUESTS
+  // ============================================================
+
   void _processWalkRequests(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
+    if (!mounted) {
+      return;
+    }
+
     QueryDocumentSnapshot<Map<String, dynamic>>? selected;
 
     for (final doc in snapshot.docs) {
@@ -105,6 +230,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
       final status = _readStatus(
         data['status'],
+      );
+
+      debugPrint(
+        'ActiveLiveWalkStrip request '
+        '${doc.id} status=$status',
       );
 
       if (!_isAcceptedStatus(status)) {
@@ -123,16 +253,33 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       }
     }
 
+    // ==========================================================
+    // NO ACCEPTED REQUEST
+    // ==========================================================
+
     if (selected == null) {
       _hasAcceptedRequest = false;
       _requestId = null;
+
+      _sessionStatus = '';
+      _walkId = null;
+      _isLive = false;
 
       _recalculateVisibility();
       return;
     }
 
+    // ==========================================================
+    // ACCEPTED REQUEST FOUND
+    // ==========================================================
+
     _hasAcceptedRequest = true;
     _requestId = selected.id;
+
+    debugPrint(
+      '🟠 ActiveLiveWalkStrip → ACCEPTED '
+      'requestId=$_requestId',
+    );
 
     _recalculateVisibility();
   }
@@ -161,17 +308,22 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     );
   }
 
+  // ============================================================
+  // PROCESS LIVE SESSIONS
+  // ============================================================
+
   void _processLiveSessions(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
-    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
+    if (!mounted) {
+      return;
+    }
 
     final currentRequestId = _requestId;
 
-    // ------------------------------------------------------------
-    // If there is no accepted request yet, don't attach a random
-    // live session to the strip.
-    // ------------------------------------------------------------
+    // ==========================================================
+    // NO ACCEPTED REQUEST
+    // ==========================================================
 
     if (currentRequestId == null ||
         currentRequestId.isEmpty) {
@@ -183,15 +335,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return;
     }
 
-    // ------------------------------------------------------------
-    // Find the live session belonging to the current request.
-    // Primary field:
-    //     walkRequestId
-    //
-    // Also supports:
-    //     requestId
-    //     requestID
-    // ------------------------------------------------------------
+    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
+
+    // ==========================================================
+    // FIND MATCHING SESSION
+    // ==========================================================
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
@@ -203,11 +351,16 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
         continue;
       }
 
-      // ----------------------------------------------------------
-      // COMPLETED SESSION HAS HIGHEST PRIORITY
-      // ----------------------------------------------------------
+      // ========================================================
+      // COMPLETED / CLOSED SESSION
+      // ========================================================
 
       if (_isCompletedSession(data)) {
+        debugPrint(
+          '🔴 ActiveLiveWalkStrip → WALK COMPLETED '
+          'requestId=$currentRequestId',
+        );
+
         _sessionStatus = 'completed';
 
         _walkId = _readString(
@@ -232,9 +385,9 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       }
     }
 
-    // ------------------------------------------------------------
-    // No matching live session
-    // ------------------------------------------------------------
+    // ==========================================================
+    // NO MATCHING SESSION
+    // ==========================================================
 
     if (selected == null) {
       _sessionStatus = '';
@@ -245,9 +398,9 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return;
     }
 
-    // ------------------------------------------------------------
-    // Matching session found
-    // ------------------------------------------------------------
+    // ==========================================================
+    // SESSION FOUND
+    // ==========================================================
 
     final data = selected.data();
 
@@ -261,6 +414,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
     _isLive = _isLiveStatus(
       _sessionStatus,
+    );
+
+    debugPrint(
+      'ActiveLiveWalkStrip → session '
+      'status=$_sessionStatus walkId=$_walkId',
     );
 
     _recalculateVisibility();
@@ -386,8 +544,9 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
       return null;
     }
 
-    final result =
-        value.toString().trim();
+    final result = value
+        .toString()
+        .trim();
 
     if (result.isEmpty) {
       return null;
@@ -461,12 +620,9 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     setState(() {
       _loading = false;
 
-      // ----------------------------------------------------------
-      // Completed session ALWAYS wins.
-      //
-      // Even if walk_request remains "accepted",
-      // the strip disappears.
-      // ----------------------------------------------------------
+      // ========================================================
+      // COMPLETED ALWAYS WINS
+      // ========================================================
 
       if (_sessionStatus == 'completed' ||
           _sessionStatus == 'complete' ||
@@ -486,7 +642,7 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
   }
 
   // ============================================================
-  // CLEAR
+  // CLEAR WALK
   // ============================================================
 
   void _clearWalk() {
@@ -572,11 +728,16 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
     final requestId = _requestId;
 
     if (requestId == null ||
-        requestId.isEmpty) {
+        requestId.isEmpty ||
+        !mounted) {
       return;
     }
 
     final walkId = _walkId;
+
+    // ==========================================================
+    // LIVE WALK
+    // ==========================================================
 
     if (_isLive &&
         walkId != null &&
@@ -592,6 +753,10 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
 
       return;
     }
+
+    // ==========================================================
+    // ACCEPTED / READY
+    // ==========================================================
 
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -676,9 +841,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                   size: 26,
                 ),
               ),
+
               const SizedBox(
                 width: 12,
               ),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -695,9 +862,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                         letterSpacing: 0.3,
                       ),
                     ),
+
                     const SizedBox(
                       height: 3,
                     ),
+
                     Text(
                       _secondaryText,
                       maxLines: 1,
@@ -717,9 +886,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                   ],
                 ),
               ),
+
               const SizedBox(
                 width: 10,
               ),
+
               Column(
                 crossAxisAlignment:
                     CrossAxisAlignment.end,
@@ -734,9 +905,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                           FontWeight.w800,
                     ),
                   ),
+
                   const SizedBox(
                     height: 3,
                   ),
+
                   Text(
                     _statusSubtitle,
                     style:
@@ -750,9 +923,11 @@ class _ActiveLiveWalkStripState extends State<ActiveLiveWalkStrip> {
                   ),
                 ],
               ),
+
               const SizedBox(
                 width: 6,
               ),
+
               const Icon(
                 Icons.chevron_right_rounded,
                 color: Colors.white,
