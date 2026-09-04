@@ -6,7 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../live_walk/screens/live_walk_screen.dart';
 import '../../walker_accept/screens/walker_accept_screen.dart';
 import '../models/accept_live_strip_data.dart';
-import '../services/accept_live_strip_service.dart';
+import '../services/accept_live_strip_trigger.dart';
 
 class AcceptLiveStrip extends StatefulWidget {
   const AcceptLiveStrip({
@@ -20,7 +20,7 @@ class AcceptLiveStrip extends StatefulWidget {
 
 class _AcceptLiveStripState
     extends State<AcceptLiveStrip> {
-  late final AcceptLiveStripService _service;
+  late final AcceptLiveStripTrigger _trigger;
 
   StreamSubscription<AcceptLiveStripData>?
       _subscription;
@@ -35,9 +35,9 @@ class _AcceptLiveStripState
   void initState() {
     super.initState();
 
-    _service = AcceptLiveStripService();
+    _trigger = AcceptLiveStripTrigger();
 
-    _subscription = _service.watch().listen(
+    _subscription = _trigger.trigger().listen(
       (data) {
         if (!mounted) {
           return;
@@ -63,7 +63,7 @@ class _AcceptLiveStripState
   @override
   void dispose() {
     _subscription?.cancel();
-    _service.dispose();
+    _trigger.dispose();
 
     super.dispose();
   }
