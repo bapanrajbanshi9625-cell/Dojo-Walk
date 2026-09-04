@@ -9,18 +9,14 @@ class AcceptLiveStripService {
   AcceptLiveStripService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore =
-            firestore ?? FirebaseFirestore.instance,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
-  static const String walkRequestCollection =
-      'walk_request';
-
-  static const String liveSessionCollection =
-      'liveWalkSessions';
+  static const String walkRequestCollection = 'walk_request';
+  static const String liveSessionCollection = 'liveWalkSessions';
 
   StreamSubscription<User?>? _authSubscription;
 
@@ -30,8 +26,7 @@ class AcceptLiveStripService {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _liveSessionSubscription;
 
-  final StreamController<AcceptLiveStripData>
-      _controller =
+  final StreamController<AcceptLiveStripData> _controller =
       StreamController<AcceptLiveStripData>.broadcast();
 
   String? _requestId;
@@ -42,6 +37,13 @@ class AcceptLiveStripService {
   bool _isLive = false;
 
   bool _started = false;
+
+  // Keeps the latest live-session snapshot independently.
+  QuerySnapshot<Map<String, dynamic>>? _latestLiveSnapshot;
+
+  // Prevents an old accepted request from coming back
+  // after its live session has completed.
+  String? _completedRequestId;
 
   // ==========================================================
   // PUBLIC STREAM
@@ -57,21 +59,19 @@ class AcceptLiveStripService {
   }
 
   // ==========================================================
-  // START AUTH LISTENER
+  // AUTH
   // ==========================================================
 
   void _startAuthListener() {
-    _authSubscription =
-        _auth.authStateChanges().listen(
+    _authSubscription = _auth.authStateChanges().listen(
       (user) {
         _stopFirestoreListeners();
+        _resetForAuthChange();
 
         if (user == null) {
-          _clearState();
           return;
         }
 
-        _clearState();
         _startFirestoreListeners(user.uid);
       },
       onError: (error) {
@@ -82,21 +82,15 @@ class AcceptLiveStripService {
     final currentUser = _auth.currentUser;
 
     if (currentUser != null) {
-      _startFirestoreListeners(
-        currentUser.uid,
-      );
-    } else {
-      _clearState();
+      _startFirestoreListeners(currentUser.uid);
     }
   }
 
   // ==========================================================
-  // START FIRESTORE LISTENERS
+  // FIRESTORE LISTENERS
   // ==========================================================
 
-  void _startFirestoreListeners(
-    String uid,
-  ) {
+  void _startFirestoreListeners(String uid) {
     _listenWalkRequests(uid);
     _listenLiveSessions(uid);
   }
@@ -135,9 +129,7 @@ class AcceptLiveStripService {
     for (final doc in snapshot.docs) {
       final data = doc.data();
 
-      final status = _readStatus(
-        data['status'],
-      );
+      final status = _readStatus(data['status']);
 
       if (!_isAcceptedStatus(status)) {
         continue;
@@ -145,14 +137,13 @@ class AcceptLiveStripService {
 
       if (selected == null ||
           _getLatestTime(data).isAfter(
-            _getLatestTime(
-              selected.data(),
-            ),
+            _getLatestTime(selected.data()),
           )) {
         selected = doc;
       }
     }
 
+    // No accepted request.
     if (selected == null) {
       _requestId = null;
       _hasAcceptedRequest = false;
@@ -165,8 +156,32 @@ class AcceptLiveStripService {
       return;
     }
 
-    _requestId = selected.id;
+    final selectedRequestId = selected.id;
+
+    // If this exact request has already completed,
+    // never resurrect the old accepted strip.
+    if (_completedRequestId == selectedRequestId) {
+      _requestId = null;
+      _hasAcceptedRequest = false;
+
+      _sessionStatus = 'completed';
+      _walkId = null;
+      _isLive = false;
+
+      _emit();
+      return;
+    }
+
+    _requestId = selectedRequestId;
     _hasAcceptedRequest = true;
+
+    // Immediately try to apply the latest live-session snapshot.
+    final liveSnapshot = _latestLiveSnapshot;
+
+    if (liveSnapshot != null) {
+      _processLiveSessions(liveSnapshot);
+      return;
+    }
 
     _emit();
   }
@@ -200,10 +215,13 @@ class AcceptLiveStripService {
   void _processLiveSessions(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
+    _latestLiveSnapshot = snapshot;
+
     final currentRequestId = _requestId;
 
     if (currentRequestId == null ||
-        currentRequestId.isEmpty) {
+        currentRequestId.isEmpty ||
+        !_hasAcceptedRequest) {
       _sessionStatus = '';
       _walkId = null;
       _isLive = false;
@@ -212,8 +230,7 @@ class AcceptLiveStripService {
       return;
     }
 
-    QueryDocumentSnapshot<Map<String, dynamic>>?
-        selected;
+    QueryDocumentSnapshot<Map<String, dynamic>>? selected;
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
@@ -227,14 +244,16 @@ class AcceptLiveStripService {
 
       if (selected == null ||
           _getLatestTime(data).isAfter(
-            _getLatestTime(
-              selected.data(),
-            ),
+            _getLatestTime(selected.data()),
           )) {
         selected = doc;
       }
     }
 
+    // No live session yet.
+    //
+    // This is normal for an accepted walk.
+    // Keep WALK ACCEPTED visible.
     if (selected == null) {
       _sessionStatus = '';
       _walkId = null;
@@ -255,10 +274,12 @@ class AcceptLiveStripService {
     );
 
     // ========================================================
-    // COMPLETED SESSION
+    // COMPLETED
     // ========================================================
 
     if (_isCompletedSession(data)) {
+      _completedRequestId = currentRequestId;
+
       _sessionStatus = 'completed';
       _walkId = walkId;
       _isLive = false;
@@ -271,7 +292,7 @@ class AcceptLiveStripService {
     }
 
     // ========================================================
-    // ACTIVE SESSION
+    // ACTIVE / LIVE
     // ========================================================
 
     _sessionStatus = status;
@@ -301,9 +322,14 @@ class AcceptLiveStripService {
       data['requestID'],
     );
 
+    final walkId = _readString(
+      data['walkId'],
+    );
+
     return walkRequestId == requestId ||
         requestIdField == requestId ||
-        requestIDField == requestId;
+        requestIDField == requestId ||
+        walkId == requestId;
   }
 
   // ==========================================================
@@ -350,8 +376,7 @@ class AcceptLiveStripService {
       data['status'],
     );
 
-    final completedAt =
-        data['completedAt'];
+    final completedAt = data['completedAt'];
 
     final trackingEnded =
         data['trackingEnded'] == true;
@@ -374,7 +399,7 @@ class AcceptLiveStripService {
   }
 
   // ==========================================================
-  // EMIT CURRENT STATE
+  // EMIT
   // ==========================================================
 
   void _emit() {
@@ -387,18 +412,17 @@ class AcceptLiveStripService {
         requestId: _requestId,
         walkId: _walkId,
         sessionStatus: _sessionStatus,
-        hasAcceptedRequest:
-            _hasAcceptedRequest,
+        hasAcceptedRequest: _hasAcceptedRequest,
         isLive: _isLive,
       ),
     );
   }
 
   // ==========================================================
-  // CLEAR STATE
+  // RESET
   // ==========================================================
 
-  void _clearState() {
+  void _resetForAuthChange() {
     _requestId = null;
     _walkId = null;
     _sessionStatus = '';
@@ -406,11 +430,14 @@ class AcceptLiveStripService {
     _hasAcceptedRequest = false;
     _isLive = false;
 
+    _latestLiveSnapshot = null;
+    _completedRequestId = null;
+
     _emit();
   }
 
   // ==========================================================
-  // STOP FIRESTORE LISTENERS
+  // STOP LISTENERS
   // ==========================================================
 
   void _stopFirestoreListeners() {
@@ -419,6 +446,8 @@ class AcceptLiveStripService {
 
     _walkRequestSubscription = null;
     _liveSessionSubscription = null;
+
+    _latestLiveSnapshot = null;
   }
 
   // ==========================================================
@@ -461,8 +490,7 @@ class AcceptLiveStripService {
   DateTime _getLatestTime(
     Map<String, dynamic> data,
   ) {
-    final updatedAt =
-        _timestampToDate(
+    final updatedAt = _timestampToDate(
       data['updatedAt'],
     );
 
@@ -470,8 +498,7 @@ class AcceptLiveStripService {
       return updatedAt;
     }
 
-    final acceptedAt =
-        _timestampToDate(
+    final acceptedAt = _timestampToDate(
       data['acceptedAt'],
     );
 
@@ -479,8 +506,15 @@ class AcceptLiveStripService {
       return acceptedAt;
     }
 
-    final createdAt =
-        _timestampToDate(
+    final startedAt = _timestampToDate(
+      data['startedAt'],
+    );
+
+    if (startedAt != null) {
+      return startedAt;
+    }
+
+    final createdAt = _timestampToDate(
       data['createdAt'],
     );
 
@@ -488,12 +522,12 @@ class AcceptLiveStripService {
       return createdAt;
     }
 
-    return DateTime.fromMillisecondsSinceEpoch(
-      0,
-    );
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  DateTime? _timestampToDate(dynamic value) {
+  DateTime? _timestampToDate(
+    dynamic value,
+  ) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -511,9 +545,7 @@ class AcceptLiveStripService {
 
   Future<void> dispose() async {
     await _authSubscription?.cancel();
-
     await _walkRequestSubscription?.cancel();
-
     await _liveSessionSubscription?.cancel();
 
     _authSubscription = null;
