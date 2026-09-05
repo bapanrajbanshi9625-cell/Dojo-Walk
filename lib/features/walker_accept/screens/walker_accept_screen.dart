@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../live_walk/screens/live_walk_screen.dart';
 import '../models/walker_accept_data.dart';
@@ -443,6 +444,70 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
+  // CALL WALKER
+  // ==========================================================
+
+  Future<void> _callWalker() async {
+    final String phone =
+        _data?.walkerPhone?.trim() ?? '';
+
+    if (phone.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Walker phone number is not available',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    final Uri uri = Uri(
+      scheme: 'tel',
+      path: phone,
+    );
+
+    try {
+      final bool launched =
+          await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to open phone dialer',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptScreen call error: $error',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to open phone dialer',
+          ),
+        ),
+      );
+    }
+  }
+
+  // ==========================================================
   // DISPOSE
   // ==========================================================
 
@@ -528,13 +593,13 @@ class _WalkerAcceptScreenState
             ),
 
             // =================================================
-            // NEW ACCEPT SCREEN HEADER
+            // ACCEPT SCREEN HEADER
             // =================================================
 
             _buildAcceptHeader(),
 
             // =================================================
-            // COMPACT DRAGGABLE BOTTOM SHEET
+            // BOTTOM SHEET
             // =================================================
 
             _buildBottomSheet(data),
@@ -555,7 +620,6 @@ class _WalkerAcceptScreenState
       right: 16,
       child: Row(
         children: [
-          // BACK
           _buildHeaderCircleButton(
             icon: Icons.arrow_back_rounded,
             onTap: () {
@@ -565,7 +629,6 @@ class _WalkerAcceptScreenState
 
           const SizedBox(width: 10),
 
-          // ACCEPT SCREEN TITLE
           Expanded(
             child: Container(
               height: 52,
@@ -610,7 +673,6 @@ class _WalkerAcceptScreenState
 
           const SizedBox(width: 10),
 
-          // HELP
           _buildHeaderCircleButton(
             icon: Icons.help_outline_rounded,
             onTap: widget.onHelp,
@@ -669,7 +731,9 @@ class _WalkerAcceptScreenState
               Navigator.of(context).maybePop();
             },
           ),
+
           const SizedBox(width: 10),
+
           Expanded(
             child: Container(
               height: 52,
@@ -704,7 +768,9 @@ class _WalkerAcceptScreenState
               ),
             ),
           ),
+
           const SizedBox(width: 10),
+
           _buildHeaderCircleButton(
             icon: Icons.help_outline_rounded,
             onTap: widget.onHelp,
@@ -724,19 +790,13 @@ class _WalkerAcceptScreenState
     return DraggableScrollableSheet(
       initialChildSize: 0.27,
       minChildSize: 0.27,
-
-      // The sheet opens only to the required
-      // content area, not almost the whole screen.
       maxChildSize: 0.61,
-
       snap: true,
       snapSizes: const [
         0.27,
         0.61,
       ],
-
       expand: true,
-
       builder: (
         BuildContext context,
         ScrollController controller,
@@ -761,6 +821,7 @@ class _WalkerAcceptScreenState
             ),
             children: [
               // HANDLE
+
               Center(
                 child: Container(
                   width: 42,
@@ -780,7 +841,7 @@ class _WalkerAcceptScreenState
               const SizedBox(height: 15),
 
               // =================================================
-              // WALKER
+              // WALKER DETAILS
               // =================================================
 
               Row(
@@ -796,7 +857,9 @@ class _WalkerAcceptScreenState
                               .start,
                       children: [
                         Text(
-                          data.walkerName,
+                          data.walkerName.trim().isEmpty
+                              ? 'Walker'
+                              : data.walkerName,
                           maxLines: 1,
                           overflow:
                               TextOverflow
@@ -809,10 +872,12 @@ class _WalkerAcceptScreenState
                                 FontWeight.w800,
                           ),
                         ),
+
                         const SizedBox(height: 4),
-                        const Row(
+
+                        Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons
                                   .location_on_outlined,
                               size: 16,
@@ -821,8 +886,8 @@ class _WalkerAcceptScreenState
                                 0xFF777777,
                               ),
                             ),
-                            SizedBox(width: 4),
-                            Expanded(
+                            const SizedBox(width: 4),
+                            const Expanded(
                               child: Text(
                                 'Walker is approaching',
                                 maxLines: 1,
@@ -843,9 +908,55 @@ class _WalkerAcceptScreenState
                             ),
                           ],
                         ),
+
+                        const SizedBox(height: 3),
+
+                        // PHONE NUMBER
+                        if ((data.walkerPhone
+                                    ?.trim()
+                                    .isNotEmpty ??
+                                false))
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons
+                                    .phone_outlined,
+                                size: 15,
+                                color:
+                                    Color(
+                                  0xFF777777,
+                                ),
+                              ),
+                              const SizedBox(
+                                width: 4,
+                              ),
+                              Expanded(
+                                child: Text(
+                                  data.walkerPhone!
+                                      .trim(),
+                                  maxLines: 1,
+                                  overflow:
+                                      TextOverflow
+                                          .ellipsis,
+                                  style:
+                                      const TextStyle(
+                                    color:
+                                        Color(
+                                      0xFF777777,
+                                    ),
+                                    fontSize: 12,
+                                    fontWeight:
+                                        FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
+
+                  const SizedBox(width: 8),
 
                   _buildLiveBadge(),
                 ],
@@ -1073,12 +1184,14 @@ class _WalkerAcceptScreenState
                   : '--',
             ),
           ),
+
           Container(
             width: 1,
             height: 45,
             color:
                 const Color(0xFFE0E0E0),
           ),
+
           Expanded(
             child: _buildInfoItem(
               icon:
@@ -1154,16 +1267,21 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   Widget _buildCallButton() {
+    final bool hasPhone =
+        _data?.walkerPhone?.trim().isNotEmpty ??
+            false;
+
     return Material(
-      color:
-          _primaryOrange,
+      color: _primaryOrange,
       borderRadius:
           BorderRadius.circular(15),
       child: InkWell(
-        onTap: widget.onCall,
+        onTap: hasPhone
+            ? _callWalker
+            : null,
         borderRadius:
             BorderRadius.circular(15),
-        child: const SizedBox(
+        child: SizedBox(
           height: 52,
           child: Row(
             mainAxisAlignment:
@@ -1171,14 +1289,18 @@ class _WalkerAcceptScreenState
             children: [
               Icon(
                 Icons.call_rounded,
-                color: Colors.white,
+                color: hasPhone
+                    ? Colors.white
+                    : Colors.white54,
                 size: 20,
               ),
-              SizedBox(width: 7),
+              const SizedBox(width: 7),
               Text(
                 'Call',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: hasPhone
+                      ? Colors.white
+                      : Colors.white54,
                   fontSize: 14,
                   fontWeight:
                       FontWeight.w800,
@@ -1377,3 +1499,19 @@ class _WalkerAcceptScreenState
     return '${valueMeters.round()} m';
   }
 }
+
+Ab is file ko poora replace kar do.
+
+"pubspec.yaml" mein aapka:
+
+url_launcher: ^6.3.2
+
+already hai, isliye wahan kuch add/change nahi karna.
+
+Is version mein:
+
+Firestore "walkerPhone" → "WalkerAcceptData" → "WalkerAcceptScreen" → Call button → Android Phone Dialer
+
+flow complete hai.
+
+Aur agar "walkerPhone" Firestore mein available nahi hai, Call button disabled rahega aur number unavailable message nahi aayega jab tak user tap nahi kar sakta.
