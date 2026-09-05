@@ -2,19 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-
-import '../../../core/theme/app_colors.dart';
 
 class AddressLocationPickerScreen extends StatefulWidget {
   const AddressLocationPickerScreen({
     super.key,
-    this.initialLocation,
+    this.initialLatitude,
+    this.initialLongitude,
   });
 
-  final LatLng? initialLocation;
+  final double? initialLatitude;
+  final double? initialLongitude;
 
   @override
   State<AddressLocationPickerScreen> createState() =>
@@ -35,6 +35,9 @@ class _AddressLocationPickerScreenState
 
   String _selectedAddress = 'Move the map to choose pickup location';
 
+  static const Color _primaryColor = Color(0xFFFF8A00);
+  static const Color _backgroundColor = Color(0xFFF8F9FB);
+
   @override
   void initState() {
     super.initState();
@@ -51,35 +54,14 @@ class _AddressLocationPickerScreenState
     try {
       LatLng location;
 
-      if (widget.initialLocation != null) {
-        location = widget.initialLocation!;
+      if (widget.initialLatitude != null &&
+          widget.initialLongitude != null) {
+        location = LatLng(
+          widget.initialLatitude!,
+          widget.initialLongitude!,
+        );
       } else {
-        final permission = await Geolocator.checkPermission();
-
-        LocationPermission finalPermission = permission;
-
-        if (permission == LocationPermission.denied) {
-          finalPermission = await Geolocator.requestPermission();
-        }
-
-        if (finalPermission == LocationPermission.denied ||
-            finalPermission == LocationPermission.deniedForever) {
-          location = const LatLng(
-            28.6139,
-            77.2090,
-          );
-        } else {
-          final position = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-            ),
-          );
-
-          location = LatLng(
-            position.latitude,
-            position.longitude,
-          );
-        }
+        location = await _getInitialLocation();
       }
 
       _selectedLocation = location;
@@ -94,44 +76,83 @@ class _AddressLocationPickerScreenState
     } catch (_) {
       if (!mounted) return;
 
+      _selectedLocation = const LatLng(
+        28.6139,
+        77.2090,
+      );
+
       setState(() {
-        _selectedLocation ??= const LatLng(
-          28.6139,
-          77.2090,
-        );
         _loading = false;
+        _selectedAddress = 'Move the map to choose pickup location';
       });
     }
   }
 
+  Future<LatLng> _getInitialLocation() async {
+    LocationPermission permission =
+        await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      // Fallback center only.
+      // User can still move the pin manually.
+      return const LatLng(
+        28.6139,
+        77.2090,
+      );
+    }
+
+    final Position position =
+        await Geolocator.getCurrentPosition();
+
+    return LatLng(
+      position.latitude,
+      position.longitude,
+    );
+  }
+
   Future<void> _reverseGeocode(LatLng location) async {
     try {
-      final placemarks = await placemarkFromCoordinates(
+      final List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(
         location.latitude,
         location.longitude,
       );
 
       if (placemarks.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _selectedAddress = 'Location selected';
-          });
-        }
+        if (!mounted) return;
+
+        setState(() {
+          _selectedAddress = 'Location selected';
+        });
+
         return;
       }
 
-      final place = placemarks.first;
+      final geocoding.Placemark place = placemarks.first;
 
-      final parts = <String>[
-        place.name,
-        place.street,
-        place.subLocality,
-        place.locality,
-        place.administrativeArea,
-        place.postalCode,
-      ].where((value) {
-        return value != null && value.trim().isNotEmpty;
-      }).map((value) => value!.trim()).toSet().toList();
+      final List<String> parts = <String>[
+        if (place.name != null && place.name!.trim().isNotEmpty)
+          place.name!.trim(),
+        if (place.street != null && place.street!.trim().isNotEmpty)
+          place.street!.trim(),
+        if (place.subLocality != null &&
+            place.subLocality!.trim().isNotEmpty)
+          place.subLocality!.trim(),
+        if (place.locality != null &&
+            place.locality!.trim().isNotEmpty)
+          place.locality!.trim(),
+        if (place.administrativeArea != null &&
+            place.administrativeArea!.trim().isNotEmpty)
+          place.administrativeArea!.trim(),
+        if (place.postalCode != null &&
+            place.postalCode!.trim().isNotEmpty)
+          place.postalCode!.trim(),
+      ].toSet().toList();
 
       if (!mounted) return;
 
@@ -156,8 +177,10 @@ class _AddressLocationPickerScreenState
       return;
     }
 
-    // EXACT pickup point = exact center of the map.
-    final center = camera.center;
+    // IMPORTANT:
+    // The fixed center pin represents camera.center.
+    // Therefore camera.center is the exact pickup location.
+    final LatLng center = camera.center;
 
     _selectedLocation = center;
 
@@ -179,16 +202,15 @@ class _AddressLocationPickerScreenState
 
   Future<void> _goToCurrentLocation() async {
     try {
-      final permission = await Geolocator.checkPermission();
-
-      LocationPermission finalPermission = permission;
+      LocationPermission permission =
+          await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
-        finalPermission = await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
 
-      if (finalPermission == LocationPermission.denied ||
-          finalPermission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -198,26 +220,26 @@ class _AddressLocationPickerScreenState
             ),
           ),
         );
+
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
+      final Position position =
+          await Geolocator.getCurrentPosition();
 
-      final location = LatLng(
+      final LatLng location = LatLng(
         position.latitude,
         position.longitude,
       );
 
       _selectedLocation = location;
 
-      setState(() {
-        _movingMap = true;
-        _selectedAddress = 'Finding address...';
-      });
+      if (mounted) {
+        setState(() {
+          _movingMap = true;
+          _selectedAddress = 'Finding address...';
+        });
+      }
 
       _mapController.move(
         location,
@@ -240,14 +262,16 @@ class _AddressLocationPickerScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Unable to get current location: $e'),
+          content: Text(
+            'Unable to get current location: $e',
+          ),
         ),
       );
     }
   }
 
   Future<void> _useSelectedLocation() async {
-    final location = _selectedLocation;
+    final LatLng? location = _selectedLocation;
 
     if (location == null || _saving) {
       return;
@@ -257,14 +281,14 @@ class _AddressLocationPickerScreenState
       _saving = true;
     });
 
-    // Reverse geocode the FINAL center-pin coordinates one more time.
+    // FINAL coordinates are exactly the center-pin coordinates.
     await _reverseGeocode(location);
 
     if (!mounted) return;
 
     Navigator.pop(
       context,
-      {
+      <String, dynamic>{
         'latitude': location.latitude,
         'longitude': location.longitude,
         'address': _selectedAddress,
@@ -276,26 +300,30 @@ class _AddressLocationPickerScreenState
   Widget build(BuildContext context) {
     if (_loading || _selectedLocation == null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: _backgroundColor,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
+          backgroundColor: _backgroundColor,
           elevation: 0,
-          title: const Text('Choose Pickup Location'),
+          title: const Text(
+            'Choose Pickup Location',
+          ),
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(
+            color: _primaryColor,
+          ),
         ),
       );
     }
 
-    final center = _selectedLocation!;
+    final LatLng center = _selectedLocation!;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: _backgroundColor,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: Colors.black87,
         title: const Text(
           'Choose Pickup Location',
           style: TextStyle(
@@ -304,7 +332,7 @@ class _AddressLocationPickerScreenState
         ),
       ),
       body: Stack(
-        children: [
+        children: <Widget>[
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -312,7 +340,7 @@ class _AddressLocationPickerScreenState
               initialZoom: 17,
               onPositionChanged: _onMapPositionChanged,
             ),
-            children: [
+            children: <Widget>[
               TileLayer(
                 urlTemplate:
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -321,19 +349,21 @@ class _AddressLocationPickerScreenState
             ],
           ),
 
-          // Fixed center pin.
+          // FIXED CENTER PIN.
+          // The map center underneath this pin is the exact pickup point.
           const Center(
             child: Padding(
-              padding: EdgeInsets.only(bottom: 38),
+              padding: EdgeInsets.only(
+                bottom: 38,
+              ),
               child: Icon(
                 Icons.location_pin,
                 size: 52,
-                color: AppColors.primary,
+                color: _primaryColor,
               ),
             ),
           ),
 
-          // Address information.
           Positioned(
             top: 16,
             left: 16,
@@ -346,24 +376,26 @@ class _AddressLocationPickerScreenState
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     Container(
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.10),
+                        color:
+                            _primaryColor.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.location_on,
-                        color: AppColors.primary,
+                        color: _primaryColor,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: <Widget>[
                           const Text(
                             'Pickup Location',
                             style: TextStyle(
@@ -391,16 +423,16 @@ class _AddressLocationPickerScreenState
             ),
           ),
 
-          // Current location is only a convenience button.
-          // It does NOT force the final pickup location.
+          // Convenience only.
+          // It moves the map to current GPS but does not lock the pickup point.
           Positioned(
             right: 16,
             bottom: 125,
             child: FloatingActionButton(
-              heroTag: 'current_location',
+              heroTag: 'address_current_location',
               onPressed: _goToCurrentLocation,
               backgroundColor: Colors.white,
-              foregroundColor: AppColors.primary,
+              foregroundColor: _primaryColor,
               elevation: 5,
               child: const Icon(
                 Icons.my_location,
@@ -415,12 +447,13 @@ class _AddressLocationPickerScreenState
             child: SizedBox(
               height: 56,
               child: ElevatedButton(
-                onPressed: _saving ? null : _useSelectedLocation,
+                onPressed:
+                    _saving ? null : _useSelectedLocation,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: _primaryColor,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor:
-                      AppColors.primary.withOpacity(0.5),
+                      _primaryColor.withValues(alpha: 0.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -436,9 +469,12 @@ class _AddressLocationPickerScreenState
                         ),
                       )
                     : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline),
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            Icons.check_circle_outline,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Use This Location',
