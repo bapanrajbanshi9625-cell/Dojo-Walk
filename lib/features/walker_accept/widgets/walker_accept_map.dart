@@ -38,8 +38,13 @@ class _WalkerAcceptMapState
   @override
   void initState() {
     super.initState();
+
     _mapController = MapController();
   }
+
+  // ==========================================================
+  // WIDGET UPDATE
+  // ==========================================================
 
   @override
   void didUpdateWidget(
@@ -60,11 +65,16 @@ class _WalkerAcceptMapState
     if (oldWalker == null) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) {
-          if (mounted) {
+          if (!mounted) {
+            return;
+          }
+
+          if (_autoFollow) {
             _followWalker(newWalker);
           }
         },
       );
+
       return;
     }
 
@@ -72,36 +82,47 @@ class _WalkerAcceptMapState
       oldWalker,
       newWalker,
     )) {
-      _followWalker(newWalker);
+      if (_autoFollow) {
+        _followWalker(newWalker);
+      }
     }
   }
 
+  // ==========================================================
+  // BUILD
+  // ==========================================================
+
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
-    final List<Marker> markers = <Marker>[
+    final List<Marker> markers =
+        <Marker>[
+      // ======================================================
       // OWNER
+      // ======================================================
+
       Marker(
         point: widget.ownerLocation,
-        width: 70,
-        height: 70,
+        width: 56,
+        height: 56,
         alignment: Alignment.center,
         child: const OwnerHomeMarker(),
       ),
 
+      // ======================================================
       // WALKER
+      // ======================================================
+
       if (widget.walkerLocation != null)
         Marker(
           point: widget.walkerLocation!,
-          width: 78,
-          height: 78,
+          width: 60,
+          height: 60,
           alignment: Alignment.center,
           child: Transform.rotate(
             angle: _headingRadians,
             child: WalkerLocationMarker(
-              imageUrl: widget.walkerImageUrl,
+              imageUrl:
+                  widget.walkerImageUrl,
               isLive: true,
             ),
           ),
@@ -123,6 +144,7 @@ class _WalkerAcceptMapState
               initialCenter:
                   widget.ownerLocation,
               initialZoom: 15.0,
+
               minZoom: 5.0,
               maxZoom: 19.0,
 
@@ -132,6 +154,10 @@ class _WalkerAcceptMapState
                     InteractiveFlag.all,
               ),
 
+              // =================================================
+              // MAP READY
+              // =================================================
+
               onMapReady: () {
                 if (!mounted) {
                   return;
@@ -139,35 +165,37 @@ class _WalkerAcceptMapState
 
                 _mapReady = true;
 
-                final LatLng? walker =
-                    widget.walkerLocation;
+                WidgetsBinding.instance
+                    .addPostFrameCallback(
+                  (_) {
+                    if (!mounted) {
+                      return;
+                    }
 
-                if (walker != null &&
-                    _autoFollow) {
-                  WidgetsBinding.instance
-                      .addPostFrameCallback(
-                    (_) {
-                      if (mounted) {
-                        _followWalker(walker);
-                      }
-                    },
-                  );
-                } else {
-                  WidgetsBinding.instance
-                      .addPostFrameCallback(
-                    (_) {
-                      if (mounted) {
-                        _recenterOwner();
-                      }
-                    },
-                  );
-                }
+                    final LatLng? walker =
+                        widget.walkerLocation;
+
+                    if (walker != null) {
+                      _fitBothLocations();
+                    } else {
+                      _recenterOwner();
+                    }
+                  },
+                );
               },
+
+              // =================================================
+              // USER MOVED MAP
+              // =================================================
 
               onPositionChanged:
                   (camera, hasGesture) {
-                if (hasGesture &&
-                    mounted) {
+                if (!hasGesture ||
+                    !mounted) {
+                  return;
+                }
+
+                if (_autoFollow) {
                   setState(() {
                     _autoFollow = false;
                   });
@@ -189,31 +217,39 @@ class _WalkerAcceptMapState
               ),
 
               // ==================================================
-              // ROUTE
+              // ROAD ROUTE
+              // ==================================================
+              //
+              // IMPORTANT:
+              // These points come from WalkerRouteService.
+              //
+              // If WalkerRouteService uses OSRM geometry,
+              // this line follows actual roads.
+              //
+              // No straight line is generated here.
               // ==================================================
 
               if (widget.routePoints.length >= 2)
                 PolylineLayer(
                   polylines: [
+                    // Soft outer line
                     Polyline(
                       points:
                           widget.routePoints,
-                      strokeWidth: 8,
+                      strokeWidth: 9,
                       color:
-                          colors.primary
-                              .withValues(
-                        alpha: .22,
-                      ),
-                    ),
-                    Polyline(
-                      points:
-                          widget.routePoints,
-                      strokeWidth: 4,
-                      color:
-                          colors.primary,
-                      borderStrokeWidth: 1,
-                      borderColor:
                           Colors.white,
+                    ),
+
+                    // Main BLUE route
+                    Polyline(
+                      points:
+                          widget.routePoints,
+                      strokeWidth: 5,
+                      color:
+                          const Color(
+                        0xFF1976D2,
+                      ),
                     ),
                   ],
                 ),
@@ -229,7 +265,7 @@ class _WalkerAcceptMapState
           ),
 
           // ====================================================
-          // LIVE BADGE
+          // SMALL LIVE BADGE
           // ====================================================
 
           const Positioned(
@@ -239,29 +275,21 @@ class _WalkerAcceptMapState
           ),
 
           // ====================================================
-          // FOLLOW BADGE
-          // ====================================================
-
-          Positioned(
-            right: 16,
-            top: 16,
-            child: _FollowBadge(
-              following:
-                  _autoFollow,
-            ),
-          ),
-
-          // ====================================================
           // MAP CONTROLS
           // ====================================================
+          //
+          // Positioned higher so they don't sit behind
+          // the bottom information sheet.
+          // ====================================================
 
           Positioned(
             right: 16,
-            bottom: 24,
+            bottom: 190,
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
               children: [
+                // ZOOM IN
                 _MapControlButton(
                   icon:
                       Icons.add_rounded,
@@ -273,6 +301,7 @@ class _WalkerAcceptMapState
                   height: 8,
                 ),
 
+                // ZOOM OUT
                 _MapControlButton(
                   icon:
                       Icons.remove_rounded,
@@ -281,26 +310,24 @@ class _WalkerAcceptMapState
                 ),
 
                 const SizedBox(
-                  height: 12,
+                  height: 10,
                 ),
 
+                // SHOW BOTH LOCATIONS
                 _MapControlButton(
-                  icon: _autoFollow
-                      ? Icons
-                          .navigation_rounded
-                      : Icons
-                          .my_location_rounded,
+                  icon:
+                      Icons.my_location_rounded,
                   active:
                       _autoFollow,
                   onPressed:
-                      _recenterPressed,
+                      _showBothLocations,
                 ),
               ],
             ),
           ),
 
           // ====================================================
-          // WAITING FOR WALKER LOCATION
+          // WAITING FOR WALKER
           // ====================================================
 
           if (widget.walkerLocation ==
@@ -308,7 +335,7 @@ class _WalkerAcceptMapState
             const Positioned(
               left: 16,
               right: 16,
-              bottom: 24,
+              bottom: 190,
               child:
                   _WaitingLocationBanner(),
             ),
@@ -318,27 +345,75 @@ class _WalkerAcceptMapState
   }
 
   // ==========================================================
-  // RECENTER / FOLLOW
+  // SHOW BOTH LOCATIONS
   // ==========================================================
 
-  void _recenterPressed() {
-    _autoFollow = true;
+  void _showBothLocations() {
+    if (!_mapReady) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _autoFollow = false;
+      });
+    }
+
+    _fitBothLocations();
+
+    widget.onMyLocationPressed?.call();
+  }
+
+  // ==========================================================
+  // FIT OWNER + WALKER
+  // ==========================================================
+
+  void _fitBothLocations() {
+    if (!mounted ||
+        !_mapReady) {
+      return;
+    }
 
     final LatLng? walker =
         widget.walkerLocation;
 
-    if (walker != null) {
-      _followWalker(walker);
-    } else {
+    if (walker == null) {
       _recenterOwner();
+      return;
     }
 
-    widget.onMyLocationPressed?.call();
+    try {
+      final LatLngBounds bounds =
+          LatLngBounds.fromPoints(
+        <LatLng>[
+          widget.ownerLocation,
+          walker,
+        ],
+      );
 
-    if (mounted) {
-      setState(() {});
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding:
+              const EdgeInsets.fromLTRB(
+            70,
+            110,
+            70,
+            260,
+          ),
+          maxZoom: 16.0,
+        ),
+      );
+    } catch (error) {
+      debugPrint(
+        'WalkerAcceptMap fit locations error: $error',
+      );
     }
   }
+
+  // ==========================================================
+  // FOLLOW WALKER
+  // ==========================================================
 
   void _followWalker(
     LatLng walkerLocation,
@@ -361,6 +436,10 @@ class _WalkerAcceptMapState
     }
   }
 
+  // ==========================================================
+  // OWNER
+  // ==========================================================
+
   void _recenterOwner() {
     if (!mounted ||
         !_mapReady) {
@@ -380,7 +459,7 @@ class _WalkerAcceptMapState
   }
 
   // ==========================================================
-  // ZOOM
+  // ZOOM IN
   // ==========================================================
 
   void _zoomIn() {
@@ -404,6 +483,10 @@ class _WalkerAcceptMapState
       );
     }
   }
+
+  // ==========================================================
+  // ZOOM OUT
+  // ==========================================================
 
   void _zoomOut() {
     if (!_mapReady) {
@@ -438,18 +521,20 @@ class _WalkerAcceptMapState
     const double threshold =
         0.00001;
 
-    final double lat =
+    final double latitudeDifference =
         (oldLocation.latitude -
                 newLocation.latitude)
             .abs();
 
-    final double lng =
+    final double longitudeDifference =
         (oldLocation.longitude -
                 newLocation.longitude)
             .abs();
 
-    return lat > threshold ||
-        lng > threshold;
+    return latitudeDifference >
+            threshold ||
+        longitudeDifference >
+            threshold;
   }
 
   // ==========================================================
@@ -482,124 +567,58 @@ class _LiveMapBadge
   Widget build(
     BuildContext context,
   ) {
-    final Color primary =
-        Theme.of(context)
-            .colorScheme
-            .primary;
-
-    return _GlassBadge(
-      child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration:
-                BoxDecoration(
-              color: primary,
-              shape:
-                  BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 7),
-          const Text(
-            'LIVE TRACKING',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight:
-                  FontWeight.w900,
-              letterSpacing: .7,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// FOLLOW BADGE
-// ============================================================
-
-class _FollowBadge
-    extends StatelessWidget {
-  const _FollowBadge({
-    required this.following,
-  });
-
-  final bool following;
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return _GlassBadge(
-      child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          Icon(
-            following
-                ? Icons.navigation_rounded
-                : Icons
-                    .pan_tool_alt_rounded,
-            size: 13,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            following
-                ? 'FOLLOWING'
-                : 'MAP MOVED',
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// GLASS BADGE
-// ============================================================
-
-class _GlassBadge
-    extends StatelessWidget {
-  const _GlassBadge({
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
     return Container(
       padding:
           const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 8,
+        horizontal: 10,
+        vertical: 7,
       ),
       decoration:
           BoxDecoration(
         color: Colors.white
             .withValues(alpha: .94),
         borderRadius:
-            BorderRadius.circular(22),
+            BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
-            blurRadius: 14,
-            offset: Offset(0, 4),
-            color: Color(0x22000000),
+            blurRadius: 12,
+            offset: Offset(0, 3),
+            color:
+                Color(0x22000000),
           ),
         ],
       ),
-      child: child,
+      child: Row(
+        mainAxisSize:
+            MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration:
+                const BoxDecoration(
+              color:
+                  Color(0xFF1FA463),
+              shape:
+                  BoxShape.circle,
+            ),
+          ),
+          const SizedBox(
+            width: 6,
+          ),
+          const Text(
+            'LIVE',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight:
+                  FontWeight.w900,
+              letterSpacing: .5,
+              color:
+                  Color(0xFF1FA463),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -624,14 +643,13 @@ class _MapControlButton
   Widget build(
     BuildContext context,
   ) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Material(
       color: active
-          ? colors.primary
+          ? const Color(0xFFE85D04)
           : Colors.white,
       elevation: 5,
+      shadowColor:
+          Colors.black26,
       shape:
           const CircleBorder(),
       child: InkWell(
@@ -639,14 +657,16 @@ class _MapControlButton
         customBorder:
             const CircleBorder(),
         child: SizedBox(
-          width: 46,
-          height: 46,
+          width: 44,
+          height: 44,
           child: Icon(
             icon,
-            size: 21,
+            size: 20,
             color: active
-                ? colors.onPrimary
-                : colors.onSurface,
+                ? Colors.white
+                : const Color(
+                    0xFF30343B,
+                  ),
           ),
         ),
       ),
@@ -670,32 +690,36 @@ class _WaitingLocationBanner
       padding:
           const EdgeInsets.symmetric(
         horizontal: 14,
-        vertical: 11,
+        vertical: 10,
       ),
       decoration:
           BoxDecoration(
         color: Colors.white
             .withValues(alpha: .95),
         borderRadius:
-            BorderRadius.circular(16),
+            BorderRadius.circular(15),
         boxShadow: const [
           BoxShadow(
-            blurRadius: 14,
-            color: Color(0x22000000),
+            blurRadius: 12,
+            offset: Offset(0, 3),
+            color:
+                Color(0x22000000),
           ),
         ],
       ),
       child: const Row(
         children: [
           SizedBox(
-            width: 18,
-            height: 18,
+            width: 17,
+            height: 17,
             child:
                 CircularProgressIndicator(
               strokeWidth: 2,
             ),
           ),
-          SizedBox(width: 10),
+          SizedBox(
+            width: 9,
+          ),
           Expanded(
             child: Text(
               'Waiting for Walker location…',
