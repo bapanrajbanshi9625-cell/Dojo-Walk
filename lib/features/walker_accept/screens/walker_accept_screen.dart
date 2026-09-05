@@ -279,6 +279,22 @@ class _WalkerAcceptScreenState
     });
 
     try {
+      debugPrint(
+        'WalkerAcceptScreen → calculating route...',
+      );
+
+      debugPrint(
+        'Walker: '
+        '${walkerLocation.latitude}, '
+        '${walkerLocation.longitude}',
+      );
+
+      debugPrint(
+        'Owner: '
+        '${ownerLocation.latitude}, '
+        '${ownerLocation.longitude}',
+      );
+
       final WalkerRouteResult? result =
           await _routeService.getRoute(
         walkerLocation: walkerLocation,
@@ -290,11 +306,31 @@ class _WalkerAcceptScreenState
       }
 
       if (result != null) {
+        debugPrint(
+          'WalkerAcceptScreen → route calculated.',
+        );
+
+        debugPrint(
+          'Distance: ${result.distanceMeters} meters',
+        );
+
+        debugPrint(
+          'Duration: ${result.durationSeconds} seconds',
+        );
+
+        debugPrint(
+          'Arrives In: ${result.etaLabel}',
+        );
+
         setState(() {
           _route = result;
           _lastRouteWalkerLocation =
               walkerLocation;
         });
+      } else {
+        debugPrint(
+          'WalkerAcceptScreen → route calculation returned null.',
+        );
       }
     } catch (error, stackTrace) {
       debugPrint(
@@ -809,7 +845,9 @@ class _WalkerAcceptScreenState
               18,
             ),
             children: [
+              // =================================================
               // HANDLE
+              // =================================================
 
               Center(
                 child: Container(
@@ -951,7 +989,7 @@ class _WalkerAcceptScreenState
               const SizedBox(height: 16),
 
               // =================================================
-              // DISTANCE + ETA
+              // DISTANCE + ARRIVES IN
               // =================================================
 
               _buildTravelInfo(data),
@@ -1131,18 +1169,78 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
-  // DISTANCE + ETA
+  // DISTANCE + ARRIVES IN
   // ==========================================================
 
   Widget _buildTravelInfo(
     WalkerAcceptData data,
   ) {
-    final bool hasDistance =
+    final WalkerRouteResult? route =
+        _route;
+
+    // --------------------------------------------------------
+    // ROUTE SERVICE RESULT HAS PRIORITY
+    // --------------------------------------------------------
+
+    final bool hasRouteDistance =
+        route != null &&
+        route.distanceMeters > 0;
+
+    final bool hasRouteDuration =
+        route != null &&
+        route.durationSeconds > 0;
+
+    // --------------------------------------------------------
+    // FIRESTORE FALLBACK
+    // --------------------------------------------------------
+
+    final bool hasFallbackDistance =
         data.distanceMeters > 0 ||
         data.distanceKm > 0;
 
-    final bool hasEta =
+    final bool hasFallbackTime =
         data.etaMinutes > 0;
+
+    // --------------------------------------------------------
+    // DISTANCE
+    // --------------------------------------------------------
+
+    String distanceValue;
+
+    if (hasRouteDistance) {
+      distanceValue =
+          route.distanceLabel;
+    } else if (hasFallbackDistance) {
+      distanceValue =
+          _formatDistance(
+        meters:
+            data.distanceMeters,
+        km:
+            data.distanceKm,
+      );
+    } else {
+      distanceValue = _loadingRoute
+          ? 'Calculating...'
+          : '--';
+    }
+
+    // --------------------------------------------------------
+    // ARRIVAL TIME
+    // --------------------------------------------------------
+
+    String arrivalValue;
+
+    if (hasRouteDuration) {
+      arrivalValue =
+          route.etaLabel;
+    } else if (hasFallbackTime) {
+      arrivalValue =
+          data.etaLabel;
+    } else {
+      arrivalValue = _loadingRoute
+          ? 'Calculating...'
+          : 'Waiting';
+    }
 
     return Container(
       height: 86,
@@ -1159,15 +1257,10 @@ class _WalkerAcceptScreenState
             child: _buildInfoItem(
               icon:
                   Icons.route_rounded,
-              label: 'Distance',
-              value: hasDistance
-                  ? _formatDistance(
-                      meters:
-                          data.distanceMeters,
-                      km:
-                          data.distanceKm,
-                    )
-                  : '--',
+              label:
+                  'Distance',
+              value:
+                  distanceValue,
             ),
           ),
 
@@ -1182,10 +1275,10 @@ class _WalkerAcceptScreenState
             child: _buildInfoItem(
               icon:
                   Icons.access_time_rounded,
-              label: 'ETA',
-              value: hasEta
-                  ? data.etaLabel
-                  : 'Calculating',
+              label:
+                  'Arrives In',
+              value:
+                  arrivalValue,
             ),
           ),
         ],
