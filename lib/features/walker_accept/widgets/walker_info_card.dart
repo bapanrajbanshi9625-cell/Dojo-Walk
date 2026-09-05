@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class WalkerInfoCard extends StatelessWidget {
   const WalkerInfoCard({
@@ -6,6 +7,7 @@ class WalkerInfoCard extends StatelessWidget {
     required this.walkerName,
     this.profileImageUrl,
     this.rating,
+    this.walkerPhone,
     this.distanceLabel = '--',
     this.etaLabel = '--',
     this.statusText = 'Walker is on the way',
@@ -14,10 +16,52 @@ class WalkerInfoCard extends StatelessWidget {
   final String walkerName;
   final String? profileImageUrl;
   final double? rating;
+  final String? walkerPhone;
 
   final String distanceLabel;
   final String etaLabel;
   final String statusText;
+
+  Future<void> _callWalker(BuildContext context) async {
+    final phone = walkerPhone?.trim() ?? '';
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Walker phone number is not available'),
+        ),
+      );
+      return;
+    }
+
+    final uri = Uri(
+      scheme: 'tel',
+      path: phone,
+    );
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open phone dialer'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open phone dialer'),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +72,9 @@ class WalkerInfoCard extends StatelessWidget {
         ? 'Your Walker'
         : walkerName.trim();
 
-    final imageUrl =
-        profileImageUrl?.trim() ?? '';
+    final imageUrl = profileImageUrl?.trim() ?? '';
+
+    final phone = walkerPhone?.trim() ?? '';
 
     return Container(
       width: double.infinity,
@@ -47,11 +92,8 @@ class WalkerInfoCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             blurRadius: 20,
-            spreadRadius: 0,
             offset: const Offset(0, -5),
-            color: Colors.black.withValues(
-              alpha: 0.08,
-            ),
+            color: Colors.black.withValues(alpha: 0.08),
           ),
         ],
       ),
@@ -65,13 +107,10 @@ class WalkerInfoCard extends StatelessWidget {
           Container(
             width: 42,
             height: 4,
-            margin: const EdgeInsets.only(
-              bottom: 18,
-            ),
+            margin: const EdgeInsets.only(bottom: 18),
             decoration: BoxDecoration(
               color: colors.outlineVariant,
-              borderRadius:
-                  BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
 
@@ -93,29 +132,23 @@ class WalkerInfoCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   statusText,
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 9,
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: colors.primary.withValues(
-                    alpha: 0.10,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(20),
+                  color: colors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'LIVE',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: colors.primary,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
@@ -142,23 +175,19 @@ class WalkerInfoCard extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style: theme
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(
-                        fontWeight:
-                            FontWeight.w800,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
+
                     const SizedBox(height: 5),
+
                     Row(
                       children: [
                         Icon(
@@ -169,31 +198,75 @@ class WalkerInfoCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           rating != null
-                              ? rating!
-                                  .toStringAsFixed(1)
+                              ? rating!.toStringAsFixed(1)
                               : '--',
-                          style: theme
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                            fontWeight:
-                                FontWeight.w700,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Walker',
-                          style: theme
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                            color: colors
-                                .onSurfaceVariant,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    // PHONE NUMBER
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone_rounded,
+                          size: 16,
+                          color: colors.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            phone.isEmpty ? '--' : phone,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ],
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              // ==================================================
+              // CALL BUTTON
+              // ==================================================
+
+              Material(
+                color: colors.primary,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: phone.isEmpty
+                      ? null
+                      : () => _callWalker(context),
+                  customBorder: const CircleBorder(),
+                  child: SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: Icon(
+                      Icons.call_rounded,
+                      color: phone.isEmpty
+                          ? colors.onSurfaceVariant
+                          : colors.onPrimary,
+                      size: 23,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -212,11 +285,10 @@ class WalkerInfoCard extends StatelessWidget {
               horizontal: 12,
             ),
             decoration: BoxDecoration(
-              color: colors
-                  .surfaceContainerHighest
-                  .withValues(alpha: 0.55),
-              borderRadius:
-                  BorderRadius.circular(18),
+              color: colors.surfaceContainerHighest.withValues(
+                alpha: 0.55,
+              ),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
               children: [
@@ -263,8 +335,7 @@ class _WalkerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        Theme.of(context).colorScheme;
+    final colors = Theme.of(context).colorScheme;
 
     return Container(
       width: size,
@@ -281,9 +352,8 @@ class _WalkerAvatar extends StatelessWidget {
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder:
-                    (_, __, ___) =>
-                        _fallback(context),
+                errorBuilder: (_, __, ___) =>
+                    _fallback(context),
               )
             : _fallback(context),
       ),
@@ -291,12 +361,10 @@ class _WalkerAvatar extends StatelessWidget {
   }
 
   Widget _fallback(BuildContext context) {
-    final colors =
-        Theme.of(context).colorScheme;
+    final colors = Theme.of(context).colorScheme;
 
     return Container(
-      color: colors
-          .surfaceContainerHighest,
+      color: colors.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Icon(
         Icons.person_rounded,
@@ -328,8 +396,7 @@ class _InfoValue extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
           icon,
@@ -338,21 +405,18 @@ class _InfoValue extends StatelessWidget {
         ),
         const SizedBox(width: 9),
         Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               value,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(
+              style: theme.textTheme.labelSmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
             ),
@@ -362,3 +426,30 @@ class _InfoValue extends StatelessWidget {
     );
   }
 }
+
+"pubspec.yaml"
+
+Agar "url_launcher" already nahi hai, dependency add karo:
+
+dependencies:
+  url_launcher: ^6.3.2
+
+Phir GitHub Actions/build mein "flutter pub get" ho jayega.
+
+Card ko call karte waqt
+
+Jahan "WalkerInfoCard" call ho raha hai, wahan:
+
+WalkerInfoCard(
+  walkerName: walkerName,
+  profileImageUrl: walkerProfileImage,
+  rating: walkerRating,
+  walkerPhone: walkerPhone,
+  distanceLabel: distanceLabel,
+  etaLabel: etaLabel,
+  statusText: 'Walker is on the way',
+)
+
+Important: "walkerPhone" mein Firestore se Walker ka actual phone number pass hona chahiye.
+
+Call button दबाने पर app direct call नहीं करेगा—Android ka phone dialer Walker ke number ke saath open hoga, jahan user call button press karega.
