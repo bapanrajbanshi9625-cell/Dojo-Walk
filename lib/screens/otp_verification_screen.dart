@@ -4,10 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_colors.dart';
+import '../services/otp_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -44,7 +44,12 @@ class _OtpVerificationScreenState
   void initState() {
     super.initState();
 
-    _reqId = widget.reqId.trim();
+    _reqId =
+        widget.reqId.trim();
+
+    debugPrint(
+      'OTP SCREEN REQ ID: $_reqId',
+    );
   }
 
   // ============================================================
@@ -59,7 +64,13 @@ class _OtpVerificationScreenState
     final String otp =
         _otpController.text.trim();
 
-    if (otp.length != 6) {
+    // ----------------------------------------------------------
+    // VALIDATE OTP
+    // ----------------------------------------------------------
+
+    if (!RegExp(
+      r'^[0-9]{6}$',
+    ).hasMatch(otp)) {
       _showMessage(
         'Please enter the complete 6-digit OTP.',
       );
@@ -71,11 +82,15 @@ class _OtpVerificationScreenState
       return;
     }
 
-    if (_reqId.isEmpty) {
+    if (_reqId.trim().isEmpty) {
       _showMessage(
         'OTP session is invalid. Please request a new OTP.',
       );
 
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 
@@ -85,56 +100,35 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // 1. VERIFY OTP WITH MSG91
+      // 1. MSG91 OTP SERVICE
       // ========================================================
 
-      final dynamic response =
-          await OTPWidget.verifyOTP({
-        'reqId': _reqId,
-        'otp': otp,
-      });
-
       debugPrint(
-        'MSG91 VERIFY RESPONSE: $response',
+        'STARTING MSG91 OTP VERIFICATION',
       );
 
-      final bool verified =
-          _isOtpVerified(response);
+      final String accessToken =
+          await OtpService.instance.verifyOtp(
+        reqId: _reqId,
+        otp: otp,
+      );
 
-      if (!verified) {
+      if (accessToken.trim().isEmpty) {
         throw Exception(
-          'Invalid OTP. Please check the OTP and try again.',
+          'Secure access token was not received.',
         );
       }
 
       debugPrint(
-        'MSG91 OTP VERIFIED SUCCESSFULLY',
+        'MSG91 OTP VERIFICATION SUCCESS',
       );
-
-      // ========================================================
-      // 2. EXTRACT MSG91 ACCESS TOKEN
-      // ========================================================
-
-      final String? accessToken =
-          _extractAccessToken(response);
-
-      if (accessToken == null ||
-          accessToken.isEmpty) {
-        debugPrint(
-          'MSG91 RESPONSE DID NOT CONTAIN ACCESS TOKEN',
-        );
-
-        throw Exception(
-          'OTP verified, but secure access token was not received.',
-        );
-      }
 
       debugPrint(
-        'MSG91 ACCESS TOKEN RECEIVED',
+        'MSG91 ACCESS TOKEN AVAILABLE',
       );
 
       // ========================================================
-      // 3. NORMALIZE PHONE
+      // 2. NORMALIZE PHONE
       // ========================================================
 
       final String? phone =
@@ -153,24 +147,7 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 4. CHECK CUSTOMER THROUGH BACKEND
-      // ========================================================
-      //
-      // IMPORTANT:
-      // Flutter does NOT directly query Firestore anymore.
-      //
-      // Flutter sends only the MSG91 JWT access-token.
-      //
-      // Render backend:
-      //
-      // access-token
-      //      ↓
-      // MSG91 verification
-      //      ↓
-      // verified phone
-      //      ↓
-      // owners collection
-      //
+      // 3. CHECK CUSTOMER THROUGH BACKEND
       // ========================================================
 
       final Map<String, dynamic>? backendData =
@@ -184,8 +161,18 @@ class _OtpVerificationScreenState
         );
       }
 
+      // ========================================================
+      // 4. BACKEND SUCCESS
+      // ========================================================
+
       final bool backendSuccess =
-          backendData['success'] == true;
+          _isTrueValue(
+        backendData['success'],
+      );
+
+      debugPrint(
+        'BACKEND SUCCESS: $backendSuccess',
+      );
 
       if (!backendSuccess) {
         final String backendMessage =
@@ -202,14 +189,18 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 5. READ BACKEND RESULT
+      // 5. BACKEND DATA
       // ========================================================
 
       final bool exists =
-          backendData['exists'] == true;
+          _isTrueValue(
+        backendData['exists'],
+      );
 
       final bool profileCompleted =
-          backendData['profileCompleted'] == true;
+          _isTrueValue(
+        backendData['profileCompleted'],
+      );
 
       final String ownerId =
           backendData['ownerId']
@@ -229,11 +220,16 @@ class _OtpVerificationScreenState
                   .trim() ??
               'owner';
 
-      final String verifiedPhone =
+      final String backendPhone =
           backendData['phone']
                   ?.toString()
                   .trim() ??
-              phone;
+              '';
+
+      final String verifiedPhone =
+          backendPhone.isNotEmpty
+              ? backendPhone
+              : phone;
 
       debugPrint(
         'BACKEND EXISTS: $exists',
@@ -256,16 +252,12 @@ class _OtpVerificationScreenState
         'BACKEND ROLE: $role',
       );
 
+      debugPrint(
+        'BACKEND PHONE: $verifiedPhone',
+      );
+
       // ========================================================
-      // 6. TEMPORARY FIREBASE SESSION
-      // ========================================================
-      //
-      // We still create an anonymous Firebase session for the
-      // NEW profile setup flow.
-      //
-      // Existing permanent Firebase authentication can be
-      // connected later through Firebase Custom Token.
-      //
+      // 6. FIREBASE TEMPORARY SESSION
       // ========================================================
 
       final FirebaseAuth auth =
@@ -275,6 +267,10 @@ class _OtpVerificationScreenState
           auth.currentUser;
 
       if (firebaseUser == null) {
+        debugPrint(
+          'CREATING TEMPORARY FIREBASE SESSION',
+        );
+
         final UserCredential credential =
             await auth.signInAnonymously();
 
@@ -328,27 +324,32 @@ class _OtpVerificationScreenState
         ownerId,
       );
 
+      await prefs.setString(
+        'tempRole',
+        role,
+      );
+
       // ========================================================
-      // EXISTING ACCOUNT
+      // 8. EXISTING ACCOUNT
       // ========================================================
 
       if (exists) {
-        /*
-         * If backend knows the permanent Firebase UID,
-         * save it.
-         *
-         * Otherwise retain the temporary UID.
-         */
+        final String accountUid =
+            authUid.isNotEmpty
+                ? authUid
+                : temporaryUid;
 
         await prefs.setString(
           'tempAccountUid',
-          authUid.isNotEmpty
-              ? authUid
-              : temporaryUid,
+          accountUid,
         );
 
         debugPrint(
           'EXISTING OWNER FOUND',
+        );
+
+        debugPrint(
+          'ACCOUNT UID: $accountUid',
         );
 
         debugPrint(
@@ -380,11 +381,6 @@ class _OtpVerificationScreenState
           return;
         }
 
-        /*
-         * Root flow decides whether the user goes to
-         * MainNavigationScreen or Profile Setup.
-         */
-
         Navigator.of(context)
             .pushNamedAndRemoveUntil(
           '/',
@@ -395,7 +391,7 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // NEW ACCOUNT
+      // 9. NEW ACCOUNT
       // ========================================================
 
       await prefs.setString(
@@ -495,21 +491,21 @@ class _OtpVerificationScreenState
         _showMessage(
           'Invalid OTP. Please check the code and try again.',
         );
-      } else if (
-          error.contains('expired') ||
+      } else if (error.contains('expired') ||
           error.contains('session')) {
         _showMessage(
           'This OTP session has expired. Please request a new OTP.',
         );
-      } else if (
+      } else if (error.contains('access token') ||
+          error.contains('access-token') ||
           error.contains('token')) {
         _showMessage(
-          'Secure OTP verification failed. Please try again.',
+          'OTP verified, but secure login could not be completed. Please try again.',
         );
-      } else if (
-          error.contains('network') ||
+      } else if (error.contains('network') ||
           error.contains('socket') ||
-          error.contains('connection')) {
+          error.contains('connection') ||
+          error.contains('timeout')) {
         _showMessage(
           'Network error. Please check your internet connection.',
         );
@@ -537,47 +533,6 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // MSG91 ACCESS TOKEN
-  // ============================================================
-
-  String? _extractAccessToken(
-    dynamic response,
-  ) {
-    if (response == null) {
-      return null;
-    }
-
-    if (response is Map) {
-      final List<dynamic> possibleTokens = [
-        response['access-token'],
-        response['access_token'],
-        response['accessToken'],
-        response['token'],
-        response['jwt'],
-        response['data']?['access-token'],
-        response['data']?['access_token'],
-        response['data']?['accessToken'],
-        response['data']?['token'],
-        response['data']?['jwt'],
-      ];
-
-      for (final dynamic value
-          in possibleTokens) {
-        if (value != null) {
-          final String token =
-              value.toString().trim();
-
-          if (token.isNotEmpty) {
-            return token;
-          }
-        }
-      }
-    }
-
-    return null;
-  }
-
-  // ============================================================
   // BACKEND CUSTOMER CHECK
   // ============================================================
 
@@ -588,6 +543,10 @@ class _OtpVerificationScreenState
     try {
       final Uri uri = Uri.parse(
         '$_backendUrl/customer/check',
+      );
+
+      debugPrint(
+        'BACKEND CUSTOMER CHECK STARTED',
       );
 
       final http.Response response =
@@ -626,7 +585,9 @@ class _OtpVerificationScreenState
       }
 
       final dynamic decoded =
-          jsonDecode(response.body);
+          jsonDecode(
+        response.body,
+      );
 
       if (decoded is! Map) {
         return null;
@@ -645,104 +606,6 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // CHECK MSG91 OTP RESPONSE
-  // ============================================================
-
-  bool _isOtpVerified(
-    dynamic response,
-  ) {
-    if (response == null) {
-      return false;
-    }
-
-    if (response is Map) {
-      final dynamic success =
-          response['success'];
-
-      final dynamic verified =
-          response['verified'];
-
-      if (success == true ||
-          verified == true) {
-        return true;
-      }
-
-      final dynamic type =
-          response['type'];
-
-      final dynamic status =
-          response['status'];
-
-      final dynamic message =
-          response['message'];
-
-      final String result =
-          <dynamic>[
-        type,
-        status,
-        message,
-      ]
-              .where(
-                (dynamic value) =>
-                    value != null,
-              )
-              .map(
-                (dynamic value) =>
-                    value
-                        .toString()
-                        .toLowerCase(),
-              )
-              .join(' ');
-
-      if (result.contains('success') ||
-          result.contains('verified')) {
-        return true;
-      }
-
-      return false;
-    }
-
-    final String responseText =
-        response.toString().toLowerCase();
-
-    return responseText.contains('success') ||
-        responseText.contains('verified');
-  }
-
-  // ============================================================
-  // NORMALIZE INDIAN PHONE
-  // ============================================================
-
-  String? _normalizeIndianPhone(
-    String value,
-  ) {
-    String phone =
-        value
-            .trim()
-            .replaceAll(
-              RegExp(r'[^0-9+]'),
-              '',
-            );
-
-    if (phone.startsWith('+91')) {
-      phone = phone.substring(3);
-    } else if (
-        phone.startsWith('91') &&
-        phone.length == 12) {
-      phone = phone.substring(2);
-    }
-
-    if (phone.length != 10 ||
-        !RegExp(
-          r'^[6-9][0-9]{9}$',
-        ).hasMatch(phone)) {
-      return null;
-    }
-
-    return '+91$phone';
-  }
-
-  // ============================================================
   // RESEND OTP
   // ============================================================
 
@@ -752,11 +615,15 @@ class _OtpVerificationScreenState
       return;
     }
 
-    if (_reqId.isEmpty) {
+    if (_reqId.trim().isEmpty) {
       _showMessage(
         'OTP session is invalid. Please request OTP again.',
       );
 
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 
@@ -765,38 +632,32 @@ class _OtpVerificationScreenState
     });
 
     try {
-      final dynamic response =
-          await OTPWidget.retryOTP({
-        'reqId': _reqId,
-      });
-
       debugPrint(
-        'MSG91 RETRY RESPONSE: $response',
+        'MSG91 RESEND STARTED',
       );
 
-      String? newReqId;
+      final String? newReqId =
+          await OtpService.instance.resendOtp(
+        reqId: _reqId,
+      );
 
-      if (response is Map) {
-        final dynamic value =
-            response['reqId'] ??
-                response['req_id'] ??
-                response['requestId'] ??
-                response['request_id'] ??
-                response['requestID'];
+      // --------------------------------------------------------
+      // UPDATE REQUEST ID
+      // --------------------------------------------------------
 
-        if (value != null) {
-          final String valueString =
-              value.toString().trim();
+      if (newReqId != null &&
+          newReqId.trim().isNotEmpty) {
+        _reqId =
+            newReqId.trim();
 
-          if (valueString.isNotEmpty) {
-            newReqId = valueString;
-          }
-        }
+        debugPrint(
+          'MSG91 REQUEST ID UPDATED',
+        );
       }
 
-      if (newReqId != null) {
-        _reqId = newReqId;
-      }
+      // --------------------------------------------------------
+      // CLEAR OLD OTP
+      // --------------------------------------------------------
 
       _otpController.clear();
 
@@ -826,16 +687,19 @@ class _OtpVerificationScreenState
         _showMessage(
           'OTP session has expired. Please request a new OTP.',
         );
-      } else if (
-          error.contains('network') ||
+      } else if (error.contains('network') ||
           error.contains('socket') ||
-          error.contains('connection')) {
+          error.contains('connection') ||
+          error.contains('timeout')) {
         _showMessage(
           'Network error. Please check your internet connection.',
         );
       } else {
         _showMessage(
-          'Unable to resend OTP. Please try again.',
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
         );
       }
     } finally {
@@ -845,6 +709,68 @@ class _OtpVerificationScreenState
         });
       }
     }
+  }
+
+  // ============================================================
+  // TRUE VALUE
+  // ============================================================
+
+  bool _isTrueValue(
+    dynamic value,
+  ) {
+    if (value == true) {
+      return true;
+    }
+
+    if (value is String) {
+      final String text =
+          value.trim().toLowerCase();
+
+      return text == 'true' ||
+          text == 'success' ||
+          text == 'verified' ||
+          text == '1';
+    }
+
+    if (value is num) {
+      return value != 0;
+    }
+
+    return false;
+  }
+
+  // ============================================================
+  // NORMALIZE INDIAN PHONE
+  // ============================================================
+
+  String? _normalizeIndianPhone(
+    String value,
+  ) {
+    String phone =
+        value
+            .trim()
+            .replaceAll(
+              RegExp(r'[^0-9+]'),
+              '',
+            );
+
+    if (phone.startsWith('+91')) {
+      phone =
+          phone.substring(3);
+    } else if (phone.startsWith('91') &&
+        phone.length == 12) {
+      phone =
+          phone.substring(2);
+    }
+
+    if (phone.length != 10 ||
+        !RegExp(
+          r'^[6-9][0-9]{9}$',
+        ).hasMatch(phone)) {
+      return null;
+    }
+
+    return '+91$phone';
   }
 
   // ============================================================
@@ -931,11 +857,17 @@ class _OtpVerificationScreenState
     final String raw =
         widget.phoneNumber.trim();
 
-    final String clean =
+    String clean =
         raw.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
+
+    if (clean.length == 12 &&
+        clean.startsWith('91')) {
+      clean =
+          clean.substring(2);
+    }
 
     if (clean.length == 10) {
       return '+91 '
@@ -1025,6 +957,10 @@ class _OtpVerificationScreenState
                   height: 12,
                 ),
 
+                // ==================================================
+                // ICON
+                // ==================================================
+
                 Container(
                   height: 78,
                   width: 78,
@@ -1062,6 +998,10 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 26,
                 ),
+
+                // ==================================================
+                // TITLE
+                // ==================================================
 
                 const Text(
                   'Verify your number',
@@ -1119,6 +1059,10 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 30,
                 ),
+
+                // ==================================================
+                // OTP CARD
+                // ==================================================
 
                 Container(
                   width:
@@ -1181,6 +1125,10 @@ class _OtpVerificationScreenState
                       const SizedBox(
                         height: 12,
                       ),
+
+                      // ============================================
+                      // OTP INPUT
+                      // ============================================
 
                       TextField(
                         controller:
@@ -1305,6 +1253,10 @@ class _OtpVerificationScreenState
                         height: 18,
                       ),
 
+                      // ============================================
+                      // VERIFY BUTTON
+                      // ============================================
+
                       SizedBox(
                         width:
                             double.infinity,
@@ -1373,6 +1325,10 @@ class _OtpVerificationScreenState
                         height: 16,
                       ),
 
+                      // ============================================
+                      // RESEND
+                      // ============================================
+
                       Center(
                         child:
                             TextButton(
@@ -1414,6 +1370,10 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 20,
                 ),
+
+                // ==================================================
+                // SECURITY
+                // ==================================================
 
                 const Row(
                   mainAxisAlignment:
