@@ -63,10 +63,6 @@ class _OtpVerificationScreenState
     final String otp =
         _otpController.text.trim();
 
-    // ----------------------------------------------------------
-    // VALIDATE OTP
-    // ----------------------------------------------------------
-
     if (!RegExp(
       r'^[0-9]{6}$',
     ).hasMatch(otp)) {
@@ -99,7 +95,7 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // 1. MSG91 OTP SERVICE
+      // 1. MSG91 OTP VERIFICATION
       // ========================================================
 
       debugPrint(
@@ -122,10 +118,6 @@ class _OtpVerificationScreenState
         'MSG91 OTP VERIFICATION SUCCESS',
       );
 
-      debugPrint(
-        'MSG91 ACCESS TOKEN AVAILABLE',
-      );
-
       // ========================================================
       // 2. NORMALIZE PHONE
       // ========================================================
@@ -142,23 +134,18 @@ class _OtpVerificationScreenState
       }
 
       debugPrint(
-        'LOGIN PHONE: $phone',
+        'LOGIN PHONE AVAILABLE',
       );
 
       // ========================================================
       // 3. CHECK CUSTOMER THROUGH BACKEND
       // ========================================================
 
-      final Map<String, dynamic>? backendData =
+      final Map<String, dynamic> backendData =
           await _checkCustomerWithBackend(
-        accessToken,
+        accessToken: accessToken,
+        phoneNumber: phone,
       );
-
-      if (backendData == null) {
-        throw Exception(
-          'Unable to connect to Dojo Platform backend.',
-        );
-      }
 
       // ========================================================
       // 4. BACKEND SUCCESS
@@ -240,19 +227,7 @@ class _OtpVerificationScreenState
       );
 
       debugPrint(
-        'BACKEND OWNER ID: $ownerId',
-      );
-
-      debugPrint(
-        'BACKEND AUTH UID: $authUid',
-      );
-
-      debugPrint(
         'BACKEND ROLE: $role',
-      );
-
-      debugPrint(
-        'BACKEND PHONE: $verifiedPhone',
       );
 
       // ========================================================
@@ -291,10 +266,6 @@ class _OtpVerificationScreenState
           'Temporary Firebase UID is missing.',
         );
       }
-
-      debugPrint(
-        'TEMP FIREBASE UID: $temporaryUid',
-      );
 
       // ========================================================
       // 7. SAVE LOGIN STATE
@@ -345,15 +316,6 @@ class _OtpVerificationScreenState
 
         debugPrint(
           'EXISTING OWNER FOUND',
-        );
-
-        debugPrint(
-          'ACCOUNT UID: $accountUid',
-        );
-
-        debugPrint(
-          'PROFILE COMPLETED: '
-          '$profileCompleted',
         );
 
         if (!mounted) {
@@ -445,19 +407,9 @@ class _OtpVerificationScreenState
         '/',
         (route) => false,
       );
-    }
-
-    // ==========================================================
-    // FIREBASE ERROR
-    // ==========================================================
-
-    on FirebaseException catch (e) {
+    } on FirebaseException catch (e) {
       debugPrint(
         'OWNER FIREBASE ERROR: ${e.code}',
-      );
-
-      debugPrint(
-        'OWNER FIREBASE MESSAGE: ${e.message}',
       );
 
       if (!mounted) {
@@ -467,13 +419,7 @@ class _OtpVerificationScreenState
       _showMessage(
         _firebaseErrorMessage(e),
       );
-    }
-
-    // ==========================================================
-    // GENERAL ERROR
-    // ==========================================================
-
-    catch (e) {
+    } catch (e) {
       debugPrint(
         'OTP VERIFICATION ERROR: $e',
       );
@@ -516,13 +462,7 @@ class _OtpVerificationScreenState
               ),
         );
       }
-    }
-
-    // ==========================================================
-    // STOP LOADING
-    // ==========================================================
-
-    finally {
+    } finally {
       if (mounted) {
         setState(() {
           _isVerifying = false;
@@ -535,10 +475,11 @@ class _OtpVerificationScreenState
   // BACKEND CUSTOMER CHECK
   // ============================================================
 
-  Future<Map<String, dynamic>?>
-      _checkCustomerWithBackend(
-    String accessToken,
-  ) async {
+  Future<Map<String, dynamic>>
+      _checkCustomerWithBackend({
+    required String accessToken,
+    required String phoneNumber,
+  }) async {
     try {
       final Uri uri = Uri.parse(
         '$_backendUrl/customer/check',
@@ -547,9 +488,6 @@ class _OtpVerificationScreenState
       debugPrint(
         'BACKEND CUSTOMER CHECK STARTED',
       );
-
-      // IMPORTANT:
-      // The actual access token is never printed.
 
       final http.Response response =
           await http
@@ -564,6 +502,8 @@ class _OtpVerificationScreenState
                 body: jsonEncode({
                   'accessToken':
                       accessToken,
+                  'phoneNumber':
+                      phoneNumber,
                 }),
               )
               .timeout(
@@ -572,26 +512,10 @@ class _OtpVerificationScreenState
                 ),
               );
 
-      // --------------------------------------------------------
-      // SAFE DEBUG
-      // --------------------------------------------------------
-
       debugPrint(
         'BACKEND STATUS: '
         '${response.statusCode}',
       );
-
-      debugPrint(
-        'BACKEND RESPONSE LENGTH: '
-        '${response.body.length}',
-      );
-
-      // Do NOT print response.body.
-      // It could contain sensitive backend information.
-
-      // --------------------------------------------------------
-      // DECODE JSON
-      // --------------------------------------------------------
 
       dynamic decoded;
 
@@ -601,20 +525,12 @@ class _OtpVerificationScreenState
           response.body,
         );
       } catch (_) {
-        debugPrint(
-          'BACKEND RESPONSE IS NOT VALID JSON',
-        );
-
         throw Exception(
           'Dojo Platform backend returned an invalid response.',
         );
       }
 
       if (decoded is! Map) {
-        debugPrint(
-          'BACKEND RESPONSE IS NOT A JSON OBJECT',
-        );
-
         throw Exception(
           'Dojo Platform backend returned an invalid response.',
         );
@@ -625,18 +541,10 @@ class _OtpVerificationScreenState
         decoded,
       );
 
-      // --------------------------------------------------------
-      // SAFE RESPONSE KEYS
-      // --------------------------------------------------------
-
       debugPrint(
         'BACKEND RESPONSE KEYS: '
         '${data.keys.toList()}',
       );
-
-      // --------------------------------------------------------
-      // HTTP STATUS
-      // --------------------------------------------------------
 
       if (response.statusCode < 200 ||
           response.statusCode >= 300) {
@@ -659,23 +567,10 @@ class _OtpVerificationScreenState
                     ? error
                     : 'Backend request failed with HTTP ${response.statusCode}.';
 
-        debugPrint(
-          'BACKEND HTTP ERROR: '
-          '${response.statusCode}',
-        );
-
         throw Exception(
           reason,
         );
       }
-
-      // --------------------------------------------------------
-      // SUCCESSFUL RESPONSE
-      // --------------------------------------------------------
-
-      debugPrint(
-        'BACKEND CUSTOMER CHECK RESPONSE RECEIVED',
-      );
 
       return data;
     } on Exception {
@@ -718,10 +613,6 @@ class _OtpVerificationScreenState
     });
 
     try {
-      debugPrint(
-        'MSG91 RESEND STARTED',
-      );
-
       final String? newReqId =
           await OtpService.instance.resendOtp(
         reqId: _reqId,
@@ -731,10 +622,6 @@ class _OtpVerificationScreenState
           newReqId.trim().isNotEmpty) {
         _reqId =
             newReqId.trim();
-
-        debugPrint(
-          'MSG91 REQUEST ID UPDATED',
-        );
       }
 
       _otpController.clear();
@@ -825,9 +712,7 @@ class _OtpVerificationScreenState
     String value,
   ) {
     String phone =
-        value
-            .trim()
-            .replaceAll(
+        value.trim().replaceAll(
               RegExp(r'[^0-9+]'),
               '',
             );
@@ -835,7 +720,8 @@ class _OtpVerificationScreenState
     if (phone.startsWith('+91')) {
       phone =
           phone.substring(3);
-    } else if (phone.startsWith('91') &&
+    } else if (
+        phone.startsWith('91') &&
         phone.length == 12) {
       phone =
           phone.substring(2);
@@ -1034,11 +920,6 @@ class _OtpVerificationScreenState
                 const SizedBox(
                   height: 12,
                 ),
-
-                // ==================================================
-                // ICON
-                // ==================================================
-
                 Container(
                   height: 78,
                   width: 78,
@@ -1072,15 +953,9 @@ class _OtpVerificationScreenState
                     size: 38,
                   ),
                 ),
-
                 const SizedBox(
                   height: 26,
                 ),
-
-                // ==================================================
-                // TITLE
-                // ==================================================
-
                 const Text(
                   'Verify your number',
                   textAlign:
@@ -1095,11 +970,9 @@ class _OtpVerificationScreenState
                         FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(
                   height: 9,
                 ),
-
                 const Text(
                   'Enter the 6-digit OTP sent to',
                   textAlign:
@@ -1114,11 +987,9 @@ class _OtpVerificationScreenState
                         FontWeight.w500,
                   ),
                 ),
-
                 const SizedBox(
                   height: 5,
                 ),
-
                 Text(
                   _displayPhoneNumber(),
                   textAlign:
@@ -1133,15 +1004,9 @@ class _OtpVerificationScreenState
                         FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(
                   height: 30,
                 ),
-
-                // ==================================================
-                // OTP CARD
-                // ==================================================
-
                 Container(
                   width:
                       double.infinity,
@@ -1199,15 +1064,9 @@ class _OtpVerificationScreenState
                               FontWeight.w800,
                         ),
                       ),
-
                       const SizedBox(
                         height: 12,
                       ),
-
-                      // ============================================
-                      // OTP INPUT
-                      // ============================================
-
                       TextField(
                         controller:
                             _otpController,
@@ -1326,15 +1185,9 @@ class _OtpVerificationScreenState
                           ),
                         ),
                       ),
-
                       const SizedBox(
                         height: 18,
                       ),
-
-                      // ============================================
-                      // VERIFY BUTTON
-                      // ============================================
-
                       SizedBox(
                         width:
                             double.infinity,
@@ -1398,15 +1251,9 @@ class _OtpVerificationScreenState
                                     ),
                         ),
                       ),
-
                       const SizedBox(
                         height: 16,
                       ),
-
-                      // ============================================
-                      // RESEND
-                      // ============================================
-
                       Center(
                         child:
                             TextButton(
@@ -1444,15 +1291,9 @@ class _OtpVerificationScreenState
                     ],
                   ),
                 ),
-
                 const SizedBox(
                   height: 20,
                 ),
-
-                // ==================================================
-                // SECURITY
-                // ==================================================
-
                 const Row(
                   mainAxisAlignment:
                       MainAxisAlignment
@@ -1484,11 +1325,9 @@ class _OtpVerificationScreenState
                     ),
                   ],
                 ),
-
                 const SizedBox(
                   height: 8,
                 ),
-
                 const Text(
                   'Dojo Platform',
                   textAlign:
