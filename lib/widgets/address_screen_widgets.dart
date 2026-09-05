@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-
 class AddressScreenWidgets {
-  static Widget bookingHeader() {
+  static Widget bookingHeader({
+    required Color primaryColor,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppColors.primary,
-            AppColors.primary.withOpacity(0.82),
+          colors: <Color>[
+            primaryColor,
+            primaryColor.withValues(alpha: 0.82),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -19,7 +19,7 @@ class AddressScreenWidgets {
         borderRadius: BorderRadius.circular(20),
       ),
       child: const Row(
-        children: [
+        children: <Widget>[
           Icon(
             Icons.pets,
             color: Colors.white,
@@ -29,7 +29,7 @@ class AddressScreenWidgets {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              children: <Widget>[
                 Text(
                   'Where should we pick up your dog?',
                   style: TextStyle(
@@ -57,6 +57,7 @@ class AddressScreenWidgets {
   static Widget choosePickupLocationCard({
     required bool selected,
     required bool disabled,
+    required Color primaryColor,
     required VoidCallback onTap,
   }) {
     return Material(
@@ -70,13 +71,13 @@ class AddressScreenWidgets {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: selected
-                  ? [
-                      AppColors.primary,
-                      AppColors.primary.withOpacity(0.82),
+                  ? <Color>[
+                      primaryColor,
+                      primaryColor.withValues(alpha: 0.82),
                     ]
-                  : [
+                  : <Color>[
                       Colors.white,
-                      Colors.grey.shade50,
+                      const Color(0xFFF9FAFB),
                     ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -84,44 +85,44 @@ class AddressScreenWidgets {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: selected
-                  ? AppColors.primary
-                  : AppColors.primary.withOpacity(0.25),
+                  ? primaryColor
+                  : primaryColor.withValues(alpha: 0.25),
               width: 1.2,
             ),
-            boxShadow: [
+            boxShadow: <BoxShadow>[
               BoxShadow(
                 blurRadius: 12,
                 offset: const Offset(0, 5),
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: 0.06),
               ),
             ],
           ),
           child: Row(
-            children: [
+            children: <Widget>[
               Container(
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
                   color: selected
-                      ? Colors.white.withOpacity(0.18)
-                      : AppColors.primary.withOpacity(0.10),
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : primaryColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   selected
                       ? Icons.location_on
                       : Icons.map_outlined,
-                  color: selected
-                      ? Colors.white
-                      : AppColors.primary,
+                  color:
+                      selected ? Colors.white : primaryColor,
                   size: 28,
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: <Widget>[
                     Text(
                       selected
                           ? 'Pickup Location Selected'
@@ -131,7 +132,7 @@ class AddressScreenWidgets {
                         fontWeight: FontWeight.w800,
                         color: selected
                             ? Colors.white
-                            : AppColors.textPrimary,
+                            : const Color(0xFF202124),
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -152,9 +153,8 @@ class AddressScreenWidgets {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 18,
-                color: selected
-                    ? Colors.white
-                    : AppColors.primary,
+                color:
+                    selected ? Colors.white : primaryColor,
               ),
             ],
           ),
@@ -163,13 +163,16 @@ class AddressScreenWidgets {
     );
   }
 
-  static Widget sectionTitle(String title) {
+  static Widget sectionTitle(
+    String title, {
+    required Color textColor,
+  }) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w800,
-        color: AppColors.textPrimary,
+        color: textColor,
       ),
     );
   }
@@ -179,6 +182,7 @@ class AddressScreenWidgets {
     required String label,
     required String hint,
     required IconData icon,
+    required Color primaryColor,
     bool required = true,
     TextInputType? keyboardType,
     int? maxLength,
@@ -189,11 +193,12 @@ class AddressScreenWidgets {
       maxLength: maxLength,
       decoration: InputDecoration(
         counterText: '',
-        labelText: required ? label : '$label (Optional)',
+        labelText:
+            required ? label : '$label (Optional)',
         hintText: hint,
         prefixIcon: Icon(
           icon,
-          color: AppColors.primary,
+          color: primaryColor,
         ),
         filled: true,
         fillColor: Colors.white,
@@ -215,8 +220,8 @@ class AddressScreenWidgets {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.primary,
+          borderSide: BorderSide(
+            color: primaryColor,
             width: 1.5,
           ),
         ),
@@ -226,11 +231,13 @@ class AddressScreenWidgets {
 
   static Widget savedAddressCard({
     required Map<String, dynamic> address,
+    required Color primaryColor,
     required VoidCallback onSelect,
     required VoidCallback onEdit,
     required VoidCallback onDelete,
   }) {
-    final fullAddress = address['address']?.toString() ?? '';
+    final String fullAddress =
+        address['address']?.toString() ?? '';
 
     return Container(
       width: double.infinity,
@@ -244,19 +251,20 @@ class AddressScreenWidgets {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Row(
-            children: [
+            children: <Widget>[
               Container(
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.10),
+                  color:
+                      primaryColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.home_outlined,
-                  color: AppColors.primary,
+                  color: primaryColor,
                 ),
               ),
               const SizedBox(width: 12),
@@ -282,11 +290,12 @@ class AddressScreenWidgets {
           ),
           const SizedBox(height: 14),
           Row(
-            children: [
+            children: <Widget>[
               Expanded(
                 child: smallAction(
                   label: 'Use',
                   icon: Icons.check_circle_outline,
+                  primaryColor: primaryColor,
                   onTap: onSelect,
                 ),
               ),
@@ -295,6 +304,7 @@ class AddressScreenWidgets {
                 child: smallAction(
                   label: 'Change',
                   icon: Icons.edit_outlined,
+                  primaryColor: primaryColor,
                   onTap: onEdit,
                 ),
               ),
@@ -303,6 +313,7 @@ class AddressScreenWidgets {
                 child: smallAction(
                   label: 'Delete',
                   icon: Icons.delete_outline,
+                  primaryColor: primaryColor,
                   onTap: onDelete,
                 ),
               ),
@@ -316,6 +327,7 @@ class AddressScreenWidgets {
   static Widget smallAction({
     required String label,
     required IconData icon,
+    required Color primaryColor,
     required VoidCallback onTap,
   }) {
     return OutlinedButton.icon(
@@ -332,9 +344,9 @@ class AddressScreenWidgets {
         ),
       ),
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.primary,
+        foregroundColor: primaryColor,
         side: BorderSide(
-          color: AppColors.primary.withOpacity(0.25),
+          color: primaryColor.withValues(alpha: 0.25),
         ),
         padding: const EdgeInsets.symmetric(
           horizontal: 8,
