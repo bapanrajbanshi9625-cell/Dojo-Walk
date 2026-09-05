@@ -9,7 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../models/pet_data.dart';
+import '../models/pet_data.dart';
 import '../../../services/owner_id_service.dart';
 
 class ProfileSetupService {
