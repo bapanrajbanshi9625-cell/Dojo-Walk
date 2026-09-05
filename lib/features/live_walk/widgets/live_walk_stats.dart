@@ -16,21 +16,6 @@ class LiveWalkStats extends StatelessWidget {
   final int peeCount;
   final int poopCount;
 
-  static const Color navy =
-      Color(0xFF263746);
-
-  static const Color primary =
-      Color(0xFFFF8A00);
-
-  static const Color slate =
-      Color(0xFF475569);
-
-  static const Color lightBg =
-      Color(0xFFF7F8F9);
-
-  static const Color border =
-      Color(0xFFE5E7EB);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -38,46 +23,46 @@ class LiveWalkStats extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _stat(
-                Icons.timer_outlined,
-                'Duration',
-                duration,
+              child: _statCard(
+                icon: Icons.timer_outlined,
+                label: 'Minutes',
+                value: duration,
               ),
             ),
-            const SizedBox(width: 7),
+            const SizedBox(width: 10),
             Expanded(
-              child: _stat(
-                Icons.directions_walk_rounded,
-                'Steps',
-                '$steps',
+              child: _statCard(
+                icon: Icons.route_rounded,
+                label: 'Kilometers',
+                value: distance,
               ),
             ),
-            const SizedBox(width: 7),
+            const SizedBox(width: 10),
             Expanded(
-              child: _stat(
-                Icons.route_rounded,
-                'Distance',
-                distance,
+              child: _statCard(
+                icon: Icons.directions_walk_rounded,
+                label: 'Steps',
+                value: steps.toString(),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
-              child: _toilet(
-                Icons.water_drop_rounded,
-                'Pee',
-                peeCount,
+              child: _statCard(
+                icon: Icons.water_drop_outlined,
+                label: 'Pee',
+                value: peeCount.toString(),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
-              child: _toilet(
-                Icons.eco_rounded,
-                'Poop',
-                poopCount,
+              child: _statCard(
+                icon: Icons.circle_outlined,
+                label: 'Poop',
+                value: poopCount.toString(),
               ),
             ),
           ],
@@ -86,100 +71,50 @@ class LiveWalkStats extends StatelessWidget {
     );
   }
 
-  Widget _stat(
-    IconData icon,
-    String title,
-    String value,
-  ) {
+  Widget _statCard({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 8,
-        horizontal: 4,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 12,
       ),
       decoration: BoxDecoration(
-        color: lightBg,
-        borderRadius:
-            BorderRadius.circular(12),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE8EDF2),
+        ),
       ),
       child: Column(
         children: [
           Icon(
             icon,
-            color: primary,
-            size: 18,
+            size: 20,
+            color: const Color(0xFFFF8A00),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: navy,
-              fontSize: 12,
-              fontWeight:
-                  FontWeight.w900,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF263746),
             ),
           ),
+          const SizedBox(height: 2),
           Text(
-            title,
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: slate,
-              fontSize: 8,
-              fontWeight:
-                  FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _toilet(
-    IconData icon,
-    String title,
-    int value,
-  ) {
-    return Container(
-      height: 40,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 12,
-      ),
-      decoration: BoxDecoration(
-        color: lightBg,
-        borderRadius:
-            BorderRadius.circular(12),
-        border: Border.all(
-          color: border,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: primary,
-            size: 17,
-          ),
-          const SizedBox(width: 7),
-          Text(
-            title,
-            style: const TextStyle(
-              color: slate,
-              fontSize: 11,
-              fontWeight:
-                  FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: navy,
-              fontSize: 14,
-              fontWeight:
-                  FontWeight.w900,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF718096),
             ),
           ),
         ],
