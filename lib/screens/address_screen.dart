@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:latlong2/latlong.dart';
 
-import '../core/constants/app_colors.dart';
-import '../services/address_location_service.dart';
+import '../../../core/theme/app_colors.dart';
 import '../widgets/address_screen_widgets.dart';
 import 'address_location_picker_screen.dart';
 
@@ -18,46 +17,26 @@ class AddressScreen extends StatefulWidget {
   final bool fromProfile;
 
   @override
-  State<AddressScreen> createState() =>
-      _AddressScreenState();
+  State<AddressScreen> createState() => _AddressScreenState();
 }
 
 class _AddressScreenState extends State<AddressScreen> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
-
-  final AddressLocationService _locationService =
-      AddressLocationService();
-
-  final TextEditingController _flatController =
-      TextEditingController();
-
+  final TextEditingController _flatController = TextEditingController();
   final TextEditingController _addressLine1Controller =
       TextEditingController();
-
   final TextEditingController _addressLine2Controller =
       TextEditingController();
+  final TextEditingController _areaController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _pinCodeController = TextEditingController();
 
-  final TextEditingController _areaController =
-      TextEditingController();
+  DocumentReference<Map<String, dynamic>>? _ownerProfileRef;
 
-  final TextEditingController _cityController =
-      TextEditingController();
-
-  final TextEditingController _stateController =
-      TextEditingController();
-
-  final TextEditingController _pinCodeController =
-      TextEditingController();
-
-  DocumentReference<Map<String, dynamic>>?
-      _ownerProfileRef;
-
-  final List<Map<String, dynamic>> _savedAddresses =
-      <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _savedAddresses = [];
 
   bool _loading = true;
   bool _saving = false;
@@ -71,167 +50,113 @@ class _AddressScreenState extends State<AddressScreen> {
     _loadAddress();
   }
 
-  // ============================================================
-  // FIND OWNER
-  // ============================================================
+  @override
+  void dispose() {
+    _flatController.dispose();
+    _addressLine1Controller.dispose();
+    _addressLine2Controller.dispose();
+    _areaController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pinCodeController.dispose();
+    super.dispose();
+  }
 
-  Future<DocumentReference<Map<String, dynamic>>?>
-      _findOwnerProfile() async {
-    final User? user = _auth.currentUser;
+  Future<DocumentReference<Map<String, dynamic>>?> _findOwnerProfile() async {
+    final user = _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
-    final QuerySnapshot<Map<String, dynamic>>
-        querySnapshot = await _firestore
-            .collection('owners')
-            .where(
-              'authUid',
-              isEqualTo: user.uid,
-            )
-            .limit(1)
-            .get();
+    try {
+      final query = await _firestore
+          .collection('owners')
+          .where('authUid', isEqualTo: user.uid)
+          .limit(1)
+          .get();
 
-    if (querySnapshot.docs.isNotEmpty) {
-      return querySnapshot.docs.first.reference;
+      if (query.docs.isNotEmpty) {
+        return query.docs.first.reference;
+      }
+
+      return _firestore.collection('owners').doc(user.uid);
+    } catch (_) {
+      return _firestore.collection('owners').doc(user.uid);
     }
-
-    final DocumentReference<Map<String, dynamic>>
-        uidReference =
-        _firestore.collection('owners').doc(user.uid);
-
-    final DocumentSnapshot<Map<String, dynamic>>
-        uidSnapshot =
-        await uidReference.get();
-
-    if (uidSnapshot.exists) {
-      return uidReference;
-    }
-
-    return null;
   }
-
-  // ============================================================
-  // LOAD ADDRESS
-  // ============================================================
 
   Future<void> _loadAddress() async {
     try {
-      final User? user = _auth.currentUser;
+      final ref = await _findOwnerProfile();
 
-      if (user == null) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-          });
-        }
+      if (!mounted) return;
+
+      if (ref == null) {
+        setState(() {
+          _loading = false;
+        });
         return;
       }
 
-      DocumentReference<Map<String, dynamic>>?
-          ownerRef = await _findOwnerProfile();
+      _ownerProfileRef = ref;
 
-      ownerRef ??=
-          _firestore.collection('owners').doc(user.uid);
+      final snapshot = await ref.get();
 
-      _ownerProfileRef = ownerRef;
+      if (!snapshot.exists) {
+        setState(() {
+          _loading = false;
+        });
+        return;
+      }
 
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot = await ownerRef.get();
+      final data = snapshot.data();
 
-      if (snapshot.exists) {
-        final Map<String, dynamic> data =
-            snapshot.data() ?? <String, dynamic>{};
+      if (data == null) {
+        setState(() {
+          _loading = false;
+        });
+        return;
+      }
 
-        final dynamic rawAddress = data['address'];
+      final address = data['address'];
 
-        if (rawAddress is Map) {
-          final Map<String, dynamic> address =
-              Map<String, dynamic>.from(rawAddress);
+      if (address is Map<String, dynamic>) {
+        _flatController.text = address['flatNumber']?.toString() ?? '';
+        _addressLine1Controller.text =
+            address['addressLine1']?.toString() ?? '';
+        _addressLine2Controller.text =
+            address['addressLine2']?.toString() ?? '';
+        _areaController.text = address['area']?.toString() ?? '';
+        _cityController.text = address['city']?.toString() ?? '';
+        _stateController.text = address['state']?.toString() ?? '';
+        _pinCodeController.text = address['pincode']?.toString() ?? '';
 
-          _flatController.text =
-              _readString(address['flatNumber']);
+        final latitude = address['latitude'];
+        final longitude = address['longitude'];
 
-          _addressLine1Controller.text =
-              _readString(address['addressLine1']);
-
-          _addressLine2Controller.text =
-              _readString(address['addressLine2']);
-
-          _areaController.text =
-              _readString(address['area']);
-
-          _cityController.text =
-              _readString(address['city']);
-
-          _stateController.text =
-              _readString(address['state']);
-
-          _pinCodeController.text =
-              _readString(address['pincode']);
-
-          _selectedLatitude =
-              _readDouble(address['latitude']);
-
-          _selectedLongitude =
-              _readDouble(address['longitude']);
+        if (latitude is num && longitude is num) {
+          _selectedLatitude = latitude.toDouble();
+          _selectedLongitude = longitude.toDouble();
         }
+      }
 
-        final dynamic saved =
-            data['savedAddresses'];
+      final saved = data['savedAddresses'];
 
-        _savedAddresses.clear();
-
-        if (saved is List) {
-          for (final dynamic item in saved) {
-            if (item is Map) {
-              _savedAddresses.add(
-                Map<String, dynamic>.from(item),
-              );
-            }
-          }
-        }
-
-        if (_savedAddresses.isEmpty &&
-            rawAddress is Map) {
-          final Map<String, dynamic> address =
-              Map<String, dynamic>.from(rawAddress);
-
-          final String fullAddress =
-              _buildFullAddress();
-
-          if (fullAddress.isNotEmpty) {
-            _savedAddresses.add(
-              <String, dynamic>{
-                'address': fullAddress,
-                'flatNumber':
-                    _readString(address['flatNumber']),
-                'addressLine1':
-                    _readString(address['addressLine1']),
-                'addressLine2':
-                    _readString(address['addressLine2']),
-                'area':
-                    _readString(address['area']),
-                'city':
-                    _readString(address['city']),
-                'state':
-                    _readString(address['state']),
-                'pincode':
-                    _readString(address['pincode']),
-                'latitude':
-                    _readDouble(address['latitude']),
-                'longitude':
-                    _readDouble(address['longitude']),
-              },
-            );
-          }
-        }
+      if (saved is List) {
+        _savedAddresses = saved
+            .whereType<Map>()
+            .map(
+              (item) => Map<String, dynamic>.from(item),
+            )
+            .toList();
       }
     } catch (e) {
       if (mounted) {
-        _showMessage(
-          'Unable to load address: $e',
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to load address: $e'),
+          ),
         );
       }
     } finally {
@@ -243,160 +168,149 @@ class _AddressScreenState extends State<AddressScreen> {
     }
   }
 
-  // ============================================================
-  // MAP LOCATION -> ADDRESS
-  // ============================================================
-
-  Future<void> _populateAddressFromCoordinates({
-    required double latitude,
-    required double longitude,
-  }) async {
+  Future<void> _populateAddressFromCoordinates(
+    double latitude,
+    double longitude,
+  ) async {
     try {
-      final geocoding.Geocoding geocoder =
-          geocoding.Geocoding();
-
-      final List<geocoding.Placemark> places =
-          await geocoder.placemarkFromCoordinates(
+      final placemarks = await geocoding.placemarkFromCoordinates(
         latitude,
         longitude,
       );
 
-      if (places.isEmpty) {
-        return;
-      }
+      if (placemarks.isEmpty) return;
 
-      final geocoding.Placemark place =
-          places.first;
+      final place = placemarks.first;
 
-      final String street =
-          place.street?.trim() ?? '';
+      final street = [
+        place.name,
+        place.street,
+      ].where((value) {
+        return value != null && value.trim().isNotEmpty;
+      }).map((value) => value!.trim()).toSet().join(', ');
 
-      final String area =
-          place.subLocality?.trim() ?? '';
+      final area = [
+        place.subLocality,
+        place.subAdministrativeArea,
+      ].where((value) {
+        return value != null && value.trim().isNotEmpty;
+      }).map((value) => value!.trim()).toSet().join(', ');
 
-      final String city =
-          place.locality?.trim() ?? '';
+      final city = place.locality?.trim() ?? '';
+      final state = place.administrativeArea?.trim() ?? '';
+      final postalCode = place.postalCode?.trim() ?? '';
 
-      final String state =
-          place.administrativeArea?.trim() ?? '';
+      if (!mounted) return;
 
-      final String pincode =
-          place.postalCode?.trim() ?? '';
+      setState(() {
+        if (street.isNotEmpty) {
+          _addressLine1Controller.text = street;
+        }
 
-      if (!mounted) {
-        return;
-      }
+        if (area.isNotEmpty) {
+          _areaController.text = area;
+        }
 
-      if (street.isNotEmpty) {
-        _addressLine1Controller.text =
-            street;
-      }
+        if (city.isNotEmpty) {
+          _cityController.text = city;
+        }
 
-      if (area.isNotEmpty) {
-        _areaController.text = area;
-      }
+        if (state.isNotEmpty) {
+          _stateController.text = state;
+        }
 
-      if (city.isNotEmpty) {
-        _cityController.text = city;
-      }
-
-      if (state.isNotEmpty) {
-        _stateController.text = state;
-      }
-
-      if (pincode.isNotEmpty) {
-        _pinCodeController.text = pincode;
-      }
-    } catch (e) {
-      debugPrint(
-        'Selected coordinate reverse geocoding failed: $e',
-      );
+        if (postalCode.isNotEmpty) {
+          _pinCodeController.text = postalCode;
+        }
+      });
+    } catch (_) {
+      // Reverse geocoding failure should not remove the exact coordinates.
     }
   }
 
-  // ============================================================
-  // BUILD FULL ADDRESS
-  // ============================================================
-
   String _buildFullAddress() {
-    final List<String> parts =
-        <String>[];
-
-    void add(String value) {
-      final String trimmed =
-          value.trim();
-
-      if (trimmed.isNotEmpty) {
-        parts.add(trimmed);
-      }
-    }
-
-    add(_flatController.text);
-    add(_addressLine1Controller.text);
-    add(_addressLine2Controller.text);
-    add(_areaController.text);
-    add(_cityController.text);
-    add(_stateController.text);
-    add(_pinCodeController.text);
+    final parts = <String>[
+      _flatController.text.trim(),
+      _addressLine1Controller.text.trim(),
+      _addressLine2Controller.text.trim(),
+      _areaController.text.trim(),
+      _cityController.text.trim(),
+      _stateController.text.trim(),
+      _pinCodeController.text.trim(),
+    ].where((value) => value.isNotEmpty).toList();
 
     return parts.join(', ');
   }
 
-  // ============================================================
-  // SAVE ADDRESS
-  // ============================================================
+  Future<void> _openLocationPicker() async {
+    final LatLng? initialLocation =
+        _selectedLatitude != null && _selectedLongitude != null
+            ? LatLng(
+                _selectedLatitude!,
+                _selectedLongitude!,
+              )
+            : null;
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddressLocationPickerScreen(
+          initialLocation: initialLocation,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    final latitude = result['latitude'];
+    final longitude = result['longitude'];
+
+    if (latitude is! num || longitude is! num) {
+      return;
+    }
+
+    // EXACT location selected by the center pin.
+    _selectedLatitude = latitude.toDouble();
+    _selectedLongitude = longitude.toDouble();
+
+    await _populateAddressFromCoordinates(
+      _selectedLatitude!,
+      _selectedLongitude!,
+    );
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
 
   Future<void> _saveAddress() async {
-    if (_saving) {
-      return;
-    }
-
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      _showMessage(
-        'Please login again.',
+    if (_ownerProfileRef == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Owner profile not found.'),
+        ),
       );
       return;
     }
 
-    final String flat =
-        _flatController.text.trim();
-
-    final String line1 =
-        _addressLine1Controller.text.trim();
-
-    final String line2 =
-        _addressLine2Controller.text.trim();
-
-    final String area =
-        _areaController.text.trim();
-
-    final String city =
-        _cityController.text.trim();
-
-    final String state =
-        _stateController.text.trim();
-
-    final String pin =
-        _pinCodeController.text.trim();
-
-    if (line1.isEmpty ||
-        area.isEmpty ||
-        city.isEmpty ||
-        state.isEmpty ||
-        pin.isEmpty) {
-      _showMessage(
-        'Please fill all required address fields.',
+    if (_selectedLatitude == null || _selectedLongitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please choose your pickup location on the map.'),
+        ),
       );
       return;
     }
 
-    if (_selectedLatitude == null ||
-        _selectedLongitude == null) {
-      _showMessage(
-        'Please choose your pickup location on the map.',
+    if (_addressLine1Controller.text.trim().isEmpty ||
+        _areaController.text.trim().isEmpty ||
+        _cityController.text.trim().isEmpty ||
+        _stateController.text.trim().isEmpty ||
+        _pinCodeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please complete your address details.'),
+        ),
       );
       return;
     }
@@ -406,61 +320,31 @@ class _AddressScreenState extends State<AddressScreen> {
     });
 
     try {
-      DocumentReference<Map<String, dynamic>>?
-          ownerRef = _ownerProfileRef;
+      final fullAddress = _buildFullAddress();
 
-      ownerRef ??=
-          await _findOwnerProfile();
-
-      ownerRef ??=
-          _firestore
-              .collection('owners')
-              .doc(user.uid);
-
-      _ownerProfileRef = ownerRef;
-
-      final String fullAddress =
-          _buildFullAddress();
-
-      final Map<String, dynamic>
-          savedAddress =
-          <String, dynamic>{
+      final addressData = <String, dynamic>{
         'address': fullAddress,
-        'flatNumber': flat,
-        'addressLine1': line1,
-        'addressLine2': line2,
-        'area': area,
-        'city': city,
-        'state': state,
-        'pincode': pin,
+        'flatNumber': _flatController.text.trim(),
+        'addressLine1': _addressLine1Controller.text.trim(),
+        'addressLine2': _addressLine2Controller.text.trim(),
+        'area': _areaController.text.trim(),
+        'city': _cityController.text.trim(),
+        'state': _stateController.text.trim(),
+        'pincode': _pinCodeController.text.trim(),
         'latitude': _selectedLatitude,
         'longitude': _selectedLongitude,
       };
 
-      final Map<String, dynamic>
-          address =
-          <String, dynamic>{
-        'flatNumber': flat,
-        'addressLine1': line1,
-        'addressLine2': line2,
-        'area': area,
-        'city': city,
-        'state': state,
-        'pincode': pin,
-        'latitude': _selectedLatitude,
-        'longitude': _selectedLongitude,
+      final savedAddress = <String, dynamic>{
+        ...addressData,
       };
 
-      await ownerRef.set(
-        <String, dynamic>{
-          'authUid': user.uid,
-          'address': address,
-          'savedAddresses':
-              <Map<String, dynamic>>[
-            savedAddress,
-          ],
-          'updatedAt':
-              FieldValue.serverTimestamp(),
+      await _ownerProfileRef!.set(
+        {
+          'authUid': _auth.currentUser?.uid,
+          'address': addressData,
+          'savedAddresses': [savedAddress],
+          'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
@@ -468,21 +352,21 @@ class _AddressScreenState extends State<AddressScreen> {
       if (!mounted) return;
 
       setState(() {
-        _savedAddresses
-          ..clear()
-          ..add(savedAddress);
+        _savedAddresses = [savedAddress];
       });
 
-      _showMessage(
-        'Address saved successfully.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pickup address saved successfully.'),
+        ),
       );
-
-      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
 
-      _showMessage(
-        'Unable to save address: $e',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save address: $e'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -493,865 +377,248 @@ class _AddressScreenState extends State<AddressScreen> {
     }
   }
 
-  // ============================================================
-  // SELECT SAVED ADDRESS
-  // ============================================================
+  void _selectAddress(Map<String, dynamic> address) {
+    setState(() {
+      _flatController.text = address['flatNumber']?.toString() ?? '';
+      _addressLine1Controller.text =
+          address['addressLine1']?.toString() ?? '';
+      _addressLine2Controller.text =
+          address['addressLine2']?.toString() ?? '';
+      _areaController.text = address['area']?.toString() ?? '';
+      _cityController.text = address['city']?.toString() ?? '';
+      _stateController.text = address['state']?.toString() ?? '';
+      _pinCodeController.text = address['pincode']?.toString() ?? '';
 
-  void _selectAddress(
-    Map<String, dynamic> address,
-  ) {
-    _flatController.text =
-        _readString(address['flatNumber']);
+      final latitude = address['latitude'];
+      final longitude = address['longitude'];
 
-    _addressLine1Controller.text =
-        _readString(address['addressLine1']);
-
-    _addressLine2Controller.text =
-        _readString(address['addressLine2']);
-
-    _areaController.text =
-        _readString(address['area']);
-
-    _cityController.text =
-        _readString(address['city']);
-
-    _stateController.text =
-        _readString(address['state']);
-
-    _pinCodeController.text =
-        _readString(address['pincode']);
-
-    _selectedLatitude =
-        _readDouble(address['latitude']);
-
-    _selectedLongitude =
-        _readDouble(address['longitude']);
-
-    setState(() {});
+      if (latitude is num && longitude is num) {
+        _selectedLatitude = latitude.toDouble();
+        _selectedLongitude = longitude.toDouble();
+      } else {
+        _selectedLatitude = null;
+        _selectedLongitude = null;
+      }
+    });
   }
 
-  // ============================================================
-  // EDIT SAVED ADDRESS
-  // ============================================================
-
-  Future<void> _editAddress(
-    int index,
-  ) async {
-    if (index < 0 ||
-        index >= _savedAddresses.length) {
-      return;
-    }
-
-    final Map<String, dynamic> address =
-        _savedAddresses[index];
-
-    _selectAddress(address);
-
-    await Future<void>.delayed(
-      const Duration(milliseconds: 100),
-    );
-
-    if (!mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context)
-                .viewInsets
-                .bottom,
-          ),
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight:
-                  MediaQuery.of(context)
-                      .size
-                      .height *
-                  0.88,
-            ),
-            padding:
-                const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              20,
-            ),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .scaffoldBackgroundColor,
-              borderRadius:
-                  const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 42,
-                    height: 4,
-                    margin:
-                        const EdgeInsets.only(
-                      bottom: 18,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius:
-                          BorderRadius.circular(20),
-                    ),
-                  ),
-                  AddressScreenWidgets.sectionTitle(
-                    'Edit Address',
-                    'Update your saved address',
-                  ),
-                  const SizedBox(height: 18),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _flatController,
-                    label:
-                        'Flat / House No.',
-                    hint:
-                        'Enter flat or house number',
-                    icon:
-                        Icons.home_outlined,
-                    requiredField: false,
-                  ),
-                  const SizedBox(height: 12),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _addressLine1Controller,
-                    label:
-                        'Address Line 1',
-                    hint:
-                        'Street / building / road',
-                    icon:
-                        Icons.location_on_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _addressLine2Controller,
-                    label:
-                        'Address Line 2',
-                    hint: 'Optional',
-                    icon:
-                        Icons.add_location_alt_outlined,
-                    requiredField: false,
-                  ),
-                  const SizedBox(height: 12),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _areaController,
-                    label: 'Area',
-                    hint: 'Enter area',
-                    icon:
-                        Icons.place_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _cityController,
-                    label: 'City',
-                    hint: 'Enter city',
-                    icon:
-                        Icons.location_city_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _stateController,
-                    label: 'State',
-                    hint: 'Enter state',
-                    icon:
-                        Icons.map_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  AddressScreenWidgets.field(
-                    controller:
-                        _pinCodeController,
-                    label: 'PIN Code',
-                    hint: 'Enter PIN code',
-                    icon:
-                        Icons.pin_drop_outlined,
-                    keyboardType:
-                        TextInputType.number,
-                  ),
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        await _saveAddress();
-                      },
-                      child: const Text(
-                        'Update Address',
-                        style: TextStyle(
-                          fontWeight:
-                              FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  Future<void> _editAddress() async {
+    await _openLocationPicker();
   }
 
-  // ============================================================
-  // DELETE SAVED ADDRESS
-  // ============================================================
-
-  Future<void> _deleteAddress(
-    int index,
-  ) async {
-    if (index < 0 ||
-        index >= _savedAddresses.length) {
-      return;
-    }
-
-    final bool? confirmed =
-        await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text(
-            'Delete Address?',
-          ),
-          content: const Text(
-            'Are you sure you want to delete this address?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
-              child:
-                  const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child:
-                  const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
+  Future<void> _deleteAddress() async {
+    if (_ownerProfileRef == null) return;
 
     try {
-      final User? user =
-          _auth.currentUser;
-
-      if (user == null) {
-        return;
-      }
-
-      DocumentReference<Map<String, dynamic>>?
-          ownerRef = _ownerProfileRef;
-
-      ownerRef ??=
-          await _findOwnerProfile();
-
-      ownerRef ??=
-          _firestore
-              .collection('owners')
-              .doc(user.uid);
-
-      final List<Map<String, dynamic>>
-          addresses =
-          List<Map<String, dynamic>>.from(
-        _savedAddresses,
-      );
-
-      addresses.removeAt(index);
-
-      final Map<String, dynamic>
-          updateData =
-          <String, dynamic>{
-        'savedAddresses': addresses,
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      };
-
-      if (addresses.isEmpty) {
-        updateData['address'] =
-            FieldValue.delete();
-      }
-
-      await ownerRef.set(
-        updateData,
+      await _ownerProfileRef!.set(
+        {
+          'address': FieldValue.delete(),
+          'savedAddresses': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
         SetOptions(merge: true),
       );
 
       if (!mounted) return;
 
       setState(() {
-        _savedAddresses
-          ..clear()
-          ..addAll(addresses);
+        _savedAddresses = [];
+        _flatController.clear();
+        _addressLine1Controller.clear();
+        _addressLine2Controller.clear();
+        _areaController.clear();
+        _cityController.clear();
+        _stateController.clear();
+        _pinCodeController.clear();
+        _selectedLatitude = null;
+        _selectedLongitude = null;
       });
 
-      _showMessage(
-        'Address deleted.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Address deleted.'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
 
-      _showMessage(
-        'Unable to delete address: $e',
-      );
-    }
-  }
-
-  // ============================================================
-  // OPEN MAP PICKER
-  // ============================================================
-
-  Future<void> _openLocationPicker() async {
-    if (_saving) {
-      return;
-    }
-
-    final Map<String, dynamic>? result =
-        await Navigator.push<
-            Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder:
-            (BuildContext context) {
-          return AddressLocationPickerScreen(
-            initialLocation:
-                _selectedLatitude != null &&
-                        _selectedLongitude != null
-                    ? LatLng(
-                        _selectedLatitude!,
-                        _selectedLongitude!,
-                      )
-                    : null,
-          );
-        },
-      ),
-    );
-
-    if (result == null) {
-      return;
-    }
-
-    final double? latitude =
-        _readDouble(result['latitude']);
-
-    final double? longitude =
-        _readDouble(result['longitude']);
-
-    if (latitude == null ||
-        longitude == null) {
-      return;
-    }
-
-    // EXACT map pin coordinates.
-    _selectedLatitude = latitude;
-    _selectedLongitude = longitude;
-
-    await _populateAddressFromCoordinates(
-      latitude: latitude,
-      longitude: longitude,
-    );
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // ============================================================
-  // MESSAGE
-  // ============================================================
-
-  void _showMessage(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          behavior:
-              SnackBarBehavior.floating,
-          margin:
-              const EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            16,
-          ),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(12),
-          ),
+          content: Text('Failed to delete address: $e'),
         ),
       );
-  }
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
-
-  String _readString(dynamic value) {
-    if (value == null) {
-      return '';
     }
-
-    return value.toString();
   }
-
-  double? _readDouble(dynamic value) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-      value.toString(),
-    );
-  }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
-  @override
-  void dispose() {
-    _flatController.dispose();
-    _addressLine1Controller.dispose();
-    _addressLine2Controller.dispose();
-    _areaController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
-    _pinCodeController.dispose();
-
-    super.dispose();
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor:
-            AppColors.background,
-        body: Center(
-          child: CircularProgressIndicator(
-            color: AppColors.primary,
-          ),
+        backgroundColor: AppColors.background,
+        body: const Center(
+          child: CircularProgressIndicator(),
         ),
       );
     }
 
+    final hasSelectedLocation =
+        _selectedLatitude != null && _selectedLongitude != null;
+
     return Scaffold(
-      backgroundColor:
-          AppColors.background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor:
-            AppColors.background,
-        foregroundColor:
-            AppColors.navy,
-        titleSpacing: 16,
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
         title: const Text(
           'Address',
           style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          keyboardDismissBehavior:
-              ScrollViewKeyboardDismissBehavior
-                  .onDrag,
-          padding:
-              const EdgeInsets.fromLTRB(
-            16,
-            8,
-            16,
-            32,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AddressScreenWidgets.bookingHeader(),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
+
+              // OLD "Pickup Location / Current Location" CARD REMOVED.
+              // This is now the only pickup-location selector.
+              AddressScreenWidgets.choosePickupLocationCard(
+                selected: hasSelectedLocation,
+                disabled: _saving,
+                onTap: _openLocationPicker,
+              ),
+
+              const SizedBox(height: 24),
 
               AddressScreenWidgets.sectionTitle(
                 'Your Address',
-                'Enter the address where your dog will be picked up',
-              ),
-
-              const SizedBox(height: 16),
-
-              AddressScreenWidgets.field(
-                controller:
-                    _flatController,
-                label:
-                    'Flat / House No.',
-                hint:
-                    'Enter flat or house number',
-                icon:
-                    Icons.home_outlined,
-                requiredField: false,
               ),
 
               const SizedBox(height: 12),
 
               AddressScreenWidgets.field(
-                controller:
-                    _addressLine1Controller,
-                label:
-                    'Address Line 1',
-                hint:
-                    'Street / building / road',
-                icon:
-                    Icons.location_on_outlined,
+                controller: _flatController,
+                label: 'Flat / House Number',
+                hint: 'Enter flat or house number',
+                icon: Icons.home_outlined,
               ),
 
               const SizedBox(height: 12),
 
               AddressScreenWidgets.field(
-                controller:
-                    _addressLine2Controller,
-                label:
-                    'Address Line 2',
-                hint: 'Optional',
-                icon:
-                    Icons.add_location_alt_outlined,
-                requiredField: false,
+                controller: _addressLine1Controller,
+                label: 'Address Line 1',
+                hint: 'House, building, street',
+                icon: Icons.location_on_outlined,
               ),
 
               const SizedBox(height: 12),
 
               AddressScreenWidgets.field(
-                controller:
-                    _areaController,
+                controller: _addressLine2Controller,
+                label: 'Address Line 2',
+                hint: 'Landmark, floor, etc. (optional)',
+                icon: Icons.signpost_outlined,
+                required: false,
+              ),
+
+              const SizedBox(height: 12),
+
+              AddressScreenWidgets.field(
+                controller: _areaController,
                 label: 'Area',
-                hint: 'Enter area',
-                icon:
-                    Icons.place_outlined,
+                hint: 'Enter your area',
+                icon: Icons.map_outlined,
               ),
 
               const SizedBox(height: 12),
 
               AddressScreenWidgets.field(
-                controller:
-                    _cityController,
+                controller: _cityController,
                 label: 'City',
                 hint: 'Enter city',
-                icon:
-                    Icons.location_city_outlined,
+                icon: Icons.location_city_outlined,
               ),
 
               const SizedBox(height: 12),
 
               AddressScreenWidgets.field(
-                controller:
-                    _stateController,
+                controller: _stateController,
                 label: 'State',
                 hint: 'Enter state',
-                icon:
-                    Icons.map_outlined,
+                icon: Icons.public_outlined,
               ),
 
               const SizedBox(height: 12),
 
               AddressScreenWidgets.field(
-                controller:
-                    _pinCodeController,
+                controller: _pinCodeController,
                 label: 'PIN Code',
-                hint: 'Enter PIN code',
-                icon:
-                    Icons.pin_drop_outlined,
-                keyboardType:
-                    TextInputType.number,
+                hint: 'Enter 6-digit PIN code',
+                icon: Icons.pin_drop_outlined,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
               ),
-
-              const SizedBox(height: 20),
-
-              // ==================================================
-              // CHOOSE PICKUP LOCATION
-              // ==================================================
-
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.all(14),
-                decoration:
-                    BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius:
-                      BorderRadius.circular(16),
-                  border:
-                      Border.all(
-                    color: AppColors.border,
-                    width: 0.7,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration:
-                              BoxDecoration(
-                            color: AppColors
-                                .primary
-                                .withValues(
-                              alpha: 0.10,
-                            ),
-                            shape:
-                                BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons
-                                .location_on_outlined,
-                            color:
-                                AppColors.primary,
-                            size: 21,
-                          ),
-                        ),
-                        const SizedBox(
-                          width: 11,
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .start,
-                            children: [
-                              Text(
-                                'Choose Pickup Location on Map',
-                                style:
-                                    TextStyle(
-                                  color:
-                                      AppColors.navy,
-                                  fontSize:
-                                      14,
-                                  fontWeight:
-                                      FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 3,
-                              ),
-                              Text(
-                                _selectedLatitude !=
-                                            null &&
-                                        _selectedLongitude !=
-                                            null
-                                    ? 'Current Location: Location selected'
-                                    : 'Current Location: Not selected',
-                                style:
-                                    TextStyle(
-                                  color:
-                                      AppColors.slate,
-                                  fontSize:
-                                      11,
-                                  fontWeight:
-                                      FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 13),
-
-                    SizedBox(
-                      width:
-                          double.infinity,
-                      height: 50,
-                      child:
-                          OutlinedButton.icon(
-                        onPressed:
-                            _saving
-                                ? null
-                                : _openLocationPicker,
-                        icon:
-                            const Icon(
-                          Icons
-                              .location_on_outlined,
-                          size: 20,
-                        ),
-                        label:
-                            const Text(
-                          'Choose Pickup Location on Map',
-                          style:
-                              TextStyle(
-                            fontSize: 13,
-                            fontWeight:
-                                FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    if (_selectedLatitude !=
-                            null &&
-                        _selectedLongitude !=
-                            null) ...[
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons
-                                .check_circle_rounded,
-                            color:
-                                AppColors.primary,
-                            size: 17,
-                          ),
-                          const SizedBox(
-                            width: 6,
-                          ),
-                          Expanded(
-                            child: Text(
-                              'Selected pickup location is ready to save',
-                              style:
-                                  TextStyle(
-                                color:
-                                    AppColors.slate,
-                                fontSize:
-                                    11,
-                                fontWeight:
-                                    FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // ==================================================
-              // SAVED ADDRESSES
-              // ==================================================
 
               if (_savedAddresses.isNotEmpty) ...[
+                const SizedBox(height: 28),
+
                 AddressScreenWidgets.sectionTitle(
-                  'Saved Addresses',
-                  'Select or manage your saved address',
-                ),
-
-                const SizedBox(height: 14),
-
-                ...List.generate(
-                  _savedAddresses.length,
-                  (int index) {
-                    final Map<String, dynamic>
-                        address =
-                        _savedAddresses[index];
-
-                    return Padding(
-                      padding:
-                          const EdgeInsets.only(
-                        bottom: 12,
-                      ),
-                      child:
-                          AddressScreenWidgets
-                              .savedAddressCard(
-                        index: index,
-                        address: address,
-                        onSelect: () {
-                          _selectAddress(
-                            address,
-                          );
-                        },
-                        onEdit: () {
-                          _editAddress(index);
-                        },
-                        onDelete: () {
-                          _deleteAddress(index);
-                        },
-                      ),
-                    );
-                  },
+                  'Saved Address',
                 ),
 
                 const SizedBox(height: 12),
+
+                ..._savedAddresses.map(
+                  (address) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: AddressScreenWidgets.savedAddressCard(
+                      address: address,
+                      onSelect: () => _selectAddress(address),
+                      onEdit: _editAddress,
+                      onDelete: _deleteAddress,
+                    ),
+                  ),
+                ),
               ],
 
-              // ==================================================
-              // SAVE
-              // ==================================================
+              const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed:
-                      _saving
-                          ? null
-                          : _saveAddress,
+                  onPressed: _saving ? null : _saveAddress,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        AppColors.primary.withOpacity(0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                   child: _saving
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child:
-                              CircularProgressIndicator(
-                            strokeWidth: 2.2,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
                             color: Colors.white,
                           ),
                         )
                       : const Text(
                           'Save Address',
-                          style:
-                              TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                FontWeight.w900,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                 ),
