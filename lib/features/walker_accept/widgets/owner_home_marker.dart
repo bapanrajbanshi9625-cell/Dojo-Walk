@@ -3,65 +3,43 @@ import 'package:flutter/material.dart';
 class OwnerHomeMarker extends StatelessWidget {
   const OwnerHomeMarker({
     super.key,
-    this.size = 52,
+    this.size = 42,
   });
 
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
 
     return SizedBox(
-      width: size + 14,
-      height: size + 14,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // ====================================================
-          // LOCATION SHADOW / PULSE
-          // ====================================================
-
-          Container(
-            width: size + 10,
-            height: size + 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.primary.withValues(
-                alpha: 0.12,
-              ),
-            ),
+      width: size,
+      height: size,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: colors.primary,
+          border: Border.all(
+            color: Colors.white,
+            width: 2.5,
           ),
-
-          // ====================================================
-          // HOME CIRCLE
-          // ====================================================
-
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.primary,
-              border: Border.all(
-                color: Colors.white,
-                width: 3,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                  offset: Offset(0, 3),
-                ),
-              ],
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 7,
+              spreadRadius: 0,
+              offset: Offset(0, 2),
+              color: Color(0x33000000),
             ),
-            child: Icon(
-              Icons.home_rounded,
-              size: size * 0.52,
-              color: colorScheme.onPrimary,
-            ),
-          ),
-        ],
+          ],
+        ),
+        child: Icon(
+          Icons.home_rounded,
+          size: size * 0.50,
+          color: colors.onPrimary,
+        ),
       ),
     );
   }
