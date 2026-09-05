@@ -187,7 +187,7 @@ class _WalkerAcceptScreenState
       'walkId = $walkId',
     );
 
-    await Navigator.of(context).pushReplacement<dynamic>(
+    await Navigator.of(context).pushReplacement<dynamic, dynamic>(
       MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
@@ -449,6 +449,18 @@ class _WalkerAcceptScreenState
         _data?.walkerPhone?.trim() ?? '';
 
     if (phone.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Walker phone number is not available',
+          ),
+        ),
+      );
+
       return;
     }
 
@@ -464,14 +476,30 @@ class _WalkerAcceptScreenState
         mode: LaunchMode.externalApplication,
       );
 
-      if (!launched) {
-        debugPrint(
-          'WalkerAcceptScreen → unable to open phone dialer.',
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to open phone dialer',
+            ),
+          ),
         );
       }
     } catch (error) {
       debugPrint(
         'WalkerAcceptScreen call error: $error',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to open phone dialer',
+          ),
+        ),
       );
     }
   }
@@ -1184,37 +1212,42 @@ class _WalkerAcceptScreenState
           size: 21,
         ),
         const SizedBox(width: 8),
-        Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color:
-                    Color(0xFF8A8A8A),
-                fontSize: 10,
-                fontWeight:
-                    FontWeight.w600,
+        Flexible(
+          child: Column(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow:
+                    TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color:
+                      Color(0xFF8A8A8A),
+                  fontSize: 10,
+                  fontWeight:
+                      FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              maxLines: 1,
-              overflow:
-                  TextOverflow.ellipsis,
-              style:
-                  const TextStyle(
-                color: _navy,
-                fontSize: 15,
-                fontWeight:
-                    FontWeight.w800,
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow:
+                    TextOverflow.ellipsis,
+                style:
+                    const TextStyle(
+                  color: _navy,
+                  fontSize: 15,
+                  fontWeight:
+                      FontWeight.w800,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1226,7 +1259,9 @@ class _WalkerAcceptScreenState
 
   Widget _buildCallButton() {
     final bool hasPhone =
-        _data?.walkerPhone?.trim().isNotEmpty ??
+        _data?.walkerPhone
+                ?.trim()
+                .isNotEmpty ??
             false;
 
     return Material(
