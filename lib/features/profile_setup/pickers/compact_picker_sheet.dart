@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
-
 class CompactPickerSheet extends StatelessWidget {
   final String title;
   final IconData icon;
