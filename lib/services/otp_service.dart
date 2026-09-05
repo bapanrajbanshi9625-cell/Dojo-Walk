@@ -4,16 +4,16 @@ import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 /// OTP SERVICE
 /// ============================================================
 ///
-/// जिम्मेदारी:
-/// - MSG91 OTP verify करना
-/// - MSG91 OTP verification token निकालना
-/// - MSG91 OTP resend करना
+/// Responsibility:
+/// - Verify OTP with MSG91
+/// - Extract MSG91 access token
+/// - Resend OTP
 ///
-/// यह service:
-/// - Firebase Auth को सीधे handle नहीं करती
-/// - Owner ID नहीं बनाती
-/// - Owner profile नहीं पढ़ती
-/// - Navigation नहीं करती
+/// This service does NOT:
+/// - Handle Firebase Auth
+/// - Create Owner ID
+/// - Read Owner profile
+/// - Navigate screens
 ///
 /// Flow:
 ///
@@ -23,33 +23,38 @@ import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 ///        ↓
 /// MSG91
 ///        ↓
-/// verification result / access token
+/// Verification result + access token
 ///
 /// ============================================================
 
 class OtpService {
   OtpService._();
 
-  static final OtpService instance = OtpService._();
+  static final OtpService instance =
+      OtpService._();
 
   // ============================================================
   // VERIFY OTP
   // ============================================================
 
-  /// Verifies the OTP with MSG91.
+  /// Verifies OTP with MSG91.
   ///
   /// Returns:
-  /// - MSG91 access token when one is returned.
-  /// - 'verified' when OTP is successfully verified but
-  ///   no token is returned by the SDK response.
+  /// - Access token when MSG91 provides one.
   ///
-  /// Throws an Exception when verification fails.
+  /// Throws:
+  /// - Exception when OTP verification fails.
+  /// - Exception when OTP is verified but no access token
+  ///   is returned by the SDK response.
   Future<String> verifyOtp({
     required String reqId,
     required String otp,
   }) async {
-    final String cleanReqId = reqId.trim();
-    final String cleanOtp = otp.trim();
+    final String cleanReqId =
+        reqId.trim();
+
+    final String cleanOtp =
+        otp.trim();
 
     // ----------------------------------------------------------
     // VALIDATE REQUEST ID
@@ -65,49 +70,45 @@ class OtpService {
     // VALIDATE OTP
     // ----------------------------------------------------------
 
-    if (!RegExp(r'^[0-9]{6}$').hasMatch(cleanOtp)) {
+    if (!RegExp(
+      r'^[0-9]{6}$',
+    ).hasMatch(cleanOtp)) {
       throw Exception(
         'Please enter the complete 6-digit OTP.',
       );
     }
 
     // ----------------------------------------------------------
-    // MSG91 VERIFY REQUEST
+    // MSG91 VERIFY
     // ----------------------------------------------------------
 
-    final Map<String, dynamic> request = <String, dynamic>{
+    final Map<String, dynamic> request =
+        <String, dynamic>{
       'reqId': cleanReqId,
       'otp': cleanOtp,
     };
 
     try {
       final dynamic response =
-          await OTPWidget.verifyOTP(request);
+          await OTPWidget.verifyOTP(
+        request,
+      );
 
       // --------------------------------------------------------
       // DEBUG
       // --------------------------------------------------------
       //
-      // IMPORTANT:
-      // Do NOT print the complete response because it may contain
-      // a sensitive MSG91 access token.
+      // Do NOT print complete response.
+      // It may contain a sensitive access token.
       //
 
       print(
-        '==============================================',
-      );
-
-      print(
-        'MSG91 VERIFY OTP RESPONSE TYPE: '
+        'MSG91 VERIFY RESPONSE TYPE: '
         '${response.runtimeType}',
       );
 
-      print(
-        '==============================================',
-      );
-
       // --------------------------------------------------------
-      // RESPONSE MUST BE A MAP
+      // RESPONSE MUST BE MAP
       // --------------------------------------------------------
 
       if (response is! Map) {
@@ -117,25 +118,42 @@ class OtpService {
       }
 
       final Map<String, dynamic> result =
-          Map<String, dynamic>.from(response);
+          Map<String, dynamic>.from(
+        response,
+      );
 
       // --------------------------------------------------------
       // READ STATUS
       // --------------------------------------------------------
 
-      final dynamic success = result['success'];
-      final dynamic verified = result['verified'];
-      final dynamic type = result['type'];
-      final dynamic status = result['status'];
+      final dynamic success =
+          result['success'];
+
+      final dynamic verified =
+          result['verified'];
+
+      final dynamic type =
+          result['type'];
+
+      final dynamic status =
+          result['status'];
 
       final String typeText =
-          type?.toString().trim().toLowerCase() ?? '';
+          type
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
 
       final String statusText =
-          status?.toString().trim().toLowerCase() ?? '';
+          status
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
 
       // --------------------------------------------------------
-      // DETERMINE SUCCESS
+      // DETERMINE OTP SUCCESS
       // --------------------------------------------------------
 
       final bool isVerified =
@@ -147,17 +165,15 @@ class OtpService {
           statusText == 'verified';
 
       if (!isVerified) {
-        final dynamic message =
-            result['message'] ??
-            result['error'] ??
-            result['description'];
-
         final String errorMessage =
-            message?.toString().trim() ?? '';
+            _extractErrorMessage(
+          result,
+        );
 
         if (errorMessage.isNotEmpty) {
           throw Exception(
-            'OTP verification failed: $errorMessage',
+            'OTP verification failed: '
+            '$errorMessage',
           );
         }
 
@@ -173,59 +189,36 @@ class OtpService {
       // --------------------------------------------------------
       // EXTRACT ACCESS TOKEN
       // --------------------------------------------------------
-      //
-      // MSG91 responses/configurations can expose the token using
-      // different naming conventions.
-      //
-      // We check common possibilities.
-      //
 
-      final dynamic tokenValue =
-          result['accessToken'] ??
-          result['access_token'] ??
-          result['access-token'] ??
-          result['token'] ??
-          result['jwt'];
-
-      if (tokenValue != null) {
-        final String token =
-            tokenValue.toString().trim();
-
-        if (token.isNotEmpty) {
-          print(
-            'MSG91 ACCESS TOKEN RECEIVED',
-          );
-
-          // IMPORTANT:
-          // Never print the actual token.
-
-          return token;
-        }
-      }
-
-      // --------------------------------------------------------
-      // TOKEN NOT PRESENT
-      // --------------------------------------------------------
-      //
-      // OTP itself was successfully verified.
-      //
-      // We return a controlled value instead of treating the
-      // verification as failed.
-      //
-
-      print(
-        'MSG91 OTP VERIFIED WITHOUT ACCESS TOKEN',
+      final String? accessToken =
+          _extractAccessToken(
+        result,
       );
 
-      return 'verified';
+      if (accessToken == null ||
+          accessToken.isEmpty) {
+        print(
+          'MSG91 OTP VERIFIED BUT ACCESS TOKEN '
+          'WAS NOT RETURNED.',
+        );
+
+        throw Exception(
+          'OTP verified successfully, but secure access token was not received. Please try again.',
+        );
+      }
+
+      print(
+        'MSG91 ACCESS TOKEN RECEIVED',
+      );
+
+      // IMPORTANT:
+      // Never print the actual token.
+
+      return accessToken;
     } catch (e) {
       print(
         'MSG91 VERIFY OTP ERROR: $e',
       );
-
-      // --------------------------------------------------------
-      // PRESERVE OUR OWN ERRORS
-      // --------------------------------------------------------
 
       if (e is Exception) {
         rethrow;
@@ -238,13 +231,139 @@ class OtpService {
   }
 
   // ============================================================
+  // EXTRACT ACCESS TOKEN
+  // ============================================================
+
+  String? _extractAccessToken(
+    Map<String, dynamic> result,
+  ) {
+    // ----------------------------------------------------------
+    // ROOT LEVEL
+    // ----------------------------------------------------------
+
+    final List<dynamic> possibleTokens =
+        <dynamic>[
+      result['accessToken'],
+      result['access_token'],
+      result['access-token'],
+      result['token'],
+      result['jwt'],
+    ];
+
+    for (final dynamic value
+        in possibleTokens) {
+      if (value == null) {
+        continue;
+      }
+
+      final String token =
+          value.toString().trim();
+
+      if (token.isNotEmpty) {
+        return token;
+      }
+    }
+
+    // ----------------------------------------------------------
+    // DATA LEVEL
+    // ----------------------------------------------------------
+
+    final dynamic data =
+        result['data'];
+
+    if (data is Map) {
+      final List<dynamic> nestedTokens =
+          <dynamic>[
+        data['accessToken'],
+        data['access_token'],
+        data['access-token'],
+        data['token'],
+        data['jwt'],
+      ];
+
+      for (final dynamic value
+          in nestedTokens) {
+        if (value == null) {
+          continue;
+        }
+
+        final String token =
+            value.toString().trim();
+
+        if (token.isNotEmpty) {
+          return token;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // ERROR MESSAGE
+  // ============================================================
+
+  String _extractErrorMessage(
+    Map<String, dynamic> result,
+  ) {
+    final List<dynamic> possibleMessages =
+        <dynamic>[
+      result['message'],
+      result['error'],
+      result['description'],
+      result['msg'],
+    ];
+
+    for (final dynamic value
+        in possibleMessages) {
+      if (value == null) {
+        continue;
+      }
+
+      if (value is Map) {
+        final dynamic nested =
+            value['message'] ??
+                value['error'] ??
+                value['description'];
+
+        if (nested != null) {
+          final String nestedText =
+              nested.toString().trim();
+
+          if (nestedText.isNotEmpty) {
+            return nestedText;
+          }
+        }
+
+        continue;
+      }
+
+      final String text =
+          value.toString().trim();
+
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return '';
+  }
+
+  // ============================================================
   // RESEND OTP
   // ============================================================
 
+  /// Resends OTP using the current MSG91 request ID.
+  ///
+  /// Returns:
+  /// - New request ID when MSG91 returns one.
+  /// - null when MSG91 successfully resends but does not
+  ///   provide a new request ID.
   Future<String?> resendOtp({
     required String reqId,
   }) async {
-    final String cleanReqId = reqId.trim();
+    final String cleanReqId =
+        reqId.trim();
 
     // ----------------------------------------------------------
     // VALIDATE REQUEST ID
@@ -257,92 +376,117 @@ class OtpService {
     }
 
     try {
-      // --------------------------------------------------------
-      // MSG91 RETRY REQUEST
-      // --------------------------------------------------------
-
       final Map<String, dynamic> request =
           <String, dynamic>{
         'reqId': cleanReqId,
       };
 
       final dynamic response =
-          await OTPWidget.retryOTP(request);
-
-      // --------------------------------------------------------
-      // DEBUG
-      // --------------------------------------------------------
-
-      print(
-        '==============================================',
+          await OTPWidget.retryOTP(
+        request,
       );
 
       print(
-        'MSG91 RETRY OTP RESPONSE TYPE: '
+        'MSG91 RETRY RESPONSE TYPE: '
         '${response.runtimeType}',
       );
 
-      print(
-        '==============================================',
+      // --------------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------------
+
+      if (response is! Map) {
+        throw Exception(
+          'OTP resend failed. Please try again.',
+        );
+      }
+
+      final Map<String, dynamic> result =
+          Map<String, dynamic>.from(
+        response,
       );
 
       // --------------------------------------------------------
-      // RESPONSE MAP
+      // CHECK RETRY STATUS
       // --------------------------------------------------------
 
-      if (response is Map) {
-        final Map<String, dynamic> result =
-            Map<String, dynamic>.from(response);
+      final dynamic type =
+          result['type'];
 
-        // ------------------------------------------------------
-        // NEW REQUEST ID
-        // ------------------------------------------------------
+      final dynamic success =
+          result['success'];
 
-        final dynamic value =
-            result['reqId'] ??
-            result['req_id'] ??
-            result['requestId'] ??
-            result['request_id'];
+      final dynamic status =
+          result['status'];
 
-        if (value != null) {
-          final String newReqId =
-              value.toString().trim();
+      final String typeText =
+          type
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
 
-          if (newReqId.isNotEmpty) {
-            print(
-              'MSG91 NEW REQUEST ID RECEIVED',
-            );
+      final String statusText =
+          status
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
 
-            return newReqId;
-          }
-        }
+      final bool retrySuccess =
+          success == true ||
+          typeText == 'success' ||
+          statusText == 'success';
 
-        // ------------------------------------------------------
-        // RETRY ERROR
-        // ------------------------------------------------------
-
-        final dynamic message =
-            result['message'] ??
-            result['error'] ??
-            result['description'];
-
+      if (!retrySuccess) {
         final String errorMessage =
-            message?.toString().trim() ?? '';
+            _extractErrorMessage(
+          result,
+        );
 
         if (errorMessage.isNotEmpty) {
           throw Exception(
-            'Could not resend OTP: $errorMessage',
+            'Could not resend OTP: '
+            '$errorMessage',
           );
         }
+
+        throw Exception(
+          'OTP resend failed. Please try again.',
+        );
       }
 
       // --------------------------------------------------------
-      // NO REQUEST ID
+      // NEW REQUEST ID
       // --------------------------------------------------------
 
-      throw Exception(
-        'OTP resend failed. Please try again.',
+      final dynamic newReqIdValue =
+          result['reqId'] ??
+              result['req_id'] ??
+              result['requestId'] ??
+              result['request_id'] ??
+              result['requestID'];
+
+      if (newReqIdValue != null) {
+        final String newReqId =
+            newReqIdValue
+                .toString()
+                .trim();
+
+        if (newReqId.isNotEmpty) {
+          print(
+            'MSG91 NEW REQUEST ID RECEIVED',
+          );
+
+          return newReqId;
+        }
+      }
+
+      print(
+        'MSG91 OTP RESENT SUCCESSFULLY',
       );
+
+      return null;
     } catch (e) {
       print(
         'MSG91 RETRY OTP ERROR: $e',
