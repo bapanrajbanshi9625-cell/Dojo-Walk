@@ -50,6 +50,15 @@ class _WalkerAcceptScreenState
   static const double _routeRefreshDistanceMeters =
       50.0;
 
+  static const Color _primaryOrange =
+      Color(0xFFD95F00);
+
+  static const Color _navy =
+      Color(0xFF19324A);
+
+  static const Color _pageBackground =
+      Color(0xFFF5F6F8);
+
   final Distance _distance = const Distance();
 
   @override
@@ -88,15 +97,12 @@ class _WalkerAcceptScreenState
           return;
         }
 
-        // Update UI immediately.
         setState(() {
           _data = data;
         });
 
-        // Reached always gets priority.
         _checkReached(data);
 
-        // Route is only required before walker reaches owner.
         if (!data.isReached) {
           _refreshRoute(data);
         }
@@ -147,46 +153,6 @@ class _WalkerAcceptScreenState
   // ==========================================================
   // OPEN LIVE WALK
   // ==========================================================
-  //
-  // IMPORTANT:
-  //
-  // pushReplacement is intentionally used here.
-  //
-  // BEFORE:
-  //
-  // InstaWalk
-  //     ↓
-  // Accept
-  //     ↓
-  // Live
-  //
-  // Back from Live:
-  //     ↓
-  // Accept  ❌
-  //
-  //
-  // NOW:
-  //
-  // InstaWalk
-  //     ↓
-  // Accept
-  //     ↓
-  // Live
-  //
-  // pushReplacement removes Accept:
-  //
-  // InstaWalk
-  //     ↓
-  // Live
-  //
-  // Back from Live:
-  //     ↓
-  // InstaWalk  ✅
-  //
-  // When LiveWalk completes and returns true,
-  // LiveWalkScreen returns directly to the screen
-  // which originally opened AcceptScreen.
-  //
 
   Future<void> _openLiveWalk(
     String requestId,
@@ -197,7 +163,6 @@ class _WalkerAcceptScreenState
 
     _liveWalkOpening = true;
 
-    // Stop listening to the Accept request.
     await _requestSubscription?.cancel();
 
     _requestSubscription = null;
@@ -222,10 +187,6 @@ class _WalkerAcceptScreenState
       'walkId = $walkId',
     );
 
-    //
-    // IMPORTANT:
-    // AcceptScreen is removed from navigation stack.
-    //
     await Navigator.of(context).pushReplacement<
         dynamic,
         dynamic>(
@@ -238,16 +199,6 @@ class _WalkerAcceptScreenState
         },
       ),
     );
-
-    //
-    // Normally this State will no longer be mounted
-    // because AcceptScreen was replaced.
-    //
-    // This is intentionally left empty.
-    //
-    // LiveWalkScreen handles its own completion and
-    // returns the result directly to the previous route.
-    //
 
     if (!mounted) {
       return;
@@ -280,7 +231,6 @@ class _WalkerAcceptScreenState
       return;
     }
 
-    // Prevent duplicate OSRM requests.
     if (_loadingRoute) {
       return;
     }
@@ -288,7 +238,6 @@ class _WalkerAcceptScreenState
     final LatLng? previous =
         _lastRouteWalkerLocation;
 
-    // First valid location loads the route.
     if (previous != null) {
       final double movedMeters =
           _distance.as(
@@ -297,7 +246,6 @@ class _WalkerAcceptScreenState
         walkerLocation,
       );
 
-      // Less than 50m movement = keep current route.
       if (movedMeters <
           _routeRefreshDistanceMeters) {
         return;
@@ -317,65 +265,60 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   Future<void> _loadRoute({
-  required LatLng walkerLocation,
-  required LatLng ownerLocation,
-}) async {
-  if (_loadingRoute) {
-    return;
-  }
-
-  if (!mounted) {
-    return;
-  }
-
-  setState(() {
-    _loadingRoute = true;
-  });
-
-  try {
-    final WalkerRouteResult? result =
-        await _routeService.getRoute(
-      walkerLocation: walkerLocation,
-      ownerLocation: ownerLocation,
-    );
-
-    if (!mounted) {
+    required LatLng walkerLocation,
+    required LatLng ownerLocation,
+  }) async {
+    if (_loadingRoute) {
       return;
     }
 
-    if (result != null) {
-      setState(() {
-        _route = result;
-
-        // Move checkpoint only after successful
-        // route response.
-        _lastRouteWalkerLocation =
-            walkerLocation;
-      });
-    }
-  } catch (error, stackTrace) {
-    debugPrint(
-      'WalkerAcceptScreen route error: $error',
-    );
-
-    debugPrint(
-      stackTrace.toString(),
-    );
-  } finally {
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _loadingRoute = false;
+      _loadingRoute = true;
     });
 
-    // A newer Firestore location may have arrived
-    // while OSRM was loading.
-    _checkForNewerLocation();
+    try {
+      final WalkerRouteResult? result =
+          await _routeService.getRoute(
+        walkerLocation: walkerLocation,
+        ownerLocation: ownerLocation,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (result != null) {
+        setState(() {
+          _route = result;
+          _lastRouteWalkerLocation =
+              walkerLocation;
+        });
+      }
+    } catch (error, stackTrace) {
+      debugPrint(
+        'WalkerAcceptScreen route error: $error',
+      );
+
+      debugPrint(
+        stackTrace.toString(),
+      );
+    } finally {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadingRoute = false;
+      });
+
+      _checkForNewerLocation();
+    }
   }
-}
-  
+
   // ==========================================================
   // CHECK NEWER LOCATION
   // ==========================================================
@@ -481,7 +424,6 @@ class _WalkerAcceptScreenState
     double latitude,
     double longitude,
   ) {
-    // Firestore default/invalid coordinate.
     if (latitude == 0 &&
         longitude == 0) {
       return false;
@@ -528,15 +470,19 @@ class _WalkerAcceptScreenState
 
     if (data == null) {
       return Scaffold(
-        backgroundColor:
-            const Color(0xFFF5F6F8),
-        appBar: AppBar(
-          title: const Text('Walker'),
-          elevation: 0,
-        ),
-        body: const Center(
-          child:
-              CircularProgressIndicator(),
+        backgroundColor: _pageBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildLoadingHeader(),
+              const Expanded(
+                child: Center(
+                  child:
+                      CircularProgressIndicator(),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -552,8 +498,7 @@ class _WalkerAcceptScreenState
     );
 
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F6F8),
+      backgroundColor: _pageBackground,
       body: SafeArea(
         child: Stack(
           children: [
@@ -577,22 +522,22 @@ class _WalkerAcceptScreenState
                 walkerHeading:
                     data.walkerHeading,
                 onMyLocationPressed: () {
-                  // Map handles live walker marker.
+                  // Existing map callback preserved.
                 },
               ),
             ),
 
             // =================================================
-            // TOP HEADER
+            // NEW ACCEPT SCREEN HEADER
             // =================================================
 
-            _buildTopHeader(data),
+            _buildAcceptHeader(),
 
             // =================================================
-            // BOTTOM PANEL
+            // COMPACT DRAGGABLE BOTTOM SHEET
             // =================================================
 
-            _buildBottomPanel(data),
+            _buildBottomSheet(data),
           ],
         ),
       ),
@@ -600,129 +545,75 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
-  // TOP HEADER
+  // ACCEPT HEADER
   // ==========================================================
 
-  Widget _buildTopHeader(
-    WalkerAcceptData data,
-  ) {
+  Widget _buildAcceptHeader() {
     return Positioned(
       top: 12,
       left: 16,
       right: 16,
-      child: Material(
-        elevation: 5,
-        borderRadius:
-            BorderRadius.circular(18),
-        color: Colors.white,
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 13,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(0xFFFFF1E8),
-                  borderRadius:
-                      BorderRadius.circular(13),
-                ),
-                child: const Icon(
-                  Icons.pets_rounded,
-                  color:
-                      Color(0xFFFF7A00),
-                  size: 23,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your Walker is on the way',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            FontWeight.w600,
-                        color:
-                            Color(0xFF6B7280),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      data.walkerName,
-                      maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
-                        fontSize: 17,
-                        fontWeight:
-                            FontWeight.w800,
-                        color:
-                            Color(0xFF171717),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _buildLiveBadge(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ==========================================================
-  // LIVE BADGE
-  // ==========================================================
-
-  Widget _buildLiveBadge() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            const Color(0xFFEAF8EF),
-        borderRadius:
-            BorderRadius.circular(20),
-      ),
-      child: const Row(
-        mainAxisSize:
-            MainAxisSize.min,
+      child: Row(
         children: [
-          Icon(
-            Icons.circle,
-            size: 8,
-            color:
-                Color(0xFF1FA463),
+          // BACK
+          _buildHeaderCircleButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: () {
+              Navigator.of(context).maybePop();
+            },
           ),
-          SizedBox(width: 5),
-          Text(
-            'LIVE',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight:
-                  FontWeight.w800,
-              color:
-                  Color(0xFF1FA463),
-              letterSpacing: 0.5,
+
+          const SizedBox(width: 10),
+
+          // ACCEPT SCREEN TITLE
+          Expanded(
+            child: Container(
+              height: 52,
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 16,
+              ),
+              decoration:
+                  BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.circular(17),
+                boxShadow: const [
+                  BoxShadow(
+                    blurRadius: 18,
+                    offset: Offset(0, 5),
+                    color: Colors.black12,
+                  ),
+                ],
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.pets_rounded,
+                    color: _primaryOrange,
+                    size: 23,
+                  ),
+                  SizedBox(width: 9),
+                  Text(
+                    'Accept Screen',
+                    style: TextStyle(
+                      color: _navy,
+                      fontSize: 18,
+                      fontWeight:
+                          FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ),
+
+          const SizedBox(width: 10),
+
+          // HELP
+          _buildHeaderCircleButton(
+            icon: Icons.help_outline_rounded,
+            onTap: widget.onHelp,
           ),
         ],
       ),
@@ -730,102 +621,223 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
-  // BOTTOM PANEL
+  // HEADER BUTTON
   // ==========================================================
 
-  Widget _buildBottomPanel(
+  Widget _buildHeaderCircleButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      elevation: 5,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 50,
+          height: 50,
+          child: Icon(
+            icon,
+            color: _navy,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // LOADING HEADER
+  // ==========================================================
+
+  Widget _buildLoadingHeader() {
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        0,
+      ),
+      child: Row(
+        children: [
+          _buildHeaderCircleButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: () {
+              Navigator.of(context).maybePop();
+            },
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 52,
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 16,
+              ),
+              decoration:
+                  BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.circular(17),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.pets_rounded,
+                    color: _primaryOrange,
+                    size: 23,
+                  ),
+                  SizedBox(width: 9),
+                  Text(
+                    'Accept Screen',
+                    style: TextStyle(
+                      color: _navy,
+                      fontSize: 18,
+                      fontWeight:
+                          FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _buildHeaderCircleButton(
+            icon: Icons.help_outline_rounded,
+            onTap: widget.onHelp,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================
+  // DRAGGABLE BOTTOM SHEET
+  // ==========================================================
+
+  Widget _buildBottomSheet(
     WalkerAcceptData data,
   ) {
-    final String walkerPhone =
-        data.walkerPhone?.trim() ?? '';
+    return DraggableScrollableSheet(
+      initialChildSize: 0.27,
+      minChildSize: 0.27,
 
-    final bool hasDistance =
-        data.distanceMeters > 0 ||
-        data.distanceKm > 0;
+      // The sheet opens only to the required
+      // content area, not almost the whole screen.
+      maxChildSize: 0.61,
 
-    final bool hasEta =
-        data.etaMinutes > 0;
+      snap: true,
+      snapSizes: const [
+        0.27,
+        0.61,
+      ],
 
-    return Positioned(
-      left: 12,
-      right: 12,
-      bottom: 12,
-      child: Material(
-        elevation: 8,
-        borderRadius:
-            BorderRadius.circular(24),
-        color: Colors.white,
-        child: Padding(
-          padding:
-              const EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            14,
+      expand: true,
+
+      builder: (
+        BuildContext context,
+        ScrollController controller,
+      ) {
+        return Material(
+          elevation: 10,
+          color: Colors.white,
+          borderRadius:
+              const BorderRadius.vertical(
+            top: Radius.circular(30),
           ),
-          child: Column(
-            mainAxisSize:
-                MainAxisSize.min,
+          clipBehavior:
+              Clip.antiAlias,
+          child: ListView(
+            controller: controller,
+            padding:
+                const EdgeInsets.fromLTRB(
+              18,
+              9,
+              18,
+              18,
+            ),
             children: [
+              // HANDLE
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 5,
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        const Color(0xFFD2D2D2),
+                    borderRadius:
+                        BorderRadius.circular(
+                      20,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              // =================================================
+              // WALKER
+              // =================================================
+
               Row(
                 children: [
                   _buildWalkerAvatar(data),
-                  const SizedBox(width: 12),
+
+                  const SizedBox(width: 13),
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
                       children: [
                         Text(
                           data.walkerName,
                           maxLines: 1,
                           overflow:
-                              TextOverflow.ellipsis,
+                              TextOverflow
+                                  .ellipsis,
                           style:
                               const TextStyle(
-                            fontSize: 17,
+                            color: _navy,
+                            fontSize: 19,
                             fontWeight:
                                 FontWeight.w800,
-                            color:
-                                Color(0xFF171717),
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        const Row(
                           children: [
                             Icon(
-                              walkerPhone
-                                      .isNotEmpty
-                                  ? Icons
-                                      .phone_rounded
-                                  : Icons
-                                      .location_on_rounded,
-                              size: 14,
+                              Icons
+                                  .location_on_outlined,
+                              size: 16,
                               color:
-                                  const Color(
-                                0xFF7A7A7A,
+                                  Color(
+                                0xFF777777,
                               ),
                             ),
-                            const SizedBox(
-                              width: 5,
-                            ),
+                            SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                walkerPhone
-                                        .isNotEmpty
-                                    ? walkerPhone
-                                    : 'Walker is approaching',
+                                'Walker is approaching',
                                 maxLines: 1,
                                 overflow:
                                     TextOverflow
                                         .ellipsis,
                                 style:
-                                    const TextStyle(
-                                  fontSize: 12,
+                                    TextStyle(
                                   color:
                                       Color(
                                     0xFF777777,
                                   ),
+                                  fontSize: 12,
+                                  fontWeight:
+                                      FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -834,50 +846,98 @@ class _WalkerAcceptScreenState
                       ],
                     ),
                   ),
-                  _buildCallButton(),
+
+                  _buildLiveBadge(),
                 ],
               ),
+
               const SizedBox(height: 16),
-              _buildTravelInfo(
-                data: data,
-                hasDistance:
-                    hasDistance,
-                hasEta: hasEta,
-              ),
+
+              // =================================================
+              // DISTANCE + ETA
+              // =================================================
+
+              _buildTravelInfo(data),
+
               if (_loadingRoute) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 9),
                 _buildRouteUpdating(),
               ],
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 13),
+
+              // =================================================
+              // APPROACHING STATUS
+              // =================================================
+
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 12,
+                ),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      const Color(0xFFFFF3E9),
+                  borderRadius:
+                      BorderRadius.circular(
+                    16,
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons
+                          .directions_walk_rounded,
+                      color: _primaryOrange,
+                      size: 22,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Walker is on the way',
+                        style: TextStyle(
+                          color: _navy,
+                          fontSize: 13,
+                          fontWeight:
+                              FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 13),
+
+              // =================================================
+              // CALL + CHAT
+              // =================================================
+
               Row(
                 children: [
                   Expanded(
-                    child:
-                        _buildActionButton(
-                      icon: Icons
-                          .chat_bubble_outline_rounded,
-                      label: 'Chat',
-                      onTap:
-                          widget.onChat,
-                    ),
+                    child: _buildCallButton(),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child:
-                        _buildActionButton(
-                      icon: Icons
-                          .help_outline_rounded,
-                      label: 'Help',
-                      onTap:
-                          widget.onHelp,
-                    ),
+                    child: _buildChatButton(),
                   ),
                 ],
               ),
+
+              const SizedBox(height: 10),
+
+              // =================================================
+              // VOICE INTERACTION
+              // =================================================
+
+              _buildVoiceInteractionButton(),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -894,14 +954,14 @@ class _WalkerAcceptScreenState
             '';
 
     return Container(
-      width: 58,
-      height: 58,
+      width: 56,
+      height: 56,
       decoration:
           BoxDecoration(
         color:
-            const Color(0xFFF0F1F3),
+            const Color(0xFFFFEEE2),
         borderRadius:
-            BorderRadius.circular(18),
+            BorderRadius.circular(17),
       ),
       clipBehavior:
           Clip.antiAlias,
@@ -916,70 +976,85 @@ class _WalkerAcceptScreenState
               ) {
                 return const Icon(
                   Icons.person_rounded,
+                  color: _primaryOrange,
                   size: 30,
-                  color:
-                      Color(0xFF858585),
                 );
               },
             )
           : const Icon(
               Icons.person_rounded,
+              color: _primaryOrange,
               size: 30,
-              color:
-                  Color(0xFF858585),
             ),
     );
   }
 
   // ==========================================================
-  // CALL BUTTON
+  // LIVE BADGE
   // ==========================================================
 
-  Widget _buildCallButton() {
-    return Material(
-      color:
-          const Color(0xFFFF7A00),
-      borderRadius:
-          BorderRadius.circular(14),
-      child: InkWell(
-        onTap: widget.onCall,
+  Widget _buildLiveBadge() {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(0xFFE9F7EF),
         borderRadius:
-            BorderRadius.circular(14),
-        child: const SizedBox(
-          width: 46,
-          height: 46,
-          child: Icon(
-            Icons.call_rounded,
-            color: Colors.white,
-            size: 21,
+            BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize:
+            MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.circle,
+            size: 8,
+            color:
+                Color(0xFF21A464),
           ),
-        ),
+          SizedBox(width: 5),
+          Text(
+            'LIVE',
+            style: TextStyle(
+              color:
+                  Color(0xFF21A464),
+              fontSize: 10,
+              fontWeight:
+                  FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // ==========================================================
-  // TRAVEL INFO
+  // DISTANCE + ETA
   // ==========================================================
 
-  Widget _buildTravelInfo({
-    required WalkerAcceptData data,
-    required bool hasDistance,
-    required bool hasEta,
-  }) {
+  Widget _buildTravelInfo(
+    WalkerAcceptData data,
+  ) {
+    final bool hasDistance =
+        data.distanceMeters > 0 ||
+        data.distanceKm > 0;
+
+    final bool hasEta =
+        data.etaMinutes > 0;
+
     return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 12,
-      ),
+      height: 86,
       decoration:
           BoxDecoration(
         color:
             const Color(0xFFF7F7F8),
         borderRadius:
-            BorderRadius.circular(16),
+            BorderRadius.circular(18),
       ),
       child: Row(
         children: [
@@ -1000,14 +1075,14 @@ class _WalkerAcceptScreenState
           ),
           Container(
             width: 1,
-            height: 34,
+            height: 45,
             color:
-                const Color(0xFFE1E1E1),
+                const Color(0xFFE0E0E0),
           ),
           Expanded(
             child: _buildInfoItem(
               icon:
-                  Icons.schedule_rounded,
+                  Icons.access_time_rounded,
               label: 'ETA',
               value: hasEta
                   ? data.etaLabel
@@ -1034,21 +1109,22 @@ class _WalkerAcceptScreenState
       children: [
         Icon(
           icon,
-          size: 20,
-          color:
-              const Color(0xFFFF7A00),
+          color: _primaryOrange,
+          size: 21,
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 8),
         Column(
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
             Text(
               label,
               style: const TextStyle(
-                fontSize: 10,
                 color:
                     Color(0xFF8A8A8A),
+                fontSize: 10,
                 fontWeight:
                     FontWeight.w600,
               ),
@@ -1056,11 +1132,13 @@ class _WalkerAcceptScreenState
             const SizedBox(height: 2),
             Text(
               value,
+              maxLines: 1,
+              overflow:
+                  TextOverflow.ellipsis,
               style:
                   const TextStyle(
-                fontSize: 14,
-                color:
-                    Color(0xFF202020),
+                color: _navy,
+                fontSize: 15,
                 fontWeight:
                     FontWeight.w800,
               ),
@@ -1068,6 +1146,162 @@ class _WalkerAcceptScreenState
           ],
         ),
       ],
+    );
+  }
+
+  // ==========================================================
+  // CALL
+  // ==========================================================
+
+  Widget _buildCallButton() {
+    return Material(
+      color:
+          _primaryOrange,
+      borderRadius:
+          BorderRadius.circular(15),
+      child: InkWell(
+        onTap: widget.onCall,
+        borderRadius:
+            BorderRadius.circular(15),
+        child: const SizedBox(
+          height: 52,
+          child: Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.call_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Call',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight:
+                      FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // CHAT
+  // ==========================================================
+
+  Widget _buildChatButton() {
+    return Material(
+      color:
+          const Color(0xFFF1F2F4),
+      borderRadius:
+          BorderRadius.circular(15),
+      child: InkWell(
+        onTap: widget.onChat,
+        borderRadius:
+            BorderRadius.circular(15),
+        child: const SizedBox(
+          height: 52,
+          child: Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons
+                    .chat_bubble_outline_rounded,
+                color: _navy,
+                size: 20,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Chat',
+                style: TextStyle(
+                  color: _navy,
+                  fontSize: 14,
+                  fontWeight:
+                      FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // VOICE INTERACTION
+  // ==========================================================
+
+  Widget _buildVoiceInteractionButton() {
+    return Material(
+      color:
+          const Color(0xFFFFF7F1),
+      borderRadius:
+          BorderRadius.circular(15),
+      child: InkWell(
+        onTap: () {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Voice Interaction is coming soon.',
+              ),
+            ),
+          );
+        },
+        borderRadius:
+            BorderRadius.circular(15),
+        child: Container(
+          height: 52,
+          decoration:
+              BoxDecoration(
+            border: Border.all(
+              color:
+                  const Color(0xFFF0D4BF),
+            ),
+            borderRadius:
+                BorderRadius.circular(15),
+          ),
+          child: const Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.mic_none_rounded,
+                color: _primaryOrange,
+                size: 21,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Voice Interaction',
+                style: TextStyle(
+                  color: _navy,
+                  fontSize: 14,
+                  fontWeight:
+                      FontWeight.w800,
+                ),
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Soon',
+                style: TextStyle(
+                  color:
+                      Color(0xFF999999),
+                  fontSize: 11,
+                  fontWeight:
+                      FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1081,15 +1315,15 @@ class _WalkerAcceptScreenState
           MainAxisAlignment.center,
       children: [
         const SizedBox(
-          width: 12,
-          height: 12,
+          width: 11,
+          height: 11,
           child:
               CircularProgressIndicator(
-            strokeWidth: 1.8,
+            strokeWidth: 1.7,
             valueColor:
                 AlwaysStoppedAnimation<
                     Color>(
-              Color(0xFFFF7A00),
+              _primaryOrange,
             ),
           ),
         ),
@@ -1097,63 +1331,14 @@ class _WalkerAcceptScreenState
         Text(
           'Updating route...',
           style: TextStyle(
-            fontSize: 11,
-            fontWeight:
-                FontWeight.w600,
             color:
                 Colors.grey.shade600,
+            fontSize: 10,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ],
-    );
-  }
-
-  // ==========================================================
-  // CHAT / HELP BUTTON
-  // ==========================================================
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onTap,
-  }) {
-    return Material(
-      color:
-          const Color(0xFFF3F4F6),
-      borderRadius:
-          BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(14),
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color:
-                    const Color(0xFF333333),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style:
-                    const TextStyle(
-                  fontSize: 13,
-                  fontWeight:
-                      FontWeight.w700,
-                  color:
-                      Color(0xFF333333),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
