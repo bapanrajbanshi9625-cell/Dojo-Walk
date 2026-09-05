@@ -33,7 +33,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   void didUpdateWidget(covariant LiveWalkMap oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final LatLng? current = widget.walkerLocation;
+    final current = widget.walkerLocation;
 
     if (current != null &&
         oldWidget.walkerLocation != current &&
@@ -43,154 +43,114 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
 
-        _mapController.move(current, 17);
+        _mapController.move(
+          current,
+          17,
+        );
       });
     }
   }
 
   void _recenterMap() {
-    final LatLng? location = widget.walkerLocation;
+    final location = widget.walkerLocation;
 
     if (location == null) {
       widget.onRecenter();
       return;
     }
 
-    _mapController.move(location, 17);
+    _mapController.move(
+      location,
+      17,
+    );
+  }
+
+  List<LatLng> _buildRoute() {
+    final route = List<LatLng>.from(widget.routePoints);
+    final walker = widget.walkerLocation;
+
+    if (walker == null) {
+      return route;
+    }
+
+    if (route.isEmpty) {
+      if (widget.destination != null) {
+        return [
+          widget.destination!,
+          walker,
+        ];
+      }
+
+      return [walker];
+    }
+
+    final last = route.last;
+
+    if (last.latitude != walker.latitude ||
+        last.longitude != walker.longitude) {
+      route.add(walker);
+    }
+
+    return route;
   }
 
   @override
   Widget build(BuildContext context) {
-    final LatLng center =
-        widget.walkerLocation ??
+    final center = widget.walkerLocation ??
         widget.destination ??
         const LatLng(28.6139, 77.2090);
 
-    return Stack(
-      children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 16,
-            minZoom: 3,
-            maxZoom: 19,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.doojowalker.app',
-            ),
+    final route = _buildRoute();
 
-            if (widget.routePoints.length >= 2)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: widget.routePoints,
-                    strokeWidth: 5,
-                    color: primary,
-                  ),
-                ],
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: 16,
+        minZoom: 3,
+        maxZoom: 19,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.doojowalker.app',
+        ),
+
+        if (route.length >= 2)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: route,
+                strokeWidth: 5,
+                color: primary,
+              ),
+            ],
+          ),
+
+        MarkerLayer(
+          markers: [
+            if (widget.destination != null)
+              Marker(
+                point: widget.destination!,
+                width: 52,
+                height: 58,
+                child: _destinationMarker(),
               ),
 
-            MarkerLayer(
-              markers: [
-                if (widget.destination != null)
-                  Marker(
-                    point: widget.destination!,
-                    width: 54,
-                    height: 64,
-                    child: _destinationMarker(),
-                  ),
-
-                if (widget.walkerLocation != null)
-                  Marker(
-                    point: widget.walkerLocation!,
-                    width: 60,
-                    height: 70,
-                    child: _walkerMarker(),
-                  ),
-              ],
-            ),
+            if (widget.walkerLocation != null)
+              Marker(
+                point: widget.walkerLocation!,
+                width: 52,
+                height: 58,
+                child: _walkerMarker(),
+              ),
           ],
         ),
 
-        Positioned(
-          left: 14,
-          top: 14,
-          child: _statusBadge(),
-        ),
-
-        Positioned(
-          right: 14,
-          top: 14,
-          child: Material(
-            color: Colors.white,
-            elevation: 3,
-            borderRadius: BorderRadius.circular(13),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(13),
-              onTap: _recenterMap,
-              child: const SizedBox(
-                width: 46,
-                height: 46,
-                child: Icon(
-                  Icons.my_location_rounded,
-                  color: primary,
-                  size: 22,
-                ),
-              ),
-            ),
-          ),
-        ),
+        // My Location button is intentionally NOT here.
+        // It is controlled by LiveWalkScreen so it moves
+        // together with the draggable bottom sheet.
       ],
-    );
-  }
-
-  Widget _statusBadge() {
-    final bool hasLocation = widget.walkerLocation != null;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            color: Colors.black.withValues(alpha: 0.13),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: hasLocation ? green : red,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            hasLocation
-                ? 'Live location'
-                : 'Waiting for location',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -199,11 +159,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 46,
-          height: 46,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
             color: primary,
+            shape: BoxShape.circle,
             border: Border.all(
               color: Colors.white,
               width: 3,
@@ -212,14 +172,40 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
               BoxShadow(
                 blurRadius: 10,
                 offset: const Offset(0, 4),
-                color: Colors.black.withValues(alpha: 0.27),
+                color: Colors.black.withValues(alpha: 0.24),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.directions_walk_rounded,
-            color: Colors.white,
-            size: 25,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(
+                Icons.directions_walk_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+              Positioned(
+                right: 4,
+                bottom: 5,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: primary,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.pets_rounded,
+                    color: primary,
+                    size: 10,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const Icon(
@@ -239,8 +225,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
             color: red,
+            shape: BoxShape.circle,
             border: Border.all(
               color: Colors.white,
               width: 3,
@@ -249,7 +235,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
               BoxShadow(
                 blurRadius: 9,
                 offset: const Offset(0, 4),
-                color: Colors.black.withValues(alpha: 0.27),
+                color: Colors.black.withValues(alpha: 0.25),
               ),
             ],
           ),
