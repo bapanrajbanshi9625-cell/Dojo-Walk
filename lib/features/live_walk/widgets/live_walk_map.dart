@@ -26,7 +26,6 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   bool _initialCentered = false;
 
   static const Color primary = Color(0xFFFF8A00);
-  static const Color green = Color(0xFF16A34A);
   static const Color red = Color(0xFFDC2626);
 
   @override
@@ -49,20 +48,6 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         );
       });
     }
-  }
-
-  void _recenterMap() {
-    final location = widget.walkerLocation;
-
-    if (location == null) {
-      widget.onRecenter();
-      return;
-    }
-
-    _mapController.move(
-      location,
-      17,
-    );
   }
 
   List<LatLng> _buildRoute() {
@@ -136,7 +121,6 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
                 height: 58,
                 child: _destinationMarker(),
               ),
-
             if (widget.walkerLocation != null)
               Marker(
                 point: widget.walkerLocation!,
@@ -146,10 +130,6 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
               ),
           ],
         ),
-
-        // My Location button is intentionally NOT here.
-        // It is controlled by LiveWalkScreen so it moves
-        // together with the draggable bottom sheet.
       ],
     );
   }
