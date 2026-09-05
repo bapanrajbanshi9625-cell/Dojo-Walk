@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
 import 'main_navigation_screen.dart';
-import 'profile_setup.dart';
+import '../features/profile_setup/screens/profile_setup_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final String? phoneNumber;
