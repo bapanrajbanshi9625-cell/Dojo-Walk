@@ -141,7 +141,7 @@ class _WalkerAcceptScreenState
     _reachedHandled = true;
 
     debugPrint(
-      '✅ WalkerAcceptScreen → Walker reached owner.',
+      'WalkerAcceptScreen → Walker reached owner.',
     );
 
     widget.onReached?.call(data);
@@ -165,7 +165,6 @@ class _WalkerAcceptScreenState
     _liveWalkOpening = true;
 
     await _requestSubscription?.cancel();
-
     _requestSubscription = null;
 
     if (!mounted) {
@@ -188,9 +187,7 @@ class _WalkerAcceptScreenState
       'walkId = $walkId',
     );
 
-    await Navigator.of(context).pushReplacement<
-        dynamic,
-        dynamic>(
+    await Navigator.of(context).pushReplacement<dynamic>(
       MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
@@ -452,18 +449,6 @@ class _WalkerAcceptScreenState
         _data?.walkerPhone?.trim() ?? '';
 
     if (phone.isEmpty) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Walker phone number is not available',
-          ),
-        ),
-      );
-
       return;
     }
 
@@ -479,30 +464,14 @@ class _WalkerAcceptScreenState
         mode: LaunchMode.externalApplication,
       );
 
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Unable to open phone dialer',
-            ),
-          ),
+      if (!launched) {
+        debugPrint(
+          'WalkerAcceptScreen → unable to open phone dialer.',
         );
       }
     } catch (error) {
       debugPrint(
         'WalkerAcceptScreen call error: $error',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to open phone dialer',
-          ),
-        ),
       );
     }
   }
@@ -626,9 +595,7 @@ class _WalkerAcceptScreenState
               Navigator.of(context).maybePop();
             },
           ),
-
           const SizedBox(width: 10),
-
           Expanded(
             child: Container(
               height: 52,
@@ -670,9 +637,7 @@ class _WalkerAcceptScreenState
               ),
             ),
           ),
-
           const SizedBox(width: 10),
-
           _buildHeaderCircleButton(
             icon: Icons.help_outline_rounded,
             onTap: widget.onHelp,
@@ -731,9 +696,7 @@ class _WalkerAcceptScreenState
               Navigator.of(context).maybePop();
             },
           ),
-
           const SizedBox(width: 10),
-
           Expanded(
             child: Container(
               height: 52,
@@ -768,9 +731,7 @@ class _WalkerAcceptScreenState
               ),
             ),
           ),
-
           const SizedBox(width: 10),
-
           _buildHeaderCircleButton(
             icon: Icons.help_outline_rounded,
             onTap: widget.onHelp,
@@ -847,9 +808,7 @@ class _WalkerAcceptScreenState
               Row(
                 children: [
                   _buildWalkerAvatar(data),
-
                   const SizedBox(width: 13),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
@@ -857,7 +816,9 @@ class _WalkerAcceptScreenState
                               .start,
                       children: [
                         Text(
-                          data.walkerName.trim().isEmpty
+                          data.walkerName
+                                  .trim()
+                                  .isEmpty
                               ? 'Walker'
                               : data.walkerName,
                           maxLines: 1,
@@ -882,9 +843,7 @@ class _WalkerAcceptScreenState
                                   .location_on_outlined,
                               size: 16,
                               color:
-                                  Color(
-                                0xFF777777,
-                              ),
+                                  Color(0xFF777777),
                             ),
                             const SizedBox(width: 4),
                             const Expanded(
@@ -912,6 +871,7 @@ class _WalkerAcceptScreenState
                         const SizedBox(height: 3),
 
                         // PHONE NUMBER
+
                         if ((data.walkerPhone
                                     ?.trim()
                                     .isNotEmpty ??
@@ -923,9 +883,7 @@ class _WalkerAcceptScreenState
                                     .phone_outlined,
                                 size: 15,
                                 color:
-                                    Color(
-                                  0xFF777777,
-                                ),
+                                    Color(0xFF777777),
                               ),
                               const SizedBox(
                                 width: 4,
@@ -1272,7 +1230,9 @@ class _WalkerAcceptScreenState
             false;
 
     return Material(
-      color: _primaryOrange,
+      color: hasPhone
+          ? _primaryOrange
+          : const Color(0xFFE5E5E5),
       borderRadius:
           BorderRadius.circular(15),
       child: InkWell(
@@ -1291,7 +1251,7 @@ class _WalkerAcceptScreenState
                 Icons.call_rounded,
                 color: hasPhone
                     ? Colors.white
-                    : Colors.white54,
+                    : Colors.black38,
                 size: 20,
               ),
               const SizedBox(width: 7),
@@ -1300,7 +1260,7 @@ class _WalkerAcceptScreenState
                 style: TextStyle(
                   color: hasPhone
                       ? Colors.white
-                      : Colors.white54,
+                      : Colors.black38,
                   fontSize: 14,
                   fontWeight:
                       FontWeight.w800,
@@ -1499,19 +1459,3 @@ class _WalkerAcceptScreenState
     return '${valueMeters.round()} m';
   }
 }
-
-Ab is file ko poora replace kar do.
-
-"pubspec.yaml" mein aapka:
-
-url_launcher: ^6.3.2
-
-already hai, isliye wahan kuch add/change nahi karna.
-
-Is version mein:
-
-Firestore "walkerPhone" → "WalkerAcceptData" → "WalkerAcceptScreen" → Call button → Android Phone Dialer
-
-flow complete hai.
-
-Aur agar "walkerPhone" Firestore mein available nahi hai, Call button disabled rahega aur number unavailable message nahi aayega jab tak user tap nahi kar sakta.
