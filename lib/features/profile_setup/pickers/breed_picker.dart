@@ -18,10 +18,11 @@ class BreedPicker extends StatefulWidget {
 
 class _BreedPickerState extends State<BreedPicker> {
   static const Color orange = Color(0xFFF4511E);
-  static const Color lightOrange = Color(0xFFFFF1E8);
+  static const Color darkOrange = Color(0xFFE64617);
+  static const Color white = Colors.white;
   static const Color textColor = Color(0xFF222222);
   static const Color textGrey = Color(0xFF707070);
-  static const Color backgroundColor = Colors.white;
+  static const Color lightGrey = Color(0xFFF6F7F9);
 
   final TextEditingController searchController =
       TextEditingController();
@@ -36,86 +37,159 @@ class _BreedPickerState extends State<BreedPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredBreeds = widget.breeds.where((breed) {
+    final List<String> filteredBreeds = widget.breeds.where((breed) {
       return breed.toLowerCase().contains(
-            search.toLowerCase(),
+            search.trim().toLowerCase(),
           );
     }).toList();
 
-    final height = MediaQuery.of(context).size.height;
+    final double height = MediaQuery.of(context).size.height;
 
     return Material(
-      color: backgroundColor,
+      color: orange,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(28),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: height * 0.35,
+        height: height * 0.82,
         child: SafeArea(
+          top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               20,
-              12,
-              20,
               10,
+              20,
+              8,
             ),
             child: Column(
               children: [
-                // ------------------------------------------------
+                // ==================================================
                 // HANDLE
-                // ------------------------------------------------
+                // ==================================================
 
                 Container(
-                  width: 45,
+                  width: 48,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white.withValues(
+                      alpha: 0.75,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
 
-                const SizedBox(height: 13),
+                const SizedBox(height: 18),
 
-                // ------------------------------------------------
+                // ==================================================
                 // HEADER
-                // ------------------------------------------------
+                // ==================================================
 
                 Row(
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
-                      decoration: const BoxDecoration(
-                        color: lightOrange,
-                        shape: BoxShape.circle,
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: white.withValues(
+                          alpha: 0.18,
+                        ),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: white.withValues(
+                            alpha: 0.30,
+                          ),
+                        ),
                       ),
                       child: const Icon(
                         Icons.pets_rounded,
-                        color: orange,
-                        size: 21,
+                        color: white,
+                        size: 25,
                       ),
                     ),
 
-                    const SizedBox(width: 11),
+                    const SizedBox(width: 12),
 
                     const Expanded(
-                      child: Text(
-                        'Choose Breed',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Choose Breed',
+                            style: TextStyle(
+                              color: white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Select your dog\'s breed',
+                            style: TextStyle(
+                              color: white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==================================================
+                    // CLOSE BUTTON
+                    // ==================================================
+
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: white.withValues(
+                            alpha: 0.16,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: white.withValues(
+                              alpha: 0.28,
+                            ),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: white,
+                          size: 22,
                         ),
                       ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 18),
 
-                // ------------------------------------------------
+                // ==================================================
                 // SEARCH
-                // ------------------------------------------------
+                // ==================================================
 
-                SizedBox(
-                  height: 44,
+                Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: 0.10,
+                        ),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                   child: TextField(
                     controller: searchController,
                     onChanged: (value) {
@@ -126,165 +200,215 @@ class _BreedPickerState extends State<BreedPicker> {
                     style: const TextStyle(
                       color: textColor,
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                     cursorColor: orange,
                     decoration: InputDecoration(
                       prefixIcon: const Icon(
                         Icons.search_rounded,
                         color: orange,
-                        size: 21,
+                        size: 22,
                       ),
                       hintText: 'Search breed...',
                       hintStyle: const TextStyle(
                         color: textGrey,
                         fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
                       ),
-                      contentPadding: EdgeInsets.zero,
-                      filled: true,
-                      fillColor: Color(0xFFF7F7F7),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0,
+                      ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(15),
                         borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(15),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(15),
                         borderSide: const BorderSide(
-                          color: orange,
-                          width: 1.3,
+                          color: darkOrange,
+                          width: 2,
                         ),
                       ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
 
-                // ------------------------------------------------
+                // ==================================================
                 // COUNT
-                // ------------------------------------------------
+                // ==================================================
 
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    search.isEmpty
-                        ? 'All Breeds'
+                    search.trim().isEmpty
+                        ? '${filteredBreeds.length} Breeds'
                         : '${filteredBreeds.length} breeds found',
                     style: const TextStyle(
-                      color: textGrey,
+                      color: white,
                       fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
 
-                // ------------------------------------------------
+                const SizedBox(height: 6),
+
+                // ==================================================
                 // BREED LIST
-                // ------------------------------------------------
+                // ==================================================
 
                 Expanded(
                   child: filteredBreeds.isEmpty
                       ? const Center(
-                          child: Text(
-                            'No breed found',
-                            style: TextStyle(
-                              color: textGrey,
-                              fontSize: 13,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.pets_rounded,
+                                color: white,
+                                size: 38,
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                'No breed found',
+                                style: TextStyle(
+                                  color: white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         )
-                      : ListView.separated(
+                      : ListView.builder(
                           physics:
                               const BouncingScrollPhysics(),
                           padding: const EdgeInsets.only(
-                            top: 2,
-                            bottom: 8,
+                            top: 4,
+                            bottom: 14,
                           ),
                           itemCount: filteredBreeds.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(
-                            height: 1,
-                          ),
                           itemBuilder: (context, index) {
-                            final breed =
+                            final String breed =
                                 filteredBreeds[index];
 
-                            final selected =
+                            final bool selected =
                                 breed == widget.selectedBreed;
 
-                            return Material(
-                              color: selected
-                                  ? lightOrange
-                                  : backgroundColor,
-                              borderRadius:
-                                  BorderRadius.circular(12),
-                              child: SizedBox(
-                                height: 47,
-                                child: ListTile(
-                                  dense: true,
-                                  contentPadding:
-                                      const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                  ),
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: 8,
+                              ),
+                              child: Material(
+                                color: selected
+                                    ? darkOrange
+                                    : white,
+                                borderRadius:
+                                    BorderRadius.circular(15),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
                                   onTap: () {
                                     widget.onSelected(breed);
                                   },
-
-                                  // --------------------------------
-                                  // PET ICON
-                                  // --------------------------------
-
-                                  leading: Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration:
-                                        const BoxDecoration(
-                                      color: lightOrange,
-                                      shape: BoxShape.circle,
+                                  child: Container(
+                                    height: 57,
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 10,
                                     ),
-                                    child: const Icon(
-                                      Icons.pets_rounded,
-                                      color: orange,
-                                      size: 17,
+                                    decoration: BoxDecoration(
+                                      borderRadius:
+                                          BorderRadius.circular(15),
+                                      border: Border.all(
+                                        color: selected
+                                            ? white.withValues(
+                                                alpha: 0.35,
+                                              )
+                                            : const Color(
+                                                0xFFE5E7EB,
+                                              ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // ==========================================
+                                        // PAW
+                                        // ==========================================
+
+                                        Container(
+                                          width: 39,
+                                          height: 39,
+                                          decoration: BoxDecoration(
+                                            color: selected
+                                                ? white.withValues(
+                                                    alpha: 0.18,
+                                                  )
+                                                : orange,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.pets_rounded,
+                                            color: white,
+                                            size: 20,
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 12),
+
+                                        // ==========================================
+                                        // BREED NAME
+                                        // ==========================================
+
+                                        Expanded(
+                                          child: Text(
+                                            breed,
+                                            maxLines: 1,
+                                            overflow:
+                                                TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: selected
+                                                  ? white
+                                                  : textColor,
+                                              fontSize: 14,
+                                              fontWeight: selected
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 8),
+
+                                        // ==========================================
+                                        // CHECK
+                                        // ==========================================
+
+                                        Container(
+                                          width: 27,
+                                          height: 27,
+                                          decoration: BoxDecoration(
+                                            color: selected
+                                                ? white
+                                                : lightGrey,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: selected
+                                              ? const Icon(
+                                                  Icons.check_rounded,
+                                                  color: orange,
+                                                  size: 18,
+                                                )
+                                              : null,
+                                        ),
+                                      ],
                                     ),
                                   ),
-
-                                  // --------------------------------
-                                  // BREED NAME
-                                  // --------------------------------
-
-                                  title: Text(
-                                    breed,
-                                    maxLines: 1,
-                                    overflow:
-                                        TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: selected
-                                          ? orange
-                                          : textColor,
-                                      fontSize: 13.5,
-                                      fontWeight: selected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-
-                                  // --------------------------------
-                                  // SELECTED CHECK
-                                  // --------------------------------
-
-                                  trailing: selected
-                                      ? const Icon(
-                                          Icons
-                                              .check_circle_rounded,
-                                          color: orange,
-                                          size: 20,
-                                        )
-                                      : null,
                                 ),
                               ),
                             );
