@@ -44,8 +44,7 @@ class _OtpVerificationScreenState
   void initState() {
     super.initState();
 
-    _reqId =
-        widget.reqId.trim();
+    _reqId = widget.reqId.trim();
 
     debugPrint(
       'OTP SCREEN REQ ID: $_reqId',
@@ -549,6 +548,9 @@ class _OtpVerificationScreenState
         'BACKEND CUSTOMER CHECK STARTED',
       );
 
+      // IMPORTANT:
+      // The actual access token is never printed.
+
       final http.Response response =
           await http
               .post(
@@ -570,38 +572,122 @@ class _OtpVerificationScreenState
                 ),
               );
 
+      // --------------------------------------------------------
+      // SAFE DEBUG
+      // --------------------------------------------------------
+
       debugPrint(
         'BACKEND STATUS: '
         '${response.statusCode}',
       );
 
       debugPrint(
-        'BACKEND RESPONSE: '
-        '${response.body}',
+        'BACKEND RESPONSE LENGTH: '
+        '${response.body.length}',
       );
 
-      if (response.statusCode != 200) {
-        return null;
+      // Do NOT print response.body.
+      // It could contain sensitive backend information.
+
+      // --------------------------------------------------------
+      // DECODE JSON
+      // --------------------------------------------------------
+
+      dynamic decoded;
+
+      try {
+        decoded =
+            jsonDecode(
+          response.body,
+        );
+      } catch (_) {
+        debugPrint(
+          'BACKEND RESPONSE IS NOT VALID JSON',
+        );
+
+        throw Exception(
+          'Dojo Platform backend returned an invalid response.',
+        );
       }
-
-      final dynamic decoded =
-          jsonDecode(
-        response.body,
-      );
 
       if (decoded is! Map) {
-        return null;
+        debugPrint(
+          'BACKEND RESPONSE IS NOT A JSON OBJECT',
+        );
+
+        throw Exception(
+          'Dojo Platform backend returned an invalid response.',
+        );
       }
 
-      return Map<String, dynamic>.from(
+      final Map<String, dynamic> data =
+          Map<String, dynamic>.from(
         decoded,
       );
+
+      // --------------------------------------------------------
+      // SAFE RESPONSE KEYS
+      // --------------------------------------------------------
+
+      debugPrint(
+        'BACKEND RESPONSE KEYS: '
+        '${data.keys.toList()}',
+      );
+
+      // --------------------------------------------------------
+      // HTTP STATUS
+      // --------------------------------------------------------
+
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300) {
+        final String message =
+            data['message']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final String error =
+            data['error']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final String reason =
+            message.isNotEmpty
+                ? message
+                : error.isNotEmpty
+                    ? error
+                    : 'Backend request failed with HTTP ${response.statusCode}.';
+
+        debugPrint(
+          'BACKEND HTTP ERROR: '
+          '${response.statusCode}',
+        );
+
+        throw Exception(
+          reason,
+        );
+      }
+
+      // --------------------------------------------------------
+      // SUCCESSFUL RESPONSE
+      // --------------------------------------------------------
+
+      debugPrint(
+        'BACKEND CUSTOMER CHECK RESPONSE RECEIVED',
+      );
+
+      return data;
+    } on Exception {
+      rethrow;
     } catch (e) {
       debugPrint(
         'BACKEND CUSTOMER CHECK ERROR: $e',
       );
 
-      return null;
+      throw Exception(
+        'Unable to connect to Dojo Platform backend.',
+      );
     }
   }
 
@@ -641,10 +727,6 @@ class _OtpVerificationScreenState
         reqId: _reqId,
       );
 
-      // --------------------------------------------------------
-      // UPDATE REQUEST ID
-      // --------------------------------------------------------
-
       if (newReqId != null &&
           newReqId.trim().isNotEmpty) {
         _reqId =
@@ -654,10 +736,6 @@ class _OtpVerificationScreenState
           'MSG91 REQUEST ID UPDATED',
         );
       }
-
-      // --------------------------------------------------------
-      // CLEAR OLD OTP
-      // --------------------------------------------------------
 
       _otpController.clear();
 
