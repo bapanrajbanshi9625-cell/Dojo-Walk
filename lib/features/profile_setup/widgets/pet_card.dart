@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../models/pet_data.dart';
+import '../models/pet_data.dart';
 import 'profile_text_field.dart';
 import 'profile_selection_field.dart';
 
