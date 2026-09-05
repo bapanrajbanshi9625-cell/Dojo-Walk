@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/dojo_colors.dart';
 
 import '../models/pet_data.dart';
-import '../profile_setup_data.dart';
+import '../models/profile_setup_data.dart';
 import '../services/profile_setup_service.dart';
 
 import '../widgets/profile_welcome_card.dart';
