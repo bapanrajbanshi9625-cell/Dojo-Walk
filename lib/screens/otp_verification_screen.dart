@@ -1,7 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +36,9 @@ class _OtpVerificationScreenState
   bool _isResending = false;
 
   late String _reqId;
+
+  static const String _backendUrl =
+      'https://dojo-platform-backend.onrender.com';
 
   @override
   void initState() {
@@ -107,7 +112,29 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 2. NORMALIZE PHONE
+      // 2. EXTRACT MSG91 ACCESS TOKEN
+      // ========================================================
+
+      final String? accessToken =
+          _extractAccessToken(response);
+
+      if (accessToken == null ||
+          accessToken.isEmpty) {
+        debugPrint(
+          'MSG91 RESPONSE DID NOT CONTAIN ACCESS TOKEN',
+        );
+
+        throw Exception(
+          'OTP verified, but secure access token was not received.',
+        );
+      }
+
+      debugPrint(
+        'MSG91 ACCESS TOKEN RECEIVED',
+      );
+
+      // ========================================================
+      // 3. NORMALIZE PHONE
       // ========================================================
 
       final String? phone =
@@ -126,15 +153,118 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 3. CREATE TEMPORARY FIREBASE SESSION
+      // 4. CHECK CUSTOMER THROUGH BACKEND
       // ========================================================
       //
       // IMPORTANT:
-      // MSG91 verification does NOT automatically create
-      // a Firebase Auth session.
+      // Flutter does NOT directly query Firestore anymore.
       //
-      // Cloud Functions / custom token authentication will
-      // replace this temporary anonymous session later.
+      // Flutter sends only the MSG91 JWT access-token.
+      //
+      // Render backend:
+      //
+      // access-token
+      //      ↓
+      // MSG91 verification
+      //      ↓
+      // verified phone
+      //      ↓
+      // owners collection
+      //
+      // ========================================================
+
+      final Map<String, dynamic>? backendData =
+          await _checkCustomerWithBackend(
+        accessToken,
+      );
+
+      if (backendData == null) {
+        throw Exception(
+          'Unable to connect to Dojo Platform backend.',
+        );
+      }
+
+      final bool backendSuccess =
+          backendData['success'] == true;
+
+      if (!backendSuccess) {
+        final String backendMessage =
+            backendData['message']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        throw Exception(
+          backendMessage.isNotEmpty
+              ? backendMessage
+              : 'Secure account verification failed.',
+        );
+      }
+
+      // ========================================================
+      // 5. READ BACKEND RESULT
+      // ========================================================
+
+      final bool exists =
+          backendData['exists'] == true;
+
+      final bool profileCompleted =
+          backendData['profileCompleted'] == true;
+
+      final String ownerId =
+          backendData['ownerId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String authUid =
+          backendData['authUid']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String role =
+          backendData['role']
+                  ?.toString()
+                  .trim() ??
+              'owner';
+
+      final String verifiedPhone =
+          backendData['phone']
+                  ?.toString()
+                  .trim() ??
+              phone;
+
+      debugPrint(
+        'BACKEND EXISTS: $exists',
+      );
+
+      debugPrint(
+        'BACKEND PROFILE COMPLETED: '
+        '$profileCompleted',
+      );
+
+      debugPrint(
+        'BACKEND OWNER ID: $ownerId',
+      );
+
+      debugPrint(
+        'BACKEND AUTH UID: $authUid',
+      );
+
+      debugPrint(
+        'BACKEND ROLE: $role',
+      );
+
+      // ========================================================
+      // 6. TEMPORARY FIREBASE SESSION
+      // ========================================================
+      //
+      // We still create an anonymous Firebase session for the
+      // NEW profile setup flow.
+      //
+      // Existing permanent Firebase authentication can be
+      // connected later through Firebase Custom Token.
       //
       // ========================================================
 
@@ -144,8 +274,7 @@ class _OtpVerificationScreenState
       User? firebaseUser =
           auth.currentUser;
 
-      if (firebaseUser == null ||
-          !firebaseUser.isAnonymous) {
+      if (firebaseUser == null) {
         final UserCredential credential =
             await auth.signInAnonymously();
 
@@ -172,19 +301,8 @@ class _OtpVerificationScreenState
         'TEMP FIREBASE UID: $temporaryUid',
       );
 
-      debugPrint(
-        'TEMP SESSION ANONYMOUS: '
-        '${firebaseUser.isAnonymous}',
-      );
-
       // ========================================================
-      // 4. SAVE MSG91 VERIFIED PHONE LOCALLY
-      // ========================================================
-      //
-      // THIS WAS MISSING IN YOUR CURRENT CODE.
-      //
-      // ProfileSetupScreen reads this value.
-      //
+      // 7. SAVE LOGIN STATE
       // ========================================================
 
       final SharedPreferences prefs =
@@ -192,7 +310,7 @@ class _OtpVerificationScreenState
 
       await prefs.setString(
         'tempVerifiedPhone',
-        phone,
+        verifiedPhone,
       );
 
       await prefs.setBool(
@@ -200,132 +318,57 @@ class _OtpVerificationScreenState
         true,
       );
 
-      await prefs.setString(
-        'tempAccountUid',
-        temporaryUid,
+      await prefs.setBool(
+        'tempExistingAccount',
+        exists,
       );
 
       await prefs.setString(
         'tempOwnerId',
-        '',
-      );
-
-      await prefs.setBool(
-        'tempExistingAccount',
-        false,
-      );
-
-      debugPrint(
-        'TEMP VERIFIED PHONE SAVED: $phone',
-      );
-
-      debugPrint(
-        'TEMP OTP VERIFIED SAVED: true',
+        ownerId,
       );
 
       // ========================================================
-      // 5. FIND EXISTING ACCOUNT
-      // ========================================================
-      //
-      // phoneAccounts document ID = Firebase UID.
-      //
-      // phone field = login phone number.
-      //
+      // EXISTING ACCOUNT
       // ========================================================
 
-      final QuerySnapshot<
-          Map<String, dynamic>> accountSnapshot =
-          await FirebaseFirestore.instance
-              .collection(
-                'phoneAccounts',
-              )
-              .where(
-                'phone',
-                isEqualTo: phone,
-              )
-              .limit(1)
-              .get();
-
-      // ========================================================
-      // 6. EXISTING ACCOUNT
-      // ========================================================
-
-      if (accountSnapshot.docs.isNotEmpty) {
-        final DocumentSnapshot<
-            Map<String, dynamic>> accountDoc =
-            accountSnapshot.docs.first;
-
-        final Map<String, dynamic> accountData =
-            accountDoc.data() ??
-                <String, dynamic>{};
-
-        final String permanentUid =
-            accountDoc.id.trim();
-
-        final String ownerId =
-            accountData['ownerId']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (permanentUid.isEmpty) {
-          throw Exception(
-            'Account UID is missing.',
-          );
-        }
-
-        debugPrint(
-          'EXISTING ACCOUNT FOUND',
-        );
-
-        debugPrint(
-          'PERMANENT FIREBASE UID: $permanentUid',
-        );
-
-        debugPrint(
-          'OWNER ID: $ownerId',
-        );
-
-        // ======================================================
-        // SAVE EXISTING ACCOUNT INFORMATION
-        // ======================================================
+      if (exists) {
+        /*
+         * If backend knows the permanent Firebase UID,
+         * save it.
+         *
+         * Otherwise retain the temporary UID.
+         */
 
         await prefs.setString(
           'tempAccountUid',
-          permanentUid,
-        );
-
-        await prefs.setString(
-          'tempOwnerId',
-          ownerId,
-        );
-
-        await prefs.setBool(
-          'tempExistingAccount',
-          true,
-        );
-
-        await prefs.setBool(
-          'tempOtpVerified',
-          true,
-        );
-
-        await prefs.setString(
-          'tempVerifiedPhone',
-          phone,
+          authUid.isNotEmpty
+              ? authUid
+              : temporaryUid,
         );
 
         debugPrint(
-          'EXISTING ACCOUNT SESSION DATA SAVED',
+          'EXISTING OWNER FOUND',
+        );
+
+        debugPrint(
+          'PROFILE COMPLETED: '
+          '$profileCompleted',
         );
 
         if (!mounted) {
           return;
         }
 
-        _showMessage(
-          'OTP verified. Existing account found.',
-        );
+        if (profileCompleted) {
+          _showMessage(
+            'OTP verified. Welcome back!',
+          );
+        } else {
+          _showMessage(
+            'OTP verified. Please complete your profile.',
+          );
+        }
 
         await Future<void>.delayed(
           const Duration(
@@ -337,9 +380,10 @@ class _OtpVerificationScreenState
           return;
         }
 
-        // ======================================================
-        // MAIN APP
-        // ======================================================
+        /*
+         * Root flow decides whether the user goes to
+         * MainNavigationScreen or Profile Setup.
+         */
 
         Navigator.of(context)
             .pushNamedAndRemoveUntil(
@@ -351,14 +395,9 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 7. NEW ACCOUNT
+      // NEW ACCOUNT
       // ========================================================
 
-      debugPrint(
-        'NO EXISTING ACCOUNT FOUND',
-      );
-
-      // Keep the temporary UID for Profile Setup.
       await prefs.setString(
         'tempAccountUid',
         temporaryUid,
@@ -381,11 +420,11 @@ class _OtpVerificationScreenState
 
       await prefs.setString(
         'tempVerifiedPhone',
-        phone,
+        verifiedPhone,
       );
 
       debugPrint(
-        'NEW ACCOUNT TEMP SESSION READY',
+        'NEW OWNER ACCOUNT',
       );
 
       if (!mounted) {
@@ -405,10 +444,6 @@ class _OtpVerificationScreenState
       if (!mounted) {
         return;
       }
-
-      // ======================================================
-      // ROOT FLOW
-      // ======================================================
 
       Navigator.of(context)
           .pushNamedAndRemoveUntil(
@@ -460,22 +495,30 @@ class _OtpVerificationScreenState
         _showMessage(
           'Invalid OTP. Please check the code and try again.',
         );
-      } else if (error.contains('expired') ||
+      } else if (
+          error.contains('expired') ||
           error.contains('session')) {
         _showMessage(
           'This OTP session has expired. Please request a new OTP.',
         );
-      } else if (error.contains('permission-denied')) {
+      } else if (
+          error.contains('token')) {
         _showMessage(
-          'Firebase permission denied.',
+          'Secure OTP verification failed. Please try again.',
         );
-      } else if (error.contains('network')) {
+      } else if (
+          error.contains('network') ||
+          error.contains('socket') ||
+          error.contains('connection')) {
         _showMessage(
           'Network error. Please check your internet connection.',
         );
       } else {
         _showMessage(
-          'OTP verification failed. Please try again.',
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
         );
       }
     }
@@ -490,6 +533,114 @@ class _OtpVerificationScreenState
           _isVerifying = false;
         });
       }
+    }
+  }
+
+  // ============================================================
+  // MSG91 ACCESS TOKEN
+  // ============================================================
+
+  String? _extractAccessToken(
+    dynamic response,
+  ) {
+    if (response == null) {
+      return null;
+    }
+
+    if (response is Map) {
+      final List<dynamic> possibleTokens = [
+        response['access-token'],
+        response['access_token'],
+        response['accessToken'],
+        response['token'],
+        response['jwt'],
+        response['data']?['access-token'],
+        response['data']?['access_token'],
+        response['data']?['accessToken'],
+        response['data']?['token'],
+        response['data']?['jwt'],
+      ];
+
+      for (final dynamic value
+          in possibleTokens) {
+        if (value != null) {
+          final String token =
+              value.toString().trim();
+
+          if (token.isNotEmpty) {
+            return token;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // BACKEND CUSTOMER CHECK
+  // ============================================================
+
+  Future<Map<String, dynamic>?>
+      _checkCustomerWithBackend(
+    String accessToken,
+  ) async {
+    try {
+      final Uri uri = Uri.parse(
+        '$_backendUrl/customer/check',
+      );
+
+      final http.Response response =
+          await http
+              .post(
+                uri,
+                headers: const {
+                  'Content-Type':
+                      'application/json',
+                  'Accept':
+                      'application/json',
+                },
+                body: jsonEncode({
+                  'accessToken':
+                      accessToken,
+                }),
+              )
+              .timeout(
+                const Duration(
+                  seconds: 30,
+                ),
+              );
+
+      debugPrint(
+        'BACKEND STATUS: '
+        '${response.statusCode}',
+      );
+
+      debugPrint(
+        'BACKEND RESPONSE: '
+        '${response.body}',
+      );
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final dynamic decoded =
+          jsonDecode(response.body);
+
+      if (decoded is! Map) {
+        return null;
+      }
+
+      return Map<String, dynamic>.from(
+        decoded,
+      );
+    } catch (e) {
+      debugPrint(
+        'BACKEND CUSTOMER CHECK ERROR: $e',
+      );
+
+      return null;
     }
   }
 
@@ -675,7 +826,10 @@ class _OtpVerificationScreenState
         _showMessage(
           'OTP session has expired. Please request a new OTP.',
         );
-      } else if (error.contains('network')) {
+      } else if (
+          error.contains('network') ||
+          error.contains('socket') ||
+          error.contains('connection')) {
         _showMessage(
           'Network error. Please check your internet connection.',
         );
