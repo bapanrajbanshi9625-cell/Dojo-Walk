@@ -2,11 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
-import 'package:latlong2/latlong.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../widgets/address_screen_widgets.dart';
 import 'address_location_picker_screen.dart';
+import '../widgets/address_screen_widgets.dart';
 
 class AddressScreen extends StatefulWidget {
   const AddressScreen({
@@ -44,6 +42,10 @@ class _AddressScreenState extends State<AddressScreen> {
   double? _selectedLatitude;
   double? _selectedLongitude;
 
+  static const Color _primaryColor = Color(0xFFFF8A00);
+  static const Color _backgroundColor = Color(0xFFF8F9FB);
+  static const Color _textPrimaryColor = Color(0xFF202124);
+
   @override
   void initState() {
     super.initState();
@@ -63,14 +65,14 @@ class _AddressScreenState extends State<AddressScreen> {
   }
 
   Future<DocumentReference<Map<String, dynamic>>?> _findOwnerProfile() async {
-    final user = _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
     try {
-      final query = await _firestore
+      final QuerySnapshot<Map<String, dynamic>> query = await _firestore
           .collection('owners')
           .where('authUid', isEqualTo: user.uid)
           .limit(1)
@@ -79,16 +81,17 @@ class _AddressScreenState extends State<AddressScreen> {
       if (query.docs.isNotEmpty) {
         return query.docs.first.reference;
       }
-
-      return _firestore.collection('owners').doc(user.uid);
     } catch (_) {
-      return _firestore.collection('owners').doc(user.uid);
+      // Fall back to UID document below.
     }
+
+    return _firestore.collection('owners').doc(user.uid);
   }
 
   Future<void> _loadAddress() async {
     try {
-      final ref = await _findOwnerProfile();
+      final DocumentReference<Map<String, dynamic>>? ref =
+          await _findOwnerProfile();
 
       if (!mounted) return;
 
@@ -101,7 +104,8 @@ class _AddressScreenState extends State<AddressScreen> {
 
       _ownerProfileRef = ref;
 
-      final snapshot = await ref.get();
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await ref.get();
 
       if (!snapshot.exists) {
         setState(() {
@@ -110,7 +114,7 @@ class _AddressScreenState extends State<AddressScreen> {
         return;
       }
 
-      final data = snapshot.data();
+      final Map<String, dynamic>? data = snapshot.data();
 
       if (data == null) {
         setState(() {
@@ -119,21 +123,24 @@ class _AddressScreenState extends State<AddressScreen> {
         return;
       }
 
-      final address = data['address'];
+      final dynamic rawAddress = data['address'];
 
-      if (address is Map<String, dynamic>) {
-        _flatController.text = address['flatNumber']?.toString() ?? '';
+      if (rawAddress is Map) {
+        final Map<String, dynamic> address =
+            Map<String, dynamic>.from(rawAddress);
+
+        _flatController.text = _stringValue(address['flatNumber']);
         _addressLine1Controller.text =
-            address['addressLine1']?.toString() ?? '';
+            _stringValue(address['addressLine1']);
         _addressLine2Controller.text =
-            address['addressLine2']?.toString() ?? '';
-        _areaController.text = address['area']?.toString() ?? '';
-        _cityController.text = address['city']?.toString() ?? '';
-        _stateController.text = address['state']?.toString() ?? '';
-        _pinCodeController.text = address['pincode']?.toString() ?? '';
+            _stringValue(address['addressLine2']);
+        _areaController.text = _stringValue(address['area']);
+        _cityController.text = _stringValue(address['city']);
+        _stateController.text = _stringValue(address['state']);
+        _pinCodeController.text = _stringValue(address['pincode']);
 
-        final latitude = address['latitude'];
-        final longitude = address['longitude'];
+        final dynamic latitude = address['latitude'];
+        final dynamic longitude = address['longitude'];
 
         if (latitude is num && longitude is num) {
           _selectedLatitude = latitude.toDouble();
@@ -141,13 +148,13 @@ class _AddressScreenState extends State<AddressScreen> {
         }
       }
 
-      final saved = data['savedAddresses'];
+      final dynamic saved = data['savedAddresses'];
 
       if (saved is List) {
         _savedAddresses = saved
             .whereType<Map>()
             .map(
-              (item) => Map<String, dynamic>.from(item),
+              (Map item) => Map<String, dynamic>.from(item),
             )
             .toList();
       }
@@ -168,37 +175,47 @@ class _AddressScreenState extends State<AddressScreen> {
     }
   }
 
+  String _stringValue(dynamic value) {
+    if (value == null) return '';
+    return value.toString();
+  }
+
   Future<void> _populateAddressFromCoordinates(
     double latitude,
     double longitude,
   ) async {
     try {
-      final placemarks = await geocoding.placemarkFromCoordinates(
+      final List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(
         latitude,
         longitude,
       );
 
       if (placemarks.isEmpty) return;
 
-      final place = placemarks.first;
+      final geocoding.Placemark place = placemarks.first;
 
-      final street = [
-        place.name,
-        place.street,
-      ].where((value) {
-        return value != null && value.trim().isNotEmpty;
-      }).map((value) => value!.trim()).toSet().join(', ');
+      final List<String> streetParts = <String>[
+        if (place.name != null && place.name!.trim().isNotEmpty)
+          place.name!.trim(),
+        if (place.street != null && place.street!.trim().isNotEmpty)
+          place.street!.trim(),
+      ];
 
-      final area = [
-        place.subLocality,
-        place.subAdministrativeArea,
-      ].where((value) {
-        return value != null && value.trim().isNotEmpty;
-      }).map((value) => value!.trim()).toSet().join(', ');
+      final List<String> areaParts = <String>[
+        if (place.subLocality != null &&
+            place.subLocality!.trim().isNotEmpty)
+          place.subLocality!.trim(),
+        if (place.subAdministrativeArea != null &&
+            place.subAdministrativeArea!.trim().isNotEmpty)
+          place.subAdministrativeArea!.trim(),
+      ];
 
-      final city = place.locality?.trim() ?? '';
-      final state = place.administrativeArea?.trim() ?? '';
-      final postalCode = place.postalCode?.trim() ?? '';
+      final String street = streetParts.toSet().join(', ');
+      final String area = areaParts.toSet().join(', ');
+      final String city = place.locality?.trim() ?? '';
+      final String state = place.administrativeArea?.trim() ?? '';
+      final String postalCode = place.postalCode?.trim() ?? '';
 
       if (!mounted) return;
 
@@ -224,12 +241,12 @@ class _AddressScreenState extends State<AddressScreen> {
         }
       });
     } catch (_) {
-      // Reverse geocoding failure should not remove the exact coordinates.
+      // Coordinates remain valid even if reverse geocoding fails.
     }
   }
 
   String _buildFullAddress() {
-    final parts = <String>[
+    final List<String> parts = <String>[
       _flatController.text.trim(),
       _addressLine1Controller.text.trim(),
       _addressLine2Controller.text.trim(),
@@ -237,39 +254,35 @@ class _AddressScreenState extends State<AddressScreen> {
       _cityController.text.trim(),
       _stateController.text.trim(),
       _pinCodeController.text.trim(),
-    ].where((value) => value.isNotEmpty).toList();
+    ].where((String value) => value.isNotEmpty).toList();
 
     return parts.join(', ');
   }
 
   Future<void> _openLocationPicker() async {
-    final LatLng? initialLocation =
-        _selectedLatitude != null && _selectedLongitude != null
-            ? LatLng(
-                _selectedLatitude!,
-                _selectedLongitude!,
-              )
-            : null;
-
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final Map<String, dynamic>? result =
+        await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
-        builder: (_) => AddressLocationPickerScreen(
-          initialLocation: initialLocation,
-        ),
+      MaterialPageRoute<Map<String, dynamic>>(
+        builder: (BuildContext context) {
+          return AddressLocationPickerScreen(
+            initialLatitude: _selectedLatitude,
+            initialLongitude: _selectedLongitude,
+          );
+        },
       ),
     );
 
     if (!mounted || result == null) return;
 
-    final latitude = result['latitude'];
-    final longitude = result['longitude'];
+    final dynamic latitude = result['latitude'];
+    final dynamic longitude = result['longitude'];
 
     if (latitude is! num || longitude is! num) {
       return;
     }
 
-    // EXACT location selected by the center pin.
+    // EXACT CENTER PIN LOCATION.
     _selectedLatitude = latitude.toDouble();
     _selectedLongitude = longitude.toDouble();
 
@@ -296,7 +309,9 @@ class _AddressScreenState extends State<AddressScreen> {
     if (_selectedLatitude == null || _selectedLongitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please choose your pickup location on the map.'),
+          content: Text(
+            'Please choose your pickup location on the map.',
+          ),
         ),
       );
       return;
@@ -315,14 +330,23 @@ class _AddressScreenState extends State<AddressScreen> {
       return;
     }
 
+    if (_pinCodeController.text.trim().length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid 6-digit PIN code.'),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _saving = true;
     });
 
     try {
-      final fullAddress = _buildFullAddress();
+      final String fullAddress = _buildFullAddress();
 
-      final addressData = <String, dynamic>{
+      final Map<String, dynamic> addressData = <String, dynamic>{
         'address': fullAddress,
         'flatNumber': _flatController.text.trim(),
         'addressLine1': _addressLine1Controller.text.trim(),
@@ -331,19 +355,19 @@ class _AddressScreenState extends State<AddressScreen> {
         'city': _cityController.text.trim(),
         'state': _stateController.text.trim(),
         'pincode': _pinCodeController.text.trim(),
+
+        // Exact map-pin coordinates.
         'latitude': _selectedLatitude,
         'longitude': _selectedLongitude,
       };
 
-      final savedAddress = <String, dynamic>{
-        ...addressData,
-      };
-
       await _ownerProfileRef!.set(
-        {
+        <String, dynamic>{
           'authUid': _auth.currentUser?.uid,
           'address': addressData,
-          'savedAddresses': [savedAddress],
+          'savedAddresses': <Map<String, dynamic>>[
+            Map<String, dynamic>.from(addressData),
+          ],
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -352,7 +376,9 @@ class _AddressScreenState extends State<AddressScreen> {
       if (!mounted) return;
 
       setState(() {
-        _savedAddresses = [savedAddress];
+        _savedAddresses = <Map<String, dynamic>>[
+          Map<String, dynamic>.from(addressData),
+        ];
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -378,19 +404,19 @@ class _AddressScreenState extends State<AddressScreen> {
   }
 
   void _selectAddress(Map<String, dynamic> address) {
-    setState(() {
-      _flatController.text = address['flatNumber']?.toString() ?? '';
-      _addressLine1Controller.text =
-          address['addressLine1']?.toString() ?? '';
-      _addressLine2Controller.text =
-          address['addressLine2']?.toString() ?? '';
-      _areaController.text = address['area']?.toString() ?? '';
-      _cityController.text = address['city']?.toString() ?? '';
-      _stateController.text = address['state']?.toString() ?? '';
-      _pinCodeController.text = address['pincode']?.toString() ?? '';
+    final dynamic latitude = address['latitude'];
+    final dynamic longitude = address['longitude'];
 
-      final latitude = address['latitude'];
-      final longitude = address['longitude'];
+    setState(() {
+      _flatController.text = _stringValue(address['flatNumber']);
+      _addressLine1Controller.text =
+          _stringValue(address['addressLine1']);
+      _addressLine2Controller.text =
+          _stringValue(address['addressLine2']);
+      _areaController.text = _stringValue(address['area']);
+      _cityController.text = _stringValue(address['city']);
+      _stateController.text = _stringValue(address['state']);
+      _pinCodeController.text = _stringValue(address['pincode']);
 
       if (latitude is num && longitude is num) {
         _selectedLatitude = latitude.toDouble();
@@ -411,7 +437,7 @@ class _AddressScreenState extends State<AddressScreen> {
 
     try {
       await _ownerProfileRef!.set(
-        {
+        <String, dynamic>{
           'address': FieldValue.delete(),
           'savedAddresses': FieldValue.delete(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -422,7 +448,7 @@ class _AddressScreenState extends State<AddressScreen> {
       if (!mounted) return;
 
       setState(() {
-        _savedAddresses = [];
+        _savedAddresses.clear();
         _flatController.clear();
         _addressLine1Controller.clear();
         _addressLine2Controller.clear();
@@ -453,23 +479,25 @@ class _AddressScreenState extends State<AddressScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: const Center(
-          child: CircularProgressIndicator(),
+      return const Scaffold(
+        backgroundColor: _backgroundColor,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: _primaryColor,
+          ),
         ),
       );
     }
 
-    final hasSelectedLocation =
+    final bool hasSelectedLocation =
         _selectedLatitude != null && _selectedLongitude != null;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: _backgroundColor,
+        foregroundColor: _textPrimaryColor,
         title: const Text(
           'Address',
           style: TextStyle(
@@ -479,19 +507,26 @@ class _AddressScreenState extends State<AddressScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            32,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AddressScreenWidgets.bookingHeader(),
+            children: <Widget>[
+              AddressScreenWidgets.bookingHeader(
+                primaryColor: _primaryColor,
+              ),
 
               const SizedBox(height: 16),
 
-              // OLD "Pickup Location / Current Location" CARD REMOVED.
-              // This is now the only pickup-location selector.
+              // ONLY pickup-location selector.
               AddressScreenWidgets.choosePickupLocationCard(
                 selected: hasSelectedLocation,
                 disabled: _saving,
+                primaryColor: _primaryColor,
                 onTap: _openLocationPicker,
               ),
 
@@ -499,6 +534,7 @@ class _AddressScreenState extends State<AddressScreen> {
 
               AddressScreenWidgets.sectionTitle(
                 'Your Address',
+                textColor: _textPrimaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -508,6 +544,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 label: 'Flat / House Number',
                 hint: 'Enter flat or house number',
                 icon: Icons.home_outlined,
+                primaryColor: _primaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -517,6 +554,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 label: 'Address Line 1',
                 hint: 'House, building, street',
                 icon: Icons.location_on_outlined,
+                primaryColor: _primaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -527,6 +565,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 hint: 'Landmark, floor, etc. (optional)',
                 icon: Icons.signpost_outlined,
                 required: false,
+                primaryColor: _primaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -536,6 +575,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 label: 'Area',
                 hint: 'Enter your area',
                 icon: Icons.map_outlined,
+                primaryColor: _primaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -545,6 +585,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 label: 'City',
                 hint: 'Enter city',
                 icon: Icons.location_city_outlined,
+                primaryColor: _primaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -554,6 +595,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 label: 'State',
                 hint: 'Enter state',
                 icon: Icons.public_outlined,
+                primaryColor: _primaryColor,
               ),
 
               const SizedBox(height: 12),
@@ -565,27 +607,32 @@ class _AddressScreenState extends State<AddressScreen> {
                 icon: Icons.pin_drop_outlined,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
+                primaryColor: _primaryColor,
               ),
 
-              if (_savedAddresses.isNotEmpty) ...[
+              if (_savedAddresses.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 28),
 
                 AddressScreenWidgets.sectionTitle(
                   'Saved Address',
+                  textColor: _textPrimaryColor,
                 ),
 
                 const SizedBox(height: 12),
 
                 ..._savedAddresses.map(
-                  (address) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: AddressScreenWidgets.savedAddressCard(
-                      address: address,
-                      onSelect: () => _selectAddress(address),
-                      onEdit: _editAddress,
-                      onDelete: _deleteAddress,
-                    ),
-                  ),
+                  (Map<String, dynamic> address) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: AddressScreenWidgets.savedAddressCard(
+                        address: address,
+                        primaryColor: _primaryColor,
+                        onSelect: () => _selectAddress(address),
+                        onEdit: _editAddress,
+                        onDelete: _deleteAddress,
+                      ),
+                    );
+                  },
                 ),
               ],
 
@@ -597,10 +644,10 @@ class _AddressScreenState extends State<AddressScreen> {
                 child: ElevatedButton(
                   onPressed: _saving ? null : _saveAddress,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: _primaryColor,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor:
-                        AppColors.primary.withOpacity(0.5),
+                        _primaryColor.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
