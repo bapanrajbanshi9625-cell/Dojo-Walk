@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geocoding/geocoding.dart' as geocoding;
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors.dart';
 
 class AddressLocationPickerScreen extends StatefulWidget {
   const AddressLocationPickerScreen({
@@ -23,8 +23,7 @@ class AddressLocationPickerScreen extends StatefulWidget {
 
 class _AddressLocationPickerScreenState
     extends State<AddressLocationPickerScreen> {
-  final MapController _mapController =
-      MapController();
+  final MapController _mapController = MapController();
 
   Timer? _geocodeDebounce;
 
@@ -34,8 +33,7 @@ class _AddressLocationPickerScreenState
   bool _saving = false;
   bool _movingMap = false;
 
-  String _selectedAddress =
-      'Move the map to select location';
+  String _selectedAddress = 'Move the map to choose pickup location';
 
   @override
   void initState() {
@@ -49,281 +47,176 @@ class _AddressLocationPickerScreenState
     super.dispose();
   }
 
-  // ============================================================
-  // INITIAL LOCATION
-  // ============================================================
-
   Future<void> _initializeLocation() async {
     try {
+      LatLng location;
+
       if (widget.initialLocation != null) {
-        _selectedLocation =
-            widget.initialLocation;
+        location = widget.initialLocation!;
+      } else {
+        final permission = await Geolocator.checkPermission();
 
-        await _reverseGeocode(
-          widget.initialLocation!,
+        LocationPermission finalPermission = permission;
+
+        if (permission == LocationPermission.denied) {
+          finalPermission = await Geolocator.requestPermission();
+        }
+
+        if (finalPermission == LocationPermission.denied ||
+            finalPermission == LocationPermission.deniedForever) {
+          location = const LatLng(
+            28.6139,
+            77.2090,
+          );
+        } else {
+          final position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          );
+
+          location = LatLng(
+            position.latitude,
+            position.longitude,
+          );
+        }
+      }
+
+      _selectedLocation = location;
+
+      await _reverseGeocode(location);
+
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _selectedLocation ??= const LatLng(
+          28.6139,
+          77.2090,
         );
-
-        if (!mounted) return;
-
-        setState(() {
-          _loading = false;
-        });
-
-        return;
-      }
-
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        throw const LocationServiceDisabledException();
-      }
-
-      LocationPermission permission =
-          await Geolocator.checkPermission();
-
-      if (permission ==
-          LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
-      }
-
-      if (permission ==
-          LocationPermission.denied) {
-        throw const _PickerPermissionException();
-      }
-
-      if (permission ==
-          LocationPermission.deniedForever) {
-        throw const _PickerPermissionForeverException();
-      }
-
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        desiredAccuracy:
-            LocationAccuracy.high,
-      );
-
-      _selectedLocation = LatLng(
-        position.latitude,
-        position.longitude,
-      );
-
-      await _reverseGeocode(
-        _selectedLocation!,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
         _loading = false;
       });
-    } catch (e) {
-      debugPrint(
-        'Address location picker error: $e',
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-      });
-
-      _showError(
-        _locationErrorMessage(e),
-      );
     }
   }
 
-  // ============================================================
-  // REVERSE GEOCODING
-  // ============================================================
-
-  Future<void> _reverseGeocode(
-    LatLng location,
-  ) async {
+  Future<void> _reverseGeocode(LatLng location) async {
     try {
-      final geocoding.Geocoding geocoder =
-          geocoding.Geocoding();
-
-      final List<geocoding.Placemark> places =
-          await geocoder.placemarkFromCoordinates(
+      final placemarks = await placemarkFromCoordinates(
         location.latitude,
         location.longitude,
       );
 
-      if (places.isEmpty) {
-        if (!mounted) return;
-
-        setState(() {
-          _selectedAddress =
-              'Location selected';
-        });
-
+      if (placemarks.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _selectedAddress = 'Location selected';
+          });
+        }
         return;
       }
 
-      final geocoding.Placemark place =
-          places.first;
+      final place = placemarks.first;
 
-      final List<String> parts =
-          <String>[];
-
-      final String street =
-          place.street?.trim() ?? '';
-
-      final String area =
-          place.subLocality?.trim() ?? '';
-
-      final String city =
-          place.locality?.trim() ?? '';
-
-      final String state =
-          place.administrativeArea?.trim() ?? '';
-
-      final String pincode =
-          place.postalCode?.trim() ?? '';
-
-      if (street.isNotEmpty) {
-        parts.add(street);
-      }
-
-      if (area.isNotEmpty &&
-          !parts.contains(area)) {
-        parts.add(area);
-      }
-
-      if (city.isNotEmpty &&
-          !parts.contains(city)) {
-        parts.add(city);
-      }
-
-      if (state.isNotEmpty &&
-          !parts.contains(state)) {
-        parts.add(state);
-      }
-
-      if (pincode.isNotEmpty) {
-        parts.add(pincode);
-      }
-
-      final String address =
-          parts.isEmpty
-              ? 'Location selected'
-              : parts.join(', ');
-
-      if (!mounted) return;
-
-      setState(() {
-        _selectedAddress = address;
-      });
-    } catch (e) {
-      debugPrint(
-        'Reverse geocoding failed: $e',
-      );
+      final parts = <String>[
+        place.name,
+        place.street,
+        place.subLocality,
+        place.locality,
+        place.administrativeArea,
+        place.postalCode,
+      ].where((value) {
+        return value != null && value.trim().isNotEmpty;
+      }).map((value) => value!.trim()).toSet().toList();
 
       if (!mounted) return;
 
       setState(() {
         _selectedAddress =
-            'Location selected';
+            parts.isEmpty ? 'Location selected' : parts.join(', ');
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAddress = 'Location selected';
       });
     }
   }
-
-  // ============================================================
-  // MAP MOVED
-  // ============================================================
 
   void _onMapPositionChanged(
     MapCamera camera,
     bool hasGesture,
   ) {
-    if (!hasGesture || _saving) {
+    if (!hasGesture || _movingMap) {
       return;
     }
 
-    // IMPORTANT:
-    // The center of the map is the pickup location.
-    final LatLng center = camera.center;
+    // EXACT pickup point = exact center of the map.
+    final center = camera.center;
 
-    setState(() {
-      _movingMap = true;
-      _selectedLocation = center;
-      _selectedAddress =
-          'Finding address...';
-    });
+    _selectedLocation = center;
+
+    if (mounted) {
+      setState(() {
+        _selectedAddress = 'Finding address...';
+      });
+    }
 
     _geocodeDebounce?.cancel();
 
     _geocodeDebounce = Timer(
       const Duration(milliseconds: 500),
-      () async {
-        await _reverseGeocode(center);
-
-        if (!mounted) return;
-
-        setState(() {
-          _movingMap = false;
-        });
+      () {
+        _reverseGeocode(center);
       },
     );
   }
 
-  // ============================================================
-  // CURRENT LOCATION
-  // ============================================================
-
   Future<void> _goToCurrentLocation() async {
-    if (_saving) return;
-
     try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+      final permission = await Geolocator.checkPermission();
 
-      if (!serviceEnabled) {
-        throw const LocationServiceDisabledException();
+      LocationPermission finalPermission = permission;
+
+      if (permission == LocationPermission.denied) {
+        finalPermission = await Geolocator.requestPermission();
       }
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
+      if (finalPermission == LocationPermission.denied ||
+          finalPermission == LocationPermission.deniedForever) {
+        if (!mounted) return;
 
-      if (permission ==
-          LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location permission is required for current location.',
+            ),
+          ),
+        );
+        return;
       }
 
-      if (permission ==
-          LocationPermission.denied) {
-        throw const _PickerPermissionException();
-      }
-
-      if (permission ==
-          LocationPermission.deniedForever) {
-        throw const _PickerPermissionForeverException();
-      }
-
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        desiredAccuracy:
-            LocationAccuracy.high,
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
-      final LatLng location = LatLng(
+      final location = LatLng(
         position.latitude,
         position.longitude,
       );
 
-      _geocodeDebounce?.cancel();
-
-      if (!mounted) return;
+      _selectedLocation = location;
 
       setState(() {
-        _selectedLocation = location;
-        _selectedAddress =
-            'Finding address...';
         _movingMap = true;
+        _selectedAddress = 'Finding address...';
       });
 
       _mapController.move(
@@ -341,28 +234,22 @@ class _AddressLocationPickerScreenState
     } catch (e) {
       if (!mounted) return;
 
-      _showError(
-        _locationErrorMessage(e),
+      setState(() {
+        _movingMap = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to get current location: $e'),
+        ),
       );
     }
   }
 
-  // ============================================================
-  // USE SELECTED LOCATION
-  // ============================================================
-
   Future<void> _useSelectedLocation() async {
-    final LatLng? location =
-        _selectedLocation;
+    final location = _selectedLocation;
 
-    if (location == null) {
-      _showError(
-        'Please select a location first.',
-      );
-      return;
-    }
-
-    if (_saving) {
+    if (location == null || _saving) {
       return;
     }
 
@@ -370,425 +257,203 @@ class _AddressLocationPickerScreenState
       _saving = true;
     });
 
-    try {
-      // Re-confirm the address for the EXACT
-      // coordinates currently represented by
-      // the center pin.
-      await _reverseGeocode(location);
+    // Reverse geocode the FINAL center-pin coordinates one more time.
+    await _reverseGeocode(location);
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      Navigator.of(context).pop(
-        <String, dynamic>{
-          'latitude':
-              location.latitude,
-          'longitude':
-              location.longitude,
-          'address':
-              _selectedAddress,
-        },
-      );
-    } catch (e) {
-      debugPrint(
-        'Location save error: $e',
-      );
-
-      if (mounted) {
-        _showError(
-          'Unable to select this location.',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-        });
-      }
-    }
+    Navigator.pop(
+      context,
+      {
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'address': _selectedAddress,
+      },
+    );
   }
-
-  // ============================================================
-  // ERROR MESSAGE
-  // ============================================================
-
-  String _locationErrorMessage(
-    Object error,
-  ) {
-    if (error
-        is LocationServiceDisabledException) {
-      return 'Please turn on Location/GPS.';
-    }
-
-    if (error
-        is _PickerPermissionException) {
-      return 'Location permission is required.';
-    }
-
-    if (error
-        is _PickerPermissionForeverException) {
-      return 'Location permission is permanently denied. Please allow it from App Settings.';
-    }
-
-    return 'Unable to detect your location.';
-  }
-
-  // ============================================================
-  // ERROR
-  // ============================================================
-
-  void _showError(
-    String message,
-  ) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content:
-              Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          margin:
-              const EdgeInsets.all(14),
-        ),
-      );
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Scaffold(
-      backgroundColor:
-          AppColors.background,
+  Widget build(BuildContext context) {
+    if (_loading || _selectedLocation == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          title: const Text('Choose Pickup Location'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
+    final center = _selectedLocation!;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor:
-            AppColors.navy,
-        foregroundColor:
-            AppColors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
+        foregroundColor: AppColors.textPrimary,
         title: const Text(
           'Choose Pickup Location',
           style: TextStyle(
-            fontWeight:
-                FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
-
-      body: _loading
-          ? Center(
-              child:
-                  CircularProgressIndicator(
-                color:
-                    AppColors.primary,
-              ),
-            )
-          : Stack(
-              children: [
-                // ==================================================
-                // MAP
-                // ==================================================
-
-                Positioned.fill(
-                  child:
-                      _selectedLocation ==
-                              null
-                          ? Center(
-                              child: Text(
-                                'Unable to load location',
-                                style:
-                                    TextStyle(
-                                  color:
-                                      AppColors.slate,
-                                  fontWeight:
-                                      FontWeight.w700,
-                                ),
-                              ),
-                            )
-                          : FlutterMap(
-                              mapController:
-                                  _mapController,
-                              options:
-                                  MapOptions(
-                                initialCenter:
-                                    _selectedLocation!,
-                                initialZoom:
-                                    17,
-                                onPositionChanged:
-                                    _onMapPositionChanged,
-                              ),
-                              children: [
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                  userAgentPackageName:
-                                      'com.doojowalker.app',
-                                ),
-                              ],
-                            ),
-                ),
-
-                // ==================================================
-                // FIXED CENTER PIN
-                // ==================================================
-
-                if (_selectedLocation !=
-                    null)
-                  Center(
-                    child:
-                        Padding(
-                      padding:
-                          const EdgeInsets.only(
-                        bottom: 38,
-                      ),
-                      child: Icon(
-                        Icons.location_pin,
-                        size: 52,
-                        color:
-                            AppColors.primary,
-                        shadows:
-                            const [
-                          Shadow(
-                            blurRadius:
-                                5,
-                            offset:
-                                Offset(
-                              0,
-                              2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // ==================================================
-                // SELECTED LOCATION CARD
-                // ==================================================
-
-                Positioned(
-                  left: 14,
-                  right: 14,
-                  top: 14,
-                  child: Material(
-                    elevation: 5,
-                    borderRadius:
-                        BorderRadius.circular(
-                      16,
-                    ),
-                    child:
-                        Container(
-                      padding:
-                          const EdgeInsets.all(
-                        14,
-                      ),
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            AppColors.card,
-                        borderRadius:
-                            BorderRadius.circular(
-                          16,
-                        ),
-                      ),
-                      child:
-                          Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration:
-                                BoxDecoration(
-                              color: AppColors
-                                  .primary
-                                  .withValues(
-                                alpha:
-                                    0.10,
-                              ),
-                              shape:
-                                  BoxShape.circle,
-                            ),
-                            child:
-                                Icon(
-                              Icons
-                                  .location_on_rounded,
-                              color:
-                                  AppColors.primary,
-                              size:
-                                  22,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 10,
-                          ),
-                          Expanded(
-                            child:
-                                Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
-                              children: [
-                                Text(
-                                  _movingMap
-                                      ? 'Choose Pickup Location'
-                                      : 'Current Location',
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        AppColors.slate,
-                                    fontSize:
-                                        11,
-                                    fontWeight:
-                                        FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(
-                                  height: 3,
-                                ),
-                                Text(
-                                  _selectedAddress,
-                                  maxLines:
-                                      2,
-                                  overflow:
-                                      TextOverflow.ellipsis,
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        AppColors.navy,
-                                    fontSize:
-                                        13,
-                                    fontWeight:
-                                        FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ==================================================
-                // CURRENT LOCATION SHORTCUT
-                // ==================================================
-
-                Positioned(
-                  right: 16,
-                  bottom: 118,
-                  child:
-                      FloatingActionButton(
-                    heroTag:
-                        'address_current_location',
-                    onPressed:
-                        _goToCurrentLocation,
-                    backgroundColor:
-                        AppColors.card,
-                    foregroundColor:
-                        AppColors.primary,
-                    elevation: 5,
-                    child:
-                        const Icon(
-                      Icons
-                          .my_location_rounded,
-                    ),
-                  ),
-                ),
-
-                // ==================================================
-                // USE LOCATION
-                // ==================================================
-
-                Positioned(
-                  left: 14,
-                  right: 14,
-                  bottom: 16,
-                  child:
-                      SafeArea(
-                    top: false,
-                    child:
-                        SizedBox(
-                      height: 54,
-                      child:
-                          ElevatedButton.icon(
-                        onPressed:
-                            _saving
-                                ? null
-                                : _useSelectedLocation,
-                        icon:
-                            _saving
-                                ? SizedBox(
-                                    width:
-                                        20,
-                                    height:
-                                        20,
-                                    child:
-                                        CircularProgressIndicator(
-                                      strokeWidth:
-                                          2.2,
-                                      color:
-                                          AppColors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons
-                                        .check_circle_rounded,
-                                  ),
-                        label:
-                            Text(
-                          _saving
-                              ? 'Saving...'
-                              : 'Use This Location',
-                          style:
-                              const TextStyle(
-                            fontSize:
-                                14,
-                            fontWeight:
-                                FontWeight.w900,
-                          ),
-                        ),
-                        style:
-                            ElevatedButton
-                                .styleFrom(
-                          backgroundColor:
-                              AppColors.primary,
-                          foregroundColor:
-                              AppColors.white,
-                          elevation: 4,
-                          shape:
-                              RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(
-                              15,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: 17,
+              onPositionChanged: _onMapPositionChanged,
             ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.doojowalker.app',
+              ),
+            ],
+          ),
+
+          // Fixed center pin.
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 38),
+              child: Icon(
+                Icons.location_pin,
+                size: 52,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+
+          // Address information.
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Material(
+              elevation: 5,
+              borderRadius: BorderRadius.circular(18),
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Pickup Location',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _selectedAddress,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Current location is only a convenience button.
+          // It does NOT force the final pickup location.
+          Positioned(
+            right: 16,
+            bottom: 125,
+            child: FloatingActionButton(
+              heroTag: 'current_location',
+              onPressed: _goToCurrentLocation,
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.primary,
+              elevation: 5,
+              child: const Icon(
+                Icons.my_location,
+              ),
+            ),
+          ),
+
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 20,
+            child: SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _useSelectedLocation,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      AppColors.primary.withOpacity(0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  elevation: 4,
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 23,
+                        height: 23,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline),
+                          SizedBox(width: 8),
+                          Text(
+                            'Use This Location',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
-}
-
-// ============================================================
-// INTERNAL EXCEPTIONS
-// ============================================================
-
-class _PickerPermissionException
-    implements Exception {
-  const _PickerPermissionException();
-}
-
-class _PickerPermissionForeverException
-    implements Exception {
-  const _PickerPermissionForeverException();
 }
