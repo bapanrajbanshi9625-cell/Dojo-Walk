@@ -23,7 +23,8 @@ class AddressLocationPickerScreen extends StatefulWidget {
 
 class _AddressLocationPickerScreenState
     extends State<AddressLocationPickerScreen> {
-  final MapController _mapController = MapController();
+  final MapController _mapController =
+      MapController();
 
   Timer? _geocodeDebounce;
 
@@ -33,7 +34,8 @@ class _AddressLocationPickerScreenState
   bool _saving = false;
   bool _movingMap = false;
 
-  String _selectedAddress = 'Move the map to select location';
+  String _selectedAddress =
+      'Move the map to select location';
 
   @override
   void initState() {
@@ -54,7 +56,8 @@ class _AddressLocationPickerScreenState
   Future<void> _initializeLocation() async {
     try {
       if (widget.initialLocation != null) {
-        _selectedLocation = widget.initialLocation;
+        _selectedLocation =
+            widget.initialLocation;
 
         await _reverseGeocode(
           widget.initialLocation!,
@@ -79,21 +82,26 @@ class _AddressLocationPickerScreenState
       LocationPermission permission =
           await Geolocator.checkPermission();
 
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.denied) {
+      if (permission ==
+          LocationPermission.denied) {
         throw const _PickerPermissionException();
       }
 
-      if (permission == LocationPermission.deniedForever) {
+      if (permission ==
+          LocationPermission.deniedForever) {
         throw const _PickerPermissionForeverException();
       }
 
       final Position position =
           await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy:
+            LocationAccuracy.high,
       );
 
       _selectedLocation = LatLng(
@@ -148,7 +156,8 @@ class _AddressLocationPickerScreenState
         if (!mounted) return;
 
         setState(() {
-          _selectedAddress = 'Location selected';
+          _selectedAddress =
+              'Location selected';
         });
 
         return;
@@ -157,7 +166,8 @@ class _AddressLocationPickerScreenState
       final geocoding.Placemark place =
           places.first;
 
-      final List<String> parts = [];
+      final List<String> parts =
+          <String>[];
 
       final String street =
           place.street?.trim() ?? '';
@@ -197,9 +207,10 @@ class _AddressLocationPickerScreenState
         parts.add(pincode);
       }
 
-      final String address = parts.isEmpty
-          ? 'Location selected'
-          : parts.join(', ');
+      final String address =
+          parts.isEmpty
+              ? 'Location selected'
+              : parts.join(', ');
 
       if (!mounted) return;
 
@@ -214,7 +225,8 @@ class _AddressLocationPickerScreenState
       if (!mounted) return;
 
       setState(() {
-        _selectedAddress = 'Location selected';
+        _selectedAddress =
+            'Location selected';
       });
     }
   }
@@ -231,12 +243,15 @@ class _AddressLocationPickerScreenState
       return;
     }
 
+    // IMPORTANT:
+    // The center of the map is the pickup location.
     final LatLng center = camera.center;
 
     setState(() {
       _movingMap = true;
       _selectedLocation = center;
-      _selectedAddress = 'Finding address...';
+      _selectedAddress =
+          'Finding address...';
     });
 
     _geocodeDebounce?.cancel();
@@ -273,21 +288,26 @@ class _AddressLocationPickerScreenState
       LocationPermission permission =
           await Geolocator.checkPermission();
 
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.denied) {
+      if (permission ==
+          LocationPermission.denied) {
         throw const _PickerPermissionException();
       }
 
-      if (permission == LocationPermission.deniedForever) {
+      if (permission ==
+          LocationPermission.deniedForever) {
         throw const _PickerPermissionForeverException();
       }
 
       final Position position =
           await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy:
+            LocationAccuracy.high,
       );
 
       final LatLng location = LatLng(
@@ -301,7 +321,8 @@ class _AddressLocationPickerScreenState
 
       setState(() {
         _selectedLocation = location;
-        _selectedAddress = 'Finding address...';
+        _selectedAddress =
+            'Finding address...';
         _movingMap = true;
       });
 
@@ -350,16 +371,21 @@ class _AddressLocationPickerScreenState
     });
 
     try {
-      // Re-confirm address for EXACT selected coordinates.
+      // Re-confirm the address for the EXACT
+      // coordinates currently represented by
+      // the center pin.
       await _reverseGeocode(location);
 
       if (!mounted) return;
 
       Navigator.of(context).pop(
         <String, dynamic>{
-          'latitude': location.latitude,
-          'longitude': location.longitude,
-          'address': _selectedAddress,
+          'latitude':
+              location.latitude,
+          'longitude':
+              location.longitude,
+          'address':
+              _selectedAddress,
         },
       );
     } catch (e) {
@@ -407,7 +433,7 @@ class _AddressLocationPickerScreenState
   }
 
   // ============================================================
-  // ERROR SNACKBAR
+  // ERROR
   // ============================================================
 
   void _showError(
@@ -417,9 +443,12 @@ class _AddressLocationPickerScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(14),
+          content:
+              Text(message),
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(14),
         ),
       );
   }
@@ -443,9 +472,10 @@ class _AddressLocationPickerScreenState
             AppColors.white,
         elevation: 0,
         title: const Text(
-          'Select Location',
+          'Choose Pickup Location',
           style: TextStyle(
-            fontWeight: FontWeight.w900,
+            fontWeight:
+                FontWeight.w900,
           ),
         ),
       ),
@@ -466,7 +496,8 @@ class _AddressLocationPickerScreenState
 
                 Positioned.fill(
                   child:
-                      _selectedLocation == null
+                      _selectedLocation ==
+                              null
                           ? Center(
                               child: Text(
                                 'Unable to load location',
@@ -509,7 +540,8 @@ class _AddressLocationPickerScreenState
                 if (_selectedLocation !=
                     null)
                   Center(
-                    child: Padding(
+                    child:
+                        Padding(
                       padding:
                           const EdgeInsets.only(
                         bottom: 38,
@@ -519,11 +551,16 @@ class _AddressLocationPickerScreenState
                         size: 52,
                         color:
                             AppColors.primary,
-                        shadows: const [
+                        shadows:
+                            const [
                           Shadow(
-                            blurRadius: 5,
+                            blurRadius:
+                                5,
                             offset:
-                                Offset(0, 2),
+                                Offset(
+                              0,
+                              2,
+                            ),
                           ),
                         ],
                       ),
@@ -531,7 +568,7 @@ class _AddressLocationPickerScreenState
                   ),
 
                 // ==================================================
-                // ADDRESS CARD
+                // SELECTED LOCATION CARD
                 // ==================================================
 
                 Positioned(
@@ -544,7 +581,8 @@ class _AddressLocationPickerScreenState
                         BorderRadius.circular(
                       16,
                     ),
-                    child: Container(
+                    child:
+                        Container(
                       padding:
                           const EdgeInsets.all(
                         14,
@@ -558,7 +596,8 @@ class _AddressLocationPickerScreenState
                           16,
                         ),
                       ),
-                      child: Row(
+                      child:
+                          Row(
                         children: [
                           Container(
                             width: 40,
@@ -568,32 +607,36 @@ class _AddressLocationPickerScreenState
                               color: AppColors
                                   .primary
                                   .withValues(
-                                alpha: 0.10,
+                                alpha:
+                                    0.10,
                               ),
                               shape:
                                   BoxShape.circle,
                             ),
-                            child: Icon(
+                            child:
+                                Icon(
                               Icons
                                   .location_on_rounded,
                               color:
                                   AppColors.primary,
-                              size: 22,
+                              size:
+                                  22,
                             ),
                           ),
                           const SizedBox(
                             width: 10,
                           ),
                           Expanded(
-                            child: Column(
+                            child:
+                                Column(
                               crossAxisAlignment:
                                   CrossAxisAlignment
                                       .start,
                               children: [
                                 Text(
                                   _movingMap
-                                      ? 'Selecting location'
-                                      : 'Selected location',
+                                      ? 'Choose Pickup Location'
+                                      : 'Current Location',
                                   style:
                                       TextStyle(
                                     color:
@@ -609,10 +652,10 @@ class _AddressLocationPickerScreenState
                                 ),
                                 Text(
                                   _selectedAddress,
-                                  maxLines: 2,
+                                  maxLines:
+                                      2,
                                   overflow:
-                                      TextOverflow
-                                          .ellipsis,
+                                      TextOverflow.ellipsis,
                                   style:
                                       TextStyle(
                                     color:
@@ -633,7 +676,7 @@ class _AddressLocationPickerScreenState
                 ),
 
                 // ==================================================
-                // CURRENT LOCATION BUTTON
+                // CURRENT LOCATION SHORTCUT
                 // ==================================================
 
                 Positioned(
@@ -650,7 +693,8 @@ class _AddressLocationPickerScreenState
                     foregroundColor:
                         AppColors.primary,
                     elevation: 5,
-                    child: const Icon(
+                    child:
+                        const Icon(
                       Icons
                           .my_location_rounded,
                     ),
@@ -658,16 +702,18 @@ class _AddressLocationPickerScreenState
                 ),
 
                 // ==================================================
-                // BOTTOM ACTION
+                // USE LOCATION
                 // ==================================================
 
                 Positioned(
                   left: 14,
                   right: 14,
                   bottom: 16,
-                  child: SafeArea(
+                  child:
+                      SafeArea(
                     top: false,
-                    child: SizedBox(
+                    child:
+                        SizedBox(
                       height: 54,
                       child:
                           ElevatedButton.icon(
@@ -675,35 +721,41 @@ class _AddressLocationPickerScreenState
                             _saving
                                 ? null
                                 : _useSelectedLocation,
-                        icon: _saving
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(
-                                  strokeWidth:
-                                      2.2,
-                                  color:
-                                      AppColors.white,
-                                ),
-                              )
-                            : const Icon(
-                                Icons
-                                    .check_circle_rounded,
-                              ),
-                        label: Text(
+                        icon:
+                            _saving
+                                ? SizedBox(
+                                    width:
+                                        20,
+                                    height:
+                                        20,
+                                    child:
+                                        CircularProgressIndicator(
+                                      strokeWidth:
+                                          2.2,
+                                      color:
+                                          AppColors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons
+                                        .check_circle_rounded,
+                                  ),
+                        label:
+                            Text(
                           _saving
                               ? 'Saving...'
                               : 'Use This Location',
                           style:
                               const TextStyle(
-                            fontSize: 14,
+                            fontSize:
+                                14,
                             fontWeight:
                                 FontWeight.w900,
                           ),
                         ),
                         style:
-                            ElevatedButton.styleFrom(
+                            ElevatedButton
+                                .styleFrom(
                           backgroundColor:
                               AppColors.primary,
                           foregroundColor:
