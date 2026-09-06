@@ -420,14 +420,14 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         // ======================================================
         // RELOAD LOCATION
-        // ======================================================
+        // ========================================================
 
         ownerLocation =
             _readOwnerProfileLocation(data);
 
         // ======================================================
         // SAVED ADDRESS FALLBACK
-        // ======================================================
+        // ========================================================
 
         if (address.isEmpty ||
             ownerLocation == null) {
@@ -461,7 +461,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         // ======================================================
         // STILL INCOMPLETE
-        // ======================================================
+        // ========================================================
 
         if (address.isEmpty) {
           _updateState(() {
@@ -501,19 +501,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // FINAL LOCATION CHECK
       //
       // There is intentionally NO GPS fallback here.
+      //
+      // ownerLocation is guaranteed to be non-null after the
+      // address/location flow above.
       // ========================================================
-
-      if (ownerLocation == null) {
-        _updateState(() {
-          _checkingAddress = false;
-        });
-
-        _message(
-          'Walking address location is not available. Please choose your walking address again.',
-        );
-
-        return;
-      }
 
       // ========================================================
       // FINAL DEBUG
