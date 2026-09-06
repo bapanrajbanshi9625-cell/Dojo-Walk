@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class SaveProfileButton extends StatelessWidget {
   final bool isSaving;
@@ -20,11 +20,13 @@ class SaveProfileButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isSaving ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: DojoButtonColors.primary,
-          foregroundColor: DojoButtonColors.primaryText,
+          backgroundColor: DojoWalkColors.primary,
+          foregroundColor: DojoWalkColors.white,
           disabledBackgroundColor:
-              DojoBrandColors.orange.withOpacity(0.55),
-          disabledForegroundColor: Colors.white,
+              DojoWalkColors.primary.withValues(
+            alpha: 0.55,
+          ),
+          disabledForegroundColor: DojoWalkColors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 18,
@@ -39,7 +41,7 @@ class SaveProfileButton extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Colors.white,
+                  color: DojoWalkColors.white,
                 ),
               )
             : const Row(
