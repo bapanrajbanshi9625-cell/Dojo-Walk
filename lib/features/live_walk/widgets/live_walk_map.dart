@@ -12,7 +12,10 @@ class LiveWalkMap extends StatefulWidget {
   });
 
   final LatLng? walkerLocation;
+
+  // This is the owner's saved/pickup location.
   final LatLng? destination;
+
   final List<LatLng> routePoints;
   final VoidCallback onRecenter;
 
@@ -25,8 +28,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 
   bool _initialCentered = false;
 
-  static const Color primary = Color(0xFFFF8A00);
-  static const Color red = Color(0xFFDC2626);
+  static const Color orange = Color(0xFFFF6B35);
+  static const Color routeBlue = Color(0xFF2563EB);
 
   @override
   void didUpdateWidget(covariant LiveWalkMap oldWidget) {
@@ -51,21 +54,23 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   }
 
   List<LatLng> _buildRoute() {
-    final route = List<LatLng>.from(widget.routePoints);
+    final route = <LatLng>[
+      ...widget.routePoints,
+    ];
+
     final walker = widget.walkerLocation;
 
     if (walker == null) {
       return route;
     }
 
-    if (route.isEmpty) {
-      if (widget.destination != null) {
-        return [
-          widget.destination!,
-          walker,
-        ];
-      }
+    // IMPORTANT:
+    // Never create an artificial route from owner location
+    // to walker location.
+    //
+    // The route must represent actual recorded GPS movement.
 
+    if (route.isEmpty) {
       return [walker];
     }
 
@@ -101,26 +106,30 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           userAgentPackageName: 'com.doojowalker.app',
         ),
 
+        // Actual travelled GPS route.
         if (route.length >= 2)
           PolylineLayer(
             polylines: [
               Polyline(
                 points: route,
                 strokeWidth: 5,
-                color: primary,
+                color: routeBlue,
               ),
             ],
           ),
 
         MarkerLayer(
           markers: [
+            // Owner saved/pickup location.
             if (widget.destination != null)
               Marker(
                 point: widget.destination!,
-                width: 52,
-                height: 58,
-                child: _destinationMarker(),
+                width: 50,
+                height: 56,
+                child: _ownerLocationMarker(),
               ),
+
+            // Walker live location.
             if (widget.walkerLocation != null)
               Marker(
                 point: widget.walkerLocation!,
@@ -142,7 +151,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: primary,
+            color: orange,
             shape: BoxShape.circle,
             border: Border.all(
               color: Colors.white,
@@ -174,13 +183,13 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
                     color: Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: primary,
+                      color: orange,
                       width: 1.5,
                     ),
                   ),
                   child: const Icon(
                     Icons.pets_rounded,
-                    color: primary,
+                    color: orange,
                     size: 10,
                   ),
                 ),
@@ -190,44 +199,44 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         ),
         const Icon(
           Icons.arrow_drop_down,
-          color: primary,
+          color: orange,
           size: 18,
         ),
       ],
     );
   }
 
-  Widget _destinationMarker() {
+  Widget _ownerLocationMarker() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: red,
+            color: Colors.white,
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white,
+              color: orange,
               width: 3,
             ),
             boxShadow: [
               BoxShadow(
                 blurRadius: 9,
                 offset: const Offset(0, 4),
-                color: Colors.black.withValues(alpha: 0.25),
+                color: Colors.black.withValues(alpha: 0.20),
               ),
             ],
           ),
           child: const Icon(
             Icons.home_rounded,
-            color: Colors.white,
-            size: 22,
+            color: orange,
+            size: 21,
           ),
         ),
         const Icon(
           Icons.arrow_drop_down,
-          color: red,
+          color: orange,
           size: 18,
         ),
       ],
