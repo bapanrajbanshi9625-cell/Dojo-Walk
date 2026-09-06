@@ -8,10 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 import '../change_mobile/change_mobile_flow.dart';
 import '../widgets/owner_info_card.dart';
 import '../widgets/pet_details_card.dart';
+import '../widgets/profile_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -19,8 +20,7 @@ class ProfileScreen extends StatefulWidget {
   });
 
   @override
-  State<ProfileScreen> createState() =>
-      _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
@@ -65,9 +65,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // FIND CURRENT OWNER DOCUMENT
   //
   // Canonical collection = owners
-  //
-  // Document ID can be ownerId.
-  // authUid is used to find the current owner.
   // ============================================================
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
@@ -81,8 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // 1. Find by authUid
     // ----------------------------------------------------------
 
-    final QuerySnapshot<Map<String, dynamic>>
-        query =
+    final QuerySnapshot<Map<String, dynamic>> query =
         await firestore
             .collection('owners')
             .where(
@@ -100,8 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // 2. UID document fallback
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        direct =
+    final DocumentSnapshot<Map<String, dynamic>> direct =
         await firestore
             .collection('owners')
             .doc(uid)
@@ -141,11 +136,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
+      final DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc =
           await _findOwnerDocument(uid);
 
@@ -153,32 +146,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // OWNER NOT FOUND
       // ========================================================
 
-      if (ownerDoc == null ||
-          !ownerDoc.exists) {
+      if (ownerDoc == null || !ownerDoc.exists) {
         if (!mounted) {
           return;
         }
 
         setState(() {
           _ownerId = uid;
-
-          _ownerName =
-              _firebaseName(user);
-
-          _mobileNumber =
-              _firebasePhone(user);
-
+          _ownerName = _firebaseName(user);
+          _mobileNumber = _firebasePhone(user);
           _ownerDob = '';
           _ownerGender = '';
           _memberSince = '';
-
           _profileImageUrl = '';
-
-          _pets =
-              <Map<String, dynamic>>[];
-
+          _pets = <Map<String, dynamic>>[];
           _isActive = true;
-
           _isLoading = false;
         });
 
@@ -197,8 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // OWNER ID
       // ========================================================
 
-      final String ownerId =
-          _firstNonEmpty([
+      final String ownerId = _firstNonEmpty([
         data['ownerId'],
         ownerDoc.id,
         uid,
@@ -208,8 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // OWNER NAME
       // ========================================================
 
-      final String ownerName =
-          _firstNonEmpty([
+      final String ownerName = _firstNonEmpty([
         data['ownerName'],
         data['fullName'],
         data['name'],
@@ -221,8 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // MOBILE
       // ========================================================
 
-      final String mobile =
-          _firstNonEmpty([
+      final String mobile = _firstNonEmpty([
         data['mainPhone'],
         data['phone'],
         data['phoneNumber'],
@@ -235,8 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // DOB
       // ========================================================
 
-      final String dob =
-          _firstNonEmpty([
+      final String dob = _firstNonEmpty([
         data['dob'],
         data['dateOfBirth'],
         data['ownerDob'],
@@ -246,8 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // GENDER
       // ========================================================
 
-      final String gender =
-          _firstNonEmpty([
+      final String gender = _firstNonEmpty([
         data['gender'],
         data['ownerGender'],
       ]);
@@ -265,8 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // PROFILE PHOTO
       // ========================================================
 
-      final String profileImageUrl =
-          _firstNonEmpty([
+      final String profileImageUrl = _firstNonEmpty([
         data['profileImageUrl'],
         data['profilePhotoUrl'],
         data['photoUrl'],
@@ -278,16 +254,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ========================================================
 
       final List<Map<String, dynamic>> pets =
-          _readPets(
-        data['pets'],
-      );
+          _readPets(data['pets']);
 
       // ========================================================
       // ACTIVE STATUS
       // ========================================================
 
-      final bool active =
-          _boolValue(
+      final bool active = _boolValue(
         data['isActive'],
         fallback: true,
       );
@@ -303,27 +276,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _ownerId = ownerId;
 
-        _ownerName =
-            ownerName.isNotEmpty
-                ? ownerName
-                : 'Owner';
+        _ownerName = ownerName.isNotEmpty
+            ? ownerName
+            : 'Owner';
 
-        _mobileNumber =
-            mobile.isNotEmpty
-                ? mobile
-                : 'Not available';
+        _mobileNumber = mobile.isNotEmpty
+            ? mobile
+            : 'Not available';
 
         _ownerDob = dob;
         _ownerGender = gender;
         _memberSince = memberSince;
-
-        _profileImageUrl =
-            profileImageUrl;
-
+        _profileImageUrl = profileImageUrl;
         _pets = pets;
-
         _isActive = active;
-
         _isLoading = false;
       });
     } catch (e) {
@@ -339,20 +305,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FirebaseAuth.instance.currentUser;
 
       setState(() {
-        _ownerId =
-            currentUser?.uid ?? '';
-
-        _ownerName =
-            _firebaseName(currentUser);
-
-        _mobileNumber =
-            _firebasePhone(currentUser);
-
+        _ownerId = currentUser?.uid ?? '';
+        _ownerName = _firebaseName(currentUser);
+        _mobileNumber = _firebasePhone(currentUser);
         _profileImageUrl = '';
-
-        _pets =
-            <Map<String, dynamic>>[];
-
+        _pets = <Map<String, dynamic>>[];
         _isLoading = false;
       });
 
@@ -409,15 +366,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // FIND OWNER DOCUMENT
       // ========================================================
 
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
+      final DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc =
           await _findOwnerDocument(
         user.uid.trim(),
       );
 
-      if (ownerDoc == null ||
-          !ownerDoc.exists) {
+      if (ownerDoc == null || !ownerDoc.exists) {
         if (mounted) {
           setState(() {
             _uploadingProfilePhoto = false;
@@ -439,22 +394,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // ========================================================
       // FIREBASE STORAGE
-      //
-      // One profile image per owner.
       // ========================================================
 
       final Reference storageRef =
           FirebaseStorage.instance
               .ref()
-              .child(
-                'owner_profiles',
-              )
-              .child(
-                ownerDoc.id,
-              )
-              .child(
-                'profile.jpg',
-              );
+              .child('owner_profiles')
+              .child(ownerDoc.id)
+              .child('profile.jpg');
 
       await storageRef.putData(
         imageBytes,
@@ -478,8 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await ownerDoc.reference.set(
         {
-          'profileImageUrl':
-              downloadUrl,
+          'profileImageUrl': downloadUrl,
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -495,8 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       setState(() {
-        _profileImageUrl =
-            downloadUrl;
+        _profileImageUrl = downloadUrl;
         _uploadingProfilePhoto = false;
       });
 
@@ -523,276 +468,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ============================================================
-  // OWNER PROFILE PHOTO CARD
-  // ============================================================
-
-  Widget _buildOwnerProfileCard() {
-    final bool hasPhoto =
-        _profileImageUrl.trim().isNotEmpty;
-
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 12,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius:
-            BorderRadius.circular(18),
-        border: Border.all(
-          color:
-              AppColors.orange.withValues(
-            alpha: 0.10,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                AppColors.navy.withValues(
-              alpha: 0.04,
-            ),
-            blurRadius: 12,
-            offset:
-                const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // ======================================================
-          // PROFILE PHOTO
-          // ======================================================
-
-          Stack(
-            clipBehavior:
-                Clip.none,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration:
-                    BoxDecoration(
-                  shape:
-                      BoxShape.circle,
-                  color:
-                      AppColors.orange
-                          .withValues(
-                    alpha: 0.10,
-                  ),
-                  border:
-                      Border.all(
-                    color:
-                        AppColors.orange
-                            .withValues(
-                      alpha: 0.20,
-                    ),
-                    width: 1.5,
-                  ),
-                ),
-                child: ClipOval(
-                  child: hasPhoto
-                      ? Image.network(
-                          _profileImageUrl,
-                          width: 58,
-                          height: 58,
-                          fit: BoxFit.cover,
-                          errorBuilder:
-                              (
-                            context,
-                            error,
-                            stackTrace,
-                          ) {
-                            return const Icon(
-                              Icons
-                                  .person_rounded,
-                              color:
-                                  AppColors.orange,
-                              size: 30,
-                            );
-                          },
-                        )
-                      : const Icon(
-                          Icons
-                              .person_rounded,
-                          color:
-                              AppColors.orange,
-                          size: 30,
-                        ),
-                ),
-              ),
-
-              // ==================================================
-              // CAMERA BUTTON
-              // ==================================================
-
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Material(
-                  color:
-                      AppColors.orange,
-                  shape:
-                      const CircleBorder(),
-                  child: InkWell(
-                    customBorder:
-                        const CircleBorder(),
-                    onTap:
-                        _uploadingProfilePhoto
-                            ? null
-                            : _changeProfilePhoto,
-                    child: SizedBox(
-                      width: 25,
-                      height: 25,
-                      child:
-                          _uploadingProfilePhoto
-                              ? const Padding(
-                                  padding:
-                                      EdgeInsets.all(
-                                    6,
-                                  ),
-                                  child:
-                                      CircularProgressIndicator(
-                                    strokeWidth:
-                                        2,
-                                    color:
-                                        AppColors.white,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons
-                                      .camera_alt_rounded,
-                                  size: 14,
-                                  color:
-                                      AppColors.white,
-                                ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(
-            width: 13,
-          ),
-
-          // ======================================================
-          // OWNER NAME
-          // ======================================================
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Owner Profile',
-                  maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color:
-                        AppColors.orange,
-                    fontSize: 11,
-                    fontWeight:
-                        FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 2,
-                ),
-
-                Text(
-                  _ownerName.isEmpty
-                      ? 'Owner'
-                      : _ownerName,
-                  maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.navy,
-                    fontSize: 16,
-                    fontWeight:
-                        FontWeight.w900,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 2,
-                ),
-
-                Text(
-                  hasPhoto
-                      ? 'Profile photo'
-                      : 'Add your profile photo',
-                  maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(
-                    color:
-                        Colors.grey,
-                    fontSize: 11,
-                    fontWeight:
-                        FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(
-            width: 8,
-          ),
-
-          // ======================================================
-          // CHANGE BUTTON
-          // ======================================================
-
-          TextButton(
-            onPressed:
-                _uploadingProfilePhoto
-                    ? null
-                    : _changeProfilePhoto,
-            style:
-                TextButton.styleFrom(
-              foregroundColor:
-                  AppColors.orange,
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                horizontal: 9,
-                vertical: 7,
-              ),
-              minimumSize:
-                  Size.zero,
-              tapTargetSize:
-                  MaterialTapTargetSize
-                      .shrinkWrap,
-            ),
-            child: Text(
-              hasPhoto
-                  ? 'Change'
-                  : 'Upload',
-              style:
-                  const TextStyle(
-                fontSize: 12,
-                fontWeight:
-                    FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
   // READ PETS
   // ============================================================
 
@@ -803,16 +478,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return <Map<String, dynamic>>[];
     }
 
-    final List<Map<String, dynamic>>
-        result =
+    final List<Map<String, dynamic>> result =
         <Map<String, dynamic>>[];
 
     for (final dynamic item in value) {
       if (item is Map) {
         result.add(
-          Map<String, dynamic>.from(
-            item,
-          ),
+          Map<String, dynamic>.from(item),
         );
       }
     }
@@ -832,24 +504,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final TextEditingController
-        nameController =
+    final TextEditingController nameController =
         TextEditingController();
 
-    final TextEditingController
-        ageController =
+    final TextEditingController ageController =
         TextEditingController();
 
-    final TextEditingController
-        breedController =
+    final TextEditingController breedController =
         TextEditingController();
 
-    final TextEditingController
-        behaviourController =
+    final TextEditingController behaviourController =
         TextEditingController();
 
-    final GlobalKey<FormState>
-        formKey =
+    final GlobalKey<FormState> formKey =
         GlobalKey<FormState>();
 
     final bool? saved =
@@ -857,13 +524,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor:
-          AppColors.white,
+          DojoWalkColors.white,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(
-          top:
-              Radius.circular(26),
+          top: Radius.circular(26),
         ),
       ),
       builder:
@@ -897,15 +563,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration:
                           BoxDecoration(
                         color:
-                            AppColors.navy
+                            DojoWalkColors.black
                                 .withValues(
                           alpha: 0.15,
                         ),
                         borderRadius:
                             BorderRadius
-                                .circular(
-                          20,
-                        ),
+                                .circular(20),
                       ),
                     ),
                   ),
@@ -922,7 +586,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration:
                             BoxDecoration(
                           color:
-                              AppColors.orange
+                              DojoWalkColors.primary
                                   .withValues(
                             alpha: 0.12,
                           ),
@@ -933,7 +597,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Icon(
                           Icons.pets_rounded,
                           color:
-                              AppColors.orange,
+                              DojoWalkColors.primary,
                           size: 25,
                         ),
                       ),
@@ -952,7 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style:
                                   TextStyle(
                                 color:
-                                    AppColors.navy,
+                                    DojoWalkColors.black,
                                 fontSize:
                                     20,
                                 fontWeight:
@@ -967,7 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style:
                                   TextStyle(
                                 color:
-                                    Colors.grey,
+                                    DojoWalkColors.textSecondary,
                                 fontSize:
                                     13,
                               ),
@@ -1085,8 +749,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                       icon:
                           const Icon(
-                        Icons
-                            .add_rounded,
+                        Icons.add_rounded,
                       ),
                       label:
                           const Text(
@@ -1101,16 +764,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ElevatedButton
                               .styleFrom(
                         backgroundColor:
-                            AppColors.orange,
+                            DojoWalkColors.primary,
                         foregroundColor:
-                            AppColors.white,
+                            DojoWalkColors.white,
                         elevation:
                             0,
                         shape:
                             RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius
-                                  .circular(
+                              BorderRadius.circular(
                             15,
                           ),
                         ),
@@ -1170,39 +832,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Icon(
           icon,
           color:
-              AppColors.orange,
+              DojoWalkColors.primary,
         ),
         filled: true,
         fillColor:
-            AppColors.background,
+            DojoWalkColors.background,
         border:
             OutlineInputBorder(
           borderRadius:
-              BorderRadius.circular(
-            14,
-          ),
+              BorderRadius.circular(14),
           borderSide:
               BorderSide.none,
         ),
         enabledBorder:
             OutlineInputBorder(
           borderRadius:
-              BorderRadius.circular(
-            14,
-          ),
+              BorderRadius.circular(14),
           borderSide:
               BorderSide.none,
         ),
         focusedBorder:
             OutlineInputBorder(
           borderRadius:
-              BorderRadius.circular(
-            14,
-          ),
+              BorderRadius.circular(14),
           borderSide:
               const BorderSide(
             color:
-                AppColors.orange,
+                DojoWalkColors.primary,
             width: 1.3,
           ),
         ),
@@ -1231,48 +887,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
+      final DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc =
           await _findOwnerDocument(
         user.uid.trim(),
       );
 
-      if (ownerDoc == null ||
-          !ownerDoc.exists) {
+      if (ownerDoc == null || !ownerDoc.exists) {
         _showMessage(
           'Owner profile not found.',
         );
         return false;
       }
 
-      final Map<String, dynamic>
-          ownerData =
+      final Map<String, dynamic> ownerData =
           ownerDoc.data() ??
               <String, dynamic>{};
 
-      final List<Map<String, dynamic>>
-          currentPets =
-          _readPets(
-        ownerData['pets'],
-      );
+      final List<Map<String, dynamic>> currentPets =
+          _readPets(ownerData['pets']);
 
-      if (currentPets.length >=
-          _maximumPets) {
+      if (currentPets.length >= _maximumPets) {
         _showMessage(
           'Maximum 3 pets allowed.',
         );
         return false;
       }
 
-      final Map<String, dynamic>
-          newPet =
+      final Map<String, dynamic> newPet =
           <String, dynamic>{
         'name': name.trim(),
         'age': age.trim(),
         'breed': breed.trim(),
-        'behaviour':
-            behaviour.trim(),
+        'behaviour': behaviour.trim(),
       };
 
       currentPets.add(newPet);
@@ -1326,12 +973,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final Map<String, dynamic>
-        existing =
+    final Map<String, dynamic> existing =
         _pets[index];
 
-    final TextEditingController
-        nameController =
+    final TextEditingController nameController =
         TextEditingController(
       text: _firstNonEmpty([
         existing['name'],
@@ -1339,8 +984,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]),
     );
 
-    final TextEditingController
-        ageController =
+    final TextEditingController ageController =
         TextEditingController(
       text: _firstNonEmpty([
         existing['age'],
@@ -1348,8 +992,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]),
     );
 
-    final TextEditingController
-        breedController =
+    final TextEditingController breedController =
         TextEditingController(
       text: _firstNonEmpty([
         existing['breed'],
@@ -1357,8 +1000,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]),
     );
 
-    final TextEditingController
-        behaviourController =
+    final TextEditingController behaviourController =
         TextEditingController(
       text: _firstNonEmpty([
         existing['behaviour'],
@@ -1367,8 +1009,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]),
     );
 
-    final GlobalKey<FormState>
-        formKey =
+    final GlobalKey<FormState> formKey =
         GlobalKey<FormState>();
 
     final bool? saved =
@@ -1376,13 +1017,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor:
-          AppColors.white,
+          DojoWalkColors.white,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(
-          top:
-              Radius.circular(26),
+          top: Radius.circular(26),
         ),
       ),
       builder:
@@ -1416,15 +1056,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration:
                           BoxDecoration(
                         color:
-                            AppColors.navy
+                            DojoWalkColors.black
                                 .withValues(
                           alpha: 0.15,
                         ),
                         borderRadius:
                             BorderRadius
-                                .circular(
-                          20,
-                        ),
+                                .circular(20),
                       ),
                     ),
                   ),
@@ -1441,7 +1079,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration:
                             BoxDecoration(
                           color:
-                              AppColors.orange
+                              DojoWalkColors.primary
                                   .withValues(
                             alpha: 0.12,
                           ),
@@ -1452,7 +1090,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Icon(
                           Icons.edit_rounded,
                           color:
-                              AppColors.orange,
+                              DojoWalkColors.primary,
                         ),
                       ),
                       const SizedBox(
@@ -1463,7 +1101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style:
                             TextStyle(
                           color:
-                              AppColors.navy,
+                              DojoWalkColors.black,
                           fontSize:
                               20,
                           fontWeight:
@@ -1584,16 +1222,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ElevatedButton
                               .styleFrom(
                         backgroundColor:
-                            AppColors.orange,
+                            DojoWalkColors.primary,
                         foregroundColor:
-                            AppColors.white,
+                            DojoWalkColors.white,
                         elevation:
                             0,
                         shape:
                             RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius
-                                  .circular(
+                              BorderRadius.circular(
                             15,
                           ),
                         ),
@@ -1649,31 +1286,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
+      final DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc =
           await _findOwnerDocument(
         user.uid.trim(),
       );
 
-      if (ownerDoc == null ||
-          !ownerDoc.exists) {
+      if (ownerDoc == null || !ownerDoc.exists) {
         _showMessage(
           'Owner profile not found.',
         );
         return false;
       }
 
-      final Map<String, dynamic>
-          ownerData =
+      final Map<String, dynamic> ownerData =
           ownerDoc.data() ??
               <String, dynamic>{};
 
-      final List<Map<String, dynamic>>
-          updatedPets =
-          _readPets(
-        ownerData['pets'],
-      );
+      final List<Map<String, dynamic>> updatedPets =
+          _readPets(ownerData['pets']);
 
       if (index < 0 ||
           index >= updatedPets.length) {
@@ -1688,8 +1319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'name': name.trim(),
         'age': age.trim(),
         'breed': breed.trim(),
-        'behaviour':
-            behaviour.trim(),
+        'behaviour': behaviour.trim(),
       };
 
       await ownerDoc.reference.set(
@@ -1748,17 +1378,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor:
-              AppColors.white,
-          title: const Text(
+              DojoWalkColors.white,
+          title:
+              const Text(
             'Delete Pet?',
-            style: TextStyle(
+            style:
+                TextStyle(
               color:
-                  AppColors.navy,
+                  DojoWalkColors.black,
               fontWeight:
                   FontWeight.w800,
             ),
           ),
-          content: const Text(
+          content:
+              const Text(
             'Are you sure you want to remove this pet from your profile?',
           ),
           actions: [
@@ -1768,7 +1401,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   dialogContext,
                 ).pop(false);
               },
-              child: const Text(
+              child:
+                  const Text(
                 'Cancel',
               ),
             ),
@@ -1778,11 +1412,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   dialogContext,
                 ).pop(true);
               },
-              child: const Text(
+              child:
+                  const Text(
                 'Delete',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color:
-                      AppColors.error,
+                      DojoWalkColors.red,
                   fontWeight:
                       FontWeight.w700,
                 ),
@@ -1806,8 +1442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
+      final DocumentSnapshot<Map<String, dynamic>>?
           ownerDoc =
           await _findOwnerDocument(
         user.uid.trim(),
@@ -1821,16 +1456,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final Map<String, dynamic>
-          ownerData =
+      final Map<String, dynamic> ownerData =
           ownerDoc.data() ??
               <String, dynamic>{};
 
-      final List<Map<String, dynamic>>
-          updatedPets =
-          _readPets(
-        ownerData['pets'],
-      );
+      final List<Map<String, dynamic>> updatedPets =
+          _readPets(ownerData['pets']);
 
       if (index < 0 ||
           index >= updatedPets.length) {
@@ -1918,8 +1549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     User? user,
   ) {
     final String name =
-        user?.displayName?.trim() ??
-            '';
+        user?.displayName?.trim() ?? '';
 
     return name.isNotEmpty
         ? name
@@ -1934,8 +1564,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     User? user,
   ) {
     final String phone =
-        user?.phoneNumber?.trim() ??
-            '';
+        user?.phoneNumber?.trim() ?? '';
 
     return phone.isNotEmpty
         ? phone
@@ -1975,8 +1604,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else if (value is DateTime) {
       date = value;
     } else if (value is String) {
-      date =
-          DateTime.tryParse(value);
+      date = DateTime.tryParse(value);
     }
 
     if (date == null) {
@@ -2008,8 +1636,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'December',
     ];
 
-    if (month < 1 ||
-        month > 12) {
+    if (month < 1 || month > 12) {
       return '';
     }
 
@@ -2058,28 +1685,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor:
-          AppColors.white,
+          DojoWalkColors.white,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(
-          top:
-              Radius.circular(24),
+          top: Radius.circular(24),
         ),
       ),
       builder:
           (BuildContext context) {
         return ChangeMobileFlow(
-          currentNumber:
-              number,
-          onChanged:
-              (_) {},
+          currentNumber: number,
+          onChanged: (_) {},
         );
       },
     );
 
-    if (changed == true &&
-        mounted) {
+    if (changed == true && mounted) {
       await _loadProfile();
     }
   }
@@ -2108,7 +1731,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           behavior:
               SnackBarBehavior.floating,
           backgroundColor:
-              AppColors.navy,
+              DojoWalkColors.black,
           margin:
               const EdgeInsets.all(16),
           shape:
@@ -2131,12 +1754,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor:
-            AppColors.background,
+            DojoWalkColors.background,
         body: Center(
           child:
               CircularProgressIndicator(
             color:
-                AppColors.orange,
+                DojoWalkColors.primary,
           ),
         ),
       );
@@ -2144,33 +1767,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor:
-          AppColors.background,
+          DojoWalkColors.background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
 
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor:
-            AppColors.white,
+            DojoWalkColors.white,
         foregroundColor:
-            AppColors.navy,
+            DojoWalkColors.black,
         centerTitle: false,
-        title: const Text(
+        title:
+            const Text(
           'My Profile',
-          style: TextStyle(
+          style:
+              TextStyle(
             color:
-                AppColors.navy,
-            fontSize: 21,
+                DojoWalkColors.black,
+            fontSize:
+                21,
             fontWeight:
                 FontWeight.w900,
           ),
         ),
       ),
 
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: SafeArea(
         child:
             RefreshIndicator(
           color:
-              AppColors.orange,
+              DojoWalkColors.primary,
           onRefresh:
               _loadProfile,
           child:
@@ -2193,10 +1827,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CrossAxisAlignment.start,
               children: [
                 // ==================================================
-                // SMALL OWNER PROFILE CARD
+                // OWNER PROFILE CARD
                 // ==================================================
 
-                _buildOwnerProfileCard(),
+                ProfileCard(
+                  ownerName:
+                      _ownerName,
+                  profileImageUrl:
+                      _profileImageUrl,
+                  uploadingProfilePhoto:
+                      _uploadingProfilePhoto,
+                  onChangePhoto:
+                      _changeProfilePhoto,
+                ),
 
                 const SizedBox(
                   height: 14,
@@ -2238,12 +1881,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     const Expanded(
-                      child: Text(
+                      child:
+                          Text(
                         'Pet Profile',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           color:
-                              AppColors.navy,
-                          fontSize: 18,
+                              DojoWalkColors.black,
+                          fontSize:
+                              18,
                           fontWeight:
                               FontWeight.w900,
                         ),
@@ -2254,9 +1900,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _maximumPets)
                       InkWell(
                         borderRadius:
-                            BorderRadius.circular(
-                          12,
-                        ),
+                            BorderRadius
+                                .circular(12),
                         onTap:
                             _addPet,
                         child:
@@ -2272,16 +1917,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration:
                               BoxDecoration(
                             color:
-                                AppColors.orange
+                                DojoWalkColors
+                                    .primary
                                     .withValues(
                               alpha:
                                   0.10,
                             ),
                             borderRadius:
                                 BorderRadius
-                                    .circular(
-                              12,
-                            ),
+                                    .circular(12),
                           ),
                           child:
                               const Row(
@@ -2294,7 +1938,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 size:
                                     18,
                                 color:
-                                    AppColors.orange,
+                                    DojoWalkColors
+                                        .primary,
                               ),
                               SizedBox(
                                 width:
@@ -2305,7 +1950,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style:
                                     TextStyle(
                                   color:
-                                      AppColors.orange,
+                                      DojoWalkColors
+                                          .primary,
                                   fontSize:
                                       13,
                                   fontWeight:
@@ -2347,7 +1993,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child:
                             PetDetailsCard(
-                          pet: pet,
+                          pet:
+                              pet,
                           index:
                               index,
                           onEdit: () {
@@ -2379,12 +2026,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration:
                         BoxDecoration(
                       color:
-                          AppColors.white,
+                          DojoWalkColors.white,
                       borderRadius:
                           BorderRadius
-                              .circular(
-                        18,
-                      ),
+                              .circular(18),
                     ),
                     child:
                         Column(
@@ -2397,7 +2042,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration:
                               BoxDecoration(
                             color:
-                                AppColors.orange
+                                DojoWalkColors
+                                    .primary
                                     .withValues(
                               alpha:
                                   0.10,
@@ -2410,29 +2056,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Icons
                                 .pets_rounded,
                             color:
-                                AppColors.orange,
+                                DojoWalkColors
+                                    .primary,
                             size:
                                 30,
                           ),
                         ),
+
                         const SizedBox(
                           height: 10,
                         ),
+
                         const Text(
                           'No pets added yet',
                           style:
                               TextStyle(
                             color:
-                                AppColors.navy,
+                                DojoWalkColors
+                                    .black,
                             fontSize:
                                 15,
                             fontWeight:
                                 FontWeight.w800,
                           ),
                         ),
+
                         const SizedBox(
                           height: 5,
                         ),
+
                         const Text(
                           'Tap Add Pet to add your first pet.',
                           textAlign:
@@ -2440,14 +2092,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style:
                               TextStyle(
                             color:
-                                Colors.grey,
+                                DojoWalkColors
+                                    .textSecondary,
                             fontSize:
                                 13,
                           ),
                         ),
+
                         const SizedBox(
                           height: 14,
                         ),
+
                         SizedBox(
                           height:
                               44,
@@ -2476,15 +2131,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ElevatedButton
                                     .styleFrom(
                               backgroundColor:
-                                  AppColors.orange,
+                                  DojoWalkColors
+                                      .primary,
                               foregroundColor:
-                                  AppColors.white,
+                                  DojoWalkColors
+                                      .white,
                               elevation:
                                   0,
                               shape:
                                   RoundedRectangleBorder(
                                 borderRadius:
-                                    BorderRadius.circular(
+                                    BorderRadius
+                                        .circular(
                                   13,
                                 ),
                               ),
