@@ -2,250 +2,223 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_walk_design_system.dart';
 
-class PetDetailsCard extends StatelessWidget {
-  final Map<String, dynamic> pet;
-  final int index;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+class ProfileCard extends StatelessWidget {
+  final String ownerName;
+  final String profileImageUrl;
+  final bool uploadingProfilePhoto;
+  final VoidCallback onChangePhoto;
 
-  const PetDetailsCard({
+  const ProfileCard({
     super.key,
-    required this.pet,
-    required this.index,
-    required this.onEdit,
-    required this.onDelete,
+    required this.ownerName,
+    required this.profileImageUrl,
+    required this.uploadingProfilePhoto,
+    required this.onChangePhoto,
   });
-
-  String _value(List<String> keys) {
-    for (final String key in keys) {
-      final dynamic value = pet[key];
-
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
-        return value.toString().trim();
-      }
-    }
-
-    return '-';
-  }
 
   @override
   Widget build(BuildContext context) {
-    final String petName = _value([
-      'name',
-      'petName',
-      'pet_name',
-    ]);
-
-    final String age = _value([
-      'age',
-      'petAge',
-    ]);
-
-    final String breed = _value([
-      'breed',
-      'petBreed',
-    ]);
-
-    final String behaviour = _value([
-      'behaviour',
-      'behavior',
-      'petBehaviour',
-    ]);
+    final bool hasPhoto =
+        profileImageUrl.trim().isNotEmpty;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
       decoration: BoxDecoration(
         color: DojoWalkColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DojoWalkColors.primary.withValues(
+            alpha: 0.10,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: DojoWalkColors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.04,
+            ),
+            blurRadius: 12,
             offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
           // ======================================================
-          // PET HEADER
+          // PROFILE PHOTO
           // ======================================================
 
-          Row(
+          Stack(
+            clipBehavior: Clip.none,
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 58,
+                height: 58,
                 decoration: BoxDecoration(
-                  color: DojoWalkColors.primaryLight,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.pets_rounded,
-                  color: DojoWalkColors.primary,
-                  size: 25,
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pet ${index + 1}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: DojoWalkColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  shape: BoxShape.circle,
+                  color: DojoWalkColors.primary.withValues(
+                    alpha: 0.10,
+                  ),
+                  border: Border.all(
+                    color: DojoWalkColors.primary.withValues(
+                      alpha: 0.20,
                     ),
-
-                    const SizedBox(height: 3),
-
-                    Text(
-                      petName == '-' ? 'Pet Name' : petName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        color: DojoWalkColors.black,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                    width: 1.5,
+                  ),
+                ),
+                child: ClipOval(
+                  child: hasPhoto
+                      ? Image.network(
+                          profileImageUrl,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                          errorBuilder: (
+                            context,
+                            error,
+                            stackTrace,
+                          ) {
+                            return const Icon(
+                              Icons.person_rounded,
+                              color: DojoWalkColors.primary,
+                              size: 30,
+                            );
+                          },
+                        )
+                      : const Icon(
+                          Icons.person_rounded,
+                          color: DojoWalkColors.primary,
+                          size: 30,
+                        ),
                 ),
               ),
 
               // ==================================================
-              // EDIT
+              // CAMERA BUTTON
               // ==================================================
 
-              IconButton(
-                tooltip: 'Edit Pet',
-                onPressed: onEdit,
-                icon: const Icon(
-                  Icons.edit_outlined,
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Material(
                   color: DojoWalkColors.primary,
-                ),
-              ),
-
-              // ==================================================
-              // DELETE
-              // ==================================================
-
-              IconButton(
-                tooltip: 'Delete Pet',
-                onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: DojoWalkColors.red,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: uploadingProfilePhoto
+                        ? null
+                        : onChangePhoto,
+                    child: SizedBox(
+                      width: 25,
+                      height: 25,
+                      child: uploadingProfilePhoto
+                          ? const Padding(
+                              padding: EdgeInsets.all(6),
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: DojoWalkColors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 14,
+                              color: DojoWalkColors.white,
+                            ),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 15),
-
-          const Divider(height: 1),
-
-          const SizedBox(height: 13),
+          const SizedBox(width: 13),
 
           // ======================================================
-          // AGE
+          // OWNER INFORMATION
           // ======================================================
 
-          _PetRow(
-            icon: Icons.cake_outlined,
-            label: 'Age',
-            value: age,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Owner Profile',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: DojoWalkColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+
+                const SizedBox(height: 2),
+
+                Text(
+                  ownerName.trim().isEmpty
+                      ? 'Owner'
+                      : ownerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: DojoWalkColors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+
+                const SizedBox(height: 2),
+
+                Text(
+                  hasPhoto
+                      ? 'Profile photo'
+                      : 'Add your profile photo',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: DojoWalkColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(width: 8),
 
           // ======================================================
-          // BREED
+          // CHANGE / UPLOAD
           // ======================================================
 
-          _PetRow(
-            icon: Icons.pets_outlined,
-            label: 'Breed',
-            value: breed,
-          ),
-
-          const SizedBox(height: 12),
-
-          // ======================================================
-          // BEHAVIOUR
-          // ======================================================
-
-          _PetRow(
-            icon: Icons.favorite_border_rounded,
-            label: 'Behaviour',
-            value: behaviour,
+          TextButton(
+            onPressed: uploadingProfilePhoto
+                ? null
+                : onChangePhoto,
+            style: TextButton.styleFrom(
+              foregroundColor: DojoWalkColors.primary,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 7,
+              ),
+              minimumSize: Size.zero,
+              tapTargetSize:
+                  MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              hasPhoto ? 'Change' : 'Upload',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ================================================================
-// PET ROW
-// ================================================================
-
-class _PetRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _PetRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: DojoWalkColors.primary,
-        ),
-
-        const SizedBox(width: 10),
-
-        SizedBox(
-          width: 75,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: DojoWalkColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-
-        Expanded(
-          child: Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 13,
-              color: DojoWalkColors.black,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
