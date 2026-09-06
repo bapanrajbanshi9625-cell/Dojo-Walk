@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -8,13 +8,11 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.background,
+      backgroundColor: DojoWalkColors.background,
 
       appBar: AppBar(
-        backgroundColor:
-            AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: DojoWalkColors.primary,
+        foregroundColor: DojoWalkColors.white,
         title: const Text(
           'About Dojo Walk',
           style: TextStyle(
@@ -28,16 +26,15 @@ class AboutScreen extends StatelessWidget {
           margin: const EdgeInsets.all(20),
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius:
-                BorderRadius.circular(20),
+            color: DojoWalkColors.surface,
+            borderRadius: BorderRadius.circular(20),
           ),
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.pets,
-                color: AppColors.primary,
+                color: DojoWalkColors.primary,
                 size: 60,
               ),
 
@@ -46,7 +43,7 @@ class AboutScreen extends StatelessWidget {
               Text(
                 'Dojo Walk',
                 style: TextStyle(
-                  color: AppColors.navy,
+                  color: DojoWalkColors.black,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -58,7 +55,7 @@ class AboutScreen extends StatelessWidget {
                 'Dog walking made simple.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppColors.slate,
+                  color: DojoWalkColors.textSecondary,
                 ),
               ),
 
@@ -67,7 +64,7 @@ class AboutScreen extends StatelessWidget {
               Text(
                 'Version 1.0.0',
                 style: TextStyle(
-                  color: AppColors.slate,
+                  color: DojoWalkColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
