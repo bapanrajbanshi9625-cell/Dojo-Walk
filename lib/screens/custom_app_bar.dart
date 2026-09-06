@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 
 class CustomAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -15,49 +15,44 @@ class CustomAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    const SystemUiOverlayStyle overlayStyle =
+        SystemUiOverlayStyle(
+      // ======================================================
+      // STATUS BAR
+      // ======================================================
+
+      statusBarColor: DojoWalkColors.primary,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemStatusBarContrastEnforced: false,
+
+      // ======================================================
+      // NAVIGATION BAR
+      // ======================================================
+
+      systemNavigationBarColor: DojoWalkColors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+    );
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        // ======================================================
-        // STATUS BAR
-        // ======================================================
-
-        statusBarColor: AppColors.orange,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-        systemStatusBarContrastEnforced: false,
-
-        // ======================================================
-        // NAVIGATION BAR
-        // ======================================================
-
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        systemNavigationBarContrastEnforced: false,
-      ),
+      value: overlayStyle,
       child: AppBar(
         // ======================================================
         // APP BAR
         // ======================================================
 
-        backgroundColor: AppColors.orange,
-        foregroundColor: AppColors.white,
+        backgroundColor: DojoWalkColors.primary,
+        foregroundColor: DojoWalkColors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: DojoWalkColors.transparent,
 
         centerTitle: false,
         titleSpacing: 14,
         toolbarHeight: _toolbarHeight,
 
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: AppColors.orange,
-          statusBarIconBrightness: Brightness.light,
-          statusBarBrightness: Brightness.dark,
-          systemStatusBarContrastEnforced: false,
-          systemNavigationBarColor: Colors.white,
-          systemNavigationBarIconBrightness: Brightness.dark,
-          systemNavigationBarContrastEnforced: false,
-        ),
+        systemOverlayStyle: overlayStyle,
 
         // ======================================================
         // LEFT — DOJO WALK
@@ -70,16 +65,20 @@ class CustomAppBar extends StatelessWidget
               height: 42,
               width: 42,
               decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.18),
+                color: DojoWalkColors.white.withValues(
+                  alpha: 0.18,
+                ),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.35),
+                  color: DojoWalkColors.white.withValues(
+                    alpha: 0.35,
+                  ),
                 ),
               ),
               child: const Icon(
                 Icons.pets,
                 size: 21,
-                color: AppColors.white,
+                color: DojoWalkColors.white,
               ),
             ),
             const SizedBox(width: 10),
@@ -88,7 +87,7 @@ class CustomAppBar extends StatelessWidget
               style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w900,
-                color: AppColors.white,
+                color: DojoWalkColors.white,
               ),
             ),
           ],
@@ -130,18 +129,22 @@ class CustomAppBar extends StatelessWidget
         horizontal: 3,
       ),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.17),
+        color: DojoWalkColors.white.withValues(
+          alpha: 0.17,
+        ),
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.30),
+          color: DojoWalkColors.white.withValues(
+            alpha: 0.30,
+          ),
         ),
       ),
       child: IconButton(
         tooltip: title,
-        icon: const Icon(
-          Icons.notifications_outlined,
+        icon: Icon(
+          icon,
           size: 20,
-          color: AppColors.white,
+          color: DojoWalkColors.white,
         ),
         onPressed: () {
           _showDialog(
@@ -167,17 +170,15 @@ class CustomAppBar extends StatelessWidget
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: AppColors.background,
+          backgroundColor: DojoWalkColors.background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            '',
-          ),
+          title: const Text(''),
           content: Text(
             content,
             style: const TextStyle(
-              color: AppColors.slate,
+              color: DojoWalkColors.textSecondary,
               height: 1.5,
             ),
           ),
@@ -189,7 +190,7 @@ class CustomAppBar extends StatelessWidget
               child: const Text(
                 'CLOSE',
                 style: TextStyle(
-                  color: AppColors.orange,
+                  color: DojoWalkColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
