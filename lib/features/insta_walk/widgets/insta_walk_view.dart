@@ -18,7 +18,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
         horizontal: 13,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
             AppColors.navy,
             AppColors.deepTeal,
@@ -45,28 +45,63 @@ extension _InstaWalkView on _InstaWalkContainerState {
       ),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.mint.withValues(
-                alpha: 0.14,
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(
+          // ----------------------------------------------------
+          // ICON
+          // ----------------------------------------------------
+
+          AnimatedBuilder(
+            animation: _searchAnimationController,
+            builder: (
+              BuildContext context,
+              Widget? child,
+            ) {
+              if (!searching) {
+                return child!;
+              }
+
+              return Transform.translate(
+                offset: Offset(
+                  0,
+                  _searchMovement.value.dy * 10,
+                ),
+                child: Transform.rotate(
+                  angle: _searchRotation.value,
+                  child: Transform.scale(
+                    scale: _searchScale.value,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
                 color: AppColors.mint.withValues(
-                  alpha: 0.20,
+                  alpha: 0.14,
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.mint.withValues(
+                    alpha: 0.20,
+                  ),
                 ),
               ),
-            ),
-            child: const Icon(
-              Icons.flash_on_rounded,
-              color: AppColors.mintTint,
-              size: 19,
+              child: Icon(
+                searching
+                    ? Icons.search_rounded
+                    : Icons.flash_on_rounded,
+                color: AppColors.mintTint,
+                size: 19,
+              ),
             ),
           ),
 
           const SizedBox(width: 10),
+
+          // ----------------------------------------------------
+          // TEXT
+          // ----------------------------------------------------
 
           Expanded(
             child: Column(
@@ -88,8 +123,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
                 Text(
                   searching
-                      ? 'Finding walker for $_petName'
-                      : 'Walker is active',
+                      ? 'Searching for a nearby walker...'
+                      : 'Find a nearby walker',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -105,6 +140,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
 
           const SizedBox(width: 7),
+
+          // ----------------------------------------------------
+          // STATUS
+          // ----------------------------------------------------
 
           Container(
             padding: const EdgeInsets.symmetric(
@@ -154,6 +193,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // ============================================================
   // FULL SCREEN
   // ============================================================
+  //
+  // Kept for compatibility with existing callers.
+  // Final visual is still compact.
+  //
 
   Widget _buildFullScreen() {
     return Padding(
@@ -161,206 +204,366 @@ extension _InstaWalkView on _InstaWalkContainerState {
         8,
         6,
         8,
-        20,
+        12,
       ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.navy,
-              AppColors.deepTeal,
-              AppColors.slate,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(21),
-          border: Border.all(
-            color: AppColors.mint.withValues(
-              alpha: 0.18,
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.black.withValues(
-                alpha: 0.08,
-              ),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: _buildFullScreenContent(),
-      ),
+      child: _buildCompactMainCard(),
     );
   }
 
   // ============================================================
-  // FULL SCREEN CONTENT
+  // MAIN CARD
   // ============================================================
 
-  Widget _buildFullScreenContent() {
-    // ==========================================================
+  Widget _buildCompactMainCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            AppColors.navy,
+            AppColors.deepTeal,
+            AppColors.slate,
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: AppColors.mint.withValues(
+            alpha: 0.18,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(
+              alpha: 0.08,
+            ),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: _buildMainContent(),
+    );
+  }
+
+  // ============================================================
+  // MAIN CONTENT
+  // ============================================================
+
+  Widget _buildMainContent() {
+    // ----------------------------------------------------------
     // RECOVERY
-    // ==========================================================
+    // ----------------------------------------------------------
 
     if (_recovering) {
       return const SizedBox(
-        height: 150,
+        height: 64,
         child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            color: AppColors.mint,
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: AppColors.mint,
+            ),
           ),
         ),
       );
     }
 
-    // ==========================================================
-    // NORMAL CONTENT
-    // ==========================================================
+    // ----------------------------------------------------------
+    // SEARCHING
+    // ----------------------------------------------------------
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+    if (_searching) {
+      return _buildSearchingCompact();
+    }
+
+    // ----------------------------------------------------------
+    // FINISHED
+    // ----------------------------------------------------------
+
+    if (_searchFinished) {
+      return _buildFinishedCompact();
+    }
+
+    // ----------------------------------------------------------
+    // NORMAL
+    // ----------------------------------------------------------
+
+    return _buildIdleCompact();
+  }
+
+  // ============================================================
+  // IDLE
+  // ============================================================
+
+  Widget _buildIdleCompact() {
+    return Row(
       children: [
-        _header(),
+        // ------------------------------------------------------
+        // ICON
+        // ------------------------------------------------------
 
-        const SizedBox(height: 10),
-
-        Text(
-          _searching
-              ? 'Searching available walkers near your current location.'
-              : 'Find an available walker nearby instantly.',
-          style: TextStyle(
-            color: AppColors.white.withValues(
-              alpha: 0.70,
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.mint.withValues(
+              alpha: 0.14,
             ),
-            fontSize: 12,
-            height: 1.35,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.mint.withValues(
+                alpha: 0.20,
+              ),
+            ),
+          ),
+          child: const Icon(
+            Icons.flash_on_rounded,
+            color: AppColors.mintTint,
+            size: 20,
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(width: 10),
 
-        // ======================================================
-        // IDLE
-        // ======================================================
+        // ------------------------------------------------------
+        // TEXT
+        // ------------------------------------------------------
 
-        if (!_searching && !_searchFinished)
-          InstaWalkSearchButton(
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Insta Walk',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Find a nearby walker',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.white.withValues(
+                    alpha: 0.68,
+                  ),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        // ------------------------------------------------------
+        // START BUTTON
+        // ------------------------------------------------------
+
+        SizedBox(
+          height: 38,
+          child: InstaWalkSearchButton(
             loading: _checkingAddress,
             text: _checkingAddress
-                ? 'Checking location...'
-                : 'Find a Walker Now',
+                ? 'Checking...'
+                : 'Start',
             onPressed:
                 _checkingAddress ? null : _findWalker,
           ),
-
-        // ======================================================
-        // SEARCHING
-        // ======================================================
-
-        if (_searching)
-          _buildSearching(),
-
-        // ======================================================
-        // SEARCH FINISHED
-        // ======================================================
-
-        if (!_searching && _searchFinished)
-          InstaWalkSearchButton(
-            loading: false,
-            text: 'Try Again',
-            onPressed: _retrySearch,
-          ),
+        ),
       ],
     );
   }
 
   // ============================================================
-  // SEARCHING UI
+  // SEARCHING
   // ============================================================
 
-  Widget _buildSearching() {
-    if (_ownerPosition != null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InstaWalkSearching(
-            map: InstaWalkMapRadar(
-              ownerPoint: LatLng(
-                _ownerPosition!.latitude,
-                _ownerPosition!.longitude,
-              ),
-              searchRadiusKm:
-                  InstaWalkSearchService.searchRadiusKm,
-              radarAnimation: _radarController,
-            ),
-          ),
-
-          const SizedBox(height: 9),
-
-          _buildStopSearchButton(),
-        ],
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildSearchingCompact() {
+    return Row(
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.black.withValues(
-              alpha: 0.12,
-            ),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 42,
-                height: 42,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.mint,
+        // ------------------------------------------------------
+        // ANIMATED SEARCH ICON
+        // ------------------------------------------------------
+
+        AnimatedBuilder(
+          animation: _searchAnimationController,
+          builder: (
+            BuildContext context,
+            Widget? child,
+          ) {
+            return Transform.translate(
+              offset: Offset(
+                0,
+                _searchMovement.value.dy * 8,
+              ),
+              child: Transform.rotate(
+                angle: _searchRotation.value,
+                child: Transform.scale(
+                  scale: _searchScale.value,
+                  child: child,
                 ),
               ),
+            );
+          },
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.mint.withValues(
+                alpha: 0.14,
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.mint.withValues(
+                  alpha: 0.24,
+                ),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.mint.withValues(
+                    alpha: 0.12,
+                  ),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.search_rounded,
+              color: AppColors.mintTint,
+              size: 21,
+            ),
+          ),
+        ),
 
-              const SizedBox(height: 10),
+        const SizedBox(width: 11),
 
+        // ------------------------------------------------------
+        // SEARCH TEXT
+        // ------------------------------------------------------
+
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               const Text(
-                'Searching nearby walkers',
-                textAlign: TextAlign.center,
+                'Insta Walk',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.white,
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-
-              const SizedBox(height: 4),
-
-              const Text(
-                'Searching',
+              const SizedBox(height: 2),
+              Text(
+                'Searching for a nearby walker...',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.mintTint,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  color: AppColors.white.withValues(
+                    alpha: 0.70,
+                  ),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 9),
+        const SizedBox(width: 8),
 
-        _buildStopSearchButton(),
+        // ------------------------------------------------------
+        // STOP
+        // ------------------------------------------------------
+
+        _buildStopSearchButtonCompact(),
+      ],
+    );
+  }
+
+  // ============================================================
+  // FINISHED
+  // ============================================================
+
+  Widget _buildFinishedCompact() {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.mint.withValues(
+              alpha: 0.14,
+            ),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.refresh_rounded,
+            color: AppColors.mintTint,
+            size: 20,
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'No walker found',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Try searching again',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.white.withValues(
+                    alpha: 0.65,
+                  ),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        SizedBox(
+          height: 36,
+          child: InstaWalkSearchButton(
+            loading: false,
+            text: 'Try Again',
+            onPressed: _retrySearch,
+          ),
+        ),
       ],
     );
   }
@@ -369,10 +572,9 @@ extension _InstaWalkView on _InstaWalkContainerState {
   // STOP SEARCH BUTTON
   // ============================================================
 
-  Widget _buildStopSearchButton() {
+  Widget _buildStopSearchButtonCompact() {
     return SizedBox(
-      width: double.infinity,
-      height: 46,
+      height: 36,
       child: ElevatedButton(
         onPressed: _stopping ? null : _stopSearch,
         style: ElevatedButton.styleFrom(
@@ -385,7 +587,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
           ),
           elevation: 0,
           padding: const EdgeInsets.symmetric(
-            horizontal: 14,
+            horizontal: 10,
           ),
           side: BorderSide(
             color: AppColors.error.withValues(
@@ -393,34 +595,32 @@ extension _InstaWalkView on _InstaWalkContainerState {
             ),
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(11),
           ),
         ),
         child: _stopping
             ? const SizedBox(
-                width: 19,
-                height: 19,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.3,
+                  strokeWidth: 2,
                   color: AppColors.mintTint,
                 ),
               )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
                     Icons.stop_circle_outlined,
-                    size: 20,
+                    size: 17,
                     color: AppColors.error,
                   ),
-
-                  const SizedBox(width: 7),
-
+                  const SizedBox(width: 5),
                   const Text(
-                    'Stop Search',
+                    'Stop',
                     style: TextStyle(
                       color: AppColors.white,
-                      fontSize: 13,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -431,7 +631,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
   }
 
   // ============================================================
-  // HEADER
+  // OLD HEADER COMPATIBILITY
   // ============================================================
 
   Widget _header() {
@@ -440,16 +640,16 @@ extension _InstaWalkView on _InstaWalkContainerState {
     return Row(
       children: [
         Container(
-          width: 46,
-          height: 46,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [
                 AppColors.mint,
                 AppColors.mintTint,
               ],
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(13),
             boxShadow: [
               BoxShadow(
                 color: AppColors.mint.withValues(
@@ -462,27 +662,26 @@ extension _InstaWalkView on _InstaWalkContainerState {
           child: const Icon(
             Icons.flash_on_rounded,
             color: AppColors.navy,
-            size: 25,
+            size: 22,
           ),
         ),
 
-        const SizedBox(width: 11),
+        const SizedBox(width: 10),
 
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               const Text(
                 'Insta Walk',
                 style: TextStyle(
                   color: AppColors.white,
-                  fontSize: 19,
+                  fontSize: 17,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-
               const SizedBox(height: 2),
-
               Text(
                 isLive
                     ? 'Finding a walker for $_petName'
@@ -493,7 +692,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                   color: AppColors.white.withValues(
                     alpha: 0.60,
                   ),
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -505,8 +704,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 5,
+            horizontal: 7,
+            vertical: 4,
           ),
           decoration: BoxDecoration(
             color: AppColors.mint.withValues(
@@ -523,21 +722,19 @@ extension _InstaWalkView on _InstaWalkContainerState {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 7,
-                height: 7,
+                width: 6,
+                height: 6,
                 decoration: const BoxDecoration(
                   color: AppColors.mint,
                   shape: BoxShape.circle,
                 ),
               ),
-
               const SizedBox(width: 4),
-
               Text(
                 isLive ? 'LIVE' : 'ACTIVE',
                 style: const TextStyle(
                   color: AppColors.mintTint,
-                  fontSize: 8,
+                  fontSize: 7,
                   fontWeight: FontWeight.w900,
                 ),
               ),
