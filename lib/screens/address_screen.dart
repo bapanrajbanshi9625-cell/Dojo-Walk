@@ -181,15 +181,15 @@ class _AddressScreenState extends State<AddressScreen> {
   }
 
   Future<void> _populateAddressFromCoordinates(
-    double latitude,
-    double longitude,
-  ) async {
-    try {
-      final List<geocoding.Placemark> placemarks =
-          await geocoding.placemarkFromCoordinates(
-        latitude,
-        longitude,
-      );
+  double latitude,
+  double longitude,
+) async {
+  try {
+    final List<geocoding.Placemark> placemarks =
+        await _geocoding.placemarkFromCoordinates(
+      latitude,
+      longitude,
+    );
 
       if (placemarks.isEmpty) return;
 
