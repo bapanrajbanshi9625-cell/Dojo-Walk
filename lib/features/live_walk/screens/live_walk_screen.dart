@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../screens/help_support_screen.dart';
+
 import '../models/live_walk_session.dart';
 import '../services/live_walk_service.dart';
 import '../widgets/live_walk_map.dart';
@@ -34,7 +36,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   int _liveElapsedSeconds = 0;
 
   bool _loading = true;
-  bool _ending = false;
   bool _closing = false;
   bool _hasError = false;
 
@@ -43,9 +44,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   double _sheetExtent = 0.25;
 
   static const Color navy = Color(0xFF263746);
-  static const Color primary = Color(0xFFFF8A00);
+  static const Color primary = Color(0xFFFF6B35);
   static const Color green = Color(0xFF16A34A);
-  static const Color red = Color(0xFFDC2626);
   static const Color lightBg = Color(0xFFF7F8F9);
 
   @override
@@ -81,6 +81,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           return;
         }
 
+        // Existing completion flow is preserved.
         if (session.isCompleted) {
           _stopDurationTimer();
 
@@ -250,7 +251,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.white,
-        extendBodyBehindAppBar: true,
         body: LayoutBuilder(
           builder: (context, constraints) {
             final screenHeight = constraints.maxHeight;
@@ -268,6 +268,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               },
               child: Stack(
                 children: [
+                  // =====================================================
+                  // FULL BACKGROUND MAP
+                  // =====================================================
+
                   Positioned.fill(
                     child: LiveWalkMap(
                       walkerLocation: session.walkerLocation,
@@ -277,24 +281,39 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     ),
                   ),
 
+                  // =====================================================
+                  // TOP HEADER ONLY
+                  // =====================================================
+
                   _topHeader(),
+
+                  // =====================================================
+                  // DRAGGABLE BOTTOM SHEET
+                  // =====================================================
 
                   DraggableScrollableSheet(
                     initialChildSize: 0.25,
                     minChildSize: 0.25,
-                    maxChildSize: 0.72,
+                    maxChildSize: 0.78,
                     snap: true,
                     snapSizes: const [
                       0.25,
-                      0.72,
+                      0.78,
                     ],
-                    builder: (context, scrollController) {
+                    builder: (
+                      context,
+                      scrollController,
+                    ) {
                       return _bottomSheet(
                         session,
                         scrollController,
                       );
                     },
                   ),
+
+                  // =====================================================
+                  // RECENTER BUTTON
+                  // =====================================================
 
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 120),
@@ -312,103 +331,136 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
+  // ================================================================
+  // TOP HEADER
+  // ================================================================
+
   Widget _topHeader() {
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            10,
-            16,
-            0,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.96),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 16,
-                      offset: const Offset(0, 5),
-                      color: Colors.black.withValues(alpha: 0.10),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: primary,
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: 72,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(
+                        alpha: 0.18,
+                      ),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      '🐾',
-                      style: TextStyle(
-                        fontSize: 18,
+                    child: const Center(
+                      child: Text(
+                        '🐾',
+                        style: TextStyle(
+                          fontSize: 19,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+
+                  const SizedBox(width: 11),
+
+                  const Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         Text(
                           'LIVE WALK',
                           style: TextStyle(
-                            fontSize: 14,
+                            color: Colors.white,
+                            fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 0.3,
-                            color: navy,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                        SizedBox(height: 1),
+                        SizedBox(height: 2),
                         Text(
                           'Live location & walk tracking',
                           style: TextStyle(
-                            fontSize: 9.5,
+                            color: Colors.white,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF718096),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 10),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF4E8),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.info_outline_rounded,
-                        color: primary,
-                        size: 17,
+                  ),
+
+                  // ==================================================
+                  // CIRCULAR HELP BUTTON
+                  // ==================================================
+
+                  Material(
+                    color: Colors.white.withValues(
+                      alpha: 0.18,
+                    ),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _openHelpSupport,
+                      child: const SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: Icon(
+                          Icons.support_agent_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  // ================================================================
+  // HELP & SUPPORT
+  // ================================================================
+
+  void _openHelpSupport() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const HelpSupportScreen(),
+      ),
+    );
+  }
+
+  // ================================================================
+  // LOCATION BUTTON
+  // ================================================================
+
   Widget _myLocationButton() {
     return Material(
       color: Colors.white,
       elevation: 5,
-      shadowColor: Colors.black.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(15),
+      shadowColor: Colors.black.withValues(
+        alpha: 0.18,
+      ),
+      shape: const CircleBorder(),
       child: InkWell(
-        borderRadius: BorderRadius.circular(15),
+        customBorder: const CircleBorder(),
         onTap: _recenter,
         child: const SizedBox(
           width: 48,
@@ -422,6 +474,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
     );
   }
+
+  // ================================================================
+  // BOTTOM SHEET
+  // ================================================================
 
   Widget _bottomSheet(
     LiveWalkSession session,
@@ -437,7 +493,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           BoxShadow(
             blurRadius: 22,
             offset: const Offset(0, -5),
-            color: Colors.black.withValues(alpha: 0.13),
+            color: Colors.black.withValues(
+              alpha: 0.14,
+            ),
           ),
         ],
       ),
@@ -445,11 +503,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         controller: scrollController,
         padding: const EdgeInsets.fromLTRB(
           16,
-          10,
+          9,
           16,
           28,
         ),
         children: [
+          // Drag handle
           Center(
             child: Container(
               width: 42,
@@ -461,11 +520,24 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+
+          // ==========================================================
+          // COLLAPSED HEADER
+          //
+          // This is what user sees initially:
+          // Walker + Dog name.
+          // ==========================================================
 
           _collapsedSummary(session),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
+
+          // ==========================================================
+          // ALL DETAILS
+          //
+          // User sees these after dragging the sheet upward.
+          // ==========================================================
 
           _expandedContent(session),
         ],
@@ -473,65 +545,32 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  Widget _collapsedSummary(LiveWalkSession session) {
+  // ================================================================
+  // WALKER + DOG SUMMARY
+  // ================================================================
+
+  Widget _collapsedSummary(
+    LiveWalkSession session,
+  ) {
     final photo = session.walkerPhoto.trim();
+
+    final walkerName = session.walkerName.trim().isEmpty
+        ? 'Walker'
+        : session.walkerName.trim();
+
+    final dogName = session.dogName.trim().isEmpty
+        ? 'Your Dog'
+        : session.dogName.trim();
 
     return Row(
       children: [
-        Expanded(
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF4E8),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.pets_rounded,
-                  color: primary,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Dog',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF8A96A3),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      session.dogName.isEmpty
-                          ? 'Your Dog'
-                          : session.dogName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: navy,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(width: 12),
+        // ==========================================================
+        // WALKER PHOTO
+        // ==========================================================
 
         Container(
-          width: 42,
-          height: 42,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: const Color(0xFFF1F5F9),
@@ -545,81 +584,123 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               ? Image.network(
                   photo,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) {
+                  errorBuilder: (
+                    context,
+                    error,
+                    stackTrace,
+                  ) {
                     return const Icon(
                       Icons.person_rounded,
                       color: Color(0xFF64748B),
-                      size: 23,
+                      size: 26,
                     );
                   },
                 )
               : const Icon(
                   Icons.person_rounded,
                   color: Color(0xFF64748B),
-                  size: 23,
+                  size: 26,
                 ),
         ),
 
-        const SizedBox(width: 9),
+        const SizedBox(width: 11),
 
-        Flexible(
+        // ==========================================================
+        // WALKER NAME
+        // ==========================================================
+
+        Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
+              const Text(
+                'WALKER',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: Color(0xFF8A96A3),
+                ),
+              ),
+
+              const SizedBox(height: 3),
+
               Row(
                 children: [
                   Flexible(
                     child: Text(
-                      session.walkerName.isEmpty
-                          ? 'Walker'
-                          : session.walkerName,
+                      walkerName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
                         color: navy,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 3),
+
+                  const SizedBox(width: 4),
+
+                  // GREEN VERIFIED BADGE
                   const Icon(
                     Icons.verified_rounded,
-                    color: primary,
-                    size: 16,
+                    color: green,
+                    size: 17,
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
+            ],
+          ),
+        ),
+
+        const SizedBox(width: 12),
+
+        // ==========================================================
+        // DOG NAME
+        // ==========================================================
+
+        Flexible(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'DOG',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: Color(0xFF8A96A3),
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF8EF),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      color: green,
-                      size: 7,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'LIVE',
-                      style: TextStyle(
-                        color: green,
-                        fontSize: 9,
+              ),
+
+              const SizedBox(height: 3),
+
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.pets_rounded,
+                    color: primary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      dogName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.4,
+                        color: navy,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -628,88 +709,79 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  Widget _expandedContent(LiveWalkSession session) {
+  // ================================================================
+  // EXPANDED CONTENT
+  // ================================================================
+
+  Widget _expandedContent(
+    LiveWalkSession session,
+  ) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Live Walk',
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                  color: navy,
+        // ==========================================================
+        // LIVE STATUS
+        // ==========================================================
+
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 9,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF8EF),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: green,
+                  shape: BoxShape.circle,
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF8EF),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.circle,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  session.walkerLocation == null
+                      ? 'Waiting for Walker location'
+                      : 'Walker location is updating live',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                     color: green,
-                    size: 7,
                   ),
-                  SizedBox(width: 5),
-                  Text(
-                    'LIVE',
-                    style: TextStyle(
-                      color: green,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 6),
-
-        Text(
-          session.walkerLocation == null
-              ? 'Waiting for Walker location'
-              : 'Walker location is updating live',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF718096),
+            ],
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+
+        // ==========================================================
+        // COUNTERS
+        // ==========================================================
 
         LiveWalkStats(
-          duration: _durationLabel(_liveElapsedSeconds),
+          duration: _durationLabel(
+            _liveElapsedSeconds,
+          ),
           steps: session.steps,
           distance: session.distanceLabel,
           peeCount: session.peeCount,
           poopCount: session.poopCount,
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
 
-        if (session.destinationAddress.isNotEmpty)
-          _detailCard(
-            icon: Icons.home_rounded,
-            title: 'Destination',
-            value: session.destinationAddress,
-          ),
-
-        if (session.destinationAddress.isNotEmpty)
-          const SizedBox(height: 12),
+        // ==========================================================
+        // CALL + MESSAGE
+        // ==========================================================
 
         Row(
           children: [
@@ -722,97 +794,35 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 onTap: _call,
               ),
             ),
+
             const SizedBox(width: 10),
+
             Expanded(
               child: _actionButton(
                 icon: Icons.chat_bubble_rounded,
-                label: 'Chat',
-                background: const Color(0xFFFFF4E8),
+                label: 'Message',
+                background: const Color(0xFFFFF1EB),
                 foreground: primary,
                 onTap: _chat,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _actionButton(
-                icon: Icons.mic_rounded,
-                label: 'Voice',
-                background: const Color(0xFFF1F5F9),
-                foreground: navy,
-                onTap: _voiceInteraction,
               ),
             ),
           ],
         ),
 
-        if (widget.isWalker) ...[
-          const SizedBox(height: 14),
-          _endWalkButton(session),
-        ],
+        const SizedBox(height: 10),
+
+        // ==========================================================
+        // VOICE INTRODUCTION
+        // ==========================================================
+
+        _voiceIntroductionButton(),
       ],
     );
   }
 
-  Widget _detailCard({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE8EDF2),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF4E8),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              icon,
-              color: primary,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF8A96A3),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w700,
-                    color: navy,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ================================================================
+  // ACTION BUTTON
+  // ================================================================
 
   Widget _actionButton({
     required IconData icon,
@@ -827,23 +837,23 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 13,
-          ),
-          child: Column(
+        child: SizedBox(
+          height: 58,
+          child: Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
                 color: foreground,
                 size: 21,
               ),
-              const SizedBox(height: 5),
+              const SizedBox(width: 7),
               Text(
                 label,
                 style: TextStyle(
                   color: foreground,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -854,48 +864,40 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  Widget _endWalkButton(LiveWalkSession session) {
+  // ================================================================
+  // VOICE INTRODUCTION
+  // ================================================================
+
+  Widget _voiceIntroductionButton() {
     return SizedBox(
       width: double.infinity,
       child: Material(
-        color: red,
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(15),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: _ending ? null : () => _endWalk(session),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 14,
-            ),
-            child: Center(
-              child: _ending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.stop_circle_outlined,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'End Walk',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
+          borderRadius: BorderRadius.circular(15),
+          onTap: _voiceInteraction,
+          child: const SizedBox(
+            height: 58,
+            child: Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.mic_rounded,
+                  color: navy,
+                  size: 21,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Voice Introduction',
+                  style: TextStyle(
+                    color: navy,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -903,21 +905,27 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
+  // ================================================================
+  // CALL WALKER
+  // ================================================================
+
   Future<void> _call() async {
     final session = _session;
 
     if (session == null) return;
 
-    final phone = widget.isWalker
-        ? session.ownerPhone
-        : session.walkerPhone;
+    // IMPORTANT:
+    // Call always uses WALKER phone number.
+    final phone = session.walkerPhone.trim();
 
-    if (phone.trim().isEmpty) {
+    if (phone.isEmpty) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Phone number is not available.'),
+          content: Text(
+            'Walker phone number is not available.',
+          ),
         ),
       );
       return;
@@ -932,7 +940,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       final canLaunch = await canLaunchUrl(uri);
 
       if (!canLaunch) {
-        throw Exception('Cannot launch phone');
+        throw Exception(
+          'Cannot launch phone',
+        );
       }
 
       await launchUrl(uri);
@@ -941,113 +951,45 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to open phone app.'),
+          content: Text(
+            'Unable to open phone app.',
+          ),
         ),
       );
     }
   }
+
+  // ================================================================
+  // MESSAGE
+  // ================================================================
 
   void _chat() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Chat will open here.'),
+        content: Text(
+          'Chat will open here.',
+        ),
       ),
     );
   }
+
+  // ================================================================
+  // VOICE
+  // ================================================================
 
   void _voiceInteraction() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Voice interaction will open here.'),
+        content: Text(
+          'Voice Introduction will open here.',
+        ),
       ),
     );
   }
 
-  Future<void> _endWalk(LiveWalkSession session) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'End Walk?',
-            style: TextStyle(
-              color: navy,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to end this walk?',
-            style: TextStyle(
-              color: Color(0xFF64748B),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child: const Text('End Walk'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() {
-      _ending = true;
-    });
-
-    try {
-      await _service.completeWalk(
-        session: session,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _ending = false;
-      });
-
-      // Do NOT manually pop here.
-      // Firestore listener detects completed status
-      // and closes the screen with Navigator.pop(true).
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        _ending = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _friendlyError(error),
-          ),
-        ),
-      );
-    }
-  }
+  // ================================================================
+  // RECENTER
+  // ================================================================
 
   void _recenter() {
     if (_session?.walkerLocation == null) {
@@ -1061,6 +1003,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     }
   }
 
+  // ================================================================
+  // LOADING
+  // ================================================================
+
   Widget _loadingState() {
     return const Center(
       child: CircularProgressIndicator(
@@ -1068,6 +1014,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
     );
   }
+
+  // ================================================================
+  // ERROR
+  // ================================================================
 
   Widget _errorState() {
     return Center(
@@ -1081,7 +1031,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               size: 52,
               color: Color(0xFF94A3B8),
             ),
+
             const SizedBox(height: 14),
+
             const Text(
               'Live Walk unavailable',
               style: TextStyle(
@@ -1090,7 +1042,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 color: navy,
               ),
             ),
+
             const SizedBox(height: 7),
+
             Text(
               _errorMessage,
               textAlign: TextAlign.center,
@@ -1099,7 +1053,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 color: Color(0xFF64748B),
               ),
             ),
+
             const SizedBox(height: 18),
+
             ElevatedButton(
               onPressed: _retry,
               style: ElevatedButton.styleFrom(
@@ -1114,6 +1070,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
+  // ================================================================
+  // EMPTY
+  // ================================================================
+
   Widget _emptyState() {
     return Center(
       child: Padding(
@@ -1126,7 +1086,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               size: 52,
               color: Color(0xFF94A3B8),
             ),
+
             const SizedBox(height: 14),
+
             const Text(
               'Live Walk not found',
               style: TextStyle(
@@ -1135,7 +1097,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 color: navy,
               ),
             ),
+
             const SizedBox(height: 8),
+
             const Text(
               'The live walk session is not available right now.',
               textAlign: TextAlign.center,
@@ -1144,7 +1108,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 color: Color(0xFF64748B),
               ),
             ),
+
             const SizedBox(height: 18),
+
             ElevatedButton(
               onPressed: _retry,
               style: ElevatedButton.styleFrom(
@@ -1158,6 +1124,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
     );
   }
+
+  // ================================================================
+  // DISPOSE
+  // ================================================================
 
   @override
   void dispose() {
