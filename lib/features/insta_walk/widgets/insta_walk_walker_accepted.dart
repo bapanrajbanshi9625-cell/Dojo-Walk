@@ -13,7 +13,7 @@ part of '../controllers/insta_walk_container.dart';
 // - Do not navigate from this extension.
 // - Do not set active state here.
 // - Do not cancel/delete the Firestore request here.
-// - Container handler controls radar + listener shutdown.
+// - Container handler controls search animation + listener shutdown.
 // ============================================================
 
 extension _WalkerAcceptedRole on _InstaWalkContainerState {
@@ -38,6 +38,10 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       return;
     }
 
+    // ==========================================================
+    // REQUEST ID
+    // ==========================================================
+
     final String acceptedRequestId =
         accepted.requestId.trim();
 
@@ -60,36 +64,54 @@ extension _WalkerAcceptedRole on _InstaWalkContainerState {
       return;
     }
 
-    final String walkerId =
-        accepted.walkerId.trim();
+    // ==========================================================
+    // WALKER IDENTITY VALIDATION
+    // ==========================================================
 
-    final String walkerUid =
-        accepted.walkerUid.trim();
-
-    final String walkerName =
-        accepted.walkerName.trim();
+    final bool hasWalkerIdentity =
+        accepted.walkerId.trim().isNotEmpty ||
+        accepted.walkerUid.trim().isNotEmpty;
 
     debugPrint(
-      'walkerId = $walkerId',
+      'walkerId = ${accepted.walkerId}',
     );
 
     debugPrint(
-      'walkerUid = $walkerUid',
+      'walkerUid = ${accepted.walkerUid}',
     );
 
     debugPrint(
-      'walkerName = $walkerName',
+      'walkerName = ${accepted.walkerName}',
     );
 
-    if (walkerId.isEmpty &&
-        walkerUid.isEmpty) {
+    if (!hasWalkerIdentity) {
       debugPrint(
         '❌ Walker identity is missing.',
       );
       return;
     }
 
+    // ==========================================================
+    // SAVE REQUEST ID
+    // ==========================================================
+
     _requestId = requestId;
+
+    // ==========================================================
+    // HAND OFF TO CONTAINER ACCEPTED HANDLER
+    // ==========================================================
+    //
+    // _handleAccepted() is the ONLY place responsible for:
+    //
+    // 1. Duplicate-accept protection
+    // 2. Stopping search animation
+    // 3. Stopping Firestore listener
+    // 4. Setting search UI to normal
+    // 5. Calling widget.onAccepted
+    // 6. Opening WalkerAcceptScreen
+    // 7. Resetting container after returning
+    //
+    // ==========================================================
 
     debugPrint(
       '🚀 Sending accepted request to Container handler...',
