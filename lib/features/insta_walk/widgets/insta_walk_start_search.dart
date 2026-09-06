@@ -9,7 +9,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
     required String ownerId,
     required String ownerName,
     required String address,
-    required Position position,
+    required GeoPoint ownerLocation,
     required String dogName,
     required String dogBreed,
   }) async {
@@ -17,9 +17,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
     // SEARCH FLOW GUARD
     // ==========================================================
     //
-    // Existing Accept flow is responsible for detecting ACCEPTED.
-    // If it has already handled the accepted request, never start
-    // a new Insta Walk search or restart the radar.
+    // If the current request has already been accepted, never
+    // start another search or restart the search animation.
     //
     if (!mounted || _acceptHandled) {
       debugPrint(
@@ -38,10 +37,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
         ownerId: ownerId,
         ownerName: ownerName,
         address: address,
-        ownerLocation: GeoPoint(
-          position.latitude,
-          position.longitude,
-        ),
+        ownerLocation: ownerLocation,
         dogName: dogName,
         dogBreed: dogBreed,
       );
@@ -51,20 +47,21 @@ extension _StartSearchRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // IMPORTANT:
-      // During the await above, the existing Accept flow may
-      // have detected ACCEPTED and handled the request.
-      //
-      // NEVER continue starting Insta Walk after that happens.
+      // ACCEPT GUARD AFTER ASYNC OPERATION
       // ========================================================
-
+      //
+      // Acceptance may have been detected while startSearch()
+      // was waiting for Firestore.
+      //
+      // Do not overwrite the accepted state.
+      //
       if (_acceptHandled) {
         debugPrint(
           '🛑 Insta Walk start aborted: request accepted '
           'while startSearch() was awaiting.',
         );
 
-        _stopRadar();
+        _stopSearchAnimation();
         _service.stopListening();
 
         return;
@@ -79,7 +76,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
           result.requestId!.trim().isEmpty) {
         _requestId = null;
 
-        _stopRadar();
+        _stopSearchAnimation();
         _service.stopListening();
 
         _updateState(() {
@@ -105,17 +102,16 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // SECOND ACCEPT GUARD
       // ========================================================
       //
-      // Keep this immediately before changing the UI into the
-      // searching state.
-      // ========================================================
-
+      // Keep this immediately before changing the UI to the
+      // SEARCHING state.
+      //
       if (_acceptHandled) {
         debugPrint(
           '🛑 Insta Walk search state NOT started: '
           'accept already handled.',
         );
 
-        _stopRadar();
+        _stopSearchAnimation();
         _service.stopListening();
 
         return;
@@ -136,8 +132,10 @@ extension _StartSearchRole on _InstaWalkContainerState {
 
       _setActive(true);
 
-      // _startRadar() itself also checks _searching.
-      _startRadar();
+      // Small animated search icon.
+      // NO GPS.
+      // NO RADAR.
+      _startSearchAnimation();
 
       debugPrint(
         '🔵 Insta Walk search active: $requestId',
@@ -160,8 +158,10 @@ extension _StartSearchRole on _InstaWalkContainerState {
           // ACCEPTED
           // ======================================================
           //
-          // Existing Accept flow remains responsible for handling
-          // the acceptance. We do not duplicate that logic here.
+          // Walker acceptance is handled by the existing
+          // _walkerAccepted() -> _handleAccepted() flow.
+          //
+          // Do not duplicate navigation/state logic here.
           // ======================================================
 
           if (state.isAccepted) {
@@ -201,7 +201,8 @@ extension _StartSearchRole on _InstaWalkContainerState {
           // SEARCHING
           // ======================================================
           //
-          // Nothing to do. Search continues.
+          // Nothing to do.
+          // Firestore listener keeps the search alive.
           // ======================================================
         },
         onError: (Object error) {
@@ -220,23 +221,25 @@ extension _StartSearchRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // If Accept flow handled the request while the async
-      // operation was running, don't overwrite its state.
+      // ACCEPT GUARD
       // ========================================================
-
+      //
+      // If acceptance was already handled, don't overwrite
+      // the accepted flow with an error state.
+      //
       if (_acceptHandled) {
         debugPrint(
           '🛑 Insta Walk error ignored: '
           'accept already handled.',
         );
 
-        _stopRadar();
+        _stopSearchAnimation();
         _service.stopListening();
 
         return;
       }
 
-      _stopRadar();
+      _stopSearchAnimation();
       _service.stopListening();
 
       _requestId = null;
