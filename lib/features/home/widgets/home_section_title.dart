@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class HomeSectionTitle extends StatelessWidget {
   const HomeSectionTitle({
@@ -18,7 +18,7 @@ class HomeSectionTitle extends StatelessWidget {
           height: 19,
           width: 4,
           decoration: BoxDecoration(
-            color: AppColors.orange,
+            color: DojoWalkColors.primary,
             borderRadius: BorderRadius.circular(5),
           ),
         ),
@@ -31,7 +31,7 @@ class HomeSectionTitle extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.navy,
+              color: DojoWalkColors.black,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
