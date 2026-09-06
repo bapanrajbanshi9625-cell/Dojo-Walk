@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class ProfileSelectionField extends StatelessWidget {
   final String label;
@@ -34,7 +34,7 @@ class ProfileSelectionField extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: AppColors.navy,
+            color: DojoWalkColors.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -58,15 +58,15 @@ class ProfileSelectionField extends StatelessWidget {
               vertical: 15,
             ),
             decoration: BoxDecoration(
-              color: AppColors.lightGrey,
+              color: DojoWalkColors.background,
               borderRadius:
                   BorderRadius.circular(15),
               border: Border.all(
                 color: hasValue
-                    ? AppColors.primary.withValues(
+                    ? DojoWalkColors.primary.withValues(
                         alpha: 0.25,
                       )
-                    : AppColors.border,
+                    : DojoWalkColors.border,
               ),
             ),
             child: Row(
@@ -77,7 +77,7 @@ class ProfileSelectionField extends StatelessWidget {
 
                 Icon(
                   icon,
-                  color: AppColors.primary,
+                  color: DojoWalkColors.primary,
                 ),
 
                 const SizedBox(width: 12),
@@ -99,8 +99,8 @@ class ProfileSelectionField extends StatelessWidget {
                       // Selected value is explicitly dark
                       // so it remains visible immediately.
                       color: hasValue
-                          ? AppColors.navy
-                          : AppColors.grey,
+                          ? DojoWalkColors.textPrimary
+                          : DojoWalkColors.textSecondary,
                       fontSize: 15.5,
                       fontWeight: hasValue
                           ? FontWeight.w600
@@ -117,7 +117,7 @@ class ProfileSelectionField extends StatelessWidget {
 
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.grey,
+                  color: DojoWalkColors.textSecondary,
                 ),
               ],
             ),
