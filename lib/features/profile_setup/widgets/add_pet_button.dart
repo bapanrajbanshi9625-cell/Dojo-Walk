@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class AddPetButton extends StatelessWidget {
   final VoidCallback onPressed;
@@ -18,9 +18,9 @@ class AddPetButton extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          foregroundColor: DojoBrandColors.orange,
+          foregroundColor: DojoWalkColors.primary,
           side: const BorderSide(
-            color: DojoBrandColors.orange,
+            color: DojoWalkColors.primary,
             width: 1.4,
           ),
           padding: const EdgeInsets.symmetric(
