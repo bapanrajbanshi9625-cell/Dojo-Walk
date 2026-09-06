@@ -1,6 +1,9 @@
+// File:
+// lib/features/profile/widgets/owner_info_card.dart
+
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class OwnerInfoCard extends StatelessWidget {
   final String ownerId;
@@ -33,14 +36,16 @@ class OwnerInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DojoBrandColors.card,
+        color: DojoWalkColors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: DojoBrandColors.slate.withValues(alpha: 0.08),
+          color: DojoWalkColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color: DojoBrandColors.black.withValues(alpha: 0.05),
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.05,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -48,6 +53,10 @@ class OwnerInfoCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // ======================================================
+          // OWNER ID
+          // ======================================================
+
           OwnerInfoRow(
             icon: Icons.badge_outlined,
             label: 'Owner ID',
@@ -59,13 +68,17 @@ class OwnerInfoCard extends StatelessWidget {
                     icon: const Icon(
                       Icons.copy_rounded,
                       size: 18,
-                      color: DojoBrandColors.orange,
+                      color: DojoWalkColors.primary,
                     ),
                     onPressed: onCopyOwnerId,
                   ),
           ),
 
           const Divider(height: 20),
+
+          // ======================================================
+          // OWNER NAME
+          // ======================================================
 
           OwnerInfoRow(
             icon: Icons.person_outline_rounded,
@@ -75,56 +88,92 @@ class OwnerInfoCard extends StatelessWidget {
 
           const Divider(height: 20),
 
+          // ======================================================
+          // MOBILE NUMBER
+          // ======================================================
+
           OwnerInfoRow(
-  icon: Icons.phone_outlined,
-  label: 'Mobile Number',
-  value: mobileNumber.isEmpty ? '-' : mobileNumber,
-  trailing: IconButton(
-    tooltip: 'Change Mobile Number',
-    icon: const Icon(
-      Icons.edit_outlined,
-      size: 19,
-      color: DojoBrandColors.orange,
-    ),
-    onPressed: onChangeMobile,
-  ),
-),
-
-const Divider(height: 20),
-
-OwnerInfoRow(
-  icon: Icons.cake_outlined,
-  label: 'Date of Birth',
-  value: ownerDob.isEmpty ? '-' : ownerDob,
-),
+            icon: Icons.phone_outlined,
+            label: 'Mobile Number',
+            value: mobileNumber.isEmpty
+                ? '-'
+                : mobileNumber,
+            trailing: IconButton(
+              tooltip: 'Change Mobile Number',
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 19,
+                color: DojoWalkColors.primary,
+              ),
+              onPressed: onChangeMobile,
+            ),
+          ),
 
           const Divider(height: 20),
+
+          // ======================================================
+          // DATE OF BIRTH
+          // ======================================================
+
+          OwnerInfoRow(
+            icon: Icons.cake_outlined,
+            label: 'Date of Birth',
+            value: ownerDob.isEmpty
+                ? '-'
+                : ownerDob,
+          ),
+
+          const Divider(height: 20),
+
+          // ======================================================
+          // GENDER
+          // ======================================================
 
           OwnerInfoRow(
             icon: Icons.wc_outlined,
             label: 'Gender',
-            value: ownerGender.isEmpty ? '-' : ownerGender,
+            value: ownerGender.isEmpty
+                ? '-'
+                : ownerGender,
           ),
 
           const Divider(height: 20),
+
+          // ======================================================
+          // MEMBER SINCE
+          // ======================================================
 
           OwnerInfoRow(
             icon: Icons.calendar_month_outlined,
             label: 'Member Since',
-            value: memberSince.isEmpty ? '-' : memberSince,
+            value: memberSince.isEmpty
+                ? '-'
+                : memberSince,
           ),
 
           const Divider(height: 20),
+
+          // ======================================================
+          // ACCOUNT STATUS
+          // ======================================================
 
           OwnerInfoRow(
             icon: isActive
                 ? Icons.check_circle_outline_rounded
                 : Icons.block_outlined,
             label: 'Account Status',
-            value: isActive ? 'Active' : 'Inactive',
+            value: isActive
+                ? 'Active'
+                : 'Inactive',
             valueColor: isActive
-                ? Colors.green
-                : Colors.red,
+                ? DojoWalkColors.green
+                : DojoWalkColors.red,
+            iconColor: isActive
+                ? DojoWalkColors.green
+                : DojoWalkColors.red,
+            iconBackgroundColor: isActive
+                ? DojoWalkColors.greenLight
+                : DojoWalkColors.redLight,
           ),
         ],
       ),
@@ -142,6 +191,8 @@ class OwnerInfoRow extends StatelessWidget {
   final String value;
   final Widget? trailing;
   final Color? valueColor;
+  final Color? iconColor;
+  final Color? iconBackgroundColor;
 
   const OwnerInfoRow({
     super.key,
@@ -150,6 +201,8 @@ class OwnerInfoRow extends StatelessWidget {
     required this.value,
     this.trailing,
     this.valueColor,
+    this.iconColor,
+    this.iconBackgroundColor,
   });
 
   @override
@@ -157,34 +210,49 @@ class OwnerInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        // ========================================================
+        // ICON
+        // ========================================================
+
         Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: DojoBrandColors.mintTint,
-            borderRadius: BorderRadius.circular(10),
+            color: iconBackgroundColor ??
+                DojoWalkColors.primaryLight,
+            borderRadius:
+                BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: DojoBrandColors.orange,
+            color: iconColor ??
+                DojoWalkColors.primary,
             size: 19,
           ),
         ),
 
         const SizedBox(width: 12),
 
+        // ========================================================
+        // LABEL + VALUE
+        // ========================================================
+
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               Text(
                 label,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: DojoBrandColors.slate,
-                  fontWeight: FontWeight.w600,
+                  color:
+                      DojoWalkColors.textSecondary,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
 
@@ -193,18 +261,26 @@ class OwnerInfoRow extends StatelessWidget {
               Text(
                 value,
                 maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
-                  color: valueColor ?? DojoBrandColors.navy,
-                  fontWeight: FontWeight.w700,
+                  color: valueColor ??
+                      DojoWalkColors.black,
+                  fontWeight:
+                      FontWeight.w700,
                 ),
               ),
             ],
           ),
         ),
 
-        if (trailing != null) trailing!,
+        // ========================================================
+        // TRAILING ACTION
+        // ========================================================
+
+        if (trailing != null)
+          trailing!,
       ],
     );
   }
