@@ -25,11 +25,10 @@ class CompactPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double height =
-        MediaQuery.of(context).size.height;
+    final double height = MediaQuery.of(context).size.height;
 
     return Material(
-      color: orange,
+      color: lightGrey,
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(28),
       ),
@@ -55,11 +54,8 @@ class CompactPickerSheet extends StatelessWidget {
                   width: 48,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: white.withValues(
-                      alpha: 0.75,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(20),
+                    color: orange.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
 
@@ -75,20 +71,12 @@ class CompactPickerSheet extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: white.withValues(
-                          alpha: 0.18,
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(15),
-                        border: Border.all(
-                          color: white.withValues(
-                            alpha: 0.30,
-                          ),
-                        ),
+                        color: orange.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       child: Icon(
                         icon,
-                        color: white,
+                        color: orange,
                         size: 25,
                       ),
                     ),
@@ -99,10 +87,9 @@ class CompactPickerSheet extends StatelessWidget {
                       child: Text(
                         title,
                         style: const TextStyle(
-                          color: white,
+                          color: textColor,
                           fontSize: 20,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -111,32 +98,22 @@ class CompactPickerSheet extends StatelessWidget {
                     // CLOSE BUTTON
                     // ==================================================
 
-                    InkWell(
-                      borderRadius:
-                          BorderRadius.circular(14),
-                      onTap: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration:
-                            BoxDecoration(
-                          color: white.withValues(
-                            alpha: 0.16,
+                    Material(
+                      color: white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: Icon(
+                            Icons.close_rounded,
+                            color: textColor,
+                            size: 22,
                           ),
-                          borderRadius:
-                              BorderRadius.circular(14),
-                          border: Border.all(
-                            color: white.withValues(
-                              alpha: 0.28,
-                            ),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: white,
-                          size: 22,
                         ),
                       ),
                     ),
@@ -152,78 +129,64 @@ class CompactPickerSheet extends StatelessWidget {
                 Expanded(
                   child: items.isEmpty
                       ? const Center(
-                          child: Text(
-                            'No options available',
-                            style: TextStyle(
-                              color: white,
-                              fontSize: 14,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                color: orange,
+                                size: 42,
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                'No options available',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       : ListView.builder(
-                          physics:
-                              const BouncingScrollPhysics(),
-                          padding:
-                              const EdgeInsets.only(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.only(
                             top: 4,
                             bottom: 14,
                           ),
                           itemCount: items.length,
-                          itemBuilder:
-                              (context, index) {
-                            final String item =
-                                items[index];
+                          itemBuilder: (context, index) {
+                            final String item = items[index];
 
-                            final bool isSelected =
-                                item == selected;
+                            final bool isSelected = item == selected;
 
                             return Padding(
-                              padding:
-                                  const EdgeInsets.only(
+                              padding: const EdgeInsets.only(
                                 bottom: 8,
                               ),
                               child: Material(
                                 color: isSelected
                                     ? darkOrange
                                     : white,
-                                borderRadius:
-                                    BorderRadius.circular(
-                                  15,
-                                ),
-                                clipBehavior:
-                                    Clip.antiAlias,
+                                borderRadius: BorderRadius.circular(15),
+                                clipBehavior: Clip.antiAlias,
                                 child: InkWell(
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                    15,
-                                  ),
+                                  borderRadius: BorderRadius.circular(15),
                                   onTap: () {
                                     onSelected(item);
                                   },
                                   child: Container(
                                     height: 57,
-                                    padding:
-                                        const EdgeInsets
-                                            .symmetric(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                     ),
-                                    decoration:
-                                        BoxDecoration(
-                                      borderRadius:
-                                          BorderRadius
-                                              .circular(
-                                        15,
-                                      ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(15),
                                       border: Border.all(
                                         color: isSelected
-                                            ? white.withValues(
-                                                alpha: 0.30,
-                                              )
-                                            : const Color(
-                                                0xFFE5E7EB,
-                                              ),
+                                            ? darkOrange
+                                            : const Color(0xFFE5E7EB),
                                       ),
                                     ),
                                     child: Row(
@@ -235,26 +198,22 @@ class CompactPickerSheet extends StatelessWidget {
                                         Container(
                                           width: 39,
                                           height: 39,
-                                          decoration:
-                                              BoxDecoration(
+                                          decoration: BoxDecoration(
                                             color: isSelected
-                                                ? white.withValues(
-                                                    alpha: 0.18,
-                                                  )
-                                                : orange,
-                                            shape:
-                                                BoxShape.circle,
+                                                ? white.withValues(alpha: 0.18)
+                                                : orange.withValues(alpha: 0.10),
+                                            shape: BoxShape.circle,
                                           ),
                                           child: Icon(
                                             icon,
-                                            color: white,
+                                            color: isSelected
+                                                ? white
+                                                : orange,
                                             size: 20,
                                           ),
                                         ),
 
-                                        const SizedBox(
-                                          width: 12,
-                                        ),
+                                        const SizedBox(width: 12),
 
                                         // ==========================================
                                         // TEXT
@@ -264,29 +223,20 @@ class CompactPickerSheet extends StatelessWidget {
                                           child: Text(
                                             item,
                                             maxLines: 1,
-                                            overflow:
-                                                TextOverflow
-                                                    .ellipsis,
-                                            style:
-                                                TextStyle(
-                                              color:
-                                                  isSelected
-                                                      ? white
-                                                      : textColor,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? white
+                                                  : textColor,
                                               fontSize: 14,
-                                              fontWeight:
-                                                  isSelected
-                                                      ? FontWeight
-                                                          .w800
-                                                      : FontWeight
-                                                          .w600,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w600,
                                             ),
                                           ),
                                         ),
 
-                                        const SizedBox(
-                                          width: 8,
-                                        ),
+                                        const SizedBox(width: 8),
 
                                         // ==========================================
                                         // CHECK
@@ -295,20 +245,16 @@ class CompactPickerSheet extends StatelessWidget {
                                         Container(
                                           width: 27,
                                           height: 27,
-                                          decoration:
-                                              BoxDecoration(
+                                          decoration: BoxDecoration(
                                             color: isSelected
                                                 ? white
                                                 : lightGrey,
-                                            shape:
-                                                BoxShape.circle,
+                                            shape: BoxShape.circle,
                                           ),
                                           child: isSelected
                                               ? const Icon(
-                                                  Icons
-                                                      .check_rounded,
-                                                  color:
-                                                      orange,
+                                                  Icons.check_rounded,
+                                                  color: orange,
                                                   size: 18,
                                                 )
                                               : null,
