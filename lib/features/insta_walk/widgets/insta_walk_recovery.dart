@@ -45,6 +45,9 @@ extension _RecoveryRole on _InstaWalkContainerState {
         return;
       }
 
+      _stopSearchAnimation();
+      _service.stopListening();
+
       _updateState(() {
         _recovering = false;
         _searching = false;
@@ -210,6 +213,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
         );
 
         _service.stopListening();
+        _stopSearchAnimation();
         return;
       }
 
@@ -309,6 +313,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
       );
 
       _service.stopListening();
+      _stopSearchAnimation();
       return;
     }
 
@@ -341,6 +346,7 @@ extension _RecoveryRole on _InstaWalkContainerState {
       );
 
       _service.stopListening();
+      _stopSearchAnimation();
       return;
     }
 
@@ -355,6 +361,21 @@ extension _RecoveryRole on _InstaWalkContainerState {
       _checkingAddress = false;
       _stopping = false;
     });
+
+    // ==========================================================
+    // ACTIVE SEARCH
+    // ==========================================================
+
+    _setActive(true);
+
+    // ==========================================================
+    // SEARCH ICON ANIMATION
+    //
+    // This is only the small animated search icon.
+    // No GPS.
+    // No radar.
+    // No map.
+    // ==========================================================
 
     if (_acceptHandled) {
       debugPrint(
@@ -375,17 +396,12 @@ extension _RecoveryRole on _InstaWalkContainerState {
       return;
     }
 
-    // ==========================================================
-    // ACTIVE SEARCH
-    // ==========================================================
-
-    _setActive(true);
+    _startSearchAnimation();
 
     // ==========================================================
     // REALTIME FIRESTORE LISTENER
     //
-    // Managed through InstaWalkSearchService so the same
-    // subscription can always be stopped with stopListening().
+    // Managed through InstaWalkSearchService.
     // ==========================================================
 
     _service.listenAndStore(
@@ -444,8 +460,12 @@ extension _RecoveryRole on _InstaWalkContainerState {
         // SEARCHING
         // ======================================================
         //
-        // Search continues.
+        // Search continues indefinitely.
         //
+        // No timer.
+        // No countdown.
+        // No automatic expiry.
+        // ======================================================
       },
       onError: (
         Object error,
@@ -513,6 +533,12 @@ extension _RecoveryRole on _InstaWalkContainerState {
     // ==========================================================
 
     _service.stopListening();
+
+    // ==========================================================
+    // STOP SEARCH ANIMATION
+    // ==========================================================
+
+    _stopSearchAnimation();
 
     if (!mounted) {
       return;
