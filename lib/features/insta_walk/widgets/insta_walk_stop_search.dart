@@ -38,14 +38,14 @@ extension _StopSearchRole on _InstaWalkContainerState {
       // ========================================================
       // CANCEL FIRESTORE REQUEST
       //
-      // COLLECTION:
+      // Collection:
       // walk_request/{requestId}
       //
-      // Service checks:
+      // Service is responsible for validating:
       // ownerAuthUid == currentUser.uid
       // status == searching
       //
-      // Then updates:
+      // Then:
       // status = cancelled
       // cancelledAt = serverTimestamp()
       // cancelledBy = currentUser.uid
@@ -61,11 +61,17 @@ extension _StopSearchRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // SUCCESS
+      // SUCCESSFULLY CANCELLED
       // ========================================================
 
       if (cancelled) {
         _requestId = null;
+
+        // Stop Firestore realtime listener.
+        _service.stopListening();
+
+        // Stop animated search icon.
+        _stopSearchAnimation();
 
         _updateState(() {
           _searching = false;
@@ -85,14 +91,17 @@ extension _StopSearchRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // FAILED TO CANCEL
+      // CANCEL FAILED
       //
-      // Possible reasons:
+      // Most commonly:
+      // - walker already accepted
+      // - request is no longer searching
+      // - request ownership mismatch
+      // - Firestore rules rejected the operation
       //
-      // 1. Walker already accepted
-      // 2. Request is not searching
-      // 3. Owner does not own request
-      // 4. Firestore permission denied
+      // Do NOT forcibly reset the accepted flow here.
+      // The realtime listener remains responsible for detecting
+      // ACCEPTED and sending it through _walkerAccepted().
       // ========================================================
 
       _updateState(() {
