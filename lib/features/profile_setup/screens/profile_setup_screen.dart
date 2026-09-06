@@ -37,6 +37,22 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState
     extends State<ProfileSetupScreen> {
   // ============================================================
+  // COLORS
+  // ============================================================
+
+  static const Color _orange =
+      DojoBrandColors.orange;
+
+  static const Color _orangeDark =
+      DojoBrandColors.orangeDark;
+
+  static const Color _background =
+      DojoLightColors.background;
+
+  static const Color _text =
+      DojoLightColors.text;
+
+  // ============================================================
   // FIREBASE
   // ============================================================
 
@@ -795,7 +811,7 @@ class _ProfileSetupScreenState
         .showSnackBar(
       SnackBar(
         backgroundColor:
-            DojoBrandColors.orangeDark,
+            _orangeDark,
         behavior:
             SnackBarBehavior.floating,
         margin:
@@ -917,13 +933,12 @@ class _ProfileSetupScreenState
               return;
             }
 
+            // IMPORTANT:
+            // BreedPicker itself closes the sheet.
+            // Do NOT call Navigator.pop() here.
             setState(() {
-              pet.breed =
-                  breed;
+              pet.breed = breed;
             });
-
-            Navigator.of(context)
-                .pop();
           },
         );
       },
@@ -973,7 +988,7 @@ class _ProfileSetupScreenState
   ) {
     return Scaffold(
       backgroundColor:
-          DojoLightColors.background,
+          _background,
 
       // ========================================================
       // APP BAR
@@ -982,7 +997,7 @@ class _ProfileSetupScreenState
       appBar:
           AppBar(
         backgroundColor:
-            DojoBrandColors.orange,
+            _orange,
         foregroundColor:
             Colors.white,
         elevation:
@@ -1052,7 +1067,7 @@ class _ProfileSetupScreenState
                   fontWeight:
                       FontWeight.bold,
                   color:
-                      DojoLightColors.text,
+                      _text,
                 ),
               ),
 
@@ -1094,10 +1109,11 @@ class _ProfileSetupScreenState
                         fontWeight:
                             FontWeight.bold,
                         color:
-                            DojoLightColors.text,
+                            _text,
                       ),
                     ),
                   ),
+
                   Container(
                     padding:
                         const EdgeInsets.symmetric(
@@ -1120,7 +1136,7 @@ class _ProfileSetupScreenState
                       style:
                           const TextStyle(
                         color:
-                            DojoBrandColors.orange,
+                            _orange,
                         fontSize:
                             12,
                         fontWeight:
