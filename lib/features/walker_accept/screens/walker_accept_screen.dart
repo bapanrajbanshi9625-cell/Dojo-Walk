@@ -104,7 +104,8 @@ class _WalkerAcceptScreenState
 
         _checkReached(data);
 
-        if (!data.isReached) {
+        if (!_isTerminalStatus(data.status) &&
+            !data.isReached) {
           _refreshRoute(data);
         }
       },
@@ -128,13 +129,80 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
+  // STATUS HELPERS
+  // ==========================================================
+
+  bool _isTerminalStatus(
+    String status,
+  ) {
+    switch (status.trim().toLowerCase()) {
+      case 'completed':
+      case 'cancelled':
+      case 'canceled':
+      case 'rejected':
+      case 'expired':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _canOpenLiveWalk(
+    String status,
+  ) {
+    switch (status.trim().toLowerCase()) {
+      case 'accepted':
+      case 'reached':
+      case 'active':
+      case 'in_progress':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // ==========================================================
   // REACHED
   // ==========================================================
 
   void _checkReached(
     WalkerAcceptData data,
   ) {
-    if (_reachedHandled || !data.isReached) {
+    final String status =
+        data.status.trim().toLowerCase();
+
+    // ========================================================
+    // IMPORTANT SAFETY CHECK
+    //
+    // Completed / cancelled / rejected / expired walks
+    // must NEVER open LiveWalkScreen.
+    // ========================================================
+
+    if (_isTerminalStatus(status)) {
+      debugPrint(
+        'WalkerAcceptScreen → terminal status detected: $status',
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // LIVE WALK ALLOWLIST
+    //
+    // Only these statuses are allowed to transition
+    // from Accept Screen → Live Walk.
+    // ========================================================
+
+    if (!_canOpenLiveWalk(status)) {
+      debugPrint(
+        'WalkerAcceptScreen → Live Walk blocked for status: $status',
+      );
+
+      return;
+    }
+
+    if (_reachedHandled ||
+        !data.isReached) {
       return;
     }
 
@@ -142,6 +210,14 @@ class _WalkerAcceptScreenState
 
     debugPrint(
       'WalkerAcceptScreen → Walker reached owner.',
+    );
+
+    debugPrint(
+      'status = $status',
+    );
+
+    debugPrint(
+      'requestId = ${data.requestId}',
     );
 
     widget.onReached?.call(data);
@@ -168,6 +244,7 @@ class _WalkerAcceptScreenState
     _requestSubscription = null;
 
     if (!mounted) {
+      _liveWalkOpening = false;
       return;
     }
 
@@ -214,6 +291,10 @@ class _WalkerAcceptScreenState
   void _refreshRoute(
     WalkerAcceptData data,
   ) {
+    if (_isTerminalStatus(data.status)) {
+      return;
+    }
+
     final LatLng? walkerLocation =
         _latLngFromGeoPoint(
       data.walkerLocation,
@@ -362,7 +443,10 @@ class _WalkerAcceptScreenState
         _data;
 
     if (latestData == null ||
-        latestData.isReached) {
+        latestData.isReached ||
+        _isTerminalStatus(
+          latestData.status,
+        )) {
       return;
     }
 
@@ -399,6 +483,11 @@ class _WalkerAcceptScreenState
   Future<void> _loadRouteForLatestData(
     WalkerAcceptData data,
   ) async {
+    if (_isTerminalStatus(data.status) ||
+        data.isReached) {
+      return;
+    }
+
     final LatLng? walkerLocation =
         _latLngFromGeoPoint(
       data.walkerLocation,
@@ -600,10 +689,6 @@ class _WalkerAcceptScreenState
       body: SafeArea(
         child: Stack(
           children: [
-            // =================================================
-            // MAP
-            // =================================================
-
             Positioned.fill(
               child: WalkerAcceptMap(
                 ownerLocation:
@@ -619,21 +704,11 @@ class _WalkerAcceptScreenState
                     const <LatLng>[],
                 walkerHeading:
                     data.walkerHeading,
-                onMyLocationPressed: () {
-                  // Existing map callback preserved.
-                },
+                onMyLocationPressed: () {},
               ),
             ),
 
-            // =================================================
-            // ACCEPT SCREEN HEADER
-            // =================================================
-
             _buildAcceptHeader(),
-
-            // =================================================
-            // BOTTOM SHEET
-            // =================================================
 
             _buildBottomSheet(data),
           ],
@@ -845,10 +920,6 @@ class _WalkerAcceptScreenState
               18,
             ),
             children: [
-              // =================================================
-              // HANDLE
-              // =================================================
-
               Center(
                 child: Container(
                   width: 42,
@@ -866,10 +937,6 @@ class _WalkerAcceptScreenState
               ),
 
               const SizedBox(height: 15),
-
-              // =================================================
-              // WALKER DETAILS
-              // =================================================
 
               Row(
                 children: [
@@ -899,9 +966,7 @@ class _WalkerAcceptScreenState
                                 FontWeight.w800,
                           ),
                         ),
-
                         const SizedBox(height: 4),
-
                         Row(
                           children: [
                             const Icon(
@@ -933,11 +998,7 @@ class _WalkerAcceptScreenState
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 3),
-
-                        // PHONE NUMBER
-
                         if ((data.walkerPhone
                                     ?.trim()
                                     .isNotEmpty ??
@@ -979,18 +1040,12 @@ class _WalkerAcceptScreenState
                       ],
                     ),
                   ),
-
                   const SizedBox(width: 8),
-
                   _buildLiveBadge(),
                 ],
               ),
 
               const SizedBox(height: 16),
-
-              // =================================================
-              // DISTANCE + ARRIVES IN
-              // =================================================
 
               _buildTravelInfo(data),
 
@@ -1000,10 +1055,6 @@ class _WalkerAcceptScreenState
               ],
 
               const SizedBox(height: 13),
-
-              // =================================================
-              // APPROACHING STATUS
-              // =================================================
 
               Container(
                 padding:
@@ -1046,10 +1097,6 @@ class _WalkerAcceptScreenState
 
               const SizedBox(height: 13),
 
-              // =================================================
-              // CALL + CHAT
-              // =================================================
-
               Row(
                 children: [
                   Expanded(
@@ -1063,10 +1110,6 @@ class _WalkerAcceptScreenState
               ),
 
               const SizedBox(height: 10),
-
-              // =================================================
-              // VOICE INTERACTION
-              // =================================================
 
               _buildVoiceInteractionButton(),
             ],
@@ -1178,10 +1221,6 @@ class _WalkerAcceptScreenState
     final WalkerRouteResult? route =
         _route;
 
-    // --------------------------------------------------------
-    // ROUTE SERVICE RESULT HAS PRIORITY
-    // --------------------------------------------------------
-
     final bool hasRouteDistance =
         route != null &&
         route.distanceMeters > 0;
@@ -1190,20 +1229,12 @@ class _WalkerAcceptScreenState
         route != null &&
         route.durationSeconds > 0;
 
-    // --------------------------------------------------------
-    // FIRESTORE FALLBACK
-    // --------------------------------------------------------
-
     final bool hasFallbackDistance =
         data.distanceMeters > 0 ||
         data.distanceKm > 0;
 
     final bool hasFallbackTime =
         data.etaMinutes > 0;
-
-    // --------------------------------------------------------
-    // DISTANCE
-    // --------------------------------------------------------
 
     String distanceValue;
 
@@ -1223,10 +1254,6 @@ class _WalkerAcceptScreenState
           ? 'Calculating...'
           : '--';
     }
-
-    // --------------------------------------------------------
-    // ARRIVAL TIME
-    // --------------------------------------------------------
 
     String arrivalValue;
 
@@ -1263,14 +1290,12 @@ class _WalkerAcceptScreenState
                   distanceValue,
             ),
           ),
-
           Container(
             width: 1,
             height: 45,
             color:
                 const Color(0xFFE0E0E0),
           ),
-
           Expanded(
             child: _buildInfoItem(
               icon:
