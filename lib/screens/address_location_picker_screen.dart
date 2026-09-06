@@ -116,12 +116,12 @@ class _AddressLocationPickerScreenState
   }
 
   Future<void> _reverseGeocode(LatLng location) async {
-    try {
-      final List<geocoding.Placemark> placemarks =
-          await geocoding.placemarkFromCoordinates(
-        location.latitude,
-        location.longitude,
-      );
+  try {
+    final List<geocoding.Placemark> placemarks =
+        await _geocoding.placemarkFromCoordinates(
+      location.latitude,
+      location.longitude,
+    );
 
       if (placemarks.isEmpty) {
         if (!mounted) return;
