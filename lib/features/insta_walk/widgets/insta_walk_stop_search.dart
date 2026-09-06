@@ -39,7 +39,7 @@ extension _StopSearchRole on _InstaWalkContainerState {
       // CANCEL FIRESTORE REQUEST
       //
       // COLLECTION:
-      // walk_requests/{requestId}
+      // walk_request/{requestId}
       //
       // Service checks:
       // ownerAuthUid == currentUser.uid
@@ -48,6 +48,7 @@ extension _StopSearchRole on _InstaWalkContainerState {
       // Then updates:
       // status = cancelled
       // cancelledAt = serverTimestamp()
+      // cancelledBy = currentUser.uid
       // ========================================================
 
       final bool cancelled =
@@ -64,10 +65,7 @@ extension _StopSearchRole on _InstaWalkContainerState {
       // ========================================================
 
       if (cancelled) {
-        _stopRadar();
-
         _requestId = null;
-        _ownerPosition = null;
 
         _updateState(() {
           _searching = false;
