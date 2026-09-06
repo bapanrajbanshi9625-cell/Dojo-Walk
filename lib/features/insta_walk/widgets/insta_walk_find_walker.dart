@@ -1,3 +1,6 @@
+// File:
+// lib/features/insta_walk/widgets/insta_walk_find_walker.dart
+
 part of '../controllers/insta_walk_container.dart';
 
 // ============================================================
@@ -6,45 +9,39 @@ part of '../controllers/insta_walk_container.dart';
 //
 // OWNER-SIDE INSTA WALK
 //
-// ADDRESS FLOW:
+// ADDRESS / LOCATION FLOW:
 //
-// Find a Walker Now
-//        ↓
-// Find owners/{owner}
-//        ↓
-// Check direct owner address
-//        ↓
-// ┌─────────────────────┐
-// │ Address found       │
-// └──────────┬──────────┘
-//            ↓
-//     Start Walker Search
+// Find Walker
+//      ↓
+// owners/{owner}
+//      ↓
+// Read saved address + coordinates
+//      ↓
+// Address + GeoPoint available?
+//      ↓ YES
+// Start Insta Walk Search
 //
-// If no address:
-//        ↓
-// Choose Walking Address
-//        ↓
-// Save Address
-//        ↓
+// If address is missing:
+//      ↓
+// AddressScreen
+//      ↓
 // Reload owners/{owner}
-//        ↓
-// Start Walker Search
+//      ↓
+// Start Search
 //
 // IMPORTANT:
-// The `owners` collection is the PRIMARY source.
 //
-// Supported direct address fields:
-// - address
-// - addressLine1
-// - area
-// - city
-// - state
-// - pincode
-// - latitude
-// - longitude
-// - location
+// InstaWalkContainer NEVER fetches GPS.
 //
-// `savedAddresses[]` remains supported as a fallback.
+// Supported location sources:
+//
+// 1. owners.latitude + longitude
+// 2. owners.location (GeoPoint / Map)
+// 3. owners.ownerLocation (GeoPoint / Map)
+// 4. savedAddresses[].latitude + longitude
+// 5. savedAddresses[].location
+// 6. savedAddresses[].ownerLocation
+//
 // ============================================================
 
 extension _FindWalkerRole on _InstaWalkContainerState {
@@ -60,7 +57,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       return;
     }
 
-    final User? user = FirebaseAuth.instance.currentUser;
+    final User? user =
+        FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       _message('Please login first.');
@@ -79,9 +77,6 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     try {
       // ========================================================
       // FIND OWNER PROFILE
-      //
-      // InstaWalkSearchService already reads:
-      // owners.where(authUid == currentUser.uid)
       // ========================================================
 
       DocumentSnapshot<Map<String, dynamic>>? ownerDoc =
@@ -202,7 +197,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
                 firstPet['dogName'];
 
             if (petName != null) {
-              final String value = petName.toString().trim();
+              final String value =
+                  petName.toString().trim();
 
               if (value.isNotEmpty) {
                 dogName = value;
@@ -217,7 +213,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
                 firstPet['dogBreed'];
 
             if (petBreed != null) {
-              final String value = petBreed.toString().trim();
+              final String value =
+                  petBreed.toString().trim();
 
               if (value.isNotEmpty) {
                 dogBreed = value;
@@ -231,16 +228,11 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // SAVE PET NAME FOR UI
       // ========================================================
 
-      _petName = dogName.isEmpty ? 'Your Pet' : dogName;
+      _petName =
+          dogName.isEmpty ? 'Your Pet' : dogName;
 
       // ========================================================
-      // ADDRESS
-      //
-      // IMPORTANT:
-      //
-      // `owners.address` is now checked FIRST.
-      //
-      // This matches the actual Firestore structure.
+      // READ ADDRESS
       // ========================================================
 
       String address = _readFirstString(
@@ -254,72 +246,89 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         ],
       );
 
-      Position? position;
+      // ========================================================
+      // READ LOCATION
+      // ========================================================
+
+      GeoPoint? ownerLocation =
+          _readOwnerProfileLocation(data);
 
       // ========================================================
-      // DIRECT OWNER ADDRESS FOUND
+      // DIRECT OWNER ADDRESS
       // ========================================================
 
       if (address.isNotEmpty) {
         debugPrint(
-          '✅ InstaWalk: direct owners.address found.',
+          '✅ InstaWalk: owners address found.',
         );
 
         debugPrint(
-          '📍 InstaWalk address: $address',
+          '📍 address = $address',
         );
 
-        // ------------------------------------------------------
-        // Read coordinates directly from owners document.
-        // ------------------------------------------------------
-
-        position = _readOwnerProfilePosition(data);
-
-        if (position != null) {
+        if (ownerLocation != null) {
           debugPrint(
-            '📍 InstaWalk: owner coordinates found.',
+            '📍 owners coordinates found.',
           );
 
           debugPrint(
-            'latitude = ${position.latitude}',
+            'latitude = ${ownerLocation.latitude}',
           );
 
           debugPrint(
-            'longitude = ${position.longitude}',
+            'longitude = ${ownerLocation.longitude}',
           );
         }
       }
 
       // ========================================================
-      // SAVED ADDRESS ARRAY FALLBACK
+      // SAVED ADDRESS FALLBACK
       // ========================================================
 
       Map<String, dynamic>? selectedSavedAddress;
 
-      if (address.isEmpty) {
-        selectedSavedAddress = _getSavedAddress(data);
+      if (address.isEmpty ||
+          ownerLocation == null) {
+        selectedSavedAddress =
+            _getSavedAddress(data);
 
         if (selectedSavedAddress != null) {
-          address = _buildSavedAddress(
+          final String savedAddress =
+              _buildSavedAddress(
             selectedSavedAddress,
           );
 
-          position = _readSavedAddressPosition(
+          final GeoPoint? savedLocation =
+              _readSavedAddressLocation(
             selectedSavedAddress,
           );
 
-          debugPrint(
-            '✅ InstaWalk: savedAddresses[] address found.',
-          );
+          if (address.isEmpty &&
+              savedAddress.isNotEmpty) {
+            address = savedAddress;
+          }
 
-          debugPrint(
-            '📍 InstaWalk address: $address',
-          );
+          if (ownerLocation == null &&
+              savedLocation != null) {
+            ownerLocation = savedLocation;
+          }
+
+          if (address.isNotEmpty) {
+            debugPrint(
+              '✅ InstaWalk: saved address available.',
+            );
+          }
+
+          if (ownerLocation != null) {
+            debugPrint(
+              '📍 InstaWalk: saved address coordinates available.',
+            );
+          }
         }
       }
 
       // ========================================================
-      // STRUCTURED PROFILE ADDRESS FALLBACK
+      // STRUCTURED ADDRESS FALLBACK
       // ========================================================
 
       if (address.isEmpty) {
@@ -327,28 +336,32 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         if (address.isNotEmpty) {
           debugPrint(
-            '✅ InstaWalk: structured owner address found.',
+            '✅ InstaWalk: structured address found.',
           );
         }
       }
 
       // ========================================================
-      // PROFILE LOCATION FALLBACK
+      // LOCATION FALLBACK AGAIN
       // ========================================================
 
-      if (position == null) {
-        position = _readOwnerProfilePosition(data);
+      if (ownerLocation == null) {
+        ownerLocation =
+            _readOwnerProfileLocation(data);
       }
 
       // ========================================================
-      // NO ADDRESS
+      // ADDRESS SCREEN
       //
-      // ONLY NOW open AddressScreen.
+      // Open AddressScreen when address OR location is missing.
+      //
+      // NO GPS FALLBACK.
       // ========================================================
 
-      if (address.isEmpty) {
+      if (address.isEmpty ||
+          ownerLocation == null) {
         debugPrint(
-          '⚠️ InstaWalk: NO owner address found.',
+          '⚠️ InstaWalk: address/location incomplete.',
         );
 
         _updateState(() {
@@ -357,7 +370,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         await Navigator.of(context).push(
           MaterialPageRoute<dynamic>(
-            builder: (_) => const AddressScreen(),
+            builder: (_) =>
+                const AddressScreen(),
           ),
         );
 
@@ -369,13 +383,15 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         // RELOAD OWNER PROFILE
         // ======================================================
 
-        ownerDoc = await _service.findOwnerProfile();
+        ownerDoc =
+            await _service.findOwnerProfile();
 
         if (!mounted) {
           return;
         }
 
-        if (ownerDoc == null || !ownerDoc.exists) {
+        if (ownerDoc == null ||
+            !ownerDoc.exists) {
           _message(
             'Unable to reload owner address.',
           );
@@ -383,10 +399,12 @@ extension _FindWalkerRole on _InstaWalkContainerState {
           return;
         }
 
-        data = ownerDoc.data() ?? <String, dynamic>{};
+        data =
+            ownerDoc.data() ??
+                <String, dynamic>{};
 
         // ======================================================
-        // CHECK DIRECT OWNER ADDRESS AGAIN
+        // RELOAD ADDRESS
         // ======================================================
 
         address = _readFirstString(
@@ -400,22 +418,32 @@ extension _FindWalkerRole on _InstaWalkContainerState {
           ],
         );
 
-        position = _readOwnerProfilePosition(data);
+        // ======================================================
+        // RELOAD LOCATION
+        // ======================================================
+
+        ownerLocation =
+            _readOwnerProfileLocation(data);
 
         // ======================================================
-        // SAVED ADDRESS ARRAY FALLBACK
-        // ========================================================
+        // SAVED ADDRESS FALLBACK
+        // ======================================================
 
-        if (address.isEmpty) {
-          selectedSavedAddress = _getSavedAddress(data);
+        if (address.isEmpty ||
+            ownerLocation == null) {
+          selectedSavedAddress =
+              _getSavedAddress(data);
 
           if (selectedSavedAddress != null) {
-            address = _buildSavedAddress(
-              selectedSavedAddress,
-            );
+            if (address.isEmpty) {
+              address = _buildSavedAddress(
+                selectedSavedAddress,
+              );
+            }
 
-            if (position == null) {
-              position = _readSavedAddressPosition(
+            if (ownerLocation == null) {
+              ownerLocation =
+                  _readSavedAddressLocation(
                 selectedSavedAddress,
               );
             }
@@ -424,15 +452,16 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         // ======================================================
         // STRUCTURED ADDRESS FALLBACK
-        // ========================================================
+        // ======================================================
 
         if (address.isEmpty) {
-          address = _buildAddressFromProfile(data);
+          address =
+              _buildAddressFromProfile(data);
         }
 
         // ======================================================
-        // STILL NO ADDRESS
-        // ========================================================
+        // STILL INCOMPLETE
+        // ======================================================
 
         if (address.isEmpty) {
           _updateState(() {
@@ -440,19 +469,27 @@ extension _FindWalkerRole on _InstaWalkContainerState {
           });
 
           _message(
-            'Please save your address before starting Insta Walk.',
+            'Please save your walking address before starting Insta Walk.',
+          );
+
+          return;
+        }
+
+        if (ownerLocation == null) {
+          _updateState(() {
+            _checkingAddress = false;
+          });
+
+          _message(
+            'Your saved address is missing location coordinates. Please choose your walking address again.',
           );
 
           return;
         }
 
         debugPrint(
-          '✅ InstaWalk: address available after AddressScreen.',
+          '✅ InstaWalk: address and location restored.',
         );
-
-        // ======================================================
-        // CONTINUE SEARCH
-        // ========================================================
 
         _updateState(() {
           _checkingAddress = true;
@@ -461,48 +498,25 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // LOCATION
+      // FINAL LOCATION CHECK
       //
-      // Priority:
-      //
-      // 1. owners.latitude + longitude
-      // 2. owners.location
-      // 3. savedAddresses coordinates
-      // 4. GPS
+      // There is intentionally NO GPS fallback here.
       // ========================================================
 
-      if (position == null) {
-        debugPrint(
-          '⚠️ InstaWalk: address exists but coordinates missing.',
-        );
-
-        position = await _getLocation();
-      }
-
-      if (!mounted) {
-        return;
-      }
-
-      if (position == null) {
+      if (ownerLocation == null) {
         _updateState(() {
           _checkingAddress = false;
         });
 
         _message(
-          'Unable to get your walking location.',
+          'Walking address location is not available. Please choose your walking address again.',
         );
 
         return;
       }
 
       // ========================================================
-      // SAVE OWNER POSITION
-      // ========================================================
-
-      _ownerPosition = position;
-
-      // ========================================================
-      // START SEARCH
+      // FINAL DEBUG
       // ========================================================
 
       debugPrint('');
@@ -525,10 +539,10 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         'address = $address',
       );
       debugPrint(
-        'latitude = ${position.latitude}',
+        'latitude = ${ownerLocation.latitude}',
       );
       debugPrint(
-        'longitude = ${position.longitude}',
+        'longitude = ${ownerLocation.longitude}',
       );
       debugPrint(
         'dogName = $dogName',
@@ -537,11 +551,15 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         'dogBreed = $dogBreed',
       );
 
+      // ========================================================
+      // START SEARCH
+      // ========================================================
+
       await _startSearch(
         ownerId: ownerId,
         ownerName: ownerName,
         address: address,
-        position: position,
+        ownerLocation: ownerLocation,
         dogName: dogName,
         dogBreed: dogBreed,
       );
@@ -590,21 +608,53 @@ extension _FindWalkerRole on _InstaWalkContainerState {
   Map<String, dynamic>? _getSavedAddress(
     Map<String, dynamic> data,
   ) {
-    final dynamic saved = data['savedAddresses'];
+    final dynamic saved =
+        data['savedAddresses'];
 
-    if (saved is! List || saved.isEmpty) {
+    if (saved is! List ||
+        saved.isEmpty) {
       return null;
     }
+
+    // ----------------------------------------------------------
+    // Prefer selected/default address if available.
+    // ----------------------------------------------------------
 
     for (final dynamic item in saved) {
       if (item is Map) {
         final Map<String, dynamic> address =
             Map<String, dynamic>.from(item);
 
-        final String fullAddress =
+        final dynamic selected =
+            address['selected'] ??
+            address['isSelected'] ??
+            address['default'] ??
+            address['isDefault'];
+
+        if (selected == true) {
+          final String text =
+              _buildSavedAddress(address);
+
+          if (text.isNotEmpty) {
+            return address;
+          }
+        }
+      }
+    }
+
+    // ----------------------------------------------------------
+    // Otherwise use first valid saved address.
+    // ----------------------------------------------------------
+
+    for (final dynamic item in saved) {
+      if (item is Map) {
+        final Map<String, dynamic> address =
+            Map<String, dynamic>.from(item);
+
+        final String text =
             _buildSavedAddress(address);
 
-        if (fullAddress.isNotEmpty) {
+        if (text.isNotEmpty) {
           return address;
         }
       }
@@ -620,7 +670,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
   String _buildSavedAddress(
     Map<String, dynamic> data,
   ) {
-    final String combined = _readFirstString(
+    final String combined =
+        _readFirstString(
       data,
       const [
         'address',
@@ -635,9 +686,11 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       return combined;
     }
 
-    final List<String> parts = <String>[];
+    final List<String> parts =
+        <String>[];
 
-    const List<String> keys = <String>[
+    const List<String> keys =
+        <String>[
       'flatNumber',
       'addressLine1',
       'addressLine2',
@@ -649,15 +702,18 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     ];
 
     for (final String key in keys) {
-      final dynamic value = data[key];
+      final dynamic value =
+          data[key];
 
       if (value == null) {
         continue;
       }
 
-      final String text = value.toString().trim();
+      final String text =
+          value.toString().trim();
 
-      if (text.isNotEmpty && !parts.contains(text)) {
+      if (text.isNotEmpty &&
+          !parts.contains(text)) {
         parts.add(text);
       }
     }
@@ -666,235 +722,151 @@ extension _FindWalkerRole on _InstaWalkContainerState {
   }
 
   // ==========================================================
-  // READ SAVED ADDRESS POSITION
+  // READ SAVED ADDRESS LOCATION
   // ==========================================================
 
-  Position? _readSavedAddressPosition(
+  GeoPoint? _readSavedAddressLocation(
     Map<String, dynamic> data,
   ) {
     // ========================================================
-    // DIRECT LATITUDE / LONGITUDE
+    // LATITUDE + LONGITUDE
     // ========================================================
 
-    final dynamic latitude = data['latitude'];
-    final dynamic longitude = data['longitude'];
+    final dynamic latitude =
+        data['latitude'];
 
-    if (latitude is num && longitude is num) {
-      return _positionFromCoordinates(
+    final dynamic longitude =
+        data['longitude'];
+
+    if (latitude is num &&
+        longitude is num) {
+      return _geoPointFromCoordinates(
         latitude.toDouble(),
         longitude.toDouble(),
       );
     }
 
     // ========================================================
-    // GEOPOINT LOCATION
+    // LOCATION
     // ========================================================
 
-    final dynamic location = data['location'];
+    final dynamic location =
+        data['location'];
 
-    if (location is GeoPoint) {
-      return _positionFromCoordinates(
-        location.latitude,
-        location.longitude,
-      );
+    final GeoPoint? locationPoint =
+        _geoPointFromValue(location);
+
+    if (locationPoint != null) {
+      return locationPoint;
     }
 
     // ========================================================
     // OWNER LOCATION
     // ========================================================
 
-    final dynamic ownerLocation = data['ownerLocation'];
+    final dynamic ownerLocation =
+        data['ownerLocation'];
 
-    if (ownerLocation is GeoPoint) {
-      return _positionFromCoordinates(
-        ownerLocation.latitude,
-        ownerLocation.longitude,
-      );
-    }
+    final GeoPoint? ownerPoint =
+        _geoPointFromValue(
+      ownerLocation,
+    );
 
-    // ========================================================
-    // MAP LOCATION
-    // ========================================================
-
-    if (location is Map) {
-      final dynamic lat =
-          location['latitude'] ?? location['lat'];
-
-      final dynamic lng =
-          location['longitude'] ??
-          location['lng'] ??
-          location['lon'];
-
-      if (lat is num && lng is num) {
-        return _positionFromCoordinates(
-          lat.toDouble(),
-          lng.toDouble(),
-        );
-      }
-    }
-
-    // ========================================================
-    // OWNER LOCATION MAP
-    // ========================================================
-
-    if (ownerLocation is Map) {
-      final dynamic lat =
-          ownerLocation['latitude'] ??
-          ownerLocation['lat'];
-
-      final dynamic lng =
-          ownerLocation['longitude'] ??
-          ownerLocation['lng'] ??
-          ownerLocation['lon'];
-
-      if (lat is num && lng is num) {
-        return _positionFromCoordinates(
-          lat.toDouble(),
-          lng.toDouble(),
-        );
-      }
+    if (ownerPoint != null) {
+      return ownerPoint;
     }
 
     return null;
-  }
-
-  // ==========================================================
-  // POSITION FROM COORDINATES
-  // ==========================================================
-
-  Position _positionFromCoordinates(
-    double latitude,
-    double longitude,
-  ) {
-    return Position(
-      longitude: longitude,
-      latitude: latitude,
-      timestamp: DateTime.now(),
-      accuracy: 0,
-      altitude: 0,
-      altitudeAccuracy: 0,
-      heading: 0,
-      headingAccuracy: 0,
-      speed: 0,
-      speedAccuracy: 0,
-    );
-  }
-
-  // ==========================================================
-  // BUILD ADDRESS FROM OWNER PROFILE
-  // ==========================================================
-
-  String _buildAddressFromProfile(
-    Map<String, dynamic> data,
-  ) {
-    final List<String> parts = <String>[];
-
-    const List<String> keys = <String>[
-      'flatNumber',
-      'addressLine1',
-      'addressLine2',
-      'area',
-      'city',
-      'state',
-      'pincode',
-      'Pincode',
-    ];
-
-    for (final String key in keys) {
-      final dynamic value = data[key];
-
-      if (value == null) {
-        continue;
-      }
-
-      final String text = value.toString().trim();
-
-      if (text.isNotEmpty && !parts.contains(text)) {
-        parts.add(text);
-      }
-    }
-
-    return parts.join(', ');
   }
 
   // ==========================================================
   // READ OWNER PROFILE LOCATION
   // ==========================================================
 
-  Position? _readOwnerProfilePosition(
+  GeoPoint? _readOwnerProfileLocation(
     Map<String, dynamic> data,
   ) {
     // ========================================================
-    // DIRECT LATITUDE / LONGITUDE
+    // DIRECT LATITUDE + LONGITUDE
     // ========================================================
 
-    final dynamic latitude = data['latitude'];
-    final dynamic longitude = data['longitude'];
+    final dynamic latitude =
+        data['latitude'];
 
-    if (latitude is num && longitude is num) {
-      return _positionFromCoordinates(
+    final dynamic longitude =
+        data['longitude'];
+
+    if (latitude is num &&
+        longitude is num) {
+      return _geoPointFromCoordinates(
         latitude.toDouble(),
         longitude.toDouble(),
       );
     }
 
     // ========================================================
-    // LOCATION MAP
+    // LOCATION
     // ========================================================
 
-    final dynamic location = data['location'];
+    final GeoPoint? location =
+        _geoPointFromValue(
+      data['location'],
+    );
 
-    if (location is GeoPoint) {
-      return _positionFromCoordinates(
-        location.latitude,
-        location.longitude,
-      );
-    }
-
-    if (location is Map) {
-      final dynamic lat =
-          location['latitude'] ?? location['lat'];
-
-      final dynamic lng =
-          location['longitude'] ??
-          location['lng'] ??
-          location['lon'];
-
-      if (lat is num && lng is num) {
-        return _positionFromCoordinates(
-          lat.toDouble(),
-          lng.toDouble(),
-        );
-      }
+    if (location != null) {
+      return location;
     }
 
     // ========================================================
     // OWNER LOCATION
     // ========================================================
 
-    final dynamic ownerLocation = data['ownerLocation'];
+    final GeoPoint? ownerLocation =
+        _geoPointFromValue(
+      data['ownerLocation'],
+    );
 
-    if (ownerLocation is GeoPoint) {
-      return _positionFromCoordinates(
-        ownerLocation.latitude,
-        ownerLocation.longitude,
-      );
+    if (ownerLocation != null) {
+      return ownerLocation;
     }
 
-    if (ownerLocation is Map) {
-      final dynamic lat =
-          ownerLocation['latitude'] ??
-          ownerLocation['lat'];
+    return null;
+  }
 
-      final dynamic lng =
-          ownerLocation['longitude'] ??
-          ownerLocation['lng'] ??
-          ownerLocation['lon'];
+  // ==========================================================
+  // GEOPOINT FROM VALUE
+  // ==========================================================
 
-      if (lat is num && lng is num) {
-        return _positionFromCoordinates(
-          lat.toDouble(),
-          lng.toDouble(),
+  GeoPoint? _geoPointFromValue(
+    dynamic value,
+  ) {
+    // --------------------------------------------------------
+    // Firestore GeoPoint
+    // --------------------------------------------------------
+
+    if (value is GeoPoint) {
+      return value;
+    }
+
+    // --------------------------------------------------------
+    // Map
+    // --------------------------------------------------------
+
+    if (value is Map) {
+      final dynamic latitude =
+          value['latitude'] ??
+          value['lat'];
+
+      final dynamic longitude =
+          value['longitude'] ??
+          value['lng'] ??
+          value['lon'];
+
+      if (latitude is num &&
+          longitude is num) {
+        return _geoPointFromCoordinates(
+          latitude.toDouble(),
+          longitude.toDouble(),
         );
       }
     }
@@ -903,63 +875,58 @@ extension _FindWalkerRole on _InstaWalkContainerState {
   }
 
   // ==========================================================
-  // LOCATION FALLBACK
+  // GEOPOINT FROM COORDINATES
   // ==========================================================
 
-  Future<Position?> _getLocation() async {
-    try {
-      // ======================================================
-      // LOCATION SERVICE
-      // ======================================================
+  GeoPoint _geoPointFromCoordinates(
+    double latitude,
+    double longitude,
+  ) {
+    return GeoPoint(
+      latitude,
+      longitude,
+    );
+  }
 
-      final bool enabled =
-          await Geolocator.isLocationServiceEnabled();
+  // ==========================================================
+  // BUILD ADDRESS FROM PROFILE
+  // ==========================================================
 
-      if (!enabled) {
-        _message(
-          'Please turn on location service.',
-        );
+  String _buildAddressFromProfile(
+    Map<String, dynamic> data,
+  ) {
+    final List<String> parts =
+        <String>[];
 
-        return null;
+    const List<String> keys =
+        <String>[
+      'flatNumber',
+      'addressLine1',
+      'addressLine2',
+      'area',
+      'city',
+      'state',
+      'pincode',
+      'Pincode',
+    ];
+
+    for (final String key in keys) {
+      final dynamic value =
+          data[key];
+
+      if (value == null) {
+        continue;
       }
 
-      // ======================================================
-      // PERMISSION
-      // ======================================================
+      final String text =
+          value.toString().trim();
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      if (text.isNotEmpty &&
+          !parts.contains(text)) {
+        parts.add(text);
       }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _message(
-          'Location permission is required.',
-        );
-
-        return null;
-      }
-
-      // ======================================================
-      // CURRENT GPS
-      // ======================================================
-
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-    } catch (e) {
-      debugPrint(
-        '❌ InstaWalk location error: $e',
-      );
-
-      _message(
-        'Unable to get your current location.',
-      );
-
-      return null;
     }
+
+    return parts.join(', ');
   }
 }
