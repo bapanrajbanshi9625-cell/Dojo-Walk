@@ -49,6 +49,10 @@ class _AcceptLiveStripState
         });
       },
       onError: (error) {
+        debugPrint(
+          'AcceptLiveStrip trigger error: $error',
+        );
+
         if (!mounted) {
           return;
         }
@@ -69,11 +73,71 @@ class _AcceptLiveStripState
   }
 
   // ==========================================================
+  // STATUS HELPERS
+  // ==========================================================
+
+  String get _sessionStatus {
+    return _data.sessionStatus
+        .trim()
+        .toLowerCase();
+  }
+
+  bool get _isTerminal {
+    switch (_sessionStatus) {
+      case 'completed':
+      case 'cancelled':
+      case 'canceled':
+      case 'rejected':
+      case 'expired':
+      case 'ended':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  bool get _canOpenLiveWalk {
+    if (_isTerminal) {
+      return false;
+    }
+
+    switch (_sessionStatus) {
+      case 'live':
+      case 'active':
+      case 'walking':
+      case 'in_progress':
+      case 'in-progress':
+      case 'started':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  bool get _canOpenAcceptWalk {
+    if (_isTerminal) {
+      return false;
+    }
+
+    switch (_sessionStatus) {
+      case 'accepted':
+      case 'ready':
+      case 'reached':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ==========================================================
   // TITLE
   // ==========================================================
 
   String get _mainTitle {
-    if (_data.isLive) {
+    if (_canOpenLiveWalk && _data.isLive) {
       return 'LIVE WALK';
     }
 
@@ -85,15 +149,15 @@ class _AcceptLiveStripState
   // ==========================================================
 
   String get _secondaryText {
-    if (_data.isLive) {
+    if (_canOpenLiveWalk && _data.isLive) {
       return 'Your dog walk is currently in progress';
     }
 
-    if (_data.sessionStatus == 'ready') {
+    if (_sessionStatus == 'ready') {
       return 'Walker is ready to start the walk';
     }
 
-    if (_data.sessionStatus == 'reached') {
+    if (_sessionStatus == 'reached') {
       return 'Walker has reached you';
     }
 
@@ -105,15 +169,15 @@ class _AcceptLiveStripState
   // ==========================================================
 
   String get _statusTitle {
-    if (_data.isLive) {
+    if (_canOpenLiveWalk && _data.isLive) {
       return 'LIVE WALK';
     }
 
-    if (_data.sessionStatus == 'ready') {
+    if (_sessionStatus == 'ready') {
       return 'READY';
     }
 
-    if (_data.sessionStatus == 'reached') {
+    if (_sessionStatus == 'reached') {
       return 'REACHED';
     }
 
@@ -121,15 +185,15 @@ class _AcceptLiveStripState
   }
 
   String get _statusSubtitle {
-    if (_data.isLive) {
+    if (_canOpenLiveWalk && _data.isLive) {
       return 'Tap to view live walk';
     }
 
-    if (_data.sessionStatus == 'ready') {
+    if (_sessionStatus == 'ready') {
       return 'Tap to open walk';
     }
 
-    if (_data.sessionStatus == 'reached') {
+    if (_sessionStatus == 'reached') {
       return 'Tap to view walk';
     }
 
@@ -137,7 +201,7 @@ class _AcceptLiveStripState
   }
 
   // ==========================================================
-  // OPEN
+  // OPEN WALK
   // ==========================================================
 
   Future<void> _openWalk() async {
@@ -145,18 +209,33 @@ class _AcceptLiveStripState
       return;
     }
 
-    final requestId =
+    // --------------------------------------------------------
+    // TERMINAL STATE → NOTHING OPENS
+    // --------------------------------------------------------
+
+    if (_isTerminal) {
+      debugPrint(
+        'AcceptLiveStrip → navigation blocked. '
+        'Terminal status: $_sessionStatus',
+      );
+      return;
+    }
+
+    final String? requestId =
         _data.requestId?.trim();
 
     if (requestId == null ||
         requestId.isEmpty) {
+      debugPrint(
+        'AcceptLiveStrip → missing requestId.',
+      );
       return;
     }
 
     _opening = true;
 
     try {
-      final walkId =
+      final String? walkId =
           _data.walkId?.trim();
 
       // ======================================================
@@ -164,8 +243,21 @@ class _AcceptLiveStripState
       // ======================================================
 
       if (_data.isLive &&
+          _canOpenLiveWalk &&
           walkId != null &&
           walkId.isNotEmpty) {
+        debugPrint(
+          'AcceptLiveStrip → opening LiveWalkScreen.',
+        );
+
+        debugPrint(
+          'walkId = $walkId',
+        );
+
+        debugPrint(
+          'sessionStatus = $_sessionStatus',
+        );
+
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) {
@@ -181,17 +273,57 @@ class _AcceptLiveStripState
       }
 
       // ======================================================
-      // ACCEPT / REACHED
+      // ACCEPT / READY / REACHED
       // ======================================================
 
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) {
-            return WalkerAcceptScreen(
-              requestId: requestId,
-            );
-          },
-        ),
+      if (_canOpenAcceptWalk) {
+        debugPrint(
+          'AcceptLiveStrip → opening WalkerAcceptScreen.',
+        );
+
+        debugPrint(
+          'requestId = $requestId',
+        );
+
+        debugPrint(
+          'sessionStatus = $_sessionStatus',
+        );
+
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) {
+              return WalkerAcceptScreen(
+                requestId: requestId,
+              );
+            },
+          ),
+        );
+
+        return;
+      }
+
+      // ======================================================
+      // INVALID / UNKNOWN STATE
+      // ======================================================
+
+      debugPrint(
+        'AcceptLiveStrip → navigation blocked.',
+      );
+
+      debugPrint(
+        'sessionStatus = $_sessionStatus',
+      );
+
+      debugPrint(
+        'isLive = ${_data.isLive}',
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        'AcceptLiveStrip navigation error: $e',
+      );
+
+      debugPrint(
+        '$stackTrace',
       );
     } finally {
       _opening = false;
@@ -205,6 +337,14 @@ class _AcceptLiveStripState
   @override
   Widget build(BuildContext context) {
     if (_loading) {
+      return const SizedBox.shrink();
+    }
+
+    // --------------------------------------------------------
+    // TERMINAL STATE → HIDE STRIP COMPLETELY
+    // --------------------------------------------------------
+
+    if (_isTerminal) {
       return const SizedBox.shrink();
     }
 
@@ -248,7 +388,8 @@ class _AcceptLiveStripState
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  _data.isLive
+                  _data.isLive &&
+                          _canOpenLiveWalk
                       ? Icons.directions_walk_rounded
                       : Icons.pets_rounded,
                   color: Colors.white,
@@ -266,11 +407,13 @@ class _AcceptLiveStripState
                     Text(
                       _mainTitle,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight:
+                            FontWeight.w800,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -280,13 +423,16 @@ class _AcceptLiveStripState
                     Text(
                       _secondaryText,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(
+                        color:
+                            Colors.white.withValues(
                           alpha: 0.88,
                         ),
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontWeight:
+                            FontWeight.w500,
                       ),
                     ),
                   ],
@@ -296,7 +442,8 @@ class _AcceptLiveStripState
               const SizedBox(width: 10),
 
               Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize:
+                    MainAxisSize.min,
                 crossAxisAlignment:
                     CrossAxisAlignment.end,
                 children: [
@@ -305,7 +452,8 @@ class _AcceptLiveStripState
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontWeight:
+                          FontWeight.w800,
                     ),
                   ),
 
@@ -313,9 +461,11 @@ class _AcceptLiveStripState
 
                   Text(
                     _statusSubtitle,
-                    textAlign: TextAlign.right,
+                    textAlign:
+                        TextAlign.right,
                     style: TextStyle(
-                      color: Colors.white.withValues(
+                      color:
+                          Colors.white.withValues(
                         alpha: 0.78,
                       ),
                       fontSize: 9,
