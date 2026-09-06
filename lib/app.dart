@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core/network/network_monitor.dart';
-import 'core/theme/dojo_theme.dart';
+import 'core/theme/dojo_walk_design_system.dart';
 import 'screens/splash_screen.dart';
 
 class DojoWalk extends StatelessWidget {
@@ -18,8 +18,8 @@ class DojoWalk extends StatelessWidget {
       // DOJO THEME
       // ========================================================
 
-      theme: DojoTheme.light(),
-      darkTheme: DojoTheme.dark(),
+      theme: DojoWalkTheme.light(),
+      darkTheme: DojoWalkTheme.dark(),
       themeMode: ThemeMode.system,
 
       // ========================================================
@@ -29,7 +29,7 @@ class DojoWalk extends StatelessWidget {
       builder: (context, child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
-            statusBarColor: Color(0xFFFF7A00),
+            statusBarColor: DojoWalkColors.primary,
             statusBarIconBrightness: Brightness.light,
             statusBarBrightness: Brightness.dark,
           ),
