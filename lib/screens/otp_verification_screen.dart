@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 import '../services/otp_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -794,9 +794,9 @@ class _OtpVerificationScreenState
       } else if (error.contains(
                 'custom token',
               ) ||
-              error.contains(
-                'authentication token',
-              )) {
+          error.contains(
+            'authentication token',
+          )) {
         _showMessage(
           'Secure Firebase login could not be completed. Please try again.',
         );
@@ -804,17 +804,17 @@ class _OtpVerificationScreenState
                 'identity',
               ) ||
           error.contains(
-                'authuid',
-              )) {
+            'authuid',
+          )) {
         _showMessage(
           'Existing owner identity verification failed.',
         );
       } else if (error.contains(
                 'permission-denied',
               ) ||
-              error.contains(
-                'permission denied',
-              )) {
+          error.contains(
+            'permission denied',
+          )) {
         _showMessage(
           'Firebase permission denied while checking your owner profile.',
         );
@@ -1246,7 +1246,7 @@ class _OtpVerificationScreenState
         margin:
             const EdgeInsets.all(16),
         backgroundColor:
-            const Color(0xFF263746),
+            DojoWalkColors.textPrimary,
         shape:
             RoundedRectangleBorder(
           borderRadius:
@@ -1258,7 +1258,7 @@ class _OtpVerificationScreenState
           style:
               const TextStyle(
             color:
-                Colors.white,
+                DojoWalkColors.white,
             fontWeight:
                 FontWeight.w600,
           ),
@@ -1319,25 +1319,25 @@ class _OtpVerificationScreenState
     BuildContext context,
   ) {
     const Color primary =
-        AppColors.primary;
+        DojoWalkColors.primary;
 
     const Color background =
-        Color(0xFFF7F9FC);
+        DojoWalkColors.background;
 
     const Color textColor =
-        Color(0xFF263746);
+        DojoWalkColors.textPrimary;
 
     const Color secondaryText =
-        Color(0xFF64748B);
+        DojoWalkColors.textSecondary;
 
     const Color cardColor =
-        Colors.white;
+        DojoWalkColors.white;
 
     const Color borderColor =
-        Color(0xFFDDE2E8);
+        DojoWalkColors.border;
 
     const Color inputBackground =
-        Color(0xFFFAFBFC);
+        DojoWalkColors.background;
 
     return Scaffold(
       backgroundColor:
@@ -1403,7 +1403,7 @@ class _OtpVerificationScreenState
                     Icons
                         .verified_user_rounded,
                     color:
-                        Colors.white,
+                        DojoWalkColors.white,
                     size: 38,
                   ),
                 ),
@@ -1487,7 +1487,7 @@ class _OtpVerificationScreenState
                     boxShadow: [
                       BoxShadow(
                         color:
-                            Colors.black
+                            DojoWalkColors.black
                                 .withValues(
                           alpha: 0.045,
                         ),
@@ -1576,9 +1576,8 @@ class _OtpVerificationScreenState
                           hintStyle:
                               const TextStyle(
                             color:
-                                Color(
-                              0xFF9AA6B5,
-                            ),
+                                DojoWalkColors
+                                    .textTertiary,
                             fontSize:
                                 24,
                             letterSpacing:
@@ -1659,7 +1658,8 @@ class _OtpVerificationScreenState
                             backgroundColor:
                                 primary,
                             foregroundColor:
-                                Colors.white,
+                                DojoWalkColors
+                                    .white,
                             disabledBackgroundColor:
                                 primary
                                     .withValues(
@@ -1689,7 +1689,8 @@ class _OtpVerificationScreenState
                                         strokeWidth:
                                             2.5,
                                         color:
-                                            Colors.white,
+                                            DojoWalkColors
+                                                .white,
                                       ),
                                     )
                                   : const Text(
