@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sendotp_flutter_sdk/sendotp_flutter_sdk.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 import 'otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -79,17 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // ==========================================================
     // MSG91 IDENTIFIER
-    // ==========================================================
-    //
-    // Example:
-    //
-    // User enters:
-    // 9625813987
-    //
-    // MSG91 receives:
-    // 919625813987
-    //
-    // No "+".
     // ==========================================================
 
     final Map<String, dynamic> data =
@@ -293,20 +282,6 @@ class _LoginScreenState extends State<LoginScreen> {
       'MSG91 REQUEST ID RESPONSE: $response',
     );
 
-    // ==========================================================
-    // PRIMARY MSG91 SDK RESPONSE
-    // ==========================================================
-    //
-    // Expected successful response:
-    //
-    // {
-    //   "type": "success",
-    //   "message": "REQUEST_ID"
-    // }
-    //
-    // Therefore first check response['message'].
-    // ==========================================================
-
     if (response['type']
             ?.toString()
             .trim()
@@ -326,10 +301,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return requestId;
       }
     }
-
-    // ==========================================================
-    // FALLBACK REQUEST ID KEYS
-    // ==========================================================
 
     const List<String> requestIdKeys =
         <String>[
@@ -355,10 +326,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
 
-    // ==========================================================
-    // FALLBACK: NESTED DATA
-    // ==========================================================
-
     final dynamic data =
         response['data'];
 
@@ -382,10 +349,6 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     }
-
-    // ==========================================================
-    // FALLBACK: NESTED REQUEST
-    // ==========================================================
 
     final dynamic request =
         response['request'];
@@ -411,10 +374,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
 
-    // ==========================================================
-    // FALLBACK: NESTED RESULT
-    // ==========================================================
-
     final dynamic result =
         response['result'];
 
@@ -438,10 +397,6 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     }
-
-    // ==========================================================
-    // NOT FOUND
-    // ==========================================================
 
     debugPrint(
       'MSG91 REQUEST ID NOT FOUND.',
@@ -579,22 +534,22 @@ class _LoginScreenState extends State<LoginScreen> {
     BuildContext context,
   ) {
     const Color background =
-        Color(0xFFF7F9FC);
+        DojoWalkColors.background;
 
     const Color textColor =
-        Color(0xFF263746);
+        DojoWalkColors.textPrimary;
 
     const Color secondaryText =
-        Color(0xFF64748B);
+        DojoWalkColors.textSecondary;
 
     const Color cardColor =
-        Colors.white;
+        DojoWalkColors.surface;
 
     const Color borderColor =
-        Color(0xFFDDE2E8);
+        DojoWalkColors.border;
 
     const Color inputBackground =
-        Color(0xFFFAFBFC);
+        DojoWalkColors.background;
 
     return Scaffold(
       backgroundColor:
@@ -623,13 +578,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration:
                     BoxDecoration(
                   color:
-                      AppColors.primary,
+                      DojoWalkColors.primary,
                   shape:
                       BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
                       color:
-                          AppColors.primary
+                          DojoWalkColors.primary
                               .withValues(
                         alpha: 0.22,
                       ),
@@ -647,7 +602,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icons.pets,
                   size: 52,
                   color:
-                      Colors.white,
+                      DojoWalkColors.white,
                 ),
               ),
 
@@ -723,7 +678,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   boxShadow: [
                     BoxShadow(
                       color:
-                          Colors.black
+                          DojoWalkColors.black
                               .withValues(
                         alpha: 0.06,
                       ),
@@ -790,7 +745,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration:
                                 BoxDecoration(
                               color:
-                                  AppColors
+                                  DojoWalkColors
                                       .primary
                                       .withValues(
                                 alpha: 0.10,
@@ -804,7 +759,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 const Icon(
                               Icons.phone,
                               color:
-                                  AppColors
+                                  DojoWalkColors
                                       .primary,
                               size: 23,
                             ),
@@ -868,9 +823,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 hintStyle:
                                     TextStyle(
                                   color:
-                                      Color(
-                                    0xFF9AA6B5,
-                                  ),
+                                      DojoWalkColors
+                                          .textTertiary,
                                   fontSize: 14,
                                   fontWeight:
                                       FontWeight.w500,
@@ -910,19 +864,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             ElevatedButton
                                 .styleFrom(
                           backgroundColor:
-                              AppColors
+                              DojoWalkColors
                                   .primary,
                           disabledBackgroundColor:
-                              AppColors
+                              DojoWalkColors
                                   .primary
                                   .withValues(
                             alpha: 0.65,
                           ),
                           foregroundColor:
-                              Colors.white,
+                              DojoWalkColors
+                                  .white,
                           elevation: 3,
                           shadowColor:
-                              AppColors
+                              DojoWalkColors
                                   .primary
                                   .withValues(
                             alpha: 0.30,
@@ -945,7 +900,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       strokeWidth:
                                           2.5,
                                       color:
-                                          Colors.white,
+                                          DojoWalkColors
+                                              .white,
                                     ),
                                   )
                                 : const Row(
@@ -993,11 +949,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 42,
                           width: 42,
                           decoration:
-                              const BoxDecoration(
+                              BoxDecoration(
                             color:
-                                Color(
-                              0xFFF1F4F7,
-                            ),
+                                DojoWalkColors
+                                    .background,
                             shape:
                                 BoxShape.circle,
                           ),
@@ -1006,7 +961,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             Icons
                                 .verified_user_outlined,
                             color:
-                                secondaryText,
+                                DojoWalkColors
+                                    .textSecondary,
                             size: 21,
                           ),
                         ),
@@ -1067,7 +1023,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration:
                         const BoxDecoration(
                       color:
-                          AppColors
+                          DojoWalkColors
                               .primary,
                       shape:
                           BoxShape.circle,
