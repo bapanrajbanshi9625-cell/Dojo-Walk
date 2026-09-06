@@ -1,80 +1,113 @@
-// File location:
+// File:
 // lib/features/insta_walk/widgets/insta_walk_searching.dart
 
 import 'package:flutter/material.dart';
 
 class InstaWalkSearching extends StatelessWidget {
-  final Widget map;
-
   const InstaWalkSearching({
     super.key,
-    required this.map,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // ==========================================================
-        // SEARCH HEADER
-        // ==========================================================
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF23404D),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(
+            alpha: 0.10,
+          ),
+        ),
+      ),
+      child: const Row(
+        children: [
+          // ======================================================
+          // SEARCH ICON
+          // ======================================================
 
-        Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
+          SizedBox(
+            width: 34,
+            height: 34,
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFF65D6C8).withValues(
-                  alpha: 0.18,
-                ),
+                color: Color(0x2E65D6C8),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.radar_rounded,
+              child: Icon(
+                Icons.search_rounded,
                 color: Color(0xFF8FFFEF),
                 size: 19,
               ),
             ),
+          ),
 
-            const SizedBox(width: 10),
+          SizedBox(width: 10),
 
-            const Expanded(
-              child: Text(
-                'Finding an available walker',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
+          // ======================================================
+          // SEARCH TEXT
+          // ======================================================
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Searching for a nearby walker...',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
                 ),
+
+                SizedBox(height: 3),
+
+                Text(
+                  'Please wait while we find an available walker.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10.5,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(width: 8),
+
+          // ======================================================
+          // SEARCHING STATUS
+          // ======================================================
+
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0x1F65D6C8),
+              borderRadius: BorderRadius.all(
+                Radius.circular(12),
               ),
             ),
-
-            const SizedBox(width: 8),
-
-            // ======================================================
-            // SEARCHING STATUS
-            // ======================================================
-
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 9,
                 vertical: 6,
               ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF65D6C8).withValues(
-                  alpha: 0.12,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    width: 8,
-                    height: 8,
+                    width: 7,
+                    height: 7,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Color(0xFF8FFFEF),
@@ -82,74 +115,21 @@ class InstaWalkSearching extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(width: 6),
+                  SizedBox(width: 5),
                   Text(
                     'Searching',
                     style: TextStyle(
                       color: Color(0xFF8FFFEF),
-                      fontSize: 12,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-
-        const SizedBox(height: 14),
-
-        // ==========================================================
-        // MAP + RADAR
-        // ==========================================================
-
-        map,
-
-        const SizedBox(height: 12),
-
-        // ==========================================================
-        // LOCATION PRIVACY INFO
-        // ==========================================================
-
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(
-              alpha: 0.08,
-            ),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: Colors.white.withValues(
-                alpha: 0.10,
-              ),
-            ),
           ),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.lock_outline_rounded,
-                color: Color(0xFF8FFFEF),
-                size: 17,
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Your location is used only as a search snapshot.',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
