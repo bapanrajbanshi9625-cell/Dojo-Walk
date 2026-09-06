@@ -24,7 +24,7 @@ part of '../controllers/insta_walk_container.dart';
 // - No GPS here.
 // - No map here.
 // - No radar here.
-// - Search lifecycle remains in controller/service.
+// - Search lifecycle remains in controller.
 // ============================================================
 
 extension _InstaWalkView on _InstaWalkContainerState {
@@ -181,7 +181,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.white70,
+                  color: Colors.white70,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -312,7 +312,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70
+                  color: Colors.white70,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -323,7 +323,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70
+                  color: Colors.white70,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -369,7 +369,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70
+                  color: Colors.white70,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w900,
                 ),
@@ -380,7 +380,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70
+                  color: Colors.white70,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -450,7 +450,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
           backgroundColor: AppColors.navy,
           disabledBackgroundColor: AppColors.navy,
           foregroundColor: AppColors.white,
-          disabledForegroundColor: Colors.white70
+          disabledForegroundColor: Colors.white70,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 10,
