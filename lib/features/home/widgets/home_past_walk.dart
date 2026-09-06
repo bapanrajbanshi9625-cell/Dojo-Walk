@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class HomePastWalk extends StatelessWidget {
   const HomePastWalk({
@@ -34,10 +34,10 @@ class HomePastWalk extends StatelessWidget {
           vertical: 15,
         ),
         decoration: BoxDecoration(
-          color: AppColors.lightGrey,
+          color: DojoWalkColors.background,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: AppColors.border,
+            color: DojoWalkColors.border,
           ),
         ),
         child: Column(
@@ -47,14 +47,14 @@ class HomePastWalk extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: AppColors.orange.withValues(
+                color: DojoWalkColors.primary.withValues(
                   alpha: 0.10,
                 ),
                 borderRadius: BorderRadius.circular(11),
               ),
               child: const Icon(
                 Icons.pets_rounded,
-                color: AppColors.orange,
+                color: DojoWalkColors.primary,
                 size: 20,
               ),
             ),
@@ -63,7 +63,7 @@ class HomePastWalk extends StatelessWidget {
               'No past walks found.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.slate,
+                color: DojoWalkColors.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -147,7 +147,7 @@ class HomePastWalk extends StatelessWidget {
     );
 
     return Material(
-      color: Colors.transparent,
+      color: DojoWalkColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () {
@@ -169,14 +169,14 @@ class HomePastWalk extends StatelessWidget {
             vertical: 9,
           ),
           decoration: BoxDecoration(
-            color: AppColors.lightGrey,
+            color: DojoWalkColors.background,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.border,
+              color: DojoWalkColors.border,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.black.withValues(
+                color: DojoWalkColors.black.withValues(
                   alpha: 0.045,
                 ),
                 blurRadius: 8,
@@ -194,14 +194,14 @@ class HomePastWalk extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(
+                  color: DojoWalkColors.green.withValues(
                     alpha: 0.11,
                   ),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: AppColors.success,
+                  color: DojoWalkColors.green,
                   size: 20,
                 ),
               ),
@@ -225,7 +225,7 @@ class HomePastWalk extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.navy,
+                              color: DojoWalkColors.black,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w900,
                             ),
@@ -277,7 +277,7 @@ class HomePastWalk extends StatelessWidget {
                   const SizedBox(height: 3),
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.grey,
+                    color: DojoWalkColors.textSecondary,
                     size: 19,
                   ),
                 ],
@@ -303,7 +303,7 @@ class HomePastWalk extends StatelessWidget {
         Icon(
           icon,
           size: 10,
-          color: AppColors.grey,
+          color: DojoWalkColors.textSecondary,
         ),
         const SizedBox(width: 3),
         Flexible(
@@ -312,7 +312,7 @@ class HomePastWalk extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.slate,
+              color: DojoWalkColors.textSecondary,
               fontSize: 8.5,
               fontWeight: FontWeight.w600,
             ),
@@ -340,8 +340,8 @@ class HomePastWalk extends StatelessWidget {
 
     final Color badgeColor =
         isSuccess
-            ? AppColors.success
-            : AppColors.warning;
+            ? DojoWalkColors.green
+            : DojoWalkColors.amber;
 
     return Container(
       constraints: const BoxConstraints(
