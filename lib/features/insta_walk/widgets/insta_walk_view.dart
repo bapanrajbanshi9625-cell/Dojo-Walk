@@ -20,11 +20,16 @@ part of '../controllers/insta_walk_container.dart';
 // FINISHED
 //   ↻ No walker found             [ Try Again ]
 //
+// ACCEPTED
+//   ⚡ Insta Walk                 [ Start ]
+//      Find a nearby walker
+//
 // IMPORTANT:
 // - No GPS here.
 // - No map here.
 // - No radar here.
 // - Search lifecycle remains in controller.
+// - After walker acceptance, STOP can never be rendered.
 // ============================================================
 
 extension _InstaWalkView on _InstaWalkContainerState {
@@ -116,8 +121,15 @@ extension _InstaWalkView on _InstaWalkContainerState {
     // ----------------------------------------------------------
     // SEARCHING
     // ----------------------------------------------------------
+    //
+    // IMPORTANT:
+    //
+    // Even if a late Firestore callback temporarily leaves
+    // _searching == true, once a walker has accepted,
+    // STOP must NEVER be rendered.
+    //
 
-    if (_searching) {
+    if (_searching && !_searchStoppedAfterAccepted) {
       return _buildSearchingCompact();
     }
 
@@ -125,13 +137,17 @@ extension _InstaWalkView on _InstaWalkContainerState {
     // FINISHED
     // ----------------------------------------------------------
 
-    if (_searchFinished) {
+    if (_searchFinished && !_searchStoppedAfterAccepted) {
       return _buildFinishedCompact();
     }
 
     // ----------------------------------------------------------
-    // NORMAL
+    // NORMAL / IDLE
     // ----------------------------------------------------------
+    //
+    // This is also the state shown immediately after
+    // walker acceptance.
+    //
 
     return _buildIdleCompact();
   }
