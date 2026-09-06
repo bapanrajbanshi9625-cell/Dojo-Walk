@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class PetDetailsCard extends StatelessWidget {
   final Map<String, dynamic> pet;
@@ -57,11 +57,11 @@ class PetDetailsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: DojoWalkColors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.05),
+            color: DojoWalkColors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -79,13 +79,12 @@ class PetDetailsCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: AppColors.orangeLight,
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  color: DojoWalkColors.primaryLight,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: AppColors.orange,
+                  color: DojoWalkColors.primary,
                   size: 25,
                 ),
               ),
@@ -94,33 +93,27 @@ class PetDetailsCard extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Pet ${index + 1}',
                       style: const TextStyle(
                         fontSize: 11,
-                        color: AppColors.grey,
-                        fontWeight:
-                            FontWeight.w600,
+                        color: DojoWalkColors.textSecondary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
 
                     const SizedBox(height: 3),
 
                     Text(
-                      petName == '-'
-                          ? 'Pet Name'
-                          : petName,
+                      petName == '-' ? 'Pet Name' : petName,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 17,
-                        color: AppColors.navy,
-                        fontWeight:
-                            FontWeight.w800,
+                        color: DojoWalkColors.black,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
@@ -136,7 +129,7 @@ class PetDetailsCard extends StatelessWidget {
                 onPressed: onEdit,
                 icon: const Icon(
                   Icons.edit_outlined,
-                  color: AppColors.orange,
+                  color: DojoWalkColors.primary,
                 ),
               ),
 
@@ -149,7 +142,7 @@ class PetDetailsCard extends StatelessWidget {
                 onPressed: onDelete,
                 icon: const Icon(
                   Icons.delete_outline_rounded,
-                  color: AppColors.error,
+                  color: DojoWalkColors.red,
                 ),
               ),
             ],
@@ -218,13 +211,12 @@ class _PetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
           icon,
           size: 18,
-          color: AppColors.orange,
+          color: DojoWalkColors.primary,
         ),
 
         const SizedBox(width: 10),
@@ -235,9 +227,8 @@ class _PetRow extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: 12,
-              color: AppColors.grey,
-              fontWeight:
-                  FontWeight.w600,
+              color: DojoWalkColors.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -246,13 +237,11 @@ class _PetRow extends StatelessWidget {
           child: Text(
             value,
             maxLines: 2,
-            overflow:
-                TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 13,
-              color: AppColors.navy,
-              fontWeight:
-                  FontWeight.w700,
+              color: DojoWalkColors.black,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
