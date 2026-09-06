@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
@@ -13,7 +13,7 @@ class HelpSupportScreen extends StatelessWidget {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.navy,
+        backgroundColor: DojoWalkColors.black,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -22,15 +22,15 @@ class HelpSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: DojoWalkColors.background,
 
       // =================================================
       // APP BAR
       // =================================================
 
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: DojoWalkColors.primary,
+        foregroundColor: DojoWalkColors.white,
         elevation: 0,
         title: const Text(
           'Help & Support',
@@ -55,14 +55,14 @@ class HelpSupportScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: DojoWalkColors.surface,
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Row(
               children: [
                 Icon(
                   Icons.support_agent_outlined,
-                  color: AppColors.primary,
+                  color: DojoWalkColors.primary,
                   size: 38,
                 ),
 
@@ -76,7 +76,7 @@ class HelpSupportScreen extends StatelessWidget {
                       Text(
                         'How can we help?',
                         style: TextStyle(
-                          color: AppColors.navy,
+                          color: DojoWalkColors.black,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -87,7 +87,8 @@ class HelpSupportScreen extends StatelessWidget {
                       Text(
                         'Find help or contact Dojo Walk support.',
                         style: TextStyle(
-                          color: AppColors.slate,
+                          color:
+                              DojoWalkColors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -107,7 +108,7 @@ class HelpSupportScreen extends StatelessWidget {
           const Text(
             'SUPPORT',
             style: TextStyle(
-              color: AppColors.slate,
+              color: DojoWalkColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -134,10 +135,8 @@ class HelpSupportScreen extends StatelessWidget {
 
           // FAQ
           _SupportTile(
-            icon:
-                Icons.question_answer_outlined,
-            title:
-                'Frequently Asked Questions',
+            icon: Icons.question_answer_outlined,
+            title: 'Frequently Asked Questions',
             subtitle:
                 'Find answers to common questions',
             onTap: () {
@@ -152,8 +151,7 @@ class HelpSupportScreen extends StatelessWidget {
 
           // REPORT PROBLEM
           _SupportTile(
-            icon:
-                Icons.report_problem_outlined,
+            icon: Icons.report_problem_outlined,
             title: 'Report a Problem',
             subtitle:
                 'Tell us about a problem',
@@ -191,14 +189,14 @@ class HelpSupportScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: DojoWalkColors.surface,
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Column(
               children: [
                 Icon(
                   Icons.pets,
-                  color: AppColors.primary,
+                  color: DojoWalkColors.primary,
                   size: 36,
                 ),
 
@@ -207,7 +205,7 @@ class HelpSupportScreen extends StatelessWidget {
                 Text(
                   'Dojo Walk Support',
                   style: TextStyle(
-                    color: AppColors.navy,
+                    color: DojoWalkColors.black,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -219,7 +217,8 @@ class HelpSupportScreen extends StatelessWidget {
                   'We are here to help you with your Dojo Walk experience.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.slate,
+                    color:
+                        DojoWalkColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -229,7 +228,8 @@ class HelpSupportScreen extends StatelessWidget {
                 Text(
                   'Dojo Walk • Version 1.0.0',
                   style: TextStyle(
-                    color: AppColors.slate,
+                    color:
+                        DojoWalkColors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
@@ -265,7 +265,7 @@ class _SupportTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      color: AppColors.card,
+      color: DojoWalkColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -283,13 +283,15 @@ class _SupportTile extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   color:
-                      AppColors.primary.withOpacity(0.10),
+                      DojoWalkColors.primary.withValues(
+                    alpha: 0.10,
+                  ),
                   borderRadius:
                       BorderRadius.circular(13),
                 ),
                 child: Icon(
                   icon,
-                  color: AppColors.primary,
+                  color: DojoWalkColors.primary,
                   size: 24,
                 ),
               ),
@@ -305,7 +307,7 @@ class _SupportTile extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: AppColors.navy,
+                        color: DojoWalkColors.black,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
@@ -316,7 +318,8 @@ class _SupportTile extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: AppColors.slate,
+                        color:
+                            DojoWalkColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -327,7 +330,7 @@ class _SupportTile extends StatelessWidget {
               // ARROW
               const Icon(
                 Icons.chevron_right,
-                color: AppColors.slate,
+                color: DojoWalkColors.textSecondary,
               ),
             ],
           ),
