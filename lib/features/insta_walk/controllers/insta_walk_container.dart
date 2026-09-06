@@ -4,8 +4,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../screens/address_screen.dart';
@@ -15,7 +13,6 @@ import '../services/insta_walk_request_state.dart';
 import '../services/insta_walk_accepted_data.dart';
 import '../services/insta_walk_search_result.dart';
 
-import '../widgets/insta_walk_map_radar.dart';
 import '../widgets/insta_walk_search_button.dart';
 import '../widgets/insta_walk_searching.dart';
 
@@ -48,7 +45,10 @@ class InstaWalkContainer extends StatefulWidget {
 
   final VoidCallback? onWalkerFound;
   final ValueChanged<bool>? onActiveChanged;
+
+  // Kept for compatibility with existing callers.
   final bool fullScreen;
+
   final VoidCallback? onTap;
   final ValueChanged<InstaWalkAcceptedData>? onAccepted;
 
@@ -70,10 +70,21 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   late final InstaWalkSearchService _service;
 
   // ==========================================================
-  // RADAR
+  // SEARCH ICON ANIMATION
   // ==========================================================
+  //
+  // Small animation only.
+  //
+  // No map.
+  // No radar.
+  // No GPS.
+  //
 
-  late final AnimationController _radarController;
+  late final AnimationController _searchAnimationController;
+
+  late final Animation<double> _searchRotation;
+  late final Animation<double> _searchScale;
+  late final Animation<Offset> _searchMovement;
 
   // ==========================================================
   // SEARCH STATE
@@ -102,9 +113,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   //
   // ONLY prevents duplicate navigation.
   //
-  // IMPORTANT:
-  // This is NOT a walk-state lock.
-  // The container does not control the accepted walk lifecycle.
+  // This is NOT a walk lifecycle lock.
   //
 
   bool _acceptHandled = false;
@@ -114,12 +123,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
 
   String? _requestId;
-
-  // ==========================================================
-  // OWNER LOCATION
-  // ==========================================================
-
-  Position? _ownerPosition;
 
   // ==========================================================
   // PET
@@ -137,24 +140,106 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
     _service = InstaWalkSearchService();
 
-    _radarController = AnimationController(
+    // --------------------------------------------------------
+    // Search icon animation.
+    // --------------------------------------------------------
+
+    _searchAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 1500),
     );
 
+    _searchRotation = Tween<double>(
+      begin: -0.06,
+      end: 0.06,
+    ).animate(
+      CurvedAnimation(
+        parent: _searchAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _searchScale = Tween<double>(
+      begin: 0.92,
+      end: 1.08,
+    ).animate(
+      CurvedAnimation(
+        parent: _searchAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _searchMovement = Tween<Offset>(
+      begin: const Offset(0, 0.04),
+      end: const Offset(0, -0.04),
+    ).animate(
+      CurvedAnimation(
+        parent: _searchAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // --------------------------------------------------------
+    // Recover any existing Insta Walk request.
+    // --------------------------------------------------------
+
     _recoverSearch();
+  }
+
+  // ==========================================================
+  // START SEARCH ICON ANIMATION
+  // ==========================================================
+
+  void _startSearchAnimation() {
+    if (!mounted) {
+      return;
+    }
+
+    if (!_searching) {
+      return;
+    }
+
+    if (!_searchAnimationController.isAnimating) {
+      _searchAnimationController.repeat(
+        reverse: true,
+      );
+
+      debugPrint(
+        '🔎 InstaWalk search animation started.',
+      );
+    }
+  }
+
+  // ==========================================================
+  // STOP SEARCH ICON ANIMATION
+  // ==========================================================
+
+  void _stopSearchAnimation() {
+    if (!_searchAnimationController.isAnimating &&
+        _searchAnimationController.value == 0) {
+      return;
+    }
+
+    _searchAnimationController.stop();
+    _searchAnimationController.reset();
+
+    debugPrint(
+      '🛑 InstaWalk search animation stopped.',
+    );
   }
 
   // ==========================================================
   // WALKER ACCEPTED
   // ==========================================================
   //
-  // IMPORTANT:
-  // Accept checking is handled by the existing Insta Walk
-  // accepted flow.
+  // This only:
   //
-  // This method only cleans up the Insta Walk UI/search state
-  // and opens the existing WalkerAcceptScreen.
+  // 1. Stops Insta Walk search UI.
+  // 2. Stops Firestore listener.
+  // 3. Opens existing accepted-walk screen.
+  // 4. Resets this container after that screen returns.
+  //
+  // Accepted walk lifecycle is handled elsewhere.
   //
 
   void _handleAccepted(
@@ -184,11 +269,8 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
-    // --------------------------------------------------------
-    // Mark accepted event as handled.
-    // --------------------------------------------------------
-
     _acceptHandled = true;
+    _requestId = requestId;
 
     debugPrint('');
     debugPrint(
@@ -201,7 +283,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       '🛑 STOPPING INSTA WALK SEARCH UI',
     );
     debugPrint(
-      '🛑 STOPPING RADAR',
+      '🛑 STOPPING SEARCH ANIMATION',
     );
     debugPrint(
       '🛑 STOPPING SEARCH LISTENER',
@@ -214,25 +296,19 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
 
     // --------------------------------------------------------
-    // Keep request ID temporarily for navigation.
+    // Stop search animation.
     // --------------------------------------------------------
 
-    _requestId = requestId;
+    _stopSearchAnimation();
 
     // --------------------------------------------------------
-    // STOP RADAR
-    // --------------------------------------------------------
-
-    _stopRadar();
-
-    // --------------------------------------------------------
-    // STOP SEARCH LISTENER
+    // Stop Firestore listener.
     // --------------------------------------------------------
 
     _service.stopListening();
 
     // --------------------------------------------------------
-    // RESET INSTA WALK SEARCH UI
+    // Reset only Insta Walk search UI.
     // --------------------------------------------------------
 
     _stopping = false;
@@ -246,13 +322,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     });
 
     // --------------------------------------------------------
-    // SEARCH IS NO LONGER ACTIVE
+    // Insta Walk search is no longer active.
     // --------------------------------------------------------
 
     _setActive(false);
 
     // --------------------------------------------------------
-    // EXTERNAL CALLBACK
+    // External callback.
     // --------------------------------------------------------
 
     final ValueChanged<InstaWalkAcceptedData>? callback =
@@ -269,7 +345,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     // --------------------------------------------------------
-    // OPEN EXISTING ACCEPTED WALK SCREEN
+    // Open existing accepted-walk screen.
     // --------------------------------------------------------
 
     WidgetsBinding.instance.addPostFrameCallback(
@@ -335,18 +411,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     // --------------------------------------------------------
-    // IMPORTANT:
+    // The accepted-walk feature owns the walk lifecycle.
     //
-    // Container does NOT control the walk lifecycle.
-    //
-    // Whether the walk:
-    // - completed
-    // - cancelled
-    // - screen closed
-    //
-    // is handled by the accepted-walk feature.
-    //
-    // Container only becomes ready for a NEW Insta Walk search.
+    // We only prepare this container for a NEW Insta Walk.
     // --------------------------------------------------------
 
     _resetAfterAcceptedFlow();
@@ -355,11 +422,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // RESET AFTER ACCEPTED FLOW
   // ==========================================================
-  //
-  // Resets ONLY Insta Walk search state.
-  //
-  // It does NOT control the walk itself.
-  //
 
   void _resetAfterAcceptedFlow() {
     if (!mounted) {
@@ -371,27 +433,26 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
 
     // --------------------------------------------------------
-    // Stop anything from previous search.
+    // Stop previous search activity.
     // --------------------------------------------------------
 
-    _stopRadar();
+    _stopSearchAnimation();
     _service.stopListening();
 
     // --------------------------------------------------------
-    // Clear old search data.
+    // Clear old request.
     // --------------------------------------------------------
 
     _requestId = null;
-    _ownerPosition = null;
 
     // --------------------------------------------------------
-    // Allow the next accepted event/search.
+    // Allow another accepted event.
     // --------------------------------------------------------
 
     _acceptHandled = false;
 
     // --------------------------------------------------------
-    // Restore NORMAL container state.
+    // Restore normal Insta Walk state.
     // --------------------------------------------------------
 
     _updateState(() {
@@ -415,11 +476,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
 
   @override
   void dispose() {
-    _stopRadar();
+    _stopSearchAnimation();
 
     _service.dispose();
 
-    _radarController.dispose();
+    _searchAnimationController.dispose();
 
     super.dispose();
   }
@@ -455,78 +516,17 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // STOP RADAR
-  // ==========================================================
-
-  void _stopRadar() {
-    if (!_radarController.isAnimating &&
-        _radarController.value == 0) {
-      return;
-    }
-
-    _radarController.stop();
-    _radarController.reset();
-
-    debugPrint(
-      '🛑 InstaWalk radar stopped.',
-    );
-  }
-
-  // ==========================================================
-  // START RADAR
-  // ==========================================================
-  //
-  // Radar is allowed ONLY while Insta Walk search is active.
-  //
-  // This prevents the radar from being restarted after the
-  // search has already been stopped.
-  //
-
-  void _startRadar() {
-    if (!mounted) {
-      return;
-    }
-
-    // --------------------------------------------------------
-    // IMPORTANT:
-    // Never run radar when search is not active.
-    // --------------------------------------------------------
-
-    if (!_searching) {
-      debugPrint(
-        '🛑 Radar start ignored: Insta Walk search inactive.',
-      );
-      return;
-    }
-
-    if (!_radarController.isAnimating) {
-      _radarController.repeat();
-
-      debugPrint(
-        '🔵 InstaWalk radar started.',
-      );
-    }
-  }
-
-  // ==========================================================
   // RESET SEARCH STATE
   // ==========================================================
 
   void _resetSearchState({
     bool finished = false,
   }) {
-    // --------------------------------------------------------
-    // Stop radar first.
-    // --------------------------------------------------------
+    _stopSearchAnimation();
 
-    _stopRadar();
-
-    // --------------------------------------------------------
-    // Clear request/search location.
-    // --------------------------------------------------------
+    _service.stopListening();
 
     _requestId = null;
-    _ownerPosition = null;
     _stopping = false;
 
     if (!mounted) {
@@ -539,6 +539,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       _searchFinished = finished;
       _checkingAddress = false;
       _recovering = false;
+      _stopping = false;
     });
 
     _setActive(false);
@@ -551,24 +552,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _finishSearch({
     String? message,
   }) {
-    // --------------------------------------------------------
-    // Stop radar.
-    // --------------------------------------------------------
-
-    _stopRadar();
-
-    // --------------------------------------------------------
-    // Stop listener.
-    // --------------------------------------------------------
+    _stopSearchAnimation();
 
     _service.stopListening();
 
-    // --------------------------------------------------------
-    // Clear search data.
-    // --------------------------------------------------------
-
     _requestId = null;
-    _ownerPosition = null;
     _stopping = false;
 
     if (!mounted) {
@@ -585,10 +573,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     });
 
     _setActive(false);
-
-    // --------------------------------------------------------
-    // Optional message.
-    // --------------------------------------------------------
 
     if (message != null &&
         message.trim().isNotEmpty) {
@@ -673,8 +657,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
         continue;
       }
 
-      final String result =
-          value.toString().trim();
+      final String result = value.toString().trim();
 
       if (result.isNotEmpty) {
         return result;
@@ -685,73 +668,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   }
 
   // ==========================================================
-  // READ OWNER POSITION
-  // ==========================================================
-
-  Position? _readOwnerPosition(
-    Map<String, dynamic>? data,
-  ) {
-    if (data == null) {
-      return null;
-    }
-
-    final dynamic value =
-        data['ownerLocation'];
-
-    // --------------------------------------------------------
-    // GeoPoint
-    // --------------------------------------------------------
-
-    if (value is GeoPoint) {
-      return Position(
-        longitude: value.longitude,
-        latitude: value.latitude,
-        timestamp: DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
-      );
-    }
-
-    // --------------------------------------------------------
-    // Map
-    // --------------------------------------------------------
-
-    if (value is Map) {
-      final dynamic lat =
-          value['latitude'] ??
-          value['lat'];
-
-      final dynamic lng =
-          value['longitude'] ??
-          value['lng'] ??
-          value['lon'];
-
-      if (lat is num &&
-          lng is num) {
-        return Position(
-          longitude: lng.toDouble(),
-          latitude: lat.toDouble(),
-          timestamp: DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
-        );
-      }
-    }
-
-    return null;
-  }
-
-  // ==========================================================
   // BUILD
   // ==========================================================
 
@@ -759,10 +675,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   Widget build(
     BuildContext context,
   ) {
-    if (widget.fullScreen) {
-      return _buildFullScreen();
-    }
+    // --------------------------------------------------------
+    // fullScreen is intentionally kept for API compatibility.
+    //
+    // Final Insta Walk presentation is controlled by
+    // insta_walk_view.dart.
+    // --------------------------------------------------------
 
-    return _buildCompactPatti();
+    return _buildFullScreen();
   }
 }
