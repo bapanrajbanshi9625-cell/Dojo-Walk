@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../screens/help_support_screen.dart';
+import '../../../screens/help_support_screen.dart';
 
 import '../models/live_walk_session.dart';
 import '../services/live_walk_service.dart';
