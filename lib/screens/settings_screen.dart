@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -15,8 +15,7 @@ class SettingsScreen extends StatefulWidget {
       _SettingsScreenState();
 }
 
-class _SettingsScreenState
-    extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> {
   // ============================================================
   // APP SETTINGS
   // ============================================================
@@ -33,18 +32,15 @@ class _SettingsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.background,
+      backgroundColor: DojoWalkColors.background,
 
       // ========================================================
       // APP BAR
       // ========================================================
 
       appBar: AppBar(
-        backgroundColor:
-            AppColors.primary,
-        foregroundColor:
-            Colors.white,
+        backgroundColor: DojoWalkColors.primary,
+        foregroundColor: DojoWalkColors.white,
         elevation: 0,
         toolbarHeight: 52,
 
@@ -93,7 +89,6 @@ class _SettingsScreenState
             30,
           ),
           children: [
-
             // ==================================================
             // NOTIFICATIONS
             // ==================================================
@@ -109,18 +104,13 @@ class _SettingsScreenState
             _SettingsCard(
               children: [
                 _SwitchTile(
-                  icon:
-                      Icons.notifications_none_rounded,
-                  title:
-                      'Notifications',
-                  subtitle:
-                      'Receive Dojo Walk notifications',
-                  value:
-                      notificationsEnabled,
+                  icon: Icons.notifications_none_rounded,
+                  title: 'Notifications',
+                  subtitle: 'Receive Dojo Walk notifications',
+                  value: notificationsEnabled,
                   onChanged: (value) {
                     setState(() {
-                      notificationsEnabled =
-                          value;
+                      notificationsEnabled = value;
                     });
                   },
                 ),
@@ -130,18 +120,13 @@ class _SettingsScreenState
                 ),
 
                 _SwitchTile(
-                  icon:
-                      Icons.volume_up_outlined,
-                  title:
-                      'Sound',
-                  subtitle:
-                      'Play sound for notifications',
-                  value:
-                      soundEnabled,
+                  icon: Icons.volume_up_outlined,
+                  title: 'Sound',
+                  subtitle: 'Play sound for notifications',
+                  value: soundEnabled,
                   onChanged: (value) {
                     setState(() {
-                      soundEnabled =
-                          value;
+                      soundEnabled = value;
                     });
                   },
                 ),
@@ -151,18 +136,13 @@ class _SettingsScreenState
                 ),
 
                 _SwitchTile(
-                  icon:
-                      Icons.vibration_outlined,
-                  title:
-                      'Vibration',
-                  subtitle:
-                      'Vibrate for important alerts',
-                  value:
-                      vibrationEnabled,
+                  icon: Icons.vibration_outlined,
+                  title: 'Vibration',
+                  subtitle: 'Vibrate for important alerts',
+                  value: vibrationEnabled,
                   onChanged: (value) {
                     setState(() {
-                      vibrationEnabled =
-                          value;
+                      vibrationEnabled = value;
                     });
                   },
                 ),
@@ -188,18 +168,14 @@ class _SettingsScreenState
             _SettingsCard(
               children: [
                 _SwitchTile(
-                  icon:
-                      Icons.location_on_outlined,
-                  title:
-                      'Location Services',
+                  icon: Icons.location_on_outlined,
+                  title: 'Location Services',
                   subtitle:
                       'Allow Dojo Walk to use your location',
-                  value:
-                      locationEnabled,
+                  value: locationEnabled,
                   onChanged: (value) {
                     setState(() {
-                      locationEnabled =
-                          value;
+                      locationEnabled = value;
                     });
                   },
                 ),
@@ -224,14 +200,10 @@ class _SettingsScreenState
 
             _SettingsCard(
               children: [
-
                 _SettingsTile(
-                  icon:
-                      Icons.language_outlined,
-                  title:
-                      'Language',
-                  subtitle:
-                      'English',
+                  icon: Icons.language_outlined,
+                  title: 'Language',
+                  subtitle: 'English',
                   onTap: () {
                     _showLanguageDialog();
                   },
@@ -242,12 +214,9 @@ class _SettingsScreenState
                 ),
 
                 _SettingsTile(
-                  icon:
-                      Icons.palette_outlined,
-                  title:
-                      'Appearance',
-                  subtitle:
-                      'System default',
+                  icon: Icons.palette_outlined,
+                  title: 'Appearance',
+                  subtitle: 'System default',
                   onTap: () {
                     _showAppearanceDialog();
                   },
@@ -273,12 +242,9 @@ class _SettingsScreenState
 
             _SettingsCard(
               children: [
-
                 _SettingsTile(
-                  icon:
-                      Icons.lock_outline_rounded,
-                  title:
-                      'Privacy',
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Privacy',
                   subtitle:
                       'Manage your privacy preferences',
                   onTap: () {
@@ -293,12 +259,9 @@ class _SettingsScreenState
                 ),
 
                 _SettingsTile(
-                  icon:
-                      Icons.security_outlined,
-                  title:
-                      'Security',
-                  subtitle:
-                      'Account security options',
+                  icon: Icons.security_outlined,
+                  title: 'Security',
+                  subtitle: 'Account security options',
                   onTap: () {
                     _showComingSoon(
                       'Security settings',
@@ -326,16 +289,11 @@ class _SettingsScreenState
 
             _SettingsCard(
               children: [
-
                 _SettingsTile(
-                  icon:
-                      Icons.info_outline_rounded,
-                  title:
-                      'App Version',
-                  subtitle:
-                      'Version 1.0.0',
-                  showArrow:
-                      false,
+                  icon: Icons.info_outline_rounded,
+                  title: 'App Version',
+                  subtitle: 'Version 1.0.0',
+                  showArrow: false,
                 ),
 
                 const Divider(
@@ -343,12 +301,9 @@ class _SettingsScreenState
                 ),
 
                 _SettingsTile(
-                  icon:
-                      Icons.description_outlined,
-                  title:
-                      'Terms & Conditions',
-                  subtitle:
-                      'View Dojo Walk terms',
+                  icon: Icons.description_outlined,
+                  title: 'Terms & Conditions',
+                  subtitle: 'View Dojo Walk terms',
                   onTap: () {
                     _showComingSoon(
                       'Terms & Conditions',
@@ -361,12 +316,9 @@ class _SettingsScreenState
                 ),
 
                 _SettingsTile(
-                  icon:
-                      Icons.privacy_tip_outlined,
-                  title:
-                      'Privacy Policy',
-                  subtitle:
-                      'View our privacy policy',
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacy Policy',
+                  subtitle: 'View our privacy policy',
                   onTap: () {
                     _showComingSoon(
                       'Privacy Policy',
@@ -388,11 +340,9 @@ class _SettingsScreenState
               child: Text(
                 'Dojo Walk',
                 style: TextStyle(
-                  color:
-                      AppColors.navy,
+                  color: DojoWalkColors.black,
                   fontSize: 16,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -405,8 +355,7 @@ class _SettingsScreenState
               child: Text(
                 'Version 1.0.0',
                 style: TextStyle(
-                  color:
-                      AppColors.slate,
+                  color: DojoWalkColors.textSecondary,
                   fontSize: 11,
                 ),
               ),
@@ -433,10 +382,8 @@ class _SettingsScreenState
           title: const Text(
             'Language',
             style: TextStyle(
-              color:
-                  AppColors.navy,
-              fontWeight:
-                  FontWeight.bold,
+              color: DojoWalkColors.black,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: const Text(
@@ -445,15 +392,12 @@ class _SettingsScreenState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
+                Navigator.pop(dialogContext);
               },
               child: const Text(
                 'OK',
                 style: TextStyle(
-                  color:
-                      AppColors.primary,
+                  color: DojoWalkColors.primary,
                 ),
               ),
             ),
@@ -475,10 +419,8 @@ class _SettingsScreenState
           title: const Text(
             'Appearance',
             style: TextStyle(
-              color:
-                  AppColors.navy,
-              fontWeight:
-                  FontWeight.bold,
+              color: DojoWalkColors.black,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: const Text(
@@ -487,15 +429,12 @@ class _SettingsScreenState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
+                Navigator.pop(dialogContext);
               },
               child: const Text(
                 'OK',
                 style: TextStyle(
-                  color:
-                      AppColors.primary,
+                  color: DojoWalkColors.primary,
                 ),
               ),
             ),
@@ -509,11 +448,8 @@ class _SettingsScreenState
   // COMING SOON
   // ============================================================
 
-  void _showComingSoon(
-    String title,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+  void _showComingSoon(String title) {
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           '$title will be available soon.',
@@ -527,8 +463,7 @@ class _SettingsScreenState
 // SECTION TITLE
 // ==================================================================
 
-class _SectionTitle
-    extends StatelessWidget {
+class _SectionTitle extends StatelessWidget {
   final String title;
 
   const _SectionTitle({
@@ -536,21 +471,15 @@ class _SectionTitle
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Container(
           height: 19,
           width: 4,
           decoration: BoxDecoration(
-            color:
-                AppColors.primary,
-            borderRadius:
-                BorderRadius.circular(
-              5,
-            ),
+            color: DojoWalkColors.primary,
+            borderRadius: BorderRadius.circular(5),
           ),
         ),
         const SizedBox(
@@ -559,13 +488,10 @@ class _SectionTitle
         Text(
           title,
           style: const TextStyle(
-            color:
-                AppColors.navy,
+            color: DojoWalkColors.black,
             fontSize: 13,
-            fontWeight:
-                FontWeight.w900,
-            letterSpacing:
-                0.4,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
           ),
         ),
       ],
@@ -577,8 +503,7 @@ class _SectionTitle
 // SETTINGS CARD
 // ==================================================================
 
-class _SettingsCard
-    extends StatelessWidget {
+class _SettingsCard extends StatelessWidget {
   final List<Widget> children;
 
   const _SettingsCard({
@@ -586,40 +511,27 @@ class _SettingsCard
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      width:
-          double.infinity,
-      decoration:
-          BoxDecoration(
-        color:
-            Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          16,
-        ),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: DojoWalkColors.surface,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.05,
             ),
-            blurRadius:
-                10,
-            offset:
-                const Offset(
+            blurRadius: 10,
+            offset: const Offset(
               0,
               3,
             ),
           ),
         ],
       ),
-      child:
-          Column(
-        children:
-            children,
+      child: Column(
+        children: children,
       ),
     );
   }
@@ -629,14 +541,12 @@ class _SettingsCard
 // SWITCH TILE
 // ==================================================================
 
-class _SwitchTile
-    extends StatelessWidget {
+class _SwitchTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool>
-      onChanged;
+  final ValueChanged<bool> onChanged;
 
   const _SwitchTile({
     required this.icon,
@@ -647,37 +557,24 @@ class _SwitchTile
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 15,
         vertical: 5,
       ),
-      child:
-          Row(
+      child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(
-                0xFFFFF1E8,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                11,
-              ),
+            decoration: BoxDecoration(
+              color: DojoWalkColors.primaryLight,
+              borderRadius: BorderRadius.circular(11),
             ),
-            child:
-                Icon(
+            child: Icon(
               icon,
-              color:
-                  AppColors.primary,
+              color: DojoWalkColors.primary,
               size: 20,
             ),
           ),
@@ -687,21 +584,15 @@ class _SwitchTile
           ),
 
           Expanded(
-            child:
-                Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.navy,
-                    fontSize:
-                        14,
-                    fontWeight:
-                        FontWeight.w800,
+                  style: const TextStyle(
+                    color: DojoWalkColors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(
@@ -709,12 +600,9 @@ class _SwitchTile
                 ),
                 Text(
                   subtitle,
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.slate,
-                    fontSize:
-                        11,
+                  style: const TextStyle(
+                    color: DojoWalkColors.textSecondary,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -722,12 +610,9 @@ class _SwitchTile
           ),
 
           Switch(
-            value:
-                value,
-            activeThumbColor:
-                AppColors.primary,
-            onChanged:
-                onChanged,
+            value: value,
+            activeThumbColor: DojoWalkColors.primary,
+            onChanged: onChanged,
           ),
         ],
       ),
@@ -739,13 +624,11 @@ class _SwitchTile
 // SETTINGS TILE
 // ==================================================================
 
-class _SettingsTile
-    extends StatelessWidget {
+class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback?
-      onTap;
+  final VoidCallback? onTap;
   final bool showArrow;
 
   const _SettingsTile({
@@ -757,45 +640,27 @@ class _SettingsTile
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return InkWell(
-      onTap:
-          onTap,
-      borderRadius:
-          BorderRadius.circular(
-        16,
-      ),
-      child:
-          Padding(
-        padding:
-            const EdgeInsets.symmetric(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
           horizontal: 15,
           vertical: 14,
         ),
-        child:
-            Row(
+        child: Row(
           children: [
             Container(
               width: 40,
               height: 40,
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(
-                  0xFFFFF1E8,
-                ),
-                borderRadius:
-                    BorderRadius.circular(
-                  11,
-                ),
+              decoration: BoxDecoration(
+                color: DojoWalkColors.primaryLight,
+                borderRadius: BorderRadius.circular(11),
               ),
-              child:
-                  Icon(
+              child: Icon(
                 icon,
-                color:
-                    AppColors.primary,
+                color: DojoWalkColors.primary,
                 size: 20,
               ),
             ),
@@ -805,21 +670,15 @@ class _SettingsTile
             ),
 
             Expanded(
-              child:
-                  Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style:
-                        const TextStyle(
-                      color:
-                          AppColors.navy,
-                      fontSize:
-                          14,
-                      fontWeight:
-                          FontWeight.w800,
+                    style: const TextStyle(
+                      color: DojoWalkColors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(
@@ -827,12 +686,9 @@ class _SettingsTile
                   ),
                   Text(
                     subtitle,
-                    style:
-                        const TextStyle(
-                      color:
-                          AppColors.slate,
-                      fontSize:
-                          11,
+                    style: const TextStyle(
+                      color: DojoWalkColors.textSecondary,
+                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -841,10 +697,8 @@ class _SettingsTile
 
             if (showArrow)
               const Icon(
-                Icons
-                    .chevron_right_rounded,
-                color:
-                    AppColors.slate,
+                Icons.chevron_right_rounded,
+                color: DojoWalkColors.textSecondary,
                 size: 22,
               ),
           ],
