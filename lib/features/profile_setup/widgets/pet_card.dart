@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 import '../models/pet_data.dart';
 import 'profile_text_field.dart';
 import 'profile_selection_field.dart';
@@ -33,14 +33,14 @@ class PetCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: DojoWalkColors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.045,
             ),
             blurRadius: 10,
@@ -60,12 +60,12 @@ class PetCard extends StatelessWidget {
                 width: 43,
                 height: 43,
                 decoration: const BoxDecoration(
-                  color: AppColors.primary,
+                  color: DojoWalkColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: Colors.white,
+                  color: DojoWalkColors.white,
                   size: 23,
                 ),
               ),
@@ -76,7 +76,7 @@ class PetCard extends StatelessWidget {
                 child: Text(
                   'Pet $petNumber',
                   style: const TextStyle(
-                    color: AppColors.navy,
+                    color: DojoWalkColors.black,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -92,7 +92,7 @@ class PetCard extends StatelessWidget {
                   onPressed: onRemove,
                   style: TextButton.styleFrom(
                     foregroundColor:
-                        AppColors.error,
+                        DojoWalkColors.red,
                   ),
                   icon: const Icon(
                     Icons.delete_outline_rounded,
