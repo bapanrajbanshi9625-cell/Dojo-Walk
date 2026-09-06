@@ -63,9 +63,6 @@ class _BreedPickerState extends State<BreedPicker> {
             ),
             child: Column(
               children: [
-                // ---------------------------------------------------------
-                // HANDLE
-                // ---------------------------------------------------------
                 Container(
                   width: 48,
                   height: 5,
@@ -77,9 +74,6 @@ class _BreedPickerState extends State<BreedPicker> {
 
                 const SizedBox(height: 18),
 
-                // ---------------------------------------------------------
-                // HEADER
-                // ---------------------------------------------------------
                 Row(
                   children: [
                     Container(
@@ -123,7 +117,6 @@ class _BreedPickerState extends State<BreedPicker> {
                       ),
                     ),
 
-                    // CLOSE BUTTON
                     Material(
                       color: white,
                       borderRadius: BorderRadius.circular(14),
@@ -146,9 +139,6 @@ class _BreedPickerState extends State<BreedPicker> {
 
                 const SizedBox(height: 18),
 
-                // ---------------------------------------------------------
-                // SEARCH BOX
-                // ---------------------------------------------------------
                 Container(
                   decoration: BoxDecoration(
                     color: white,
@@ -206,9 +196,6 @@ class _BreedPickerState extends State<BreedPicker> {
 
                 const SizedBox(height: 14),
 
-                // ---------------------------------------------------------
-                // COUNT
-                // ---------------------------------------------------------
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -223,9 +210,6 @@ class _BreedPickerState extends State<BreedPicker> {
 
                 const SizedBox(height: 10),
 
-                // ---------------------------------------------------------
-                // BREED LIST
-                // ---------------------------------------------------------
                 Expanded(
                   child: filteredBreeds.isEmpty
                       ? _buildEmptyState()
@@ -259,10 +243,6 @@ class _BreedPickerState extends State<BreedPicker> {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // BREED CARD
-  // -----------------------------------------------------------------------
-
   Widget _buildBreedCard({
     required String breed,
     required bool isSelected,
@@ -291,7 +271,6 @@ class _BreedPickerState extends State<BreedPicker> {
           ),
           child: Row(
             children: [
-              // PAW ICON
               Container(
                 width: 42,
                 height: 42,
@@ -310,7 +289,6 @@ class _BreedPickerState extends State<BreedPicker> {
 
               const SizedBox(width: 13),
 
-              // BREED NAME
               Expanded(
                 child: Text(
                   breed,
@@ -326,7 +304,6 @@ class _BreedPickerState extends State<BreedPicker> {
 
               const SizedBox(width: 10),
 
-              // SELECTED CHECK
               if (isSelected)
                 Container(
                   width: 28,
@@ -353,10 +330,6 @@ class _BreedPickerState extends State<BreedPicker> {
       ),
     );
   }
-
-  // -----------------------------------------------------------------------
-  // EMPTY STATE
-  // -----------------------------------------------------------------------
 
   Widget _buildEmptyState() {
     return Center(
