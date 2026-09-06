@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/dojo_walk_colors.dart';
-import '../theme/dojo_walk_radius.dart';
 
 class DojoWalkAppBar extends StatelessWidget
     implements PreferredSizeWidget {
