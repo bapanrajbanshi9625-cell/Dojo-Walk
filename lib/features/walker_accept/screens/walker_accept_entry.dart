@@ -45,13 +45,16 @@ class _WalkerAcceptEntryState
   }
 
   // ============================================================
-  // LISTENER
+  // START FIRESTORE LISTENER
   // ============================================================
 
   void _startListening() {
     final User? user = _auth.currentUser;
 
     if (user == null) {
+      debugPrint(
+        'WalkerAcceptEntry → no logged-in user.',
+      );
       return;
     }
 
@@ -66,29 +69,26 @@ class _WalkerAcceptEntryState
       _handleRequests,
       onError: (Object error) {
         debugPrint(
-          'WalkerAcceptEntry error: $error',
+          'WalkerAcceptEntry Firestore error: $error',
         );
       },
     );
   }
 
   // ============================================================
-  // REQUEST CHECK
+  // HANDLE REQUESTS
   // ============================================================
 
   void _handleRequests(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
-    if (_opening) {
-      return;
-    }
+    if (_opening) return;
 
     QueryDocumentSnapshot<Map<String, dynamic>>?
         acceptedRequest;
 
     for (final doc in snapshot.docs) {
-      final Map<String, dynamic> data =
-          doc.data();
+      final Map<String, dynamic> data = doc.data();
 
       final String status =
           _readStatus(data['status']);
@@ -102,33 +102,21 @@ class _WalkerAcceptEntryState
       }
 
       // --------------------------------------------------------
-      // IMPORTANT:
-      //
-      // If this request already reached the owner,
-      // it is an old/in-progress request and must NOT
-      // reopen Accept Screen.
-      //
-      // This prevents:
-      //
-      // accepted + reached:true
-      //        ↓
-      // Accept Screen
-      //        ↓
-      // Live Walk
-      //
-      // from happening again.
+      // DO NOT REOPEN A REQUEST THAT HAS ALREADY REACHED
       // --------------------------------------------------------
 
-      if (data['reached'] == true) {
-        debugPrint(
-          'WalkerAcceptEntry → skipping already reached request: ${doc.id}',
-        );
+      final dynamic reachedValue = data['reached'];
 
+      if (reachedValue == true) {
+        debugPrint(
+          'WalkerAcceptEntry → skipping already reached '
+          'request: ${doc.id}',
+        );
         continue;
       }
 
       // --------------------------------------------------------
-      // NEVER OPEN TERMINAL REQUESTS
+      // EXTRA TERMINAL STATUS SAFETY
       // --------------------------------------------------------
 
       if (_isTerminalStatus(status)) {
@@ -136,12 +124,11 @@ class _WalkerAcceptEntryState
           'WalkerAcceptEntry → skipping terminal request: '
           '${doc.id}, status=$status',
         );
-
         continue;
       }
 
       // --------------------------------------------------------
-      // FIND NEWEST ACCEPTED REQUEST
+      // FIND THE NEWEST ACCEPTED REQUEST
       // --------------------------------------------------------
 
       if (acceptedRequest == null ||
@@ -154,10 +141,7 @@ class _WalkerAcceptEntryState
       }
     }
 
-    // ----------------------------------------------------------
-    // NO VALID ACCEPTED REQUEST
-    // ----------------------------------------------------------
-
+    // No valid accepted request.
     if (acceptedRequest == null) {
       return;
     }
@@ -170,7 +154,7 @@ class _WalkerAcceptEntryState
     }
 
     // ----------------------------------------------------------
-    // SAME REQUEST MUST NOT AUTO-OPEN AGAIN
+    // DON'T OPEN THE SAME REQUEST AGAIN
     // ----------------------------------------------------------
 
     if (_openedRequestId == requestId) {
@@ -181,35 +165,13 @@ class _WalkerAcceptEntryState
   }
 
   // ============================================================
-  // TERMINAL STATUS
-  // ============================================================
-
-  bool _isTerminalStatus(
-    String status,
-  ) {
-    switch (status.trim().toLowerCase()) {
-      case 'completed':
-      case 'cancelled':
-      case 'canceled':
-      case 'rejected':
-      case 'expired':
-        return true;
-
-      default:
-        return false;
-    }
-  }
-
-  // ============================================================
-  // OPEN SCREEN
+  // OPEN WALKER ACCEPT SCREEN
   // ============================================================
 
   Future<void> _openWalkerAcceptScreen(
     String requestId,
   ) async {
-    if (_opening) {
-      return;
-    }
+    if (_opening) return;
 
     final String cleanRequestId =
         requestId.trim();
@@ -229,23 +191,18 @@ class _WalkerAcceptEntryState
     try {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) {
-            return WalkerAcceptScreen(
-              requestId: cleanRequestId,
-            );
-          },
+          builder: (_) => WalkerAcceptScreen(
+            requestId: cleanRequestId,
+          ),
         ),
       );
-    } catch (
-      Object error,
-      StackTrace stackTrace,
-    ) {
+    } catch (e, stackTrace) {
       debugPrint(
-        'WalkerAcceptEntry navigation error: $error',
+        'WalkerAcceptEntry navigation error: $e',
       );
 
       debugPrint(
-        stackTrace.toString(),
+        '$stackTrace',
       );
     } finally {
       _opening = false;
@@ -253,12 +210,10 @@ class _WalkerAcceptEntryState
   }
 
   // ============================================================
-  // STATUS
+  // READ STATUS
   // ============================================================
 
-  String _readStatus(
-    dynamic value,
-  ) {
+  String _readStatus(dynamic value) {
     if (value == null) {
       return '';
     }
@@ -270,51 +225,59 @@ class _WalkerAcceptEntryState
   }
 
   // ============================================================
-  // LATEST TIME
+  // TERMINAL STATUS
+  // ============================================================
+
+  bool _isTerminalStatus(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'completed':
+      case 'cancelled':
+      case 'canceled':
+      case 'rejected':
+      case 'expired':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // GET LATEST REQUEST TIME
   // ============================================================
 
   DateTime _latestTime(
     Map<String, dynamic> data,
   ) {
     final DateTime? updatedAt =
-        _toDate(
-      data['updatedAt'],
-    );
+        _toDate(data['updatedAt']);
 
     if (updatedAt != null) {
       return updatedAt;
     }
 
     final DateTime? acceptedAt =
-        _toDate(
-      data['acceptedAt'],
-    );
+        _toDate(data['acceptedAt']);
 
     if (acceptedAt != null) {
       return acceptedAt;
     }
 
     final DateTime? createdAt =
-        _toDate(
-      data['createdAt'],
-    );
+        _toDate(data['createdAt']);
 
     if (createdAt != null) {
       return createdAt;
     }
 
-    return DateTime.fromMillisecondsSinceEpoch(
-      0,
-    );
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   // ============================================================
-  // DATE
+  // FIRESTORE TIMESTAMP → DATETIME
   // ============================================================
 
-  DateTime? _toDate(
-    dynamic value,
-  ) {
+  DateTime? _toDate(dynamic value) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -327,13 +290,11 @@ class _WalkerAcceptEntryState
   }
 
   // ============================================================
-  // ENTRY HAS NO UI
+  // INVISIBLE ENTRY WIDGET
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return const SizedBox.shrink();
   }
 }
