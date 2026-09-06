@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class HomeWeeklyProcessing extends StatelessWidget {
   const HomeWeeklyProcessing({
@@ -225,14 +225,14 @@ class HomeWeeklyProcessing extends StatelessWidget {
         10,
       ),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: DojoWalkColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.045,
             ),
             blurRadius: 9,
@@ -247,7 +247,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
               title: 'Walks',
               value: '$totalWalks',
               icon: Icons.pets_rounded,
-              iconColor: AppColors.orange,
+              iconColor: DojoWalkColors.primary,
               onTap: () {
                 onDetails(
                   'Walks Details',
@@ -266,7 +266,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
               value: _formatNumber(totalDistance),
               unit: 'km',
               icon: Icons.route_rounded,
-              iconColor: AppColors.info,
+              iconColor: DojoWalkColors.blue,
               onTap: () {
                 onDetails(
                   'Distance Details',
@@ -288,7 +288,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
                 totalDurationMinutes,
               ),
               icon: Icons.timer_outlined,
-              iconColor: AppColors.success,
+              iconColor: DojoWalkColors.green,
               onTap: () {
                 onDetails(
                   'Duration Details',
@@ -308,7 +308,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
               title: 'Report',
               value: totalWalks > 0 ? 'Active' : 'None',
               icon: Icons.assessment_outlined,
-              iconColor: AppColors.orange,
+              iconColor: DojoWalkColors.primary,
               onTap: () {
                 final reportStatus =
                     totalWalks > 0 ? 'Active' : 'No Walks';
@@ -341,7 +341,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.transparent,
+      color: DojoWalkColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(11),
@@ -374,7 +374,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.navy,
+                  color: DojoWalkColors.black,
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
                 ),
@@ -397,7 +397,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.grey,
+                  color: DojoWalkColors.textSecondary,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                 ),
@@ -420,7 +420,7 @@ class HomeWeeklyProcessing extends StatelessWidget {
       margin: const EdgeInsets.symmetric(
         horizontal: 2,
       ),
-      color: AppColors.border.withValues(
+      color: DojoWalkColors.border.withValues(
         alpha: 0.75,
       ),
     );
