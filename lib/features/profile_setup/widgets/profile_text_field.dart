@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class ProfileTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -27,7 +27,7 @@ class ProfileTextField extends StatelessWidget {
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: AppColors.navy,
+            color: DojoWalkColors.textPrimary,
           ),
         ),
 
@@ -44,12 +44,12 @@ class ProfileTextField extends StatelessWidget {
           // ====================================================
 
           style: const TextStyle(
-            color: AppColors.navy,
+            color: DojoWalkColors.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w500,
           ),
 
-          cursorColor: AppColors.primary,
+          cursorColor: DojoWalkColors.primary,
 
           decoration: InputDecoration(
             // ==================================================
@@ -66,13 +66,13 @@ class ProfileTextField extends StatelessWidget {
               child: Container(
                 width: 42,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: DojoWalkColors.primary,
                   borderRadius:
                       BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.white,
+                  color: DojoWalkColors.white,
                   size: 21,
                 ),
               ),
@@ -81,13 +81,13 @@ class ProfileTextField extends StatelessWidget {
             hintText: hint,
 
             hintStyle: const TextStyle(
-              color: AppColors.grey,
+              color: DojoWalkColors.textSecondary,
               fontSize: 15,
             ),
 
             filled: true,
 
-            fillColor: AppColors.lightGrey,
+            fillColor: DojoWalkColors.background,
 
             enabledBorder:
                 OutlineInputBorder(
@@ -95,7 +95,7 @@ class ProfileTextField extends StatelessWidget {
                   BorderRadius.circular(15),
               borderSide:
                   const BorderSide(
-                color: AppColors.border,
+                color: DojoWalkColors.border,
               ),
             ),
 
@@ -105,7 +105,7 @@ class ProfileTextField extends StatelessWidget {
                   BorderRadius.circular(15),
               borderSide:
                   const BorderSide(
-                color: AppColors.primary,
+                color: DojoWalkColors.primary,
                 width: 1.5,
               ),
             ),
