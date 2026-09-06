@@ -177,6 +177,10 @@ class _OtpVerificationScreenState
         );
       }
 
+      // ========================================================
+      // 4. VERIFIED PHONE FROM BACKEND
+      // ========================================================
+
       final String backendPhone =
           backendData['phone']
                   ?.toString()
@@ -196,13 +200,19 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 4. READ BACKEND OWNER INFORMATION
+      // 5. BACKEND OWNER INFORMATION
       // ========================================================
 
       final bool backendExists =
           _isTrueValue(
         backendData['exists'],
       );
+
+      final String backendOwnerDocumentId =
+          backendData['ownerDocumentId']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String backendOwnerId =
           backendData['ownerId']
@@ -222,16 +232,45 @@ class _OtpVerificationScreenState
                   .trim() ??
               '';
 
+      final bool backendProfileCompleted =
+          _isTrueValue(
+        backendData['profileCompleted'],
+      );
+
+      final bool backendIsActive =
+          backendData['isActive'] == null
+              ? true
+              : _isTrueValue(
+                  backendData['isActive'],
+                );
+
       debugPrint(
         'BACKEND EXISTS: $backendExists',
       );
 
       debugPrint(
-        'BACKEND OWNER ID: $backendOwnerId',
+        'BACKEND OWNER DOCUMENT ID: '
+        '$backendOwnerDocumentId',
       );
 
       debugPrint(
-        'BACKEND AUTH UID: $backendAuthUid',
+        'BACKEND OWNER ID: '
+        '$backendOwnerId',
+      );
+
+      debugPrint(
+        'BACKEND AUTH UID: '
+        '$backendAuthUid',
+      );
+
+      debugPrint(
+        'BACKEND PROFILE COMPLETED: '
+        '$backendProfileCompleted',
+      );
+
+      debugPrint(
+        'BACKEND ACTIVE: '
+        '$backendIsActive',
       );
 
       debugPrint(
@@ -240,12 +279,22 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // 5. EXISTING OWNER
+      // 6. EXISTING OWNER
       // ========================================================
 
       if (backendExists) {
         // ------------------------------------------------------
-        // Existing owner MUST have Firebase Custom Token.
+        // Existing owner must have exact document ID.
+        // ------------------------------------------------------
+
+        if (backendOwnerDocumentId.isEmpty) {
+          throw Exception(
+            'Existing owner document ID was not received from the server.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // Existing owner must have Firebase custom token.
         // ------------------------------------------------------
 
         if (firebaseCustomToken.isEmpty) {
@@ -255,18 +304,28 @@ class _OtpVerificationScreenState
         }
 
         // ------------------------------------------------------
+        // Existing owner must have original Firebase auth UID.
+        // ------------------------------------------------------
+
+        if (backendAuthUid.isEmpty) {
+          throw Exception(
+            'Existing owner Firebase authUid is missing.',
+          );
+        }
+
+        // ------------------------------------------------------
         // IMPORTANT:
         //
-        // NO signInAnonymously()
+        // NO anonymous login.
+        // NO temporary Firebase UID.
+        // NO phoneAccounts mapping.
+        // NO new owner document.
         //
-        // NO temporary UID
-        //
-        // Sign in using the existing owner's Firebase UID
-        // through the backend-generated custom token.
+        // Sign in as the ORIGINAL Firebase user.
         // ------------------------------------------------------
 
         debugPrint(
-          'SIGNING IN EXISTING OWNER WITH FIREBASE CUSTOM TOKEN',
+          'SIGNING IN EXISTING OWNER WITH CUSTOM TOKEN',
         );
 
         final UserCredential credential =
@@ -292,13 +351,23 @@ class _OtpVerificationScreenState
         );
 
         // ------------------------------------------------------
-        // Verify that Firebase authenticated as the SAME
-        // existing owner identity returned by backend.
+        // Verify original Firebase identity.
         // ------------------------------------------------------
 
-        if (backendAuthUid.isNotEmpty &&
-            currentFirebaseUid !=
-                backendAuthUid) {
+        if (currentFirebaseUid !=
+            backendAuthUid) {
+          debugPrint(
+            'FIREBASE UID MISMATCH',
+          );
+
+          debugPrint(
+            'Expected: $backendAuthUid',
+          );
+
+          debugPrint(
+            'Actual: $currentFirebaseUid',
+          );
+
           await _auth.signOut();
 
           throw Exception(
@@ -311,22 +380,39 @@ class _OtpVerificationScreenState
         );
 
         // ======================================================
-        // 6. NOW READ OWNERS COLLECTION
+        // 7. READ EXACT OWNER DOCUMENT
         //
-        // Firebase request.auth.uid is now the OLD authUid.
+        // IMPORTANT:
+        //
+        // We DO NOT query:
+        //
+        // owners.where(mainPhone...)
+        //
+        // because backend already identified the exact
+        // owner document.
+        //
+        // We directly read:
+        //
+        // owners/{ownerDocumentId}
+        //
         // ======================================================
+
+        debugPrint(
+          'READING EXACT OWNER DOCUMENT: '
+          '$backendOwnerDocumentId',
+        );
 
         final Map<String, dynamic>?
             existingOwner =
             await _findExistingOwner(
-          verifiedPhone,
+          backendOwnerDocumentId,
         );
 
         if (existingOwner == null) {
           await _auth.signOut();
 
           throw Exception(
-            'Your verified number could not be found in the owner account.',
+            'Your existing owner account could not be found.',
           );
         }
 
@@ -354,7 +440,7 @@ class _OtpVerificationScreenState
         );
 
         // ======================================================
-        // 7. GET PERMANENT OWNER ID
+        // 8. GET PERMANENT OWNER ID
         // ======================================================
 
         final String ownerId =
@@ -371,14 +457,20 @@ class _OtpVerificationScreenState
           );
         }
 
+        // ======================================================
+        // 9. PROFILE STATUS
+        // ======================================================
+
         final bool profileCompleted =
-            _isTrueValue(
-          ownerData['profileCompleted'],
-        );
+            ownerData['profileCompleted'] == null
+                ? backendProfileCompleted
+                : _isTrueValue(
+                    ownerData['profileCompleted'],
+                  );
 
         final bool isActive =
             ownerData['isActive'] == null
-                ? true
+                ? backendIsActive
                 : _isTrueValue(
                     ownerData['isActive'],
                   );
@@ -400,7 +492,7 @@ class _OtpVerificationScreenState
         );
 
         debugPrint(
-          'EXISTING OWNER FOUND',
+          'EXACT EXISTING OWNER FOUND',
         );
 
         debugPrint(
@@ -428,16 +520,17 @@ class _OtpVerificationScreenState
         );
 
         debugPrint(
-          'FIREBASE CURRENT UID: $currentFirebaseUid',
+          'FIREBASE CURRENT UID: '
+          '$currentFirebaseUid',
         );
 
         debugPrint(
           '==================================================',
         );
 
-        // ------------------------------------------------------
-        // Verify owner document identity.
-        // ------------------------------------------------------
+        // ======================================================
+        // 10. VERIFY OWNER DOCUMENT IDENTITY
+        // ======================================================
 
         if (ownerAuthUid.isNotEmpty &&
             ownerAuthUid !=
@@ -460,6 +553,10 @@ class _OtpVerificationScreenState
           );
         }
 
+        // ======================================================
+        // 11. VERIFY OWNER IS ACTIVE
+        // ======================================================
+
         if (!isActive) {
           await _auth.signOut();
 
@@ -469,10 +566,7 @@ class _OtpVerificationScreenState
         }
 
         // ======================================================
-        // 8. SAVE LOCAL OWNER LOGIN STATE
-        //
-        // These are only local routing values.
-        // No Firestore mapping is created.
+        // 12. SAVE LOCAL OWNER LOGIN STATE
         // ======================================================
 
         final SharedPreferences prefs =
@@ -510,9 +604,8 @@ class _OtpVerificationScreenState
         );
 
         // ------------------------------------------------------
-        // IMPORTANT:
         // Do NOT store temporary Firebase UID.
-        // FirebaseAuth itself now holds the real old UID.
+        // FirebaseAuth already contains the original UID.
         // ------------------------------------------------------
 
         await prefs.remove(
@@ -525,6 +618,11 @@ class _OtpVerificationScreenState
 
         debugPrint(
           'FIXED OWNER ID: $ownerId',
+        );
+
+        debugPrint(
+          'FIXED FIREBASE UID: '
+          '$currentFirebaseUid',
         );
 
         if (!mounted) {
@@ -561,23 +659,26 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 9. NEW OWNER
+      // 13. NEW OWNER
       // ========================================================
       //
-      // No existing owner was found by backend.
+      // Backend did not find this phone in owners.
       //
-      // No old owner identity is reused.
-      // No temporary owner mapping is created here.
+      // Existing owner identity is NOT reused.
+      // No temporary owner mapping is created.
       //
-      // Profile Setup handles creation of the new owner.
+      // Profile Setup is responsible for creating the new
+      // owner account.
       // ========================================================
 
       debugPrint(
         'NEW OWNER ACCOUNT',
       );
 
-      // If an old Firebase session somehow exists,
-      // do not allow it to be reused for a new owner.
+      // --------------------------------------------------------
+      // Prevent accidental reuse of an old Firebase session.
+      // --------------------------------------------------------
+
       if (_auth.currentUser != null) {
         debugPrint(
           'SIGNING OUT OLD FIREBASE SESSION BEFORE NEW OWNER SETUP',
@@ -656,6 +757,11 @@ class _OtpVerificationScreenState
         'OWNER FIREBASE ERROR: ${e.code}',
       );
 
+      debugPrint(
+        'OWNER FIREBASE ERROR MESSAGE: '
+        '${e.message}',
+      );
+
       if (!mounted) {
         return;
       }
@@ -712,6 +818,11 @@ class _OtpVerificationScreenState
         _showMessage(
           'Firebase permission denied while checking your owner profile.',
         );
+      } else if (error.contains('not found') &&
+          error.contains('owner')) {
+        _showMessage(
+          'Your owner account could not be found. Please try again.',
+        );
       } else if (error.contains('access token') ||
           error.contains('access-token') ||
           error.contains('token')) {
@@ -745,137 +856,72 @@ class _OtpVerificationScreenState
   // ============================================================
   // FIND EXISTING OWNER
   // ============================================================
+  //
+  // IMPORTANT:
+  // Backend already found the exact owner document.
+  //
+  // We do NOT query owners by phone.
+  //
+  // We directly read:
+  //
+  // owners/{ownerDocumentId}
+  //
+  // ============================================================
 
   Future<Map<String, dynamic>?>
       _findExistingOwner(
-    String verifiedPhone,
+    String ownerDocumentId,
   ) async {
-    final String phone =
-        verifiedPhone.trim();
+    final String documentId =
+        ownerDocumentId.trim();
 
-    if (phone.isEmpty) {
+    if (documentId.isEmpty) {
+      debugPrint(
+        'OWNER DOCUMENT ID IS EMPTY',
+      );
+
       return null;
     }
 
     debugPrint(
-      'SEARCHING OWNERS BY MAIN PHONE',
+      'READING EXACT OWNER DOCUMENT: '
+      '$documentId',
     );
 
-    // ==========================================================
-    // 1. PRIMARY: mainPhone
-    // ==========================================================
-
-    final QuerySnapshot<
+    final DocumentSnapshot<
         Map<String, dynamic>>
-        mainPhoneSnapshot =
+        snapshot =
         await _firestore
             .collection('owners')
-            .where(
-              'mainPhone',
-              isEqualTo: phone,
-            )
-            .limit(1)
+            .doc(documentId)
             .get();
 
-    if (mainPhoneSnapshot
-        .docs
-        .isNotEmpty) {
-      final QueryDocumentSnapshot<
-          Map<String, dynamic>>
-          doc =
-          mainPhoneSnapshot.docs.first;
-
+    if (!snapshot.exists) {
       debugPrint(
-        'OWNER FOUND USING mainPhone',
+        'OWNER DOCUMENT DOES NOT EXIST: '
+        '$documentId',
       );
 
-      return {
-        'documentId': doc.id,
-        'data': doc.data(),
-      };
+      return null;
     }
 
-    // ==========================================================
-    // 2. FALLBACK: phone
-    // ==========================================================
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
 
     debugPrint(
-      'mainPhone NOT FOUND. SEARCHING phone',
+      'OWNER DOCUMENT READ SUCCESSFULLY',
     );
-
-    final QuerySnapshot<
-        Map<String, dynamic>>
-        phoneSnapshot =
-        await _firestore
-            .collection('owners')
-            .where(
-              'phone',
-              isEqualTo: phone,
-            )
-            .limit(1)
-            .get();
-
-    if (phoneSnapshot
-        .docs
-        .isNotEmpty) {
-      final QueryDocumentSnapshot<
-          Map<String, dynamic>>
-          doc =
-          phoneSnapshot.docs.first;
-
-      debugPrint(
-        'OWNER FOUND USING phone',
-      );
-
-      return {
-        'documentId': doc.id,
-        'data': doc.data(),
-      };
-    }
-
-    // ==========================================================
-    // 3. FALLBACK: phoneNumber
-    // ==========================================================
 
     debugPrint(
-      'phone NOT FOUND. SEARCHING phoneNumber',
+      'OWNER DOCUMENT ID: '
+      '${snapshot.id}',
     );
 
-    final QuerySnapshot<
-        Map<String, dynamic>>
-        phoneNumberSnapshot =
-        await _firestore
-            .collection('owners')
-            .where(
-              'phoneNumber',
-              isEqualTo: phone,
-            )
-            .limit(1)
-            .get();
-
-    if (phoneNumberSnapshot
-        .docs
-        .isNotEmpty) {
-      final QueryDocumentSnapshot<
-          Map<String, dynamic>>
-          doc =
-          phoneNumberSnapshot.docs.first;
-
-      debugPrint(
-        'OWNER FOUND USING phoneNumber',
-      );
-
-      return {
-        'documentId': doc.id,
-        'data': doc.data(),
-      };
-    }
-
-    debugPrint(
-      'OWNER NOT FOUND IN FIRESTORE',
-    );
-
-    return null;
+    return {
+      'documentId': snapshot.id,
+      'data': data,
+    };
   }
 
   // ============================================================
