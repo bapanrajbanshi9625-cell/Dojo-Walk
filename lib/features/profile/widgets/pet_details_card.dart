@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class PetDetailsCard extends StatelessWidget {
   final Map<String, dynamic> pet;
@@ -56,14 +56,14 @@ class PetDetailsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DojoColors.white,
+        color: DojoWalkColors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: DojoColors.black.withValues(alpha: 0.06),
+          color: DojoWalkColors.black.withValues(alpha: 0.06),
         ),
         boxShadow: [
           BoxShadow(
-            color: DojoColors.black.withValues(alpha: 0.05),
+            color: DojoWalkColors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -81,12 +81,12 @@ class PetDetailsCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: DojoColors.lightOrange,
+                  color: DojoWalkColors.primaryLight,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
-                  color: DojoColors.orange,
+                  color: DojoWalkColors.primary,
                   size: 25,
                 ),
               ),
@@ -101,7 +101,7 @@ class PetDetailsCard extends StatelessWidget {
                       'Pet ${index + 1}',
                       style: const TextStyle(
                         fontSize: 11,
-                        color: DojoColors.grey,
+                        color: DojoWalkColors.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -112,7 +112,7 @@ class PetDetailsCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 17,
-                        color: DojoColors.navy,
+                        color: DojoWalkColors.black,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -126,7 +126,7 @@ class PetDetailsCard extends StatelessWidget {
 
               _ActionButton(
                 icon: Icons.edit_outlined,
-                color: DojoColors.orange,
+                color: DojoWalkColors.primary,
                 tooltip: 'Edit Pet',
                 onPressed: onEdit,
               ),
@@ -139,7 +139,7 @@ class PetDetailsCard extends StatelessWidget {
 
               _ActionButton(
                 icon: Icons.delete_outline_rounded,
-                color: DojoStatusColors.error,
+                color: DojoWalkColors.red,
                 tooltip: 'Delete Pet',
                 onPressed: onDelete,
               ),
@@ -150,7 +150,7 @@ class PetDetailsCard extends StatelessWidget {
 
           Container(
             height: 1,
-            color: DojoColors.black.withValues(alpha: 0.07),
+            color: DojoWalkColors.black.withValues(alpha: 0.07),
           ),
 
           const SizedBox(height: 14),
@@ -261,13 +261,13 @@ class _PetRow extends StatelessWidget {
           width: 34,
           height: 34,
           decoration: BoxDecoration(
-            color: DojoColors.lightOrange,
+            color: DojoWalkColors.primaryLight,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
             size: 18,
-            color: DojoColors.orange,
+            color: DojoWalkColors.primary,
           ),
         ),
 
@@ -280,7 +280,7 @@ class _PetRow extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: 12,
-              color: DojoColors.grey,
+              color: DojoWalkColors.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -296,7 +296,7 @@ class _PetRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 13,
-              color: DojoColors.navy,
+              color: DojoWalkColors.black,
               fontWeight: FontWeight.w700,
             ),
           ),
