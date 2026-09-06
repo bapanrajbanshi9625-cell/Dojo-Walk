@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 import '../features/accept_live_strip/widgets/accept_live_strip.dart';
 import '../features/walker_accept/screens/walker_accept_entry.dart';
 
@@ -86,7 +86,7 @@ class _MainNavigationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: DojoWalkColors.background,
 
       // ========================================================
       // MAIN CONTENT
@@ -140,21 +140,21 @@ class _MainNavigationScreenState
       bottomNavigationBar: SizedBox(
         width: double.infinity,
         child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
+          decoration: const BoxDecoration(
+            color: DojoWalkColors.white,
             border: Border(
               top: BorderSide(
-                color: AppColors.border,
+                color: DojoWalkColors.border,
                 width: 0.6,
               ),
             ),
           ),
           child: BottomNavigationBar(
-            backgroundColor: Colors.white,
+            backgroundColor: DojoWalkColors.white,
             elevation: 0,
             currentIndex: _currentIndex,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: Colors.black54,
+            selectedItemColor: DojoWalkColors.primary,
+            unselectedItemColor: DojoWalkColors.textSecondary,
             selectedLabelStyle: const TextStyle(
               fontWeight: FontWeight.w700,
             ),
