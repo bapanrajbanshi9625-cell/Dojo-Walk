@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +40,9 @@ class _OtpVerificationScreenState
 
   static const String _backendUrl =
       'https://dojo-platform-backend.onrender.com';
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -227,6 +231,14 @@ class _OtpVerificationScreenState
       );
 
       debugPrint(
+        'BACKEND OWNER ID: $ownerId',
+      );
+
+      debugPrint(
+        'BACKEND AUTH UID: $authUid',
+      );
+
+      debugPrint(
         'BACKEND ROLE: $role',
       );
 
@@ -266,6 +278,10 @@ class _OtpVerificationScreenState
           'Temporary Firebase UID is missing.',
         );
       }
+
+      debugPrint(
+        'CURRENT FIREBASE UID: $temporaryUid',
+      );
 
       // ========================================================
       // 7. SAVE LOGIN STATE
@@ -314,11 +330,37 @@ class _OtpVerificationScreenState
           accountUid,
         );
 
-        // ONLY CHANGE #1
         await prefs.setBool(
           'tempProfileCompleted',
           profileCompleted,
         );
+
+        // ======================================================
+        // FIRESTORE OWNER SESSION MAPPING
+        //
+        // IMPORTANT:
+        // Existing owner may have an old Firebase authUid.
+        // Current MSG91 login uses a temporary Firebase UID.
+        //
+        // This mapping connects:
+        //
+        // temporary Firebase UID
+        //          ↓
+        // persistent ownerId
+        //
+        // WITHOUT changing the old owner's authUid.
+        // ======================================================
+
+        if (ownerId.isNotEmpty &&
+            role.toLowerCase() == 'owner') {
+          await _saveTemporaryOwnerMapping(
+            temporaryUid: temporaryUid,
+            ownerId: ownerId,
+            verifiedPhone: verifiedPhone,
+            profileCompleted: profileCompleted,
+            oldAuthUid: authUid,
+          );
+        }
 
         debugPrint(
           'EXISTING OWNER FOUND',
@@ -366,7 +408,6 @@ class _OtpVerificationScreenState
         temporaryUid,
       );
 
-      // ONLY CHANGE #2
       await prefs.setBool(
         'tempProfileCompleted',
         false,
@@ -480,6 +521,104 @@ class _OtpVerificationScreenState
           _isVerifying = false;
         });
       }
+    }
+  }
+
+  // ============================================================
+  // SAVE TEMPORARY OWNER MAPPING
+  // ============================================================
+
+  Future<void> _saveTemporaryOwnerMapping({
+    required String temporaryUid,
+    required String ownerId,
+    required String verifiedPhone,
+    required bool profileCompleted,
+    required String oldAuthUid,
+  }) async {
+    final String uid =
+        temporaryUid.trim();
+
+    final String persistentOwnerId =
+        ownerId.trim();
+
+    if (uid.isEmpty ||
+        persistentOwnerId.isEmpty) {
+      return;
+    }
+
+    try {
+      final DocumentReference<Map<String, dynamic>>
+          phoneAccountRef =
+          _firestore
+              .collection('phoneAccounts')
+              .doc(uid);
+
+      await phoneAccountRef.set(
+        {
+          'ownerId':
+              persistentOwnerId,
+
+          'uid':
+              uid,
+
+          'authUid':
+              uid,
+
+          'phone':
+              verifiedPhone,
+
+          'phoneNumber':
+              verifiedPhone,
+
+          'mainPhone':
+              verifiedPhone,
+
+          'role':
+              'owner',
+
+          'profileCompleted':
+              profileCompleted,
+
+          'isActive':
+              true,
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+
+          if (oldAuthUid.isNotEmpty &&
+              oldAuthUid != uid)
+            'linkedAuthUid':
+                oldAuthUid,
+        },
+        SetOptions(
+          merge: true,
+        ),
+      );
+
+      debugPrint(
+        'TEMP OWNER MAPPING SAVED',
+      );
+
+      debugPrint(
+        'phoneAccounts/$uid',
+      );
+
+      debugPrint(
+        'MAPPED OWNER ID: $persistentOwnerId',
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'TEMP OWNER MAPPING FIREBASE ERROR: '
+        '${e.code}',
+      );
+
+      rethrow;
+    } catch (e) {
+      debugPrint(
+        'TEMP OWNER MAPPING ERROR: $e',
+      );
+
+      rethrow;
     }
   }
 
