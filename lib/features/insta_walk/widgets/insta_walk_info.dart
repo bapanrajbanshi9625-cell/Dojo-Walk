@@ -12,7 +12,7 @@ class InstaWalkInfo extends StatelessWidget {
       children: [
         const Text(
           'We search for an available walker within '
-          '3 kilometre of your location.',
+          '3.5 kilometre of your location.',
           style: TextStyle(
             color: Color(0xFF23404D),
             fontSize: 13,
@@ -42,7 +42,7 @@ class InstaWalkInfo extends StatelessWidget {
               ),
               SizedBox(width: 7),
               Text(
-                'Search range: 3 kilometre',
+                'Search range: 3.5 kilometre',
                 style: TextStyle(
                   color: Color(0xFF23404D),
                   fontSize: 12,
