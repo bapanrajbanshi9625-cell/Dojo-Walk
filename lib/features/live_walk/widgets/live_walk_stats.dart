@@ -16,6 +16,9 @@ class LiveWalkStats extends StatelessWidget {
   final int peeCount;
   final int poopCount;
 
+  static const Color orange = Color(0xFFFF6B35);
+  static const Color navy = Color(0xFF263746);
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -24,62 +27,73 @@ class LiveWalkStats extends StatelessWidget {
           children: [
             Expanded(
               child: _statCard(
-                icon: Icons.timer_outlined,
-                label: 'Minutes',
-                value: duration,
+                label: 'MINUTES',
+                value: _minutesValue(duration),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _statCard(
-                icon: Icons.route_rounded,
-                label: 'Kilometers',
-                value: distance,
+                label: 'KM',
+                value: _distanceValue(distance),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _statCard(
-                icon: Icons.directions_walk_rounded,
-                label: 'Steps',
-                value: steps.toString(),
+                label: 'STEPS',
+                value: _formatNumber(steps),
               ),
             ),
           ],
         ),
+
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _statCard(
-                icon: Icons.water_drop_outlined,
-                label: 'Pee',
-                value: peeCount.toString(),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _statCard(
-                icon: Icons.circle_outlined,
-                label: 'Poop',
-                value: poopCount.toString(),
-              ),
-            ),
-          ],
-        ),
+
+        _peePoopCard(),
       ],
     );
   }
 
+  String _minutesValue(String value) {
+    final parts = value.split(':');
+
+    if (parts.length == 2) {
+      return parts[0];
+    }
+
+    if (parts.length == 3) {
+      final hours = int.tryParse(parts[0]) ?? 0;
+      final minutes = int.tryParse(parts[1]) ?? 0;
+      return (hours * 60 + minutes).toString();
+    }
+
+    return value;
+  }
+
+  String _distanceValue(String value) {
+    return value
+        .replaceAll(' km', '')
+        .replaceAll(' KM', '')
+        .trim();
+  }
+
+  String _formatNumber(int value) {
+    return value.toString().replaceAllMapped(
+          RegExp(r'\B(?=(\d{3})+(?!\d))'),
+          (match) => ',',
+        );
+  }
+
   Widget _statCard({
-    required IconData icon,
     required String label,
     required String value,
   }) {
     return Container(
+      height: 82,
       padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 12,
+        horizontal: 8,
+        vertical: 10,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
@@ -89,11 +103,18 @@ class LiveWalkStats extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: const Color(0xFFFF8A00),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: Color(0xFF718096),
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -101,20 +122,46 @@ class LiveWalkStats extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF263746),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: navy,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
+        ],
+      ),
+    );
+  }
+
+  Widget _peePoopCard() {
+    return Container(
+      width: double.infinity,
+      height: 82,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE8EDF2),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'PEE / POOP',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
               color: Color(0xFF718096),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$peeCount / $poopCount',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: navy,
             ),
           ),
         ],
