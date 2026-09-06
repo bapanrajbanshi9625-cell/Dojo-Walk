@@ -69,13 +69,6 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ==========================================================
   // SEARCH ICON ANIMATION
   // ==========================================================
-  //
-  // Small animation only.
-  //
-  // No map.
-  // No radar.
-  // No GPS.
-  //
 
   late final AnimationController _searchAnimationController;
 
@@ -108,12 +101,25 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // ACCEPT HANDLED
   // ==========================================================
   //
-  // ONLY prevents duplicate navigation.
+  // Prevents duplicate accepted navigation.
   //
-  // This is NOT a walk lifecycle lock.
+  // This is separate from the search-stopped lock.
   //
 
   bool _acceptHandled = false;
+
+  // ==========================================================
+  // ACCEPTED SEARCH LOCK
+  // ==========================================================
+  //
+  // Once a walker accepts the current Insta Walk request,
+  // searching MUST remain OFF for this container lifecycle.
+  //
+  // This protects against late Firestore callbacks restoring
+  // the old SEARCHING / STOP state.
+  //
+
+  bool _searchStoppedAfterAccepted = false;
 
   // ==========================================================
   // REQUEST
@@ -177,7 +183,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
 
     // --------------------------------------------------------
-    // Recover any existing Insta Walk request.
+    // Recover existing Insta Walk request.
     // --------------------------------------------------------
 
     _recoverSearch();
@@ -193,6 +199,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     if (!_searching) {
+      return;
+    }
+
+    // Never restart the search animation after acceptance.
+    if (_searchStoppedAfterAccepted) {
       return;
     }
 
@@ -229,14 +240,18 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   // WALKER ACCEPTED
   // ==========================================================
   //
-  // This only:
+  // IMPORTANT:
   //
-  // 1. Stops Insta Walk search UI.
-  // 2. Stops Firestore listener.
-  // 3. Opens existing accepted-walk screen.
-  // 4. Resets this container after that screen returns.
+  // Walker accepted =
   //
-  // Accepted walk lifecycle is handled elsewhere.
+  // 1. Search OFF immediately.
+  // 2. STOP button disappears.
+  // 3. START button becomes available.
+  // 4. Search animation stops.
+  // 5. Firestore search listener stops.
+  // 6. Accepted screen opens.
+  //
+  // Late callbacks are blocked by _searchStoppedAfterAccepted.
   //
 
   void _handleAccepted(
@@ -266,7 +281,14 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       return;
     }
 
+    // --------------------------------------------------------
+    // LOCK ACCEPTED STATE FIRST.
+    //
+    // This MUST happen before stopping listeners/state updates.
+    // --------------------------------------------------------
+
     _acceptHandled = true;
+    _searchStoppedAfterAccepted = true;
     _requestId = requestId;
 
     debugPrint('');
@@ -277,7 +299,13 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
       '🔥 OWNER INSTA WALK: WALKER ACCEPTED',
     );
     debugPrint(
-      '🛑 STOPPING INSTA WALK SEARCH UI',
+      '🛑 SEARCH = OFF',
+    );
+    debugPrint(
+      '🟢 START BUTTON = AVAILABLE',
+    );
+    debugPrint(
+      '🛑 STOP BUTTON = REMOVED',
     );
     debugPrint(
       '🛑 STOPPING SEARCH ANIMATION',
@@ -293,19 +321,21 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
 
     // --------------------------------------------------------
-    // Stop search animation.
+    // Stop animation immediately.
     // --------------------------------------------------------
 
     _stopSearchAnimation();
 
     // --------------------------------------------------------
-    // Stop Firestore listener.
+    // Stop Firestore listener immediately.
     // --------------------------------------------------------
 
     _service.stopListening();
 
     // --------------------------------------------------------
-    // Reset only Insta Walk search UI.
+    // Reset search UI immediately.
+    //
+    // This is the important part that restores START.
     // --------------------------------------------------------
 
     _stopping = false;
@@ -319,7 +349,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     });
 
     // --------------------------------------------------------
-    // Insta Walk search is no longer active.
+    // Search is no longer active.
     // --------------------------------------------------------
 
     _setActive(false);
@@ -342,7 +372,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     // --------------------------------------------------------
-    // Open existing accepted-walk screen.
+    // Open accepted-walk screen.
     // --------------------------------------------------------
 
     WidgetsBinding.instance.addPostFrameCallback(
@@ -408,9 +438,9 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     // --------------------------------------------------------
-    // The accepted-walk feature owns the walk lifecycle.
+    // Accepted-walk feature owns its own lifecycle.
     //
-    // We only prepare this container for a NEW Insta Walk.
+    // This container is simply prepared for a NEW Insta Walk.
     // --------------------------------------------------------
 
     _resetAfterAcceptedFlow();
@@ -430,7 +460,7 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     );
 
     // --------------------------------------------------------
-    // Stop previous search activity.
+    // Stop any previous search activity.
     // --------------------------------------------------------
 
     _stopSearchAnimation();
@@ -447,6 +477,14 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     // --------------------------------------------------------
 
     _acceptHandled = false;
+
+    // --------------------------------------------------------
+    // Remove accepted-search lock.
+    //
+    // A completely NEW search can now start.
+    // --------------------------------------------------------
+
+    _searchStoppedAfterAccepted = false;
 
     // --------------------------------------------------------
     // Restore normal Insta Walk state.
@@ -519,6 +557,35 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _resetSearchState({
     bool finished = false,
   }) {
+    // --------------------------------------------------------
+    // Never allow a generic reset to restore searching after
+    // a walker has already accepted this request.
+    // --------------------------------------------------------
+
+    if (_searchStoppedAfterAccepted) {
+      debugPrint(
+        '⚠️ InstaWalk: reset ignored because walker already accepted.',
+      );
+
+      _stopSearchAnimation();
+      _service.stopListening();
+
+      _stopping = false;
+
+      if (mounted) {
+        _updateState(() {
+          _searching = false;
+          _searchFinished = false;
+          _checkingAddress = false;
+          _recovering = false;
+          _stopping = false;
+        });
+      }
+
+      _setActive(false);
+      return;
+    }
+
     _stopSearchAnimation();
 
     _service.stopListening();
@@ -549,6 +616,33 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
   void _finishSearch({
     String? message,
   }) {
+    // --------------------------------------------------------
+    // Accepted walk owns the state now.
+    // Do not allow an old search result to change it.
+    // --------------------------------------------------------
+
+    if (_searchStoppedAfterAccepted) {
+      debugPrint(
+        '⚠️ InstaWalk: finishSearch ignored after walker acceptance.',
+      );
+
+      _stopSearchAnimation();
+      _service.stopListening();
+
+      if (mounted) {
+        _updateState(() {
+          _searching = false;
+          _searchFinished = false;
+          _checkingAddress = false;
+          _recovering = false;
+          _stopping = false;
+        });
+      }
+
+      _setActive(false);
+      return;
+    }
+
     _stopSearchAnimation();
 
     _service.stopListening();
@@ -594,10 +688,11 @@ class _InstaWalkContainerState extends State<InstaWalkContainer>
     }
 
     // --------------------------------------------------------
-    // New search = allow next accepted event.
+    // A NEW search is now starting.
     // --------------------------------------------------------
 
     _acceptHandled = false;
+    _searchStoppedAfterAccepted = false;
 
     _updateState(() {
       _searchFinished = false;
