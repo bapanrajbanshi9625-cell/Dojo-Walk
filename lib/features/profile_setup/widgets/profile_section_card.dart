@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class ProfileSectionCard extends StatelessWidget {
   final Widget child;
@@ -16,11 +16,13 @@ class ProfileSectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DojoCardColors.lightBackground,
+        color: DojoWalkColors.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.05,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
