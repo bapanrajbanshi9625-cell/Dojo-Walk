@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/constants/app_colors.dart';
+
+import '../core/theme/dojo_walk_design_system.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -8,17 +9,32 @@ class NotificationsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        title: const Text('Notifications', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: DojoWalkColors.primary,
+        title: const Text(
+          'Notifications',
+          style: TextStyle(
+            color: DojoWalkColors.white,
+          ),
+        ),
+        iconTheme: const IconThemeData(
+          color: DojoWalkColors.white,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: const [
           ListTile(
-            leading: CircleAvatar(backgroundColor: AppColors.secondary, child: Icon(Icons.notifications, color: Colors.white)),
+            leading: CircleAvatar(
+              backgroundColor: DojoWalkColors.blue,
+              child: Icon(
+                Icons.notifications,
+                color: DojoWalkColors.white,
+              ),
+            ),
             title: Text('Walk Started'),
-            subtitle: Text('Your scheduled walk session with Buddy has started successfully.'),
+            subtitle: Text(
+              'Your scheduled walk session with Buddy has started successfully.',
+            ),
           ),
         ],
       ),
