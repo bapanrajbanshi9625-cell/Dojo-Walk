@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme/dojo_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 
 import '../widgets/menu_card.dart';
 import '../widgets/section_title.dart';
@@ -68,7 +68,7 @@ class _MenuScreenState extends State<MenuScreen> {
           title: const Text(
             'Logout',
             style: TextStyle(
-              color: DojoBrandColors.navy,
+              color: DojoWalkColors.textPrimary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -83,14 +83,14 @@ class _MenuScreenState extends State<MenuScreen> {
               child: const Text(
                 'Cancel',
                 style: TextStyle(
-                  color: DojoBrandColors.slate,
+                  color: DojoWalkColors.textSecondary,
                 ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: DojoBrandColors.orange,
-                foregroundColor: Colors.white,
+                backgroundColor: DojoWalkColors.primary,
+                foregroundColor: DojoWalkColors.white,
               ),
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -120,7 +120,7 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DojoLightColors.background,
+      backgroundColor: DojoWalkColors.background,
 
       // ========================================================
       // DOJO WALK APP BAR
@@ -133,8 +133,8 @@ class _MenuScreenState extends State<MenuScreen> {
       // ========================================================
 
       body: RefreshIndicator(
-        color: DojoBrandColors.orange,
-        backgroundColor: Colors.white,
+        color: DojoWalkColors.primary,
+        backgroundColor: DojoWalkColors.white,
         onRefresh: _refreshMenu,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -291,8 +291,8 @@ class _MenuScreenState extends State<MenuScreen> {
               icon: Icons.logout,
               title: 'Logout',
               subtitle: 'Sign out of your account',
-              iconColor: DojoCardColors.error,
-              titleColor: DojoCardColors.error,
+              iconColor: DojoWalkColors.red,
+              titleColor: DojoWalkColors.red,
               onTap: () {
                 _showLogoutDialog(context);
               },
@@ -310,7 +310,7 @@ class _MenuScreenState extends State<MenuScreen> {
               child: Text(
                 'Dojo Walk',
                 style: TextStyle(
-                  color: DojoBrandColors.navy,
+                  color: DojoWalkColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -325,7 +325,7 @@ class _MenuScreenState extends State<MenuScreen> {
               child: Text(
                 'Version 1.0.0',
                 style: TextStyle(
-                  color: DojoBrandColors.slate,
+                  color: DojoWalkColors.textSecondary,
                   fontSize: 11,
                 ),
               ),
