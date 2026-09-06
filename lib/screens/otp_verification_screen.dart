@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -138,11 +137,14 @@ class _OtpVerificationScreenState
       }
 
       debugPrint(
-        'LOGIN PHONE AVAILABLE',
+        'VERIFIED PHONE: $phone',
       );
 
       // ========================================================
-      // 3. CHECK CUSTOMER THROUGH BACKEND
+      // 3. BACKEND CUSTOMER CHECK
+      //
+      // Backend remains as an additional secure verification.
+      // Existing owner identity is resolved from Firestore.
       // ========================================================
 
       final Map<String, dynamic> backendData =
@@ -150,10 +152,6 @@ class _OtpVerificationScreenState
         accessToken: accessToken,
         phoneNumber: phone,
       );
-
-      // ========================================================
-      // 4. BACKEND SUCCESS
-      // ========================================================
 
       final bool backendSuccess =
           _isTrueValue(
@@ -178,38 +176,6 @@ class _OtpVerificationScreenState
         );
       }
 
-      // ========================================================
-      // 5. BACKEND DATA
-      // ========================================================
-
-      final bool exists =
-          _isTrueValue(
-        backendData['exists'],
-      );
-
-      final bool profileCompleted =
-          _isTrueValue(
-        backendData['profileCompleted'],
-      );
-
-      final String ownerId =
-          backendData['ownerId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      final String authUid =
-          backendData['authUid']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      final String role =
-          backendData['role']
-                  ?.toString()
-                  .trim() ??
-              'owner';
-
       final String backendPhone =
           backendData['phone']
                   ?.toString()
@@ -218,116 +184,152 @@ class _OtpVerificationScreenState
 
       final String verifiedPhone =
           backendPhone.isNotEmpty
-              ? backendPhone
+              ? (_normalizeIndianPhone(
+                    backendPhone,
+                  ) ??
+                  phone)
               : phone;
 
       debugPrint(
-        'BACKEND EXISTS: $exists',
-      );
-
-      debugPrint(
-        'BACKEND PROFILE COMPLETED: '
-        '$profileCompleted',
-      );
-
-      debugPrint(
-        'BACKEND OWNER ID: $ownerId',
-      );
-
-      debugPrint(
-        'BACKEND AUTH UID: $authUid',
-      );
-
-      debugPrint(
-        'BACKEND ROLE: $role',
+        'FINAL VERIFIED PHONE: $verifiedPhone',
       );
 
       // ========================================================
-      // 6. FIREBASE TEMPORARY SESSION
+      // 4. FIRESTORE OWNER LOOKUP
+      //
+      // IMPORTANT:
+      //
+      // Existing owner is searched directly in:
+      //
+      // owners
+      //
+      // Primary:
+      // mainPhone
+      //
+      // Fallback:
+      // phone
+      //
+      // Fallback:
+      // phoneNumber
+      //
+      // NO temporary Firebase UID.
+      // NO temporary phoneAccounts mapping.
       // ========================================================
 
-      final FirebaseAuth auth =
-          FirebaseAuth.instance;
-
-      User? firebaseUser =
-          auth.currentUser;
-
-      if (firebaseUser == null) {
-        debugPrint(
-          'CREATING TEMPORARY FIREBASE SESSION',
-        );
-
-        final UserCredential credential =
-            await auth.signInAnonymously();
-
-        firebaseUser =
-            credential.user;
-      }
-
-      if (firebaseUser == null) {
-        throw Exception(
-          'Unable to create temporary Firebase session.',
-        );
-      }
-
-      final String temporaryUid =
-          firebaseUser.uid.trim();
-
-      if (temporaryUid.isEmpty) {
-        throw Exception(
-          'Temporary Firebase UID is missing.',
-        );
-      }
-
-      debugPrint(
-        'CURRENT FIREBASE UID: $temporaryUid',
-      );
-
-      // ========================================================
-      // 7. SAVE LOGIN STATE
-      // ========================================================
-
-      final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
-
-      await prefs.setString(
-        'tempVerifiedPhone',
+      final Map<String, dynamic>?
+          existingOwner =
+          await _findExistingOwner(
         verifiedPhone,
       );
 
-      await prefs.setBool(
-        'tempOtpVerified',
-        true,
-      );
-
-      await prefs.setBool(
-        'tempExistingAccount',
-        exists,
-      );
-
-      await prefs.setString(
-        'tempOwnerId',
-        ownerId,
-      );
-
-      await prefs.setString(
-        'tempRole',
-        role,
-      );
-
       // ========================================================
-      // 8. EXISTING ACCOUNT
+      // 5. EXISTING OWNER FOUND
       // ========================================================
 
-      if (exists) {
-        final String accountUid =
-            authUid.isNotEmpty
-                ? authUid
-                : temporaryUid;
+      if (existingOwner != null) {
+        final String documentId =
+            existingOwner['documentId']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final Map<String, dynamic> ownerData =
+            Map<String, dynamic>.from(
+          existingOwner['data']
+              as Map<String, dynamic>,
+        );
+
+        final String ownerId =
+            ownerData['ownerId']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final bool profileCompleted =
+            _isTrueValue(
+          ownerData['profileCompleted'],
+        );
+
+        final bool isActive =
+            ownerData['isActive'] == null
+                ? true
+                : _isTrueValue(
+                    ownerData['isActive'],
+                  );
+
+        final String ownerPhone =
+            ownerData['mainPhone']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        debugPrint(
+          'EXISTING OWNER DOCUMENT: $documentId',
+        );
+
+        debugPrint(
+          'EXISTING OWNER ID: $ownerId',
+        );
+
+        debugPrint(
+          'EXISTING OWNER PHONE: $ownerPhone',
+        );
+
+        debugPrint(
+          'EXISTING OWNER PROFILE COMPLETED: '
+          '$profileCompleted',
+        );
+
+        debugPrint(
+          'EXISTING OWNER ACTIVE: $isActive',
+        );
+
+        if (ownerId.isEmpty) {
+          throw Exception(
+            'Existing owner was found, but ownerId is missing.',
+          );
+        }
+
+        if (!isActive) {
+          throw Exception(
+            'This owner account is currently inactive.',
+          );
+        }
+
+        // ======================================================
+        // SAVE EXISTING OWNER LOGIN STATE
+        //
+        // This is ONLY local app state.
+        //
+        // It does NOT create or modify Firestore identity.
+        // ======================================================
+
+        final SharedPreferences prefs =
+            await SharedPreferences.getInstance();
 
         await prefs.setString(
-          'tempAccountUid',
-          accountUid,
+          'tempVerifiedPhone',
+          verifiedPhone,
+        );
+
+        await prefs.setBool(
+          'tempOtpVerified',
+          true,
+        );
+
+        await prefs.setBool(
+          'tempExistingAccount',
+          true,
+        );
+
+        await prefs.setString(
+          'tempOwnerId',
+          ownerId,
+        );
+
+        await prefs.setString(
+          'tempRole',
+          'owner',
         );
 
         await prefs.setBool(
@@ -335,35 +337,20 @@ class _OtpVerificationScreenState
           profileCompleted,
         );
 
-        // ======================================================
-        // FIRESTORE OWNER SESSION MAPPING
-        //
         // IMPORTANT:
-        // Existing owner may have an old Firebase authUid.
-        // Current MSG91 login uses a temporary Firebase UID.
+        // Do NOT save temporary Firebase UID.
         //
-        // This mapping connects:
-        //
-        // temporary Firebase UID
-        //          ↓
-        // persistent ownerId
-        //
-        // WITHOUT changing the old owner's authUid.
-        // ======================================================
-
-        if (ownerId.isNotEmpty &&
-            role.toLowerCase() == 'owner') {
-          await _saveTemporaryOwnerMapping(
-            temporaryUid: temporaryUid,
-            ownerId: ownerId,
-            verifiedPhone: verifiedPhone,
-            profileCompleted: profileCompleted,
-            oldAuthUid: authUid,
-          );
-        }
+        // Existing owner already has a permanent ownerId.
+        await prefs.remove(
+          'tempAccountUid',
+        );
 
         debugPrint(
-          'EXISTING OWNER FOUND',
+          'EXISTING OWNER LOGIN SUCCESS',
+        );
+
+        debugPrint(
+          'FIXED OWNER ID: $ownerId',
         );
 
         if (!mounted) {
@@ -400,16 +387,31 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 9. NEW ACCOUNT
+      // 6. NEW OWNER
+      //
+      // No owner exists with this phone.
+      // Profile Setup will create the new owner profile.
       // ========================================================
 
+      debugPrint(
+        'NO EXISTING OWNER FOUND',
+      );
+
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
       await prefs.setString(
-        'tempAccountUid',
-        temporaryUid,
+        'tempVerifiedPhone',
+        verifiedPhone,
       );
 
       await prefs.setBool(
-        'tempProfileCompleted',
+        'tempOtpVerified',
+        true,
+      );
+
+      await prefs.setBool(
+        'tempExistingAccount',
         false,
       );
 
@@ -418,23 +420,23 @@ class _OtpVerificationScreenState
         '',
       );
 
+      await prefs.setString(
+        'tempRole',
+        'owner',
+      );
+
       await prefs.setBool(
-        'tempExistingAccount',
+        'tempProfileCompleted',
         false,
       );
 
-      await prefs.setBool(
-        'tempOtpVerified',
-        true,
-      );
-
-      await prefs.setString(
-        'tempVerifiedPhone',
-        verifiedPhone,
+      // Remove any old local identity.
+      await prefs.remove(
+        'tempAccountUid',
       );
 
       debugPrint(
-        'NEW OWNER ACCOUNT',
+        'NEW OWNER PROFILE SETUP REQUIRED',
       );
 
       if (!mounted) {
@@ -525,101 +527,137 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // SAVE TEMPORARY OWNER MAPPING
+  // FIND EXISTING OWNER
+  //
+  // owners.mainPhone is the primary identity lookup.
+  //
+  // Fallback fields are supported for older documents.
   // ============================================================
 
-  Future<void> _saveTemporaryOwnerMapping({
-    required String temporaryUid,
-    required String ownerId,
-    required String verifiedPhone,
-    required bool profileCompleted,
-    required String oldAuthUid,
-  }) async {
-    final String uid =
-        temporaryUid.trim();
+  Future<Map<String, dynamic>?>
+      _findExistingOwner(
+    String verifiedPhone,
+  ) async {
+    final String phone =
+        verifiedPhone.trim();
 
-    final String persistentOwnerId =
-        ownerId.trim();
-
-    if (uid.isEmpty ||
-        persistentOwnerId.isEmpty) {
-      return;
+    if (phone.isEmpty) {
+      return null;
     }
 
-    try {
-      final DocumentReference<Map<String, dynamic>>
-          phoneAccountRef =
-          _firestore
-              .collection('phoneAccounts')
-              .doc(uid);
+    debugPrint(
+      'SEARCHING OWNERS BY MAIN PHONE',
+    );
 
-      await phoneAccountRef.set(
-        {
-          'ownerId':
-              persistentOwnerId,
+    // ==========================================================
+    // 1. PRIMARY: mainPhone
+    // ==========================================================
 
-          'uid':
-              uid,
+    final QuerySnapshot<
+        Map<String, dynamic>>
+        mainPhoneSnapshot =
+        await _firestore
+            .collection('owners')
+            .where(
+              'mainPhone',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
 
-          'authUid':
-              uid,
-
-          'phone':
-              verifiedPhone,
-
-          'phoneNumber':
-              verifiedPhone,
-
-          'mainPhone':
-              verifiedPhone,
-
-          'role':
-              'owner',
-
-          'profileCompleted':
-              profileCompleted,
-
-          'isActive':
-              true,
-
-          'updatedAt':
-              FieldValue.serverTimestamp(),
-
-          if (oldAuthUid.isNotEmpty &&
-              oldAuthUid != uid)
-            'linkedAuthUid':
-                oldAuthUid,
-        },
-        SetOptions(
-          merge: true,
-        ),
-      );
+    if (mainPhoneSnapshot.docs.isNotEmpty) {
+      final QueryDocumentSnapshot<
+          Map<String, dynamic>>
+          doc =
+          mainPhoneSnapshot.docs.first;
 
       debugPrint(
-        'TEMP OWNER MAPPING SAVED',
+        'OWNER FOUND USING mainPhone',
       );
 
-      debugPrint(
-        'phoneAccounts/$uid',
-      );
-
-      debugPrint(
-        'MAPPED OWNER ID: $persistentOwnerId',
-      );
-    } on FirebaseException catch (e) {
-      debugPrint(
-        'TEMP OWNER MAPPING FIREBASE ERROR: '
-        '${e.code}',
-      );
-
-      rethrow;
-    } catch (e) {
-      debugPrint(
-        'TEMP OWNER MAPPING ERROR: $e',
-      );
-
-      rethrow;
+      return {
+        'documentId': doc.id,
+        'data': doc.data(),
+      };
     }
+
+    // ==========================================================
+    // 2. FALLBACK: phone
+    // ==========================================================
+
+    debugPrint(
+      'mainPhone NOT FOUND. SEARCHING phone',
+    );
+
+    final QuerySnapshot<
+        Map<String, dynamic>>
+        phoneSnapshot =
+        await _firestore
+            .collection('owners')
+            .where(
+              'phone',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (phoneSnapshot.docs.isNotEmpty) {
+      final QueryDocumentSnapshot<
+          Map<String, dynamic>>
+          doc =
+          phoneSnapshot.docs.first;
+
+      debugPrint(
+        'OWNER FOUND USING phone',
+      );
+
+      return {
+        'documentId': doc.id,
+        'data': doc.data(),
+      };
+    }
+
+    // ==========================================================
+    // 3. FALLBACK: phoneNumber
+    // ==========================================================
+
+    debugPrint(
+      'phone NOT FOUND. SEARCHING phoneNumber',
+    );
+
+    final QuerySnapshot<
+        Map<String, dynamic>>
+        phoneNumberSnapshot =
+        await _firestore
+            .collection('owners')
+            .where(
+              'phoneNumber',
+              isEqualTo: phone,
+            )
+            .limit(1)
+            .get();
+
+    if (phoneNumberSnapshot.docs.isNotEmpty) {
+      final QueryDocumentSnapshot<
+          Map<String, dynamic>>
+          doc =
+          phoneNumberSnapshot.docs.first;
+
+      debugPrint(
+        'OWNER FOUND USING phoneNumber',
+      );
+
+      return {
+        'documentId': doc.id,
+        'data': doc.data(),
+      };
+    }
+
+    debugPrint(
+      'OWNER NOT FOUND IN FIRESTORE',
+    );
+
+    return null;
   }
 
   // ============================================================
@@ -897,7 +935,7 @@ class _OtpVerificationScreenState
   ) {
     switch (e.code) {
       case 'permission-denied':
-        return 'Firebase permission denied.';
+        return 'Firebase permission denied while checking your owner profile.';
 
       case 'unauthenticated':
         return 'Firebase authentication is required.';
