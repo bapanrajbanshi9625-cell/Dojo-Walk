@@ -312,7 +312,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: Colors.white70
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -323,7 +323,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.white70,
+                  color: Colors.white70
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -369,7 +369,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: Colors.white70
                   fontSize: 13.5,
                   fontWeight: FontWeight.w900,
                 ),
@@ -380,7 +380,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.white70,
+                  color: Colors.white70
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -450,7 +450,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
           backgroundColor: AppColors.navy,
           disabledBackgroundColor: AppColors.navy,
           foregroundColor: AppColors.white,
-          disabledForegroundColor: AppColors.white70,
+          disabledForegroundColor: Colors.white70
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 10,
