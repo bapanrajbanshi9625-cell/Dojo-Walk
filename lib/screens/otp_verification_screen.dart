@@ -314,6 +314,12 @@ class _OtpVerificationScreenState
           accountUid,
         );
 
+        // ONLY CHANGE #1
+        await prefs.setBool(
+          'tempProfileCompleted',
+          profileCompleted,
+        );
+
         debugPrint(
           'EXISTING OWNER FOUND',
         );
@@ -358,6 +364,12 @@ class _OtpVerificationScreenState
       await prefs.setString(
         'tempAccountUid',
         temporaryUid,
+      );
+
+      // ONLY CHANGE #2
+      await prefs.setBool(
+        'tempProfileCompleted',
+        false,
       );
 
       await prefs.setString(
