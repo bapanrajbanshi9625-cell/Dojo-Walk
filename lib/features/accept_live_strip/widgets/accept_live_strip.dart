@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 import '../../live_walk/screens/live_walk_screen.dart';
 import '../../walker_accept/screens/walker_accept_screen.dart';
 import '../models/accept_live_strip_data.dart';
@@ -209,10 +209,6 @@ class _AcceptLiveStripState
       return;
     }
 
-    // --------------------------------------------------------
-    // TERMINAL STATE → NOTHING OPENS
-    // --------------------------------------------------------
-
     if (_isTerminal) {
       debugPrint(
         'AcceptLiveStrip → navigation blocked. '
@@ -340,10 +336,6 @@ class _AcceptLiveStripState
       return const SizedBox.shrink();
     }
 
-    // --------------------------------------------------------
-    // TERMINAL STATE → HIDE STRIP COMPLETELY
-    // --------------------------------------------------------
-
     if (_isTerminal) {
       return const SizedBox.shrink();
     }
@@ -353,24 +345,27 @@ class _AcceptLiveStripState
     }
 
     return Material(
-      color: Colors.transparent,
+      color: DojoWalkColors.transparent,
       child: InkWell(
         onTap: _openWalk,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           margin: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 8,
+            vertical: 6,
           ),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 9,
+          ),
           decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(18),
+            color: DojoWalkColors.primary,
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                blurRadius: 14,
-                offset: const Offset(0, 6),
-                color: Colors.black.withValues(
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+                color: DojoWalkColors.black.withValues(
                   alpha: 0.12,
                 ),
               ),
@@ -379,10 +374,10 @@ class _AcceptLiveStripState
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(
+                  color: DojoWalkColors.white.withValues(
                     alpha: 0.16,
                   ),
                   shape: BoxShape.circle,
@@ -392,12 +387,12 @@ class _AcceptLiveStripState
                           _canOpenLiveWalk
                       ? Icons.directions_walk_rounded
                       : Icons.pets_rounded,
-                  color: Colors.white,
-                  size: 26,
+                  color: DojoWalkColors.white,
+                  size: 22,
                 ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
 
               Expanded(
                 child: Column(
@@ -410,15 +405,15 @@ class _AcceptLiveStripState
                       overflow:
                           TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
+                        color: DojoWalkColors.white,
+                        fontSize: 14,
                         fontWeight:
                             FontWeight.w800,
                         letterSpacing: 0.3,
                       ),
                     ),
 
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
 
                     Text(
                       _secondaryText,
@@ -427,10 +422,11 @@ class _AcceptLiveStripState
                           TextOverflow.ellipsis,
                       style: TextStyle(
                         color:
-                            Colors.white.withValues(
+                            DojoWalkColors.white
+                                .withValues(
                           alpha: 0.88,
                         ),
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight:
                             FontWeight.w500,
                       ),
@@ -439,7 +435,7 @@ class _AcceptLiveStripState
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
 
               Column(
                 mainAxisSize:
@@ -450,14 +446,14 @@ class _AcceptLiveStripState
                   Text(
                     _statusTitle,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
+                      color: DojoWalkColors.white,
+                      fontSize: 10,
                       fontWeight:
                           FontWeight.w800,
                     ),
                   ),
 
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
 
                   Text(
                     _statusSubtitle,
@@ -465,21 +461,22 @@ class _AcceptLiveStripState
                         TextAlign.right,
                     style: TextStyle(
                       color:
-                          Colors.white.withValues(
+                          DojoWalkColors.white
+                              .withValues(
                         alpha: 0.78,
                       ),
-                      fontSize: 9,
+                      fontSize: 8,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
 
               const Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white,
-                size: 22,
+                color: DojoWalkColors.white,
+                size: 20,
               ),
             ],
           ),
