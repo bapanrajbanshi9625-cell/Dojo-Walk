@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class ProfileWelcomeCard extends StatelessWidget {
   const ProfileWelcomeCard({
@@ -13,11 +13,11 @@ class ProfileWelcomeCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: DojoBrandColors.orange,
+        color: DojoWalkColors.primary,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.12,
             ),
             blurRadius: 14,
@@ -36,12 +36,12 @@ class ProfileWelcomeCard extends StatelessWidget {
             width: 57,
             height: 57,
             decoration: BoxDecoration(
-              color: DojoBrandColors.orangeDark,
+              color: DojoWalkColors.primaryDark,
               borderRadius: BorderRadius.circular(17),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color: Colors.white,
+              color: DojoWalkColors.white,
               size: 31,
             ),
           ),
@@ -56,7 +56,7 @@ class ProfileWelcomeCard extends StatelessWidget {
                 Text(
                   'Complete Your Profile',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: DojoWalkColors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -67,7 +67,7 @@ class ProfileWelcomeCard extends StatelessWidget {
                 Text(
                   'Add your details and your pets.',
                   style: TextStyle(
-                    color: Color(0xFFFFE5D8),
+                    color: DojoWalkColors.primaryLight,
                     fontSize: 13,
                   ),
                 ),
