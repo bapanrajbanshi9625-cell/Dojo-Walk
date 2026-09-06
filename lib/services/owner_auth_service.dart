@@ -15,24 +15,12 @@ class OwnerAuthService {
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  static const String _ownersCollection =
-      'owners';
-
+  static const String _ownersCollection = 'owners';
   static const String _phoneAccountsCollection =
       'phoneAccounts';
 
   // ============================================================
   // CREATE / RESTORE FIREBASE SESSION
-  // ============================================================
-  //
-  // IMPORTANT:
-  //
-  // This method is ONLY for cases where a Firebase session is
-  // actually required.
-  //
-  // It is NOT used to decide whether the phone number already
-  // has an Owner account.
-  //
   // ============================================================
 
   Future<User> createOrRestoreSession() async {
@@ -66,8 +54,7 @@ class OwnerAuthService {
     final User user =
         await createOrRestoreSession();
 
-    final String uid =
-        user.uid.trim();
+    final String uid = user.uid.trim();
 
     if (uid.isEmpty) {
       throw FirebaseAuthException(
@@ -87,159 +74,60 @@ class OwnerAuthService {
   String _normalizePhoneNumber(
     String phoneNumber,
   ) {
-    String cleanPhone =
-        phoneNumber
-            .trim()
-            .replaceAll(
-              RegExp(r'[^0-9]'),
-              '',
-            );
-
-    if (cleanPhone.length == 12 &&
-        cleanPhone.startsWith('91')) {
-      cleanPhone =
-          cleanPhone.substring(2);
-    }
-
-    if (cleanPhone.length != 10) {
-      throw FirebaseAuthException(
-        code: 'invalid-phone',
-        message:
-            'Please enter a valid 10-digit mobile number.',
-      );
-    }
-
-    if (!RegExp(r'^[6-9][0-9]{9}$')
-        .hasMatch(cleanPhone)) {
-      throw FirebaseAuthException(
-        code: 'invalid-phone',
-        message:
-            'Please enter a valid 10-digit mobile number.',
-      );
-    }
-
-    return cleanPhone;
+    return OwnerIdService.instance
+        .normalizePhone(phoneNumber);
   }
-
-  // ============================================================
-  // FULL PHONE
-  // ============================================================
 
   String _fullPhone(
     String phoneNumber,
   ) {
-    final String cleanPhone =
-        _normalizePhoneNumber(
-      phoneNumber,
-    );
-
-    return '+91$cleanPhone';
+    return '+91${_normalizePhoneNumber(phoneNumber)}';
   }
 
   // ============================================================
   // FIND EXISTING PHONE ACCOUNT
-  // ============================================================
-  //
-  // IMPORTANT:
-  //
-  // DO THIS BEFORE CREATING A NEW UID.
-  //
-  // Existing documents may contain:
-  //
-  // phoneNumber
-  // phone
-  // mainPhone
-  //
-  // Therefore we check all three fields.
-  //
   // ============================================================
 
   Future<Map<String, dynamic>?>
       findExistingPhoneAccount({
     required String phoneNumber,
   }) async {
-    final String fullPhoneNumber =
-        _fullPhone(phoneNumber);
+    final String cleanPhone =
+        _normalizePhoneNumber(phoneNumber);
 
-    // ----------------------------------------------------------
-    // CHECK phoneNumber
-    // ----------------------------------------------------------
+    final List<String> variants =
+        OwnerIdService.instance
+            .phoneVariants(cleanPhone);
 
-    final QuerySnapshot<Map<String, dynamic>>
-        phoneNumberQuery =
-        await _firestore
-            .collection(
-              _phoneAccountsCollection,
-            )
-            .where(
-              'phoneNumber',
-              isEqualTo: fullPhoneNumber,
-            )
-            .limit(1)
-            .get();
+    for (final String variant in variants) {
+      for (final String field in <String>[
+        'phoneNumber',
+        'phone',
+        'mainPhone',
+      ]) {
+        final QuerySnapshot<Map<String, dynamic>>
+            query =
+            await _firestore
+                .collection(
+                  _phoneAccountsCollection,
+                )
+                .where(
+                  field,
+                  isEqualTo: variant,
+                )
+                .limit(1)
+                .get();
 
-    if (phoneNumberQuery.docs.isNotEmpty) {
-      final Map<String, dynamic> data =
-          phoneNumberQuery.docs.first.data();
+        if (query.docs.isNotEmpty) {
+          final Map<String, dynamic> data =
+              query.docs.first.data();
 
-      data['_documentId'] =
-          phoneNumberQuery.docs.first.id;
+          data['_documentId'] =
+              query.docs.first.id;
 
-      return data;
-    }
-
-    // ----------------------------------------------------------
-    // CHECK phone
-    // ----------------------------------------------------------
-
-    final QuerySnapshot<Map<String, dynamic>>
-        phoneQuery =
-        await _firestore
-            .collection(
-              _phoneAccountsCollection,
-            )
-            .where(
-              'phone',
-              isEqualTo: fullPhoneNumber,
-            )
-            .limit(1)
-            .get();
-
-    if (phoneQuery.docs.isNotEmpty) {
-      final Map<String, dynamic> data =
-          phoneQuery.docs.first.data();
-
-      data['_documentId'] =
-          phoneQuery.docs.first.id;
-
-      return data;
-    }
-
-    // ----------------------------------------------------------
-    // CHECK mainPhone
-    // ----------------------------------------------------------
-
-    final QuerySnapshot<Map<String, dynamic>>
-        mainPhoneQuery =
-        await _firestore
-            .collection(
-              _phoneAccountsCollection,
-            )
-            .where(
-              'mainPhone',
-              isEqualTo: fullPhoneNumber,
-            )
-            .limit(1)
-            .get();
-
-    if (mainPhoneQuery.docs.isNotEmpty) {
-      final Map<String, dynamic> data =
-          mainPhoneQuery.docs.first.data();
-
-      data['_documentId'] =
-          mainPhoneQuery.docs.first.id;
-
-      return data;
+          return data;
+        }
+      }
     }
 
     return null;
@@ -248,101 +136,48 @@ class OwnerAuthService {
   // ============================================================
   // FIND EXISTING OWNER BY PHONE
   // ============================================================
-  //
-  // This is a fallback.
-  //
-  // If phoneAccounts does not contain the mapping but the Owner
-  // profile already contains the phone number, restore that
-  // Owner instead of creating a new Owner ID.
-  //
-  // ============================================================
 
   Future<Map<String, dynamic>?>
       findExistingOwnerByPhone({
     required String phoneNumber,
   }) async {
-    final String fullPhoneNumber =
-        _fullPhone(phoneNumber);
+    final String cleanPhone =
+        _normalizePhoneNumber(phoneNumber);
 
-    // ----------------------------------------------------------
-    // phoneNumber
-    // ----------------------------------------------------------
+    final List<String> variants =
+        OwnerIdService.instance
+            .phoneVariants(cleanPhone);
 
-    final QuerySnapshot<Map<String, dynamic>>
-        phoneNumberQuery =
-        await _firestore
-            .collection(
-              _ownersCollection,
-            )
-            .where(
-              'phoneNumber',
-              isEqualTo: fullPhoneNumber,
-            )
-            .limit(1)
-            .get();
+    for (final String variant in variants) {
+      for (final String field in <String>[
+        'phoneNumber',
+        'phone',
+        'mainPhone',
+      ]) {
+        final QuerySnapshot<Map<String, dynamic>>
+            query =
+            await _firestore
+                .collection(_ownersCollection)
+                .where(
+                  field,
+                  isEqualTo: variant,
+                )
+                .limit(1)
+                .get();
 
-    if (phoneNumberQuery.docs.isNotEmpty) {
-      final Map<String, dynamic> data =
-          phoneNumberQuery.docs.first.data();
+        if (query.docs.isNotEmpty) {
+          final DocumentSnapshot<Map<String, dynamic>>
+              doc =
+              query.docs.first;
 
-      data['_documentId'] =
-          phoneNumberQuery.docs.first.id;
+          final Map<String, dynamic> data =
+              doc.data() ?? <String, dynamic>{};
 
-      return data;
-    }
+          data['_documentId'] = doc.id;
 
-    // ----------------------------------------------------------
-    // phone
-    // ----------------------------------------------------------
-
-    final QuerySnapshot<Map<String, dynamic>>
-        phoneQuery =
-        await _firestore
-            .collection(
-              _ownersCollection,
-            )
-            .where(
-              'phone',
-              isEqualTo: fullPhoneNumber,
-            )
-            .limit(1)
-            .get();
-
-    if (phoneQuery.docs.isNotEmpty) {
-      final Map<String, dynamic> data =
-          phoneQuery.docs.first.data();
-
-      data['_documentId'] =
-          phoneQuery.docs.first.id;
-
-      return data;
-    }
-
-    // ----------------------------------------------------------
-    // mainPhone
-    // ----------------------------------------------------------
-
-    final QuerySnapshot<Map<String, dynamic>>
-        mainPhoneQuery =
-        await _firestore
-            .collection(
-              _ownersCollection,
-            )
-            .where(
-              'mainPhone',
-              isEqualTo: fullPhoneNumber,
-            )
-            .limit(1)
-            .get();
-
-    if (mainPhoneQuery.docs.isNotEmpty) {
-      final Map<String, dynamic> data =
-          mainPhoneQuery.docs.first.data();
-
-      data['_documentId'] =
-          mainPhoneQuery.docs.first.id;
-
-      return data;
+          return data;
+        }
+      }
     }
 
     return null;
@@ -351,107 +186,44 @@ class OwnerAuthService {
   // ============================================================
   // GET / CREATE OWNER ID
   // ============================================================
-  //
-  // IMPORTANT:
-  //
-  // This method is now SAFE:
-  //
-  // 1. First search existing phone account.
-  // 2. Then search existing Owner.
-  // 3. ONLY if nothing exists, create Firebase UID.
-  // 4. ONLY then create Owner ID.
-  //
-  // ============================================================
 
   Future<String> getOwnerId({
     required String phoneNumber,
   }) async {
     final String cleanPhone =
-        _normalizePhoneNumber(
-      phoneNumber,
+        _normalizePhoneNumber(phoneNumber);
+
+    // ==========================================================
+    // 1. PHONE FIRST
+    // ==========================================================
+
+    final String? existingOwnerId =
+        await OwnerIdService.instance
+            .findExistingOwnerIdByPhone(
+      phoneNumber: cleanPhone,
     );
 
-    final String fullPhoneNumber =
-        '+91$cleanPhone';
-
-    // ----------------------------------------------------------
-    // 1. EXISTING PHONE ACCOUNT
-    // ----------------------------------------------------------
-
-    final Map<String, dynamic>?
-        existingPhoneAccount =
-        await findExistingPhoneAccount(
-      phoneNumber: fullPhoneNumber,
-    );
-
-    if (existingPhoneAccount != null) {
-      final String existingOwnerId =
-          (existingPhoneAccount['ownerId'] ??
-                  '')
-              .toString()
-              .trim();
-
-      if (existingOwnerId.isNotEmpty) {
-        return existingOwnerId;
-      }
+    if (existingOwnerId != null &&
+        existingOwnerId.trim().isNotEmpty) {
+      return existingOwnerId.trim();
     }
 
-    // ----------------------------------------------------------
-    // 2. EXISTING OWNER PROFILE
-    // ----------------------------------------------------------
-
-    final Map<String, dynamic>?
-        existingOwner =
-        await findExistingOwnerByPhone(
-      phoneNumber: fullPhoneNumber,
-    );
-
-    if (existingOwner != null) {
-      final String existingOwnerId =
-          (existingOwner['ownerId'] ??
-                  existingOwner['_documentId'] ??
-                  '')
-              .toString()
-              .trim();
-
-      if (existingOwnerId.isNotEmpty) {
-        return existingOwnerId;
-      }
-    }
-
-    // ----------------------------------------------------------
-    // 3. NO ACCOUNT FOUND
-    //
-    // NOW we are allowed to create/restore Firebase session.
-    // ----------------------------------------------------------
+    // ==========================================================
+    // 2. ONLY NEW PHONE REACHES FIREBASE UID CREATION
+    // ==========================================================
 
     final String uid =
         await getFirebaseUid();
 
-    // ----------------------------------------------------------
-    // 4. CREATE NEW OWNER ID
-    // ----------------------------------------------------------
+    // ==========================================================
+    // 3. CREATE OWNER ID
+    // ==========================================================
 
-    final String ownerId =
-        await OwnerIdService.instance
-            .getOrCreateOwnerId(
+    return OwnerIdService.instance
+        .getOrCreateOwnerId(
       uid: uid,
-      phoneNumber: fullPhoneNumber,
+      phoneNumber: '+91$cleanPhone',
     );
-
-    final String cleanOwnerId =
-        ownerId.trim();
-
-    if (cleanOwnerId.isEmpty) {
-      throw FirebaseException(
-        plugin: 'cloud_firestore',
-        code: 'owner-id-missing',
-        message:
-            'Owner ID could not be created.',
-      );
-    }
-
-    return cleanOwnerId;
   }
 
   // ============================================================
@@ -463,22 +235,15 @@ class OwnerAuthService {
     required String ownerId,
     required String phoneNumber,
   }) async {
-    final String cleanUid =
-        uid.trim();
-
-    final String cleanOwnerId =
-        ownerId.trim();
-
+    final String cleanUid = uid.trim();
+    final String cleanOwnerId = ownerId.trim();
     final String cleanPhone =
-        _normalizePhoneNumber(
-      phoneNumber,
-    );
+        _normalizePhoneNumber(phoneNumber);
 
     if (cleanUid.isEmpty) {
       throw FirebaseAuthException(
         code: 'invalid-user',
-        message:
-            'Firebase UID is empty.',
+        message: 'Firebase UID is empty.',
       );
     }
 
@@ -486,8 +251,7 @@ class OwnerAuthService {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'owner-id-missing',
-        message:
-            'Owner ID is empty.',
+        message: 'Owner ID is empty.',
       );
     }
 
@@ -497,9 +261,7 @@ class OwnerAuthService {
     final DocumentReference<Map<String, dynamic>>
         accountRef =
         _firestore
-            .collection(
-              _phoneAccountsCollection,
-            )
+            .collection(_phoneAccountsCollection)
             .doc(cleanUid);
 
     await accountRef.set(
@@ -514,9 +276,7 @@ class OwnerAuthService {
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
   }
 
@@ -530,31 +290,23 @@ class OwnerAuthService {
     required String uid,
     required String phoneNumber,
   }) async {
-    final String cleanOwnerId =
-        ownerId.trim();
-
-    final String cleanUid =
-        uid.trim();
-
+    final String cleanOwnerId = ownerId.trim();
+    final String cleanUid = uid.trim();
     final String cleanPhone =
-        _normalizePhoneNumber(
-      phoneNumber,
-    );
+        _normalizePhoneNumber(phoneNumber);
 
     if (cleanOwnerId.isEmpty) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'owner-id-missing',
-        message:
-            'Owner ID is empty.',
+        message: 'Owner ID is empty.',
       );
     }
 
     if (cleanUid.isEmpty) {
       throw FirebaseAuthException(
         code: 'invalid-user',
-        message:
-            'Firebase UID is empty.',
+        message: 'Firebase UID is empty.',
       );
     }
 
@@ -577,17 +329,10 @@ class OwnerAuthService {
 
     if (snapshot.exists) {
       final Map<String, dynamic> existingData =
-          snapshot.data() ??
-              <String, dynamic>{};
+          snapshot.data() ?? <String, dynamic>{};
 
-      // --------------------------------------------------------
-      // IMPORTANT:
-      //
-      // DO NOT overwrite the existing UID.
-      //
-      // The UID already stored in the existing Owner profile
-      // belongs to that existing account.
-      // --------------------------------------------------------
+      // DO NOT overwrite UID.
+      // DO NOT overwrite profileCompleted.
 
       await ownerRef.set(
         <String, dynamic>{
@@ -599,9 +344,7 @@ class OwnerAuthService {
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
-        SetOptions(
-          merge: true,
-        ),
+        SetOptions(merge: true),
       );
 
       return existingData;
@@ -631,9 +374,7 @@ class OwnerAuthService {
 
     await ownerRef.set(
       newOwnerData,
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
 
     return newOwnerData;
@@ -654,8 +395,7 @@ class OwnerAuthService {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'owner-id-missing',
-        message:
-            'Owner ID is empty.',
+        message: 'Owner ID is empty.',
       );
     }
 
@@ -682,28 +422,19 @@ class OwnerAuthService {
   // ============================================================
   // AUTHENTICATE OWNER
   // ============================================================
-  //
-  // This method is kept because other parts of the app may use
-  // it.
-  //
-  // It now checks PHONE FIRST.
-  //
-  // ============================================================
 
   Future<OwnerAuthResult>
       authenticateOwner({
     required String phoneNumber,
   }) async {
     final String cleanPhone =
-        _normalizePhoneNumber(
-      phoneNumber,
-    );
+        _normalizePhoneNumber(phoneNumber);
 
     final String fullPhoneNumber =
         '+91$cleanPhone';
 
     // ==========================================================
-    // 1. SEARCH EXISTING PHONE ACCOUNT FIRST
+    // 1. PHONE ACCOUNT FIRST
     // ==========================================================
 
     final Map<String, dynamic>?
@@ -712,13 +443,12 @@ class OwnerAuthService {
       phoneNumber: fullPhoneNumber,
     );
 
-    String? existingOwnerId;
+    String? ownerId;
     String? existingUid;
 
     if (existingPhoneAccount != null) {
-      existingOwnerId =
-          (existingPhoneAccount['ownerId'] ??
-                  '')
+      ownerId =
+          (existingPhoneAccount['ownerId'] ?? '')
               .toString()
               .trim();
 
@@ -731,21 +461,18 @@ class OwnerAuthService {
     }
 
     // ==========================================================
-    // 2. FALLBACK: SEARCH OWNER PROFILE BY PHONE
+    // 2. OWNER PROFILE FALLBACK
     // ==========================================================
 
-    Map<String, dynamic>?
-        existingOwner;
-
-    if (existingOwnerId == null ||
-        existingOwnerId.isEmpty) {
-      existingOwner =
+    if (ownerId == null || ownerId.isEmpty) {
+      final Map<String, dynamic>?
+          existingOwner =
           await findExistingOwnerByPhone(
         phoneNumber: fullPhoneNumber,
       );
 
       if (existingOwner != null) {
-        existingOwnerId =
+        ownerId =
             (existingOwner['ownerId'] ??
                     existingOwner['_documentId'] ??
                     '')
@@ -762,112 +489,68 @@ class OwnerAuthService {
     }
 
     // ==========================================================
-    // 3. EXISTING OWNER FOUND
+    // 3. EXISTING OWNER
     // ==========================================================
 
-    if (existingOwnerId != null &&
-        existingOwnerId.isNotEmpty) {
-      final Map<String, dynamic>
-          profileData =
+    if (ownerId != null && ownerId.isNotEmpty) {
+      final Map<String, dynamic> profile =
           await getOwnerProfile(
-        ownerId: existingOwnerId,
+        ownerId: ownerId,
       );
 
-      final bool isActive =
-          profileData['isActive'] != false;
-
       final bool profileCompleted =
-          profileData['profileCompleted'] == true;
+          profile['profileCompleted'] == true;
 
-      // --------------------------------------------------------
-      // IMPORTANT:
-      //
-      // Existing UID is NOT replaced with a new anonymous UID.
-      // --------------------------------------------------------
+      final bool isActive =
+          profile['isActive'] != false;
 
       return OwnerAuthResult(
         uid: existingUid ?? '',
-        ownerId: existingOwnerId,
+        ownerId: ownerId,
         phoneNumber: fullPhoneNumber,
-        profileData: profileData,
-        isActive: isActive,
         profileCompleted: profileCompleted,
+        isActive: isActive,
+        isExistingOwner: true,
+        profile: profile,
       );
     }
 
     // ==========================================================
-    // 4. NO EXISTING OWNER
-    //
-    // ONLY NOW create Firebase UID.
+    // 4. BRAND NEW PHONE
     // ==========================================================
 
-    final String newUid =
+    final String uid =
         await getFirebaseUid();
-
-    // ==========================================================
-    // 5. CREATE NEW OWNER ID
-    // ==========================================================
 
     final String newOwnerId =
         await OwnerIdService.instance
             .getOrCreateOwnerId(
-      uid: newUid,
+      uid: uid,
       phoneNumber: fullPhoneNumber,
     );
 
-    if (newOwnerId.trim().isEmpty) {
-      throw FirebaseException(
-        plugin: 'cloud_firestore',
-        code: 'owner-id-missing',
-        message:
-            'Owner ID could not be created.',
-      );
-    }
-
-    // ==========================================================
-    // 6. CREATE OWNER
-    // ==========================================================
-
-    final Map<String, dynamic>
-        newProfile =
+    final Map<String, dynamic> newProfile =
         await createOwnerIfMissing(
       ownerId: newOwnerId,
-      uid: newUid,
+      uid: uid,
       phoneNumber: fullPhoneNumber,
     );
-
-    // ==========================================================
-    // 7. SAVE PHONE MAPPING
-    // ==========================================================
 
     await savePhoneAccount(
-      uid: newUid,
+      uid: uid,
       ownerId: newOwnerId,
       phoneNumber: fullPhoneNumber,
     );
-
-    // ==========================================================
-    // 8. RESULT
-    // ==========================================================
 
     return OwnerAuthResult(
-      uid: newUid,
+      uid: uid,
       ownerId: newOwnerId,
       phoneNumber: fullPhoneNumber,
-      profileData: newProfile,
-      isActive:
-          newProfile['isActive'] != false,
-      profileCompleted:
-          newProfile['profileCompleted'] == true,
+      profileCompleted: false,
+      isActive: true,
+      isExistingOwner: false,
+      profile: newProfile,
     );
-  }
-
-  // ============================================================
-  // SIGN OUT
-  // ============================================================
-
-  Future<void> signOut() async {
-    await _auth.signOut();
   }
 }
 
@@ -876,19 +559,27 @@ class OwnerAuthService {
 // ============================================================
 
 class OwnerAuthResult {
-  final String uid;
-  final String ownerId;
-  final String phoneNumber;
-  final Map<String, dynamic> profileData;
-  final bool isActive;
-  final bool profileCompleted;
-
   const OwnerAuthResult({
     required this.uid,
     required this.ownerId,
     required this.phoneNumber,
-    required this.profileData,
-    required this.isActive,
     required this.profileCompleted,
+    required this.isActive,
+    required this.isExistingOwner,
+    required this.profile,
   });
+
+  final String uid;
+  final String ownerId;
+  final String phoneNumber;
+  final bool profileCompleted;
+  final bool isActive;
+  final bool isExistingOwner;
+  final Map<String, dynamic> profile;
+
+  bool get shouldOpenProfileSetup =>
+      !profileCompleted;
+
+  bool get shouldOpenHome =>
+      profileCompleted && isActive;
 }
