@@ -49,7 +49,7 @@ class _WalkerAcceptEntryState
   // ============================================================
 
   void _startListening() {
-    final user = _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return;
@@ -64,7 +64,7 @@ class _WalkerAcceptEntryState
         .snapshots()
         .listen(
       _handleRequests,
-      onError: (error) {
+      onError: (Object error) {
         debugPrint(
           'WalkerAcceptEntry error: $error',
         );
@@ -87,15 +87,62 @@ class _WalkerAcceptEntryState
         acceptedRequest;
 
     for (final doc in snapshot.docs) {
-      final data = doc.data();
+      final Map<String, dynamic> data =
+          doc.data();
 
-      final status = _readStatus(
-        data['status'],
-      );
+      final String status =
+          _readStatus(data['status']);
+
+      // --------------------------------------------------------
+      // ONLY ACCEPTED REQUESTS CAN OPEN ACCEPT SCREEN
+      // --------------------------------------------------------
 
       if (status != 'accepted') {
         continue;
       }
+
+      // --------------------------------------------------------
+      // IMPORTANT:
+      //
+      // If this request already reached the owner,
+      // it is an old/in-progress request and must NOT
+      // reopen Accept Screen.
+      //
+      // This prevents:
+      //
+      // accepted + reached:true
+      //        ↓
+      // Accept Screen
+      //        ↓
+      // Live Walk
+      //
+      // from happening again.
+      // --------------------------------------------------------
+
+      if (data['reached'] == true) {
+        debugPrint(
+          'WalkerAcceptEntry → skipping already reached request: ${doc.id}',
+        );
+
+        continue;
+      }
+
+      // --------------------------------------------------------
+      // NEVER OPEN TERMINAL REQUESTS
+      // --------------------------------------------------------
+
+      if (_isTerminalStatus(status)) {
+        debugPrint(
+          'WalkerAcceptEntry → skipping terminal request: '
+          '${doc.id}, status=$status',
+        );
+
+        continue;
+      }
+
+      // --------------------------------------------------------
+      // FIND NEWEST ACCEPTED REQUEST
+      // --------------------------------------------------------
 
       if (acceptedRequest == null ||
           _latestTime(data).isAfter(
@@ -107,14 +154,23 @@ class _WalkerAcceptEntryState
       }
     }
 
+    // ----------------------------------------------------------
+    // NO VALID ACCEPTED REQUEST
+    // ----------------------------------------------------------
+
     if (acceptedRequest == null) {
       return;
     }
 
-    final requestId = acceptedRequest.id;
+    final String requestId =
+        acceptedRequest.id.trim();
+
+    if (requestId.isEmpty) {
+      return;
+    }
 
     // ----------------------------------------------------------
-    // Same accepted request must not auto-open repeatedly.
+    // SAME REQUEST MUST NOT AUTO-OPEN AGAIN
     // ----------------------------------------------------------
 
     if (_openedRequestId == requestId) {
@@ -122,6 +178,26 @@ class _WalkerAcceptEntryState
     }
 
     _openWalkerAcceptScreen(requestId);
+  }
+
+  // ============================================================
+  // TERMINAL STATUS
+  // ============================================================
+
+  bool _isTerminalStatus(
+    String status,
+  ) {
+    switch (status.trim().toLowerCase()) {
+      case 'completed':
+      case 'cancelled':
+      case 'canceled':
+      case 'rejected':
+      case 'expired':
+        return true;
+
+      default:
+        return false;
+    }
   }
 
   // ============================================================
@@ -135,8 +211,15 @@ class _WalkerAcceptEntryState
       return;
     }
 
+    final String cleanRequestId =
+        requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      return;
+    }
+
     _opening = true;
-    _openedRequestId = requestId;
+    _openedRequestId = cleanRequestId;
 
     if (!mounted) {
       _opening = false;
@@ -145,17 +228,25 @@ class _WalkerAcceptEntryState
 
     try {
       await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => WalkerAcceptScreen(
-            requestId: requestId,
-          ),
+        MaterialPageRoute<void>(
+          builder: (_) {
+            return WalkerAcceptScreen(
+              requestId: cleanRequestId,
+            );
+          },
         ),
       );
-    } catch (e, stackTrace) {
+    } catch (
+      Object error,
+      StackTrace stackTrace,
+    ) {
       debugPrint(
-        'WalkerAcceptEntry navigation error: $e',
+        'WalkerAcceptEntry navigation error: $error',
       );
-      debugPrint('$stackTrace');
+
+      debugPrint(
+        stackTrace.toString(),
+      );
     } finally {
       _opening = false;
     }
@@ -185,7 +276,8 @@ class _WalkerAcceptEntryState
   DateTime _latestTime(
     Map<String, dynamic> data,
   ) {
-    final updatedAt = _toDate(
+    final DateTime? updatedAt =
+        _toDate(
       data['updatedAt'],
     );
 
@@ -193,7 +285,8 @@ class _WalkerAcceptEntryState
       return updatedAt;
     }
 
-    final acceptedAt = _toDate(
+    final DateTime? acceptedAt =
+        _toDate(
       data['acceptedAt'],
     );
 
@@ -201,7 +294,8 @@ class _WalkerAcceptEntryState
       return acceptedAt;
     }
 
-    final createdAt = _toDate(
+    final DateTime? createdAt =
+        _toDate(
       data['createdAt'],
     );
 
@@ -209,8 +303,14 @@ class _WalkerAcceptEntryState
       return createdAt;
     }
 
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    return DateTime.fromMillisecondsSinceEpoch(
+      0,
+    );
   }
+
+  // ============================================================
+  // DATE
+  // ============================================================
 
   DateTime? _toDate(
     dynamic value,
