@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/constants/app_colors.dart';
+
+import '../core/theme/dojo_walk_design_system.dart';
 
 class MenuCard extends StatelessWidget {
   final IconData icon;
@@ -21,11 +22,11 @@ class MenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = iconColor ?? AppColors.primary;
+    final color = iconColor ?? DojoWalkColors.primary;
 
     return Card(
       margin: EdgeInsets.zero,
-      color: AppColors.card,
+      color: DojoWalkColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -41,7 +42,7 @@ class MenuCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.10),
+                  color: color.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
@@ -50,19 +51,16 @@ class MenuCard extends StatelessWidget {
                   size: 24,
                 ),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
                       style: TextStyle(
                         color:
-                            titleColor ?? AppColors.navy,
+                            titleColor ?? DojoWalkColors.black,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
@@ -71,17 +69,16 @@ class MenuCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: AppColors.slate,
+                        color: DojoWalkColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-
               const Icon(
                 Icons.chevron_right,
-                color: AppColors.slate,
+                color: DojoWalkColors.textSecondary,
               ),
             ],
           ),
