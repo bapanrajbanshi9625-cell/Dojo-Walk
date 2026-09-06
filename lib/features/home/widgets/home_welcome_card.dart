@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class HomeWelcomeCard extends StatelessWidget {
   const HomeWelcomeCard({
     super.key,
   });
 
-  static const String dogAsset = 'assets/dog_welcome.png';
+  static const String dogAsset =
+      'assets/dog_welcome.png';
 
   @override
   Widget build(BuildContext context) {
@@ -21,18 +22,18 @@ class HomeWelcomeCard extends StatelessWidget {
         bottom: 8,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.slate,
-            AppColors.navy,
+            DojoWalkColors.textSecondary,
+            DojoWalkColors.black,
           ],
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.10,
             ),
             blurRadius: 12,
@@ -50,19 +51,21 @@ class HomeWelcomeCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.orange.withValues(
+              color: DojoWalkColors.primary.withValues(
                 alpha: 0.15,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius:
+                  BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.orange.withValues(
+                color:
+                    DojoWalkColors.primary.withValues(
                   alpha: 0.38,
                 ),
               ),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color: AppColors.orange,
+              color: DojoWalkColors.primary,
               size: 23,
             ),
           ),
@@ -75,15 +78,18 @@ class HomeWelcomeCard extends StatelessWidget {
 
           const Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   'Welcome to Dojo! 🐾',
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.white,
+                    color: DojoWalkColors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                     height: 1.1,
@@ -95,9 +101,10 @@ class HomeWelcomeCard extends StatelessWidget {
                 Text(
                   'Enjoy 30% OFF on your first week! 🎉',
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.white,
+                    color: DojoWalkColors.white,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     height: 1.25,
