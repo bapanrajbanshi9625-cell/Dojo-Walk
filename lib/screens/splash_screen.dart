@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login_screen.dart';
 import 'main_navigation_screen.dart';
@@ -15,14 +16,16 @@ class SplashScreen extends StatefulWidget {
   });
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() =>
+      _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
   bool _checking = true;
   bool _navigated = false;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
@@ -52,23 +55,210 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
       // ========================================================
-      // 1. FIREBASE AUTH USER
+      // 1. RESTORE SAVED DOJO ACCOUNT
       // ========================================================
 
-      final User? user = _auth.currentUser;
+      final bool otpVerified =
+          prefs.getBool('tempOtpVerified') ?? false;
+
+      final bool existingAccount =
+          prefs.getBool('tempExistingAccount') ?? false;
+
+      final String savedOwnerId =
+          (prefs.getString('tempOwnerId') ?? '')
+              .trim();
+
+      final String savedAccountUid =
+          (prefs.getString('tempAccountUid') ?? '')
+              .trim();
+
+      final bool savedProfileCompleted =
+          prefs.getBool('tempProfileCompleted') ?? false;
+
+      debugPrint(
+        'SPLASH: otpVerified = $otpVerified',
+      );
+
+      debugPrint(
+        'SPLASH: existingAccount = $existingAccount',
+      );
+
+      debugPrint(
+        'SPLASH: savedOwnerId = $savedOwnerId',
+      );
+
+      debugPrint(
+        'SPLASH: savedAccountUid = $savedAccountUid',
+      );
+
+      debugPrint(
+        'SPLASH: savedProfileCompleted = '
+        '$savedProfileCompleted',
+      );
+
+      // ========================================================
+      // 2. EXISTING ACCOUNT
+      // ========================================================
+      //
+      // IMPORTANT:
+      // Existing account is identified by ownerId.
+      // We do NOT require current Firebase anonymous UID
+      // to match the old account UID.
+      //
+
+      if (otpVerified &&
+          existingAccount &&
+          savedOwnerId.isNotEmpty) {
+        debugPrint(
+          'SPLASH: Existing Dojo owner restored.',
+        );
+
+        // ------------------------------------------------------
+        // Read the actual owner document.
+        // This is the final source of truth.
+        // ------------------------------------------------------
+
+        debugPrint(
+          'SPLASH: Reading owners/$savedOwnerId',
+        );
+
+        final DocumentSnapshot<Map<String, dynamic>>
+            ownerSnapshot =
+            await _firestore
+                .collection(_ownersCollection)
+                .doc(savedOwnerId)
+                .get();
+
+        if (!ownerSnapshot.exists) {
+          debugPrint(
+            'SPLASH: Existing owner document not found.',
+          );
+
+          _goTo(
+            const ProfileSetupScreen(),
+          );
+
+          return;
+        }
+
+        final Map<String, dynamic> ownerData =
+            ownerSnapshot.data() ??
+                <String, dynamic>{};
+
+        // ------------------------------------------------------
+        // ACTIVE
+        // ------------------------------------------------------
+
+        final bool isActive =
+            ownerData['isActive'] != false;
+
+        if (!isActive) {
+          debugPrint(
+            'SPLASH: Owner account inactive.',
+          );
+
+          await prefs.clear();
+
+          await _auth.signOut();
+
+          _goTo(
+            const LoginScreen(),
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------------
+        // PROFILE COMPLETED
+        // ------------------------------------------------------
+
+        final bool profileCompleted =
+            ownerData['profileCompleted'] == true;
+
+        debugPrint(
+          'SPLASH: Firestore profileCompleted = '
+          '$profileCompleted',
+        );
+
+        // ------------------------------------------------------
+        // EXISTING + COMPLETE
+        // ------------------------------------------------------
+
+        if (profileCompleted) {
+          debugPrint(
+            'SPLASH: Existing profile complete.',
+          );
+
+          await prefs.setBool(
+            'tempProfileCompleted',
+            true,
+          );
+
+          _goTo(
+            const MainNavigationScreen(),
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------------
+        // EXISTING + INCOMPLETE
+        // ------------------------------------------------------
+
+        debugPrint(
+          'SPLASH: Existing profile incomplete.',
+        );
+
+        await prefs.setBool(
+          'tempProfileCompleted',
+          false,
+        );
+
+        _goTo(
+          const ProfileSetupScreen(),
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 3. NEW ACCOUNT
+      // ========================================================
+
+      if (otpVerified && !existingAccount) {
+        debugPrint(
+          'SPLASH: New owner account.',
+        );
+
+        _goTo(
+          const ProfileSetupScreen(),
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 4. LEGACY SESSION RECOVERY
+      // ========================================================
+      //
+      // If SharedPreferences doesn't contain the new login
+      // state, fall back to Firebase Auth for older sessions.
+      //
+
+      final User? user =
+          _auth.currentUser;
 
       debugPrint(
         'SPLASH: Firebase UID = ${user?.uid}',
       );
 
-      // ========================================================
-      // 2. NOT SIGNED INTO FIREBASE
-      // ========================================================
-
       if (user == null) {
         debugPrint(
-          'SPLASH: No Firebase Auth user found.',
+          'SPLASH: No saved login session.',
         );
 
         _goTo(
@@ -78,7 +268,8 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      final String uid = user.uid.trim();
+      final String uid =
+          user.uid.trim();
 
       if (uid.isEmpty) {
         await _auth.signOut();
@@ -91,10 +282,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       // ========================================================
-      // 3. PHONE ACCOUNT
-      //
-      // IMPORTANT:
-      // Document ID = Firebase Auth UID
+      // 5. LEGACY PHONE ACCOUNT
       // ========================================================
 
       debugPrint(
@@ -108,17 +296,13 @@ class _SplashScreenState extends State<SplashScreen> {
               .doc(uid)
               .get();
 
-      // ========================================================
-      // 4. ACCOUNT DOES NOT EXIST
-      // ========================================================
-
       if (!accountSnapshot.exists) {
         debugPrint(
-          'SPLASH: phoneAccounts/$uid not found.',
+          'SPLASH: Legacy phone account not found.',
         );
 
         _goTo(
-          const ProfileSetupScreen(),
+          const LoginScreen(),
         );
 
         return;
@@ -128,22 +312,14 @@ class _SplashScreenState extends State<SplashScreen> {
           accountSnapshot.data() ??
               <String, dynamic>{};
 
-      // ========================================================
-      // 5. OWNER ID
-      // ========================================================
-
       final String ownerId =
           (accountData['ownerId'] ?? '')
               .toString()
               .trim();
 
-      debugPrint(
-        'SPLASH: Owner ID = $ownerId',
-      );
-
       if (ownerId.isEmpty) {
         debugPrint(
-          'SPLASH: ownerId missing.',
+          'SPLASH: Legacy ownerId missing.',
         );
 
         _goTo(
@@ -154,7 +330,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       // ========================================================
-      // 6. OWNER DOCUMENT
+      // 6. LEGACY OWNER
       // ========================================================
 
       debugPrint(
@@ -168,13 +344,9 @@ class _SplashScreenState extends State<SplashScreen> {
               .doc(ownerId)
               .get();
 
-      // ========================================================
-      // 7. OWNER DOES NOT EXIST
-      // ========================================================
-
       if (!ownerSnapshot.exists) {
         debugPrint(
-          'SPLASH: owners/$ownerId not found.',
+          'SPLASH: Legacy owner not found.',
         );
 
         _goTo(
@@ -188,18 +360,10 @@ class _SplashScreenState extends State<SplashScreen> {
           ownerSnapshot.data() ??
               <String, dynamic>{};
 
-      // ========================================================
-      // 8. ACTIVE CHECK
-      // ========================================================
-
       final bool isActive =
           ownerData['isActive'] != false;
 
       if (!isActive) {
-        debugPrint(
-          'SPLASH: Owner account is inactive.',
-        );
-
         await _auth.signOut();
 
         _goTo(
@@ -209,35 +373,24 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      // ========================================================
-      // 9. PROFILE COMPLETED
-      // ========================================================
-
       final bool profileCompleted =
           ownerData['profileCompleted'] == true;
 
       debugPrint(
-        'SPLASH: profileCompleted = $profileCompleted',
+        'SPLASH: Legacy profileCompleted = '
+        '$profileCompleted',
       );
 
-      if (!profileCompleted) {
+      if (profileCompleted) {
         _goTo(
-          const ProfileSetupScreen(),
+          const MainNavigationScreen(),
         );
 
         return;
       }
 
-      // ========================================================
-      // 10. MAIN APP
-      // ========================================================
-
-      debugPrint(
-        'SPLASH: Owner account ready.',
-      );
-
       _goTo(
-        const MainNavigationScreen(),
+        const ProfileSetupScreen(),
       );
     }
 
@@ -328,8 +481,10 @@ class _SplashScreenState extends State<SplashScreen> {
         .showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
+        behavior:
+            SnackBarBehavior.floating,
+        duration:
+            const Duration(seconds: 5),
       ),
     );
   }
@@ -367,8 +522,7 @@ class _SplashScreenState extends State<SplashScreen> {
           Image.asset(
             'assets/dojo_splash.png',
             fit: BoxFit.cover,
-            errorBuilder:
-                (
+            errorBuilder: (
               BuildContext context,
               Object error,
               StackTrace? stackTrace,
@@ -379,7 +533,6 @@ class _SplashScreenState extends State<SplashScreen> {
               );
             },
           ),
-
           Positioned(
             left: 20,
             right: 20,
