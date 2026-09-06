@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/constants/app_colors.dart';
+
+import '../core/theme/dojo_walk_design_system.dart';
 
 class SectionTitle extends StatelessWidget {
   final String title;
@@ -14,7 +15,7 @@ class SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: const TextStyle(
-        color: AppColors.slate,
+        color: DojoWalkColors.textSecondary,
         fontSize: 12,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.2,
