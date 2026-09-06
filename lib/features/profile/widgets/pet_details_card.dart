@@ -57,12 +57,15 @@ class PetDetailsCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: DojoColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DojoColors.black.withValues(alpha: 0.06),
+        ),
         boxShadow: [
           BoxShadow(
             color: DojoColors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -75,11 +78,11 @@ class PetDetailsCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: DojoColors.lightOrange,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
@@ -121,35 +124,36 @@ class PetDetailsCard extends StatelessWidget {
               // EDIT
               // ==================================================
 
-              IconButton(
+              _ActionButton(
+                icon: Icons.edit_outlined,
+                color: DojoColors.orange,
                 tooltip: 'Edit Pet',
                 onPressed: onEdit,
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  color: DojoColors.orange,
-                ),
               ),
+
+              const SizedBox(width: 6),
 
               // ==================================================
               // DELETE
               // ==================================================
 
-              IconButton(
+              _ActionButton(
+                icon: Icons.delete_outline_rounded,
+                color: DojoStatusColors.error,
                 tooltip: 'Delete Pet',
                 onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: DojoStatusColors.error,
-                ),
               ),
             ],
           ),
 
-          const SizedBox(height: 15),
+          const SizedBox(height: 16),
 
-          const Divider(height: 1),
+          Container(
+            height: 1,
+            color: DojoColors.black.withValues(alpha: 0.07),
+          ),
 
-          const SizedBox(height: 13),
+          const SizedBox(height: 14),
 
           // ======================================================
           // AGE
@@ -191,6 +195,48 @@ class PetDetailsCard extends StatelessWidget {
 }
 
 // ================================================================
+// ACTION BUTTON
+// ================================================================
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _ActionButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.09),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Tooltip(
+            message: tooltip,
+            child: Icon(
+              icon,
+              color: color,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ================================================================
 // PET ROW
 // ================================================================
 
@@ -208,18 +254,28 @@ class _PetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: DojoColors.orange,
+        // ICON
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: DojoColors.lightOrange,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: DojoColors.orange,
+          ),
         ),
 
-        const SizedBox(width: 10),
+        const SizedBox(width: 11),
 
+        // LABEL
         SizedBox(
-          width: 75,
+          width: 68,
           child: Text(
             label,
             style: const TextStyle(
@@ -230,6 +286,9 @@ class _PetRow extends StatelessWidget {
           ),
         ),
 
+        const SizedBox(width: 6),
+
+        // VALUE
         Expanded(
           child: Text(
             value,
