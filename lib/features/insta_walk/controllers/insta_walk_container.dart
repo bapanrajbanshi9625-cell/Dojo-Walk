@@ -13,7 +13,6 @@ import '../services/insta_walk_request_state.dart';
 import '../services/insta_walk_accepted_data.dart';
 import '../services/insta_walk_search_result.dart';
 
-import '../widgets/insta_walk_search_button.dart';
 import '../../walker_accept/screens/walker_accept_screen.dart';
 
 // ============================================================
