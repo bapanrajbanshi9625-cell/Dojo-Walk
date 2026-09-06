@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'custom_app_bar.dart';
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walk_design_system.dart';
 import '../features/home/services/home_data_service.dart'
     as home_data;
 import '../features/home/widgets/home_past_walk.dart';
@@ -42,11 +42,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Rebuild the complete Home screen.
     setState(() {});
 
-    // Small delay so the refresh indicator
-    // completes smoothly after the rebuild.
     await Future<void>.delayed(
       const Duration(milliseconds: 400),
     );
@@ -65,21 +62,21 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: AppColors.background,
+          backgroundColor: DojoWalkColors.background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
             title,
             style: const TextStyle(
-              color: AppColors.navy,
+              color: DojoWalkColors.black,
               fontWeight: FontWeight.w900,
             ),
           ),
           content: Text(
             content,
             style: const TextStyle(
-              color: AppColors.slate,
+              color: DojoWalkColors.textSecondary,
               height: 1.5,
             ),
           ),
@@ -89,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text(
                 'CLOSE',
                 style: TextStyle(
-                  color: AppColors.orange,
+                  color: DojoWalkColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -111,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // BACKGROUND
       // ===================================================
 
-      backgroundColor: AppColors.background,
+      backgroundColor: DojoWalkColors.background,
 
       // ===================================================
       // APP BAR
@@ -124,8 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
       // ===================================================
 
       body: RefreshIndicator(
-        color: AppColors.orange,
-        backgroundColor: Colors.white,
+        color: DojoWalkColors.primary,
+        backgroundColor: DojoWalkColors.white,
         onRefresh: _refreshHome,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -204,17 +201,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: AppColors.card,
+                        color: DojoWalkColors.surface,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: AppColors.border,
+                          color: DojoWalkColors.border,
                         ),
                       ),
                       child: const Text(
                         'Unable to load past walks.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: AppColors.slate,
+                          color: DojoWalkColors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -233,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.orange,
+                          color: DojoWalkColors.primary,
                         ),
                       ),
                     );
