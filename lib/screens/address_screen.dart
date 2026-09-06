@@ -19,6 +19,8 @@ class AddressScreen extends StatefulWidget {
 }
 
 class _AddressScreenState extends State<AddressScreen> {
+  final geocoding.Geocoding _geocoding = geocoding.Geocoding();
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -181,15 +183,15 @@ class _AddressScreenState extends State<AddressScreen> {
   }
 
   Future<void> _populateAddressFromCoordinates(
-  double latitude,
-  double longitude,
-) async {
-  try {
-    final List<geocoding.Placemark> placemarks =
-        await _geocoding.placemarkFromCoordinates(
-      latitude,
-      longitude,
-    );
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      final List<geocoding.Placemark> placemarks =
+          await _geocoding.placemarkFromCoordinates(
+        latitude,
+        longitude,
+      );
 
       if (placemarks.isEmpty) return;
 
