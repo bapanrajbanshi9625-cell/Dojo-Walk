@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/theme/dojo_colors.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 import '../models/pet_data.dart';
 import '../models/profile_setup_data.dart';
@@ -41,16 +41,16 @@ class _ProfileSetupScreenState
   // ============================================================
 
   static const Color _orange =
-      DojoBrandColors.orange;
+      DojoWalkColors.primary;
 
   static const Color _orangeDark =
-      DojoBrandColors.orangeDark;
+      DojoWalkColors.primaryDark;
 
   static const Color _background =
-      DojoLightColors.background;
+      DojoWalkColors.background;
 
   static const Color _text =
-      DojoLightColors.text;
+      DojoWalkColors.textPrimary;
 
   // ============================================================
   // FIREBASE
@@ -594,7 +594,7 @@ class _ProfileSetupScreenState
           .showSnackBar(
         SnackBar(
           backgroundColor:
-              DojoBrandColors.mint,
+              DojoWalkColors.green,
           behavior:
               SnackBarBehavior.floating,
           duration:
@@ -609,7 +609,7 @@ class _ProfileSetupScreenState
             style:
                 const TextStyle(
               color:
-                  Colors.white,
+                  DojoWalkColors.white,
               fontWeight:
                   FontWeight.w600,
             ),
@@ -822,7 +822,7 @@ class _ProfileSetupScreenState
           style:
               const TextStyle(
             color:
-                Colors.white,
+                DojoWalkColors.white,
             fontWeight:
                 FontWeight.w600,
           ),
@@ -849,7 +849,7 @@ class _ProfileSetupScreenState
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          Colors.transparent,
+          DojoWalkColors.transparent,
       isScrollControlled:
           true,
       useSafeArea:
@@ -916,7 +916,7 @@ class _ProfileSetupScreenState
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          Colors.transparent,
+          DojoWalkColors.transparent,
       isScrollControlled:
           true,
       useSafeArea:
@@ -999,7 +999,7 @@ class _ProfileSetupScreenState
         backgroundColor:
             _orange,
         foregroundColor:
-            Colors.white,
+            DojoWalkColors.white,
         elevation:
             0,
         automaticallyImplyLeading:
@@ -1123,8 +1123,8 @@ class _ProfileSetupScreenState
                     decoration:
                         BoxDecoration(
                       color:
-                          DojoBrandColors
-                              .orangeLight,
+                          DojoWalkColors
+                              .primaryLight,
                       borderRadius:
                           BorderRadius.circular(
                         20,
@@ -1234,8 +1234,8 @@ class _ProfileSetupScreenState
                   style:
                       TextStyle(
                     color:
-                        DojoInputColors
-                            .lightHint,
+                        DojoWalkColors
+                            .textTertiary,
                     fontSize:
                         11,
                   ),
