@@ -66,22 +66,22 @@ extension _InstaWalkView on _InstaWalkContainerState {
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            AppColors.navy,
-            AppColors.deepTeal,
-            AppColors.slate,
+            DojoWalkColors.black,
+            DojoWalkColors.dark,
+            DojoWalkColors.textSecondary,
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(17),
         border: Border.all(
-          color: AppColors.mint.withValues(
+          color: DojoWalkColors.blue.withValues(
             alpha: 0.18,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.08,
             ),
             blurRadius: 14,
@@ -111,7 +111,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
             height: 21,
             child: CircularProgressIndicator(
               strokeWidth: 2.2,
-              color: AppColors.mint,
+              color: DojoWalkColors.blue,
             ),
           ),
         ),
@@ -167,7 +167,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
 
         _buildIconCircle(
           icon: Icons.flash_on_rounded,
-          iconColor: AppColors.mintTint,
+          iconColor: DojoWalkColors.primaryLight,
         ),
 
         const SizedBox(width: 11),
@@ -186,7 +186,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: DojoWalkColors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -197,7 +197,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: DojoWalkColors.textTertiary,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -229,10 +229,10 @@ extension _InstaWalkView on _InstaWalkContainerState {
       child: ElevatedButton(
         onPressed: loading ? null : _findWalker,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.white,
-          disabledBackgroundColor: AppColors.white,
-          foregroundColor: AppColors.navy,
-          disabledForegroundColor: AppColors.navy,
+          backgroundColor: DojoWalkColors.white,
+          disabledBackgroundColor: DojoWalkColors.white,
+          foregroundColor: DojoWalkColors.black,
+          disabledForegroundColor: DojoWalkColors.black,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 13,
@@ -247,7 +247,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 height: 17,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.navy,
+                  color: DojoWalkColors.black,
                 ),
               )
             : const Row(
@@ -306,7 +306,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
           },
           child: _buildIconCircle(
             icon: Icons.search_rounded,
-            iconColor: AppColors.mintTint,
+            iconColor: DojoWalkColors.primaryLight,
             size: 40,
             iconSize: 21,
           ),
@@ -328,7 +328,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: DojoWalkColors.textTertiary,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -339,7 +339,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: DojoWalkColors.textTertiary,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -370,7 +370,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
       children: [
         _buildIconCircle(
           icon: Icons.refresh_rounded,
-          iconColor: AppColors.mintTint,
+          iconColor: DojoWalkColors.primaryLight,
         ),
 
         const SizedBox(width: 11),
@@ -385,7 +385,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: DojoWalkColors.textTertiary,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w900,
                 ),
@@ -396,7 +396,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: DojoWalkColors.textTertiary,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -422,8 +422,8 @@ extension _InstaWalkView on _InstaWalkContainerState {
       child: ElevatedButton(
         onPressed: _retrySearch,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.white,
-          foregroundColor: AppColors.navy,
+          backgroundColor: DojoWalkColors.white,
+          foregroundColor: DojoWalkColors.black,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 11,
@@ -463,16 +463,16 @@ extension _InstaWalkView on _InstaWalkContainerState {
       child: ElevatedButton(
         onPressed: _stopping ? null : _stopSearch,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.navy,
-          disabledBackgroundColor: AppColors.navy,
-          foregroundColor: AppColors.white,
-          disabledForegroundColor: Colors.white70,
+          backgroundColor: DojoWalkColors.black,
+          disabledBackgroundColor: DojoWalkColors.black,
+          foregroundColor: DojoWalkColors.white,
+          disabledForegroundColor: DojoWalkColors.textTertiary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 10,
           ),
           side: BorderSide(
-            color: AppColors.error.withValues(
+            color: DojoWalkColors.red.withValues(
               alpha: 0.45,
             ),
           ),
@@ -486,7 +486,7 @@ extension _InstaWalkView on _InstaWalkContainerState {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.mintTint,
+                  color: DojoWalkColors.primaryLight,
                 ),
               )
             : const Row(
@@ -495,13 +495,13 @@ extension _InstaWalkView on _InstaWalkContainerState {
                   Icon(
                     Icons.stop_circle_outlined,
                     size: 17,
-                    color: AppColors.error,
+                    color: DojoWalkColors.red,
                   ),
                   SizedBox(width: 5),
                   Text(
                     'Stop',
                     style: TextStyle(
-                      color: AppColors.white,
+                      color: DojoWalkColors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                     ),
@@ -526,12 +526,12 @@ extension _InstaWalkView on _InstaWalkContainerState {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.mint.withValues(
+        color: DojoWalkColors.blue.withValues(
           alpha: 0.14,
         ),
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppColors.mint.withValues(
+          color: DojoWalkColors.blue.withValues(
             alpha: 0.20,
           ),
         ),
