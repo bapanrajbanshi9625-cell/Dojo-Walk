@@ -25,6 +25,10 @@ class _AddressLocationPickerScreenState
     extends State<AddressLocationPickerScreen> {
   final MapController _mapController = MapController();
 
+  // geocoding 5.0.0 uses the Geocoding class instance.
+  final geocoding.Geocoding _geocoding =
+      geocoding.Geocoding();
+
   Timer? _geocodeDebounce;
 
   LatLng? _selectedLocation;
@@ -33,7 +37,8 @@ class _AddressLocationPickerScreenState
   bool _saving = false;
   bool _movingMap = false;
 
-  String _selectedAddress = 'Move the map to choose pickup location';
+  String _selectedAddress =
+      'Move the map to choose pickup location';
 
   static const Color _primaryColor = Color(0xFFFF8A00);
   static const Color _backgroundColor = Color(0xFFF8F9FB);
@@ -83,7 +88,8 @@ class _AddressLocationPickerScreenState
 
       setState(() {
         _loading = false;
-        _selectedAddress = 'Move the map to choose pickup location';
+        _selectedAddress =
+            'Move the map to choose pickup location';
       });
     }
   }
@@ -99,7 +105,7 @@ class _AddressLocationPickerScreenState
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       // Fallback center only.
-      // User can still move the pin manually.
+      // User can still move the map manually.
       return const LatLng(
         28.6139,
         77.2090,
@@ -116,12 +122,12 @@ class _AddressLocationPickerScreenState
   }
 
   Future<void> _reverseGeocode(LatLng location) async {
-  try {
-    final List<geocoding.Placemark> placemarks =
-        await _geocoding.placemarkFromCoordinates(
-      location.latitude,
-      location.longitude,
-    );
+    try {
+      final List<geocoding.Placemark> placemarks =
+          await _geocoding.placemarkFromCoordinates(
+        location.latitude,
+        location.longitude,
+      );
 
       if (placemarks.isEmpty) {
         if (!mounted) return;
@@ -133,12 +139,15 @@ class _AddressLocationPickerScreenState
         return;
       }
 
-      final geocoding.Placemark place = placemarks.first;
+      final geocoding.Placemark place =
+          placemarks.first;
 
       final List<String> parts = <String>[
-        if (place.name != null && place.name!.trim().isNotEmpty)
+        if (place.name != null &&
+            place.name!.trim().isNotEmpty)
           place.name!.trim(),
-        if (place.street != null && place.street!.trim().isNotEmpty)
+        if (place.street != null &&
+            place.street!.trim().isNotEmpty)
           place.street!.trim(),
         if (place.subLocality != null &&
             place.subLocality!.trim().isNotEmpty)
@@ -158,7 +167,9 @@ class _AddressLocationPickerScreenState
 
       setState(() {
         _selectedAddress =
-            parts.isEmpty ? 'Location selected' : parts.join(', ');
+            parts.isEmpty
+                ? 'Location selected'
+                : parts.join(', ');
       });
     } catch (_) {
       if (!mounted) return;
@@ -177,7 +188,6 @@ class _AddressLocationPickerScreenState
       return;
     }
 
-    // IMPORTANT:
     // The fixed center pin represents camera.center.
     // Therefore camera.center is the exact pickup location.
     final LatLng center = camera.center;
@@ -281,7 +291,7 @@ class _AddressLocationPickerScreenState
       _saving = true;
     });
 
-    // FINAL coordinates are exactly the center-pin coordinates.
+    // Final coordinates are exactly the center-pin coordinates.
     await _reverseGeocode(location);
 
     if (!mounted) return;
@@ -338,19 +348,22 @@ class _AddressLocationPickerScreenState
             options: MapOptions(
               initialCenter: center,
               initialZoom: 17,
-              onPositionChanged: _onMapPositionChanged,
+              onPositionChanged:
+                  _onMapPositionChanged,
             ),
             children: <Widget>[
               TileLayer(
                 urlTemplate:
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.doojowalker.app',
+                userAgentPackageName:
+                    'com.doojowalker.app',
               ),
             ],
           ),
 
           // FIXED CENTER PIN.
-          // The map center underneath this pin is the exact pickup point.
+          // The map center underneath this pin
+          // is the exact pickup point.
           const Center(
             child: Padding(
               padding: EdgeInsets.only(
@@ -370,20 +383,24 @@ class _AddressLocationPickerScreenState
             right: 16,
             child: Material(
               elevation: 5,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius:
+                  BorderRadius.circular(18),
               color: Colors.white,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: <Widget>[
                     Container(
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color:
-                            _primaryColor.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(12),
+                        color: _primaryColor.withValues(
+                          alpha: 0.10,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.location_on,
@@ -400,18 +417,21 @@ class _AddressLocationPickerScreenState
                             'Pickup Location',
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              fontWeight:
+                                  FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 5),
                           Text(
                             _selectedAddress,
                             maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
+                            overflow:
+                                TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13,
                               height: 1.35,
-                              color: Colors.grey.shade700,
+                              color:
+                                  Colors.grey.shade700,
                             ),
                           ),
                         ],
@@ -424,13 +444,16 @@ class _AddressLocationPickerScreenState
           ),
 
           // Convenience only.
-          // It moves the map to current GPS but does not lock the pickup point.
+          // Moves map to current GPS.
+          // User can still move the map afterward.
           Positioned(
             right: 16,
             bottom: 125,
             child: FloatingActionButton(
-              heroTag: 'address_current_location',
-              onPressed: _goToCurrentLocation,
+              heroTag:
+                  'address_current_location',
+              onPressed:
+                  _goToCurrentLocation,
               backgroundColor: Colors.white,
               foregroundColor: _primaryColor,
               elevation: 5,
@@ -447,15 +470,20 @@ class _AddressLocationPickerScreenState
             child: SizedBox(
               height: 56,
               child: ElevatedButton(
-                onPressed:
-                    _saving ? null : _useSelectedLocation,
+                onPressed: _saving
+                    ? null
+                    : _useSelectedLocation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryColor,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor:
-                      _primaryColor.withValues(alpha: 0.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                      _primaryColor.withValues(
+                    alpha: 0.5,
+                  ),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(18),
                   ),
                   elevation: 4,
                 ),
@@ -463,7 +491,8 @@ class _AddressLocationPickerScreenState
                     ? const SizedBox(
                         width: 23,
                         height: 23,
-                        child: CircularProgressIndicator(
+                        child:
+                            CircularProgressIndicator(
                           strokeWidth: 2.5,
                           color: Colors.white,
                         ),
@@ -473,14 +502,16 @@ class _AddressLocationPickerScreenState
                             MainAxisAlignment.center,
                         children: <Widget>[
                           Icon(
-                            Icons.check_circle_outline,
+                            Icons
+                                .check_circle_outline,
                           ),
                           SizedBox(width: 8),
                           Text(
                             'Use This Location',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              fontWeight:
+                                  FontWeight.w700,
                             ),
                           ),
                         ],
