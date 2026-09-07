@@ -17,6 +17,7 @@ class LiveWalkService {
 
   static const String collectionName = 'liveWalkSessions';
   static const String historyCollection = 'walk_history';
+  static const String requestCollection = 'walk_request';
 
   // ============================================================
   // CURRENT USER UID
@@ -25,29 +26,52 @@ class LiveWalkService {
   String? get currentUid => _auth.currentUser?.uid;
 
   // ============================================================
+  // WALK ID VALIDATION
+  //
+  // FINAL ARCHITECTURE:
+  //
+  // DW000001
+  //   ├── walk_request/DW000001
+  //   ├── liveWalkSessions/DW000001
+  //   └── walk_history/DW000001
+  //
+  // No separate walkId.
+  // No Firebase Auto-ID.
+  // ============================================================
+
+  bool _isValidRequestId(String value) {
+    return RegExp(r'^DW\d{6}$').hasMatch(value);
+  }
+
+  // ============================================================
   // WATCH SESSION
   //
+  // The supplied requestId is the SAME ID as the
+  // liveWalkSessions document ID.
+  //
   // Owner:
-  //   Reads session using ownerUid == Firebase Auth UID
+  //   ownerUid == Firebase Auth UID
   //
   // Walker:
-  //   Reads session using walkerUid == Firebase Auth UID
-  //
-  // The supplied id can be:
-  //   - Firestore document ID
-  //   - walkId
-  //   - walkRequestId
-  //   - sessionId
+  //   walkerUid == Firebase Auth UID
   // ============================================================
 
   Stream<LiveWalkSession?> watchSession(
-    String id, {
+    String requestId, {
     bool isWalker = false,
   }) {
-    final String value = id.trim();
+    final String value = requestId.trim();
 
     if (value.isEmpty) {
       return Stream<LiveWalkSession?>.value(null);
+    }
+
+    if (!_isValidRequestId(value)) {
+      return Stream<LiveWalkSession?>.error(
+        FormatException(
+          'Invalid Walk ID. Expected DW000001 format.',
+        ),
+      );
     }
 
     final String? uid = currentUid;
@@ -61,82 +85,29 @@ class LiveWalkService {
     final CollectionReference<Map<String, dynamic>> collection =
         _firestore.collection(collectionName);
 
-    final String userField = isWalker ? 'walkerUid' : 'ownerUid';
+    final String userField =
+        isWalker ? 'walkerUid' : 'ownerUid';
 
     // ==========================================================
     // IMPORTANT
     //
-    // We DO NOT perform:
+    // We query only sessions belonging to the authenticated user.
+    // Then we select the exact FINAL request ID.
     //
-    // collection.doc(value).get()
-    //
-    // first.
-    //
-    // Instead we query using the authenticated user's UID.
-    // This allows Firestore security rules to verify ownership.
+    // No walkId / walkRequestId / sessionId fallback.
     // ==========================================================
 
     return collection
-        .where(userField, isEqualTo: uid)
+        .where(
+          userField,
+          isEqualTo: uid,
+        )
         .snapshots()
-        .asyncMap(
-      (QuerySnapshot<Map<String, dynamic>> snapshot) async {
-        if (snapshot.docs.isEmpty) {
-          return null;
-        }
-
-        // ------------------------------------------------------
-        // 1. Exact Firestore document ID
-        // ------------------------------------------------------
-
+        .map(
+      (QuerySnapshot<Map<String, dynamic>> snapshot) {
         for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
             in snapshot.docs) {
           if (doc.id == value) {
-            return LiveWalkSession.fromFirestore(doc);
-          }
-        }
-
-        // ------------------------------------------------------
-        // 2. walkId
-        // ------------------------------------------------------
-
-        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-            in snapshot.docs) {
-          final Map<String, dynamic> data = doc.data();
-
-          final dynamic walkId = data['walkId'];
-
-          if (walkId != null && walkId.toString() == value) {
-            return LiveWalkSession.fromFirestore(doc);
-          }
-        }
-
-        // ------------------------------------------------------
-        // 3. walkRequestId
-        // ------------------------------------------------------
-
-        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-            in snapshot.docs) {
-          final Map<String, dynamic> data = doc.data();
-
-          final dynamic requestId = data['walkRequestId'];
-
-          if (requestId != null && requestId.toString() == value) {
-            return LiveWalkSession.fromFirestore(doc);
-          }
-        }
-
-        // ------------------------------------------------------
-        // 4. sessionId
-        // ------------------------------------------------------
-
-        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-            in snapshot.docs) {
-          final Map<String, dynamic> data = doc.data();
-
-          final dynamic sessionId = data['sessionId'];
-
-          if (sessionId != null && sessionId.toString() == value) {
             return LiveWalkSession.fromFirestore(doc);
           }
         }
@@ -149,8 +120,8 @@ class LiveWalkService {
   // ============================================================
   // WATCH ACTIVE OWNER SESSION
   //
-  // This is useful when Owner should automatically open Live Walk
-  // after Walker creates/starts the session.
+  // Automatically finds the current live session belonging
+  // to the authenticated Owner.
   // ============================================================
 
   Stream<LiveWalkSession?> watchOwnerActiveSession() {
@@ -164,7 +135,10 @@ class LiveWalkService {
 
     return _firestore
         .collection(collectionName)
-        .where('ownerUid', isEqualTo: uid)
+        .where(
+          'ownerUid',
+          isEqualTo: uid,
+        )
         .snapshots()
         .map(
       (QuerySnapshot<Map<String, dynamic>> snapshot) {
@@ -194,17 +168,20 @@ class LiveWalkService {
   // ============================================================
   // FIND SESSION
   //
-  // Uses authenticated user's ownership instead of unrestricted
-  // direct document reads.
+  // Uses the FINAL request ID as the live session document ID.
   // ============================================================
 
   Future<DocumentReference<Map<String, dynamic>>?> findSession(
-    String id, {
+    String requestId, {
     bool isWalker = false,
   }) async {
-    final String value = id.trim();
+    final String value = requestId.trim();
 
     if (value.isEmpty) {
+      return null;
+    }
+
+    if (!_isValidRequestId(value)) {
       return null;
     }
 
@@ -214,63 +191,23 @@ class LiveWalkService {
       return null;
     }
 
-    final String userField = isWalker ? 'walkerUid' : 'ownerUid';
+    final String userField =
+        isWalker ? 'walkerUid' : 'ownerUid';
 
     final CollectionReference<Map<String, dynamic>> collection =
         _firestore.collection(collectionName);
 
     final QuerySnapshot<Map<String, dynamic>> snapshot =
         await collection
-            .where(userField, isEqualTo: uid)
+            .where(
+              userField,
+              isEqualTo: uid,
+            )
             .get();
-
-    // ----------------------------------------------------------
-    // 1. Document ID
-    // ----------------------------------------------------------
 
     for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
         in snapshot.docs) {
       if (doc.id == value) {
-        return doc.reference;
-      }
-    }
-
-    // ----------------------------------------------------------
-    // 2. walkId
-    // ----------------------------------------------------------
-
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-        in snapshot.docs) {
-      final dynamic walkId = doc.data()['walkId'];
-
-      if (walkId != null && walkId.toString() == value) {
-        return doc.reference;
-      }
-    }
-
-    // ----------------------------------------------------------
-    // 3. walkRequestId
-    // ----------------------------------------------------------
-
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-        in snapshot.docs) {
-      final dynamic walkRequestId = doc.data()['walkRequestId'];
-
-      if (walkRequestId != null &&
-          walkRequestId.toString() == value) {
-        return doc.reference;
-      }
-    }
-
-    // ----------------------------------------------------------
-    // 4. sessionId
-    // ----------------------------------------------------------
-
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-        in snapshot.docs) {
-      final dynamic sessionId = doc.data()['sessionId'];
-
-      if (sessionId != null && sessionId.toString() == value) {
         return doc.reference;
       }
     }
@@ -281,7 +218,11 @@ class LiveWalkService {
   // ============================================================
   // COMPLETE WALK
   //
-  // Walker completes the live session.
+  // Final ID is used everywhere:
+  //
+  // liveWalkSessions/DW000001
+  // walk_history/DW000001
+  // walk_request/DW000001
   // ============================================================
 
   Future<void> completeWalk({
@@ -293,10 +234,48 @@ class LiveWalkService {
       throw StateError('User is not authenticated.');
     }
 
+    // ==========================================================
+    // FINAL REQUEST / WALK ID
+    // ==========================================================
+
+    final String requestId = session.documentId.trim();
+
+    if (!_isValidRequestId(requestId)) {
+      throw FormatException(
+        'Invalid Walk ID. Expected DW000001 format.',
+      );
+    }
+
+    // ==========================================================
+    // SESSION REFERENCE
+    // ==========================================================
+
     final DocumentReference<Map<String, dynamic>> sessionRef =
         _firestore
             .collection(collectionName)
-            .doc(session.documentId);
+            .doc(requestId);
+
+    // ==========================================================
+    // REQUEST REFERENCE
+    // ==========================================================
+
+    final DocumentReference<Map<String, dynamic>> requestRef =
+        _firestore
+            .collection(requestCollection)
+            .doc(requestId);
+
+    // ==========================================================
+    // HISTORY REFERENCE
+    // ==========================================================
+
+    final DocumentReference<Map<String, dynamic>> historyRef =
+        _firestore
+            .collection(historyCollection)
+            .doc(requestId);
+
+    // ==========================================================
+    // FINAL ROUTE
+    // ==========================================================
 
     final List<GeoPoint> finalRoute = session.routePoints
         .map(
@@ -324,23 +303,29 @@ class LiveWalkService {
       }
     }
 
-    // ----------------------------------------------------------
-    // Update live session
-    // ----------------------------------------------------------
+    // ==========================================================
+    // UPDATE LIVE SESSION
+    // ==========================================================
 
     final Map<String, dynamic> sessionUpdates =
         <String, dynamic>{
+      'requestId': requestId,
+      'sessionId': requestId,
+
       'status': 'completed',
       'trackingEnded': true,
       'walkEnded': true,
+
       'endedAt': FieldValue.serverTimestamp(),
       'completedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+
       'elapsedSeconds': session.elapsedSeconds,
       'distanceKm': session.distanceKm,
       'steps': session.steps,
       'peeCount': session.peeCount,
       'poopCount': session.poopCount,
+
       'routeCoordinates': finalRoute,
     };
 
@@ -351,15 +336,29 @@ class LiveWalkService {
       );
     }
 
-    await sessionRef.update(sessionUpdates);
+    // ==========================================================
+    // UPDATE WALK REQUEST
+    // ==========================================================
 
-    // ----------------------------------------------------------
-    // Save history
-    // ----------------------------------------------------------
+    final Map<String, dynamic> requestUpdates =
+        <String, dynamic>{
+      'requestId': requestId,
+      'status': 'completed',
+      'walkEnded': true,
+      'trackingEnded': true,
+      'completedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    // ==========================================================
+    // HISTORY
+    // ==========================================================
 
     final Map<String, dynamic> history =
         <String, dynamic>{
-      'walkId': session.walkId,
+      'requestId': requestId,
+      'sessionId': requestId,
+
       'status': 'completed',
 
       'ownerId': session.ownerId,
@@ -394,12 +393,31 @@ class LiveWalkService {
           Timestamp.fromDate(session.startedAt!);
     }
 
-    await _firestore
-        .collection(historyCollection)
-        .doc(session.walkId)
-        .set(
-          history,
-          SetOptions(merge: true),
-        );
+    // ==========================================================
+    // BATCH WRITE
+    //
+    // All three collections are updated together.
+    // ==========================================================
+
+    final WriteBatch batch = _firestore.batch();
+
+    batch.update(
+      sessionRef,
+      sessionUpdates,
+    );
+
+    batch.set(
+      requestRef,
+      requestUpdates,
+      SetOptions(merge: true),
+    );
+
+    batch.set(
+      historyRef,
+      history,
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 }
