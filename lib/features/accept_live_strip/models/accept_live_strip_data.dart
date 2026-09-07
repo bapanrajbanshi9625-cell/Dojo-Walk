@@ -22,19 +22,27 @@ class AcceptLiveStripData {
       return false;
     }
 
+    if (isCompleted) {
+      return false;
+    }
+
     return true;
   }
 
   bool get isCompleted {
-    return sessionStatus == 'completed' ||
-        sessionStatus == 'complete' ||
-        sessionStatus == 'finished' ||
-        sessionStatus == 'closed' ||
-        sessionStatus == 'cancelled' ||
-        sessionStatus == 'canceled' ||
-        sessionStatus == 'rejected' ||
-        sessionStatus == 'declined' ||
-        sessionStatus == 'expired';
+    final String status =
+        sessionStatus.trim().toLowerCase();
+
+    return status == 'completed' ||
+        status == 'complete' ||
+        status == 'finished' ||
+        status == 'closed' ||
+        status == 'cancelled' ||
+        status == 'canceled' ||
+        status == 'rejected' ||
+        status == 'declined' ||
+        status == 'expired' ||
+        status == 'ended';
   }
 
   AcceptLiveStripData copyWith({
