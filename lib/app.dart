@@ -18,8 +18,8 @@ class DojoWalk extends StatelessWidget {
       // DOJO THEME
       // ========================================================
 
-      theme: DojoWalkTheme.light(),
-      darkTheme: DojoWalkTheme.dark(),
+      theme: DojoWalkTheme.light,
+      darkTheme: DojoWalkTheme.light,
       themeMode: ThemeMode.system,
 
       // ========================================================
