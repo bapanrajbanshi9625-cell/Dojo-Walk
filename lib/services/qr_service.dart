@@ -15,7 +15,7 @@ class QRData {
   final String ownerUid;
 
   final String ownerName;
-  final String walkId;
+  final String requestId;
   final String dogName;
   final String dogBreed;
   final String? ownerPhone;
@@ -25,7 +25,7 @@ class QRData {
     required this.ownerId,
     required this.ownerUid,
     required this.ownerName,
-    required this.walkId,
+    required this.requestId,
     required this.dogName,
     required this.dogBreed,
     required this.ownerPhone,
@@ -37,12 +37,18 @@ class QRData {
     String qrPayload = '',
   }) {
     return QRData(
-      ownerId: (map['ownerId'] ?? '').toString().trim(),
-      ownerUid: (map['ownerUid'] ?? '').toString().trim(),
-      ownerName: (map['ownerName'] ?? 'Owner').toString().trim(),
-      walkId: (map['walkId'] ?? '').toString().trim(),
-      dogName: (map['dogName'] ?? 'Dog').toString().trim(),
-      dogBreed: (map['dogBreed'] ?? '').toString().trim(),
+      ownerId:
+          (map['ownerId'] ?? '').toString().trim(),
+      ownerUid:
+          (map['ownerUid'] ?? '').toString().trim(),
+      ownerName:
+          (map['ownerName'] ?? 'Owner').toString().trim(),
+      requestId:
+          (map['requestId'] ?? '').toString().trim(),
+      dogName:
+          (map['dogName'] ?? 'Dog').toString().trim(),
+      dogBreed:
+          (map['dogBreed'] ?? '').toString().trim(),
       ownerPhone:
           (map['ownerPhone'] ?? '').toString().trim().isEmpty
               ? null
@@ -54,11 +60,11 @@ class QRData {
   Map<String, dynamic> toMap() {
     return {
       'type': 'dojo_owner_qr',
-      'version': 1,
+      'version': 2,
       'ownerId': ownerId,
       'ownerUid': ownerUid,
       'ownerName': ownerName,
-      'walkId': walkId,
+      'requestId': requestId,
       'dogName': dogName,
       'dogBreed': dogBreed,
       if (ownerPhone != null && ownerPhone!.isNotEmpty)
@@ -85,7 +91,7 @@ class QRScanState {
   final String walkerId;
   final String walkerUid;
   final String walkerName;
-  final String walkId;
+  final String requestId;
 
   const QRScanState({
     this.scanned = false,
@@ -95,7 +101,7 @@ class QRScanState {
     this.walkerId = '',
     this.walkerUid = '',
     this.walkerName = '',
-    this.walkId = '',
+    this.requestId = '',
   });
 
   factory QRScanState.fromFirestore(
@@ -107,12 +113,18 @@ class QRScanState {
     return QRScanState(
       scanned: data['scanned'] == true,
       connected: data['connected'] == true,
-      ownerId: (data['ownerId'] ?? '').toString().trim(),
-      ownerUid: (data['ownerUid'] ?? '').toString().trim(),
-      walkerId: (data['walkerId'] ?? '').toString().trim(),
-      walkerUid: (data['walkerUid'] ?? '').toString().trim(),
-      walkerName: (data['walkerName'] ?? '').toString().trim(),
-      walkId: (data['walkId'] ?? '').toString().trim(),
+      ownerId:
+          (data['ownerId'] ?? '').toString().trim(),
+      ownerUid:
+          (data['ownerUid'] ?? '').toString().trim(),
+      walkerId:
+          (data['walkerId'] ?? '').toString().trim(),
+      walkerUid:
+          (data['walkerUid'] ?? '').toString().trim(),
+      walkerName:
+          (data['walkerName'] ?? '').toString().trim(),
+      requestId:
+          (data['requestId'] ?? '').toString().trim(),
     );
   }
 
@@ -126,7 +138,7 @@ class QRScanState {
         'walkerId: $walkerId, '
         'walkerUid: $walkerUid, '
         'walkerName: $walkerName, '
-        'walkId: $walkId'
+        'requestId: $requestId'
         ')';
   }
 }
@@ -273,8 +285,7 @@ class QRService {
       }
 
       final Map<String, dynamic> data =
-          ownerDoc.data() ??
-              <String, dynamic>{};
+          ownerDoc.data() ?? <String, dynamic>{};
 
       // --------------------------------------------------------
       // OWNER USER ID
@@ -412,11 +423,67 @@ class QRService {
     }
 
     // ==========================================================
-    // WALK ID
+    // REQUEST ID
+    // ==========================================================
+    //
+    // FINAL ARCHITECTURE:
+    // DW000001
+    //
+    // Same ID is used for:
+    // walk_request/{requestId}
+    // liveWalkSessions/{requestId}
+    // walk_history/{requestId}
+    //
     // ==========================================================
 
-    final String walkId =
-        'walk_${DateTime.now().millisecondsSinceEpoch}';
+    final DocumentReference<Map<String, dynamic>>
+        counterRef = _firestore
+            .collection('walk_counters')
+            .doc('walk_id');
+
+    final String requestId =
+        await _firestore.runTransaction(
+      (transaction) async {
+        final DocumentSnapshot<Map<String, dynamic>>
+            counterSnapshot =
+            await transaction.get(counterRef);
+
+        final Map<String, dynamic> counterData =
+            counterSnapshot.data() ??
+                <String, dynamic>{};
+
+        final int lastNumber =
+            _readCounterNumber(
+          counterData['lastNumber'],
+        );
+
+        final int nextNumber =
+            lastNumber + 1;
+
+        if (nextNumber > 999999) {
+          throw Exception(
+            'Walk ID limit reached.',
+          );
+        }
+
+        final String generatedId =
+            'DW${nextNumber.toString().padLeft(6, '0')}';
+
+        transaction.set(
+          counterRef,
+          {
+            'lastNumber': nextNumber,
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(
+            merge: true,
+          ),
+        );
+
+        return generatedId;
+      },
+    );
 
     // ==========================================================
     // QR PAYLOAD
@@ -424,14 +491,14 @@ class QRService {
 
     final Map<String, dynamic> payload = {
       'type': 'dojo_owner_qr',
-      'version': 1,
+      'version': 2,
 
       'ownerId': ownerId,
       'ownerUid': ownerUid,
 
       'ownerName': ownerName,
 
-      'walkId': walkId,
+      'requestId': requestId,
 
       'dogName': dogName,
       'dogBreed': dogBreed,
@@ -452,7 +519,7 @@ class QRService {
         .set(
       {
         'type': 'dojo_owner_qr',
-        'version': 1,
+        'version': 2,
 
         // OWNER
         'ownerId': ownerId,
@@ -460,8 +527,8 @@ class QRService {
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
-        // WALK
-        'walkId': walkId,
+        // FINAL REQUEST ID
+        'requestId': requestId,
 
         // DOG
         'dogName': dogName,
@@ -475,9 +542,6 @@ class QRService {
         'walkerId': null,
         'walkerUid': null,
         'walkerName': null,
-
-        // LIVE WALK
-        'activeWalkId': null,
 
         'createdAt':
             FieldValue.serverTimestamp(),
@@ -498,7 +562,7 @@ class QRService {
       ownerId: ownerId,
       ownerUid: ownerUid,
       ownerName: ownerName,
-      walkId: walkId,
+      requestId: requestId,
       dogName: dogName,
       dogBreed: dogBreed,
       ownerPhone:
@@ -560,7 +624,7 @@ class QRService {
     required String walkerId,
     required String walkerUid,
     String walkerName = '',
-    String? walkId,
+    String? requestId,
   }) async {
     if (ownerId.trim().isEmpty) {
       throw Exception(
@@ -580,6 +644,14 @@ class QRService {
       );
     }
 
+    if (requestId != null &&
+        requestId.trim().isNotEmpty &&
+        !_isValidRequestId(requestId)) {
+      throw Exception(
+        'Invalid Walk Request ID.',
+      );
+    }
+
     await _connections
         .doc(ownerId.trim())
         .set(
@@ -593,14 +665,9 @@ class QRService {
         'scanned': true,
         'connected': true,
 
-        if (walkId != null &&
-            walkId.trim().isNotEmpty)
-          'walkId': walkId.trim(),
-
-        'activeWalkId':
-            walkId?.trim().isNotEmpty == true
-                ? walkId!.trim()
-                : null,
+        if (requestId != null &&
+            requestId.trim().isNotEmpty)
+          'requestId': requestId.trim(),
 
         'updatedAt':
             FieldValue.serverTimestamp(),
@@ -620,7 +687,7 @@ class QRService {
     required String walkerId,
     required String walkerUid,
     String walkerName = '',
-    String? walkId,
+    String? requestId,
   }) async {
     if (ownerId.trim().isEmpty) {
       throw Exception(
@@ -640,6 +707,14 @@ class QRService {
       );
     }
 
+    if (requestId != null &&
+        requestId.trim().isNotEmpty &&
+        !_isValidRequestId(requestId)) {
+      throw Exception(
+        'Invalid Walk Request ID.',
+      );
+    }
+
     await _connections
         .doc(ownerId.trim())
         .set(
@@ -652,9 +727,9 @@ class QRService {
 
         'scanned': true,
 
-        if (walkId != null &&
-            walkId.trim().isNotEmpty)
-          'walkId': walkId.trim(),
+        if (requestId != null &&
+            requestId.trim().isNotEmpty)
+          'requestId': requestId.trim(),
 
         'updatedAt':
             FieldValue.serverTimestamp(),
@@ -686,8 +761,6 @@ class QRService {
         'walkerId': null,
         'walkerUid': null,
         'walkerName': null,
-
-        'activeWalkId': null,
 
         'updatedAt':
             FieldValue.serverTimestamp(),
@@ -791,17 +864,17 @@ class QRService {
     }
 
     // ==========================================================
-    // WALK ID
+    // REQUEST ID
     // ==========================================================
 
-    final String walkId =
-        (data['walkId'] ?? '')
+    final String requestId =
+        (data['requestId'] ?? '')
             .toString()
             .trim();
 
-    if (walkId.isEmpty) {
+    if (!_isValidRequestId(requestId)) {
       throw const FormatException(
-        'Walk ID missing from QR.',
+        'Valid Walk Request ID missing from QR.',
       );
     }
 
@@ -822,5 +895,37 @@ class QRService {
       data,
       qrPayload: rawPayload,
     );
+  }
+
+  // ============================================================
+  // REQUEST ID HELPERS
+  // ============================================================
+
+  static bool _isValidRequestId(
+    String requestId,
+  ) {
+    return RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(
+      requestId.trim(),
+    );
+  }
+
+  static int _readCounterNumber(
+    dynamic value,
+  ) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    if (value is String) {
+      return int.tryParse(value.trim()) ?? 0;
+    }
+
+    return 0;
   }
 }
