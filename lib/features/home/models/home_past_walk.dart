@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomePastWalk {
   final String documentId;
-  final String walkId;
+  final String requestId;
   final String ownerUid;
   final String walkerUid;
   final String walkerName;
@@ -16,7 +16,7 @@ class HomePastWalk {
 
   const HomePastWalk({
     required this.documentId,
-    required this.walkId,
+    required this.requestId,
     required this.ownerUid,
     required this.walkerUid,
     required this.walkerName,
@@ -36,14 +36,13 @@ class HomePastWalk {
     return HomePastWalk(
       documentId: documentId,
 
-      walkId: _string(
-        data['Walkid'] ??
-            data['walkId'] ??
-            data['walkID'] ??
-            data['id'] ??
-            documentId,
-        fallback: documentId,
-      ),
+      // Single Walk ID architecture:
+      // walk_request/DW000001
+      // liveWalkSessions/DW000001
+      // walk_history/DW000001
+      //
+      // Document ID itself is the canonical requestId.
+      requestId: documentId,
 
       ownerUid: _string(
         data['ownerUid'] ??
@@ -121,12 +120,9 @@ class HomePastWalk {
       return fallback;
     }
 
-    final String text =
-        value.toString().trim();
+    final String text = value.toString().trim();
 
-    return text.isEmpty
-        ? fallback
-        : text;
+    return text.isEmpty ? fallback : text;
   }
 
   // ============================================================
@@ -161,10 +157,7 @@ class HomePastWalk {
       return value.toDouble();
     }
 
-    String text =
-        value.toString()
-            .trim()
-            .toLowerCase();
+    String text = value.toString().trim().toLowerCase();
 
     if (text.isEmpty) {
       return 0;
@@ -187,8 +180,7 @@ class HomePastWalk {
         .replaceAll('m', '')
         .trim();
 
-    final double parsed =
-        double.tryParse(text) ?? 0;
+    final double parsed = double.tryParse(text) ?? 0;
 
     if (isMeters) {
       return parsed / 1000;
@@ -213,21 +205,17 @@ class HomePastWalk {
     }
 
     final String text =
-        value.toString()
-            .trim()
-            .toLowerCase();
+        value.toString().trim().toLowerCase();
 
     if (text.isEmpty) {
       return 0;
     }
 
-    final RegExp hoursRegex =
-        RegExp(
+    final RegExp hoursRegex = RegExp(
       r'(\d+)\s*(hr|hrs|hour|hours)',
     );
 
-    final RegExp minutesRegex =
-        RegExp(
+    final RegExp minutesRegex = RegExp(
       r'(\d+)\s*(min|mins|minute|minutes)',
     );
 
@@ -296,11 +284,8 @@ class HomePastWalk {
       return '0 mins';
     }
 
-    final int hours =
-        durationMinutes ~/ 60;
-
-    final int minutes =
-        durationMinutes % 60;
+    final int hours = durationMinutes ~/ 60;
+    final int minutes = durationMinutes % 60;
 
     if (hours > 0 && minutes > 0) {
       return '$hours hrs $minutes mins';
