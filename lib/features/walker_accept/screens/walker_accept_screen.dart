@@ -326,16 +326,13 @@ class _WalkerAcceptScreenState
     );
 
     // ========================================================
-    // IMPORTANT
+    // FINAL SINGLE ID ARCHITECTURE
     //
-    // LiveWalkScreen currently receives its ID through
-    // the walkId parameter.
-    //
-    // We pass the SAME FINAL requestId:
+    // LiveWalkScreen receives requestId.
     //
     // DW000001
     //
-    // There is no separate walkId value anymore.
+    // No separate walkId.
     // ========================================================
 
     await Navigator.of(context)
@@ -343,7 +340,7 @@ class _WalkerAcceptScreenState
       MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
-            walkId: cleanRequestId,
+            requestId: cleanRequestId,
             isWalker: false,
           );
         },
