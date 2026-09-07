@@ -15,11 +15,11 @@ import '../widgets/live_walk_stats.dart';
 class LiveWalkScreen extends StatefulWidget {
   const LiveWalkScreen({
     super.key,
-    required this.walkId,
+    required this.requestId,
     required this.isWalker,
   });
 
-  final String walkId;
+  final String requestId;
   final bool isWalker;
 
   @override
@@ -58,6 +58,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   @override
   void initState() {
     super.initState();
+
+    final cleanRequestId = widget.requestId.trim();
+
+    if (!RegExp(r'^DW\d{6}$').hasMatch(cleanRequestId)) {
+      _loading = false;
+      _hasError = true;
+      _errorMessage = 'Invalid Walk ID.';
+      return;
+    }
+
     _listen();
   }
 
@@ -72,7 +82,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     _subscription = _service
         .watchSession(
-          widget.walkId,
+          widget.requestId.trim(),
           isWalker: widget.isWalker,
         )
         .listen(
@@ -285,11 +295,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       destination: session.ownerLocation,
                       routePoints: session.routePoints,
                       onRecenter: _recenter,
-
-                      // =================================================
-                      // MAP CONTROLLER
-                      // =================================================
-
                       onMapReady: (controller) {
                         _liveMapController = controller;
                       },
@@ -334,8 +339,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     duration: const Duration(milliseconds: 120),
                     curve: Curves.easeOut,
                     right: 16,
-                    bottom:
-                        screenHeight * _sheetExtent + 14,
+                    bottom: screenHeight * _sheetExtent + 14,
                     child: _myLocationButton(),
                   ),
                 ],
@@ -657,7 +661,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
                   const SizedBox(width: 4),
 
-                  // GREEN VERIFIED BADGE
                   const Icon(
                     Icons.verified_rounded,
                     color: green,
