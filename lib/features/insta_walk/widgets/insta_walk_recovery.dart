@@ -22,9 +22,14 @@ part of '../controllers/insta_walk_container.dart';
 //   - Stops search listener
 //   - Hands accepted walk to walker_accept flow
 //
+// TERMINAL:
+//   - completed
+//   - cancelled
+//   - expired
+//   - rejected
+//
 // IMPORTANT:
-//   This file does NOT control the accepted walk lifecycle.
-//   walker_accept feature owns the accepted/live-walk flow.
+//   Terminal walks MUST NEVER be recovered.
 // ============================================================
 
 extension _RecoveryRole on _InstaWalkContainerState {
@@ -227,6 +232,32 @@ extension _RecoveryRole on _InstaWalkContainerState {
       }
 
       // ========================================================
+      // TERMINAL STATE GUARD
+      //
+      // IMPORTANT:
+      // A completed/cancelled/expired/rejected walk MUST NOT
+      // be recovered.
+      //
+      // This is checked BEFORE searching/accepted handling.
+      // ========================================================
+
+      if (active.isCompleted ||
+          active.isCancelled ||
+          active.isExpired ||
+          active.isRejected) {
+        debugPrint(
+          '🛑 Insta Walk recovery skipped: '
+          'terminal status = ${active.status}',
+        );
+
+        _service.stopListening();
+        _stopSearchAnimation();
+
+        _resetSearchState();
+        return;
+      }
+
+      // ========================================================
       // SEARCHING
       // ========================================================
 
@@ -245,8 +276,16 @@ extension _RecoveryRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // OTHER / TERMINAL STATE
+      // OTHER STATE
+      //
+      // Unknown/non-recoverable states must not automatically
+      // open the accepted/live flow.
       // ========================================================
+
+      debugPrint(
+        'ℹ️ Insta Walk recovery skipped: '
+        'status = ${active.status}',
+      );
 
       _resetSearchState();
     } on FirebaseException catch (e) {
@@ -317,6 +356,23 @@ extension _RecoveryRole on _InstaWalkContainerState {
       return;
     }
 
+    // ==========================================================
+    // TERMINAL GUARD
+    // ==========================================================
+
+    if (active.isCompleted ||
+        active.isCancelled ||
+        active.isExpired ||
+        active.isRejected) {
+      debugPrint(
+        '🛑 Searching recovery blocked: '
+        'terminal status = ${active.status}',
+      );
+
+      _resetSearchState();
+      return;
+    }
+
     final String requestId =
         active.requestId.trim();
 
@@ -370,11 +426,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     // ==========================================================
     // SEARCH ICON ANIMATION
-    //
-    // This is only the small animated search icon.
-    // No GPS.
-    // No radar.
-    // No map.
     // ==========================================================
 
     if (_acceptHandled) {
@@ -400,8 +451,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
 
     // ==========================================================
     // REALTIME FIRESTORE LISTENER
-    //
-    // Managed through InstaWalkSearchService.
     // ==========================================================
 
     _service.listenAndStore(
@@ -410,6 +459,27 @@ extension _RecoveryRole on _InstaWalkContainerState {
         InstaWalkRequestState state,
       ) {
         if (!mounted) {
+          return;
+        }
+
+        // ======================================================
+        // TERMINAL STATE
+        //
+        // If request becomes completed/cancelled/expired/
+        // rejected while this screen is open, stop recovery/
+        // searching immediately.
+        // ======================================================
+
+        if (state.isCompleted ||
+            state.isCancelled ||
+            state.isExpired ||
+            state.isRejected) {
+          debugPrint(
+            '🛑 Insta Walk listener terminal state: '
+            '${state.status}',
+          );
+
+          _finishSearch();
           return;
         }
 
@@ -429,30 +499,6 @@ extension _RecoveryRole on _InstaWalkContainerState {
           );
 
           _walkerAccepted(accepted);
-          return;
-        }
-
-        // ======================================================
-        // CANCELLED
-        // ======================================================
-
-        if (state.isCancelled) {
-          _finishSearch(
-            message:
-                'Walk request was cancelled.',
-          );
-          return;
-        }
-
-        // ======================================================
-        // EXPIRED
-        // ======================================================
-
-        if (state.isExpired) {
-          _finishSearch(
-            message:
-                'This Insta Walk request is no longer active.',
-          );
           return;
         }
 
@@ -490,6 +536,23 @@ extension _RecoveryRole on _InstaWalkContainerState {
   Future<void> _recoverAcceptedRequest(
     InstaWalkRequestState active,
   ) async {
+    // ==========================================================
+    // TERMINAL GUARD
+    // ==========================================================
+
+    if (active.isCompleted ||
+        active.isCancelled ||
+        active.isExpired ||
+        active.isRejected) {
+      debugPrint(
+        '🛑 Accepted recovery blocked: '
+        'terminal status = ${active.status}',
+      );
+
+      _resetSearchState();
+      return;
+    }
+
     final Map<String, dynamic> data =
         active.data ??
             <String, dynamic>{};
