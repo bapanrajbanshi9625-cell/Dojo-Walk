@@ -63,6 +63,10 @@ class _WalkerAcceptScreenState
   final Distance _distance =
       const Distance();
 
+  // ==========================================================
+  // INIT
+  // ==========================================================
+
   @override
   void initState() {
     super.initState();
@@ -84,7 +88,10 @@ class _WalkerAcceptScreenState
     final String requestId =
         widget.requestId.trim();
 
-    if (requestId.isEmpty) {
+    if (!_isValidRequestId(requestId)) {
+      debugPrint(
+        '❌ WalkerAcceptScreen → invalid requestId: $requestId',
+      );
       return;
     }
 
@@ -137,6 +144,20 @@ class _WalkerAcceptScreenState
   }
 
   // ==========================================================
+  // REQUEST ID
+  // ==========================================================
+
+  bool _isValidRequestId(
+    String requestId,
+  ) {
+    return RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(
+      requestId.trim(),
+    );
+  }
+
+  // ==========================================================
   // STATUS HELPERS
   // ==========================================================
 
@@ -161,8 +182,13 @@ class _WalkerAcceptScreenState
     switch (status.trim().toLowerCase()) {
       case 'accepted':
       case 'reached':
+      case 'processing':
       case 'active':
+      case 'walking':
       case 'in_progress':
+      case 'started':
+      case 'ongoing':
+      case 'live':
         return true;
       default:
         return false;
@@ -180,32 +206,24 @@ class _WalkerAcceptScreenState
         data.status.trim().toLowerCase();
 
     // ========================================================
-    // IMPORTANT SAFETY CHECK
-    //
-    // Completed / cancelled / rejected / expired walks
-    // must NEVER open LiveWalkScreen.
+    // TERMINAL SAFETY
     // ========================================================
 
     if (_isTerminalStatus(status)) {
       debugPrint(
         'WalkerAcceptScreen → terminal status detected: $status',
       );
-
       return;
     }
 
     // ========================================================
-    // LIVE WALK ALLOWLIST
-    //
-    // Only these statuses are allowed to transition
-    // from Accept Screen → Live Walk.
+    // STATUS SAFETY
     // ========================================================
 
     if (!_canOpenLiveWalk(status)) {
       debugPrint(
         'WalkerAcceptScreen → Live Walk blocked for status: $status',
       );
-
       return;
     }
 
@@ -215,24 +233,26 @@ class _WalkerAcceptScreenState
     }
 
     // ========================================================
-    // WALK ID VALIDATION
+    // FINAL SINGLE ID ARCHITECTURE
     //
-    // requestId and walkId are NOT the same.
+    // requestId = DW000001
     //
-    // requestId = Firebase Auto-ID
-    // walkId    = DW-000001
+    // SAME ID:
+    //
+    // walk_request/DW000001
+    // liveWalkSessions/DW000001
+    // walk_history/DW000001
+    //
+    // There is NO separate walkId.
     // ========================================================
 
-    final String walkId =
-        data.walkId.trim();
+    final String requestId =
+        data.requestId.trim();
 
-    if (!RegExp(
-      r'^DW-\d{6}$',
-    ).hasMatch(walkId)) {
+    if (!_isValidRequestId(requestId)) {
       debugPrint(
-        '❌ WalkerAcceptScreen → invalid walkId: $walkId',
+        '❌ WalkerAcceptScreen → invalid requestId: $requestId',
       );
-
       return;
     }
 
@@ -247,17 +267,13 @@ class _WalkerAcceptScreenState
     );
 
     debugPrint(
-      'requestId = ${data.requestId}',
-    );
-
-    debugPrint(
-      'walkId = $walkId',
+      'requestId = $requestId',
     );
 
     widget.onReached?.call(data);
 
     unawaited(
-      _openLiveWalk(walkId),
+      _openLiveWalk(requestId),
     );
   }
 
@@ -266,7 +282,7 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   Future<void> _openLiveWalk(
-    String walkId,
+    String requestId,
   ) async {
     if (_liveWalkOpening) {
       return;
@@ -283,27 +299,18 @@ class _WalkerAcceptScreenState
       return;
     }
 
-    final String cleanWalkId =
-        walkId.trim();
+    final String cleanRequestId =
+        requestId.trim();
 
-    if (cleanWalkId.isEmpty) {
-      _liveWalkOpening = false;
-      return;
-    }
-
-    // ========================================================
-    // FINAL WALK ID VALIDATION
-    // ========================================================
-
-    if (!RegExp(
-      r'^DW-\d{6}$',
-    ).hasMatch(cleanWalkId)) {
+    if (!_isValidRequestId(
+      cleanRequestId,
+    )) {
       debugPrint(
         '❌ WalkerAcceptScreen → cannot open LiveWalkScreen.',
       );
 
       debugPrint(
-        'Invalid walkId = $cleanWalkId',
+        'Invalid requestId = $cleanRequestId',
       );
 
       _liveWalkOpening = false;
@@ -315,15 +322,28 @@ class _WalkerAcceptScreenState
     );
 
     debugPrint(
-      'walkId = $cleanWalkId',
+      'requestId = $cleanRequestId',
     );
+
+    // ========================================================
+    // IMPORTANT
+    //
+    // LiveWalkScreen currently receives its ID through
+    // the walkId parameter.
+    //
+    // We pass the SAME FINAL requestId:
+    //
+    // DW000001
+    //
+    // There is no separate walkId value anymore.
+    // ========================================================
 
     await Navigator.of(context)
         .pushReplacement<dynamic, dynamic>(
       MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
-            walkId: cleanWalkId,
+            walkId: cleanRequestId,
             isWalker: false,
           );
         },
@@ -1031,9 +1051,7 @@ class _WalkerAcceptScreenState
                   ),
                 ),
               ),
-
               const SizedBox(height: 15),
-
               Row(
                 children: [
                   _buildWalkerAvatar(data),
@@ -1041,8 +1059,7 @@ class _WalkerAcceptScreenState
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
+                          CrossAxisAlignment.start,
                       children: [
                         Text(
                           data.walkerName
@@ -1052,8 +1069,7 @@ class _WalkerAcceptScreenState
                               : data.walkerName,
                           maxLines: 1,
                           overflow:
-                              TextOverflow
-                                  .ellipsis,
+                              TextOverflow.ellipsis,
                           style:
                               const TextStyle(
                             color: _navy,
@@ -1082,8 +1098,7 @@ class _WalkerAcceptScreenState
                                 'Walker is approaching',
                                 maxLines: 1,
                                 overflow:
-                                    TextOverflow
-                                        .ellipsis,
+                                    TextOverflow.ellipsis,
                                 style:
                                     TextStyle(
                                   color:
@@ -1092,8 +1107,7 @@ class _WalkerAcceptScreenState
                                   ),
                                   fontSize: 12,
                                   fontWeight:
-                                      FontWeight
-                                          .w500,
+                                      FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -1125,8 +1139,7 @@ class _WalkerAcceptScreenState
                                       .trim(),
                                   maxLines: 1,
                                   overflow:
-                                      TextOverflow
-                                          .ellipsis,
+                                      TextOverflow.ellipsis,
                                   style:
                                       const TextStyle(
                                     color:
@@ -1135,8 +1148,7 @@ class _WalkerAcceptScreenState
                                     ),
                                     fontSize: 12,
                                     fontWeight:
-                                        FontWeight
-                                            .w600,
+                                        FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -1149,18 +1161,13 @@ class _WalkerAcceptScreenState
                   _buildLiveBadge(),
                 ],
               ),
-
               const SizedBox(height: 16),
-
               _buildTravelInfo(data),
-
               if (_loadingRoute) ...[
                 const SizedBox(height: 9),
                 _buildRouteUpdating(),
               ],
-
               const SizedBox(height: 13),
-
               Container(
                 padding:
                     const EdgeInsets.symmetric(
@@ -1202,9 +1209,7 @@ class _WalkerAcceptScreenState
                   ],
                 ),
               ),
-
               const SizedBox(height: 13),
-
               Row(
                 children: [
                   Expanded(
@@ -1218,9 +1223,7 @@ class _WalkerAcceptScreenState
                   ),
                 ],
               ),
-
               const SizedBox(height: 10),
-
               _buildVoiceInteractionButton(),
             ],
           ),
