@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 class LiveWalkSession {
   const LiveWalkSession({
     required this.documentId,
-    required this.walkId,
+    required this.requestId,
     required this.ownerId,
     required this.ownerUid,
     required this.ownerName,
@@ -34,8 +34,19 @@ class LiveWalkSession {
     required this.startedAt,
   });
 
+  /// Final single Walk ID.
+  ///
+  /// Example:
+  /// DW000001
+  ///
+  /// Same ID is used for:
+  /// walk_request/DW000001
+  /// liveWalkSessions/DW000001
+  /// walk_history/DW000001
   final String documentId;
-  final String walkId;
+
+  /// Canonical shared Walk / Request / Session ID.
+  final String requestId;
 
   final String ownerId;
   final String ownerUid;
@@ -72,6 +83,12 @@ class LiveWalkSession {
   final int poopCount;
 
   final DateTime? startedAt;
+
+  /// Compatibility getter only.
+  ///
+  /// This does NOT create a separate ID.
+  /// It always returns the same canonical requestId.
+  String get walkId => requestId;
 
   bool get isCompleted {
     final normalized = status.toLowerCase();
@@ -127,13 +144,16 @@ class LiveWalkSession {
 
     final routePoints = _readRoute(data['routeCoordinates']);
 
+    // Final architecture:
+    // Firestore document ID is the canonical shared ID.
+    final requestId = _readString(
+      data['requestId'],
+      fallback: snapshot.id,
+    );
+
     return LiveWalkSession(
       documentId: snapshot.id,
-
-      walkId: _readString(
-        data['walkId'],
-        fallback: _readString(data['walkRequestId']),
-      ),
+      requestId: requestId,
 
       ownerId: _readString(data['ownerId']),
       ownerUid: _readString(
@@ -148,14 +168,13 @@ class LiveWalkSession {
       walkerName: _readString(data['walkerName']),
       walkerPhone: _readString(data['walkerPhone']),
 
-      // IMPORTANT:
       // Walker profile photo comes directly from liveWalkSessions.
       walkerPhoto: _readString(
-       data['walkerProfileImage'],
-       fallback: _readString( 
-        data['walkerPhoto'],
-        fallback: _readString(data['walkerPhotoUrl']),
-       ),
+        data['walkerProfileImage'],
+        fallback: _readString(
+          data['walkerPhoto'],
+          fallback: _readString(data['walkerPhotoUrl']),
+        ),
       ),
 
       dogName: _readString(data['dogName']),
@@ -288,12 +307,20 @@ class LiveWalkSession {
     double fallbackLng = 0,
   }) {
     if (value is GeoPoint) {
-      return LatLng(value.latitude, value.longitude);
+      return LatLng(
+        value.latitude,
+        value.longitude,
+      );
     }
 
     if (value is Map) {
-      final lat = _toDouble(value['lat'] ?? value['latitude']);
-      final lng = _toDouble(value['lng'] ?? value['longitude']);
+      final lat = _toDouble(
+        value['lat'] ?? value['latitude'],
+      );
+
+      final lng = _toDouble(
+        value['lng'] ?? value['longitude'],
+      );
 
       if (lat != 0 || lng != 0) {
         return LatLng(lat, lng);
@@ -301,7 +328,10 @@ class LiveWalkSession {
     }
 
     if (fallbackLat != 0 || fallbackLng != 0) {
-      return LatLng(fallbackLat, fallbackLng);
+      return LatLng(
+        fallbackLat,
+        fallbackLng,
+      );
     }
 
     return null;
@@ -317,17 +347,27 @@ class LiveWalkSession {
     for (final item in value) {
       if (item is GeoPoint) {
         result.add(
-          LatLng(item.latitude, item.longitude),
+          LatLng(
+            item.latitude,
+            item.longitude,
+          ),
         );
         continue;
       }
 
       if (item is Map) {
-        final lat = _toDouble(item['lat'] ?? item['latitude']);
-        final lng = _toDouble(item['lng'] ?? item['longitude']);
+        final lat = _toDouble(
+          item['lat'] ?? item['latitude'],
+        );
+
+        final lng = _toDouble(
+          item['lng'] ?? item['longitude'],
+        );
 
         if (lat != 0 || lng != 0) {
-          result.add(LatLng(lat, lng));
+          result.add(
+            LatLng(lat, lng),
+          );
         }
       }
     }
@@ -338,7 +378,9 @@ class LiveWalkSession {
   static String _readAddress(
     Map<String, dynamic> data,
   ) {
-    final direct = _readString(data['destinationAddress']);
+    final direct = _readString(
+      data['destinationAddress'],
+    );
 
     if (direct.isNotEmpty) {
       return direct;
