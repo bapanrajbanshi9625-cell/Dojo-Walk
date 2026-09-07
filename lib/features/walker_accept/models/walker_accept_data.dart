@@ -6,31 +6,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///
 /// Data model for the Owner-side Walker Accept screen.
 ///
-/// Firestore flow:
+/// FINAL DOJO WALK ID ARCHITECTURE:
 ///
-/// walk_request/{requestId}
-///
-/// requestId:
-///   Firebase Firestore document ID
-///
-/// walkId:
-///   Professional Dojo Walk ID
-///   Example: DW-000001
-///
-/// status:
-///   accepted
-///      ↓
-///   reached
+/// walk_request/DW000001
+/// liveWalkSessions/DW000001
+/// walk_history/DW000001
 ///
 /// IMPORTANT:
-/// - No active_walks collection is used here.
-/// - The same walk_request document is used from Accept → Reached.
-/// - After Reached, the Live Walk session can be created.
+/// - requestId itself is the Dojo Walk ID.
+/// - No separate walkId field.
+/// - No Firebase Auto-ID.
+/// - Example requestId: DW000001
+/// - Same ID is used everywhere.
 ///
 class WalkerAcceptData {
   const WalkerAcceptData({
     required this.requestId,
-    required this.walkId,
     required this.ownerId,
     required this.ownerName,
     required this.address,
@@ -57,17 +48,16 @@ class WalkerAcceptData {
   });
 
   // ==========================================================
-  // REQUEST
+  // REQUEST / DOJO WALK ID
   // ==========================================================
 
-  /// Firebase Firestore document ID.
-  final String requestId;
-
-  /// Professional Dojo Walk ID.
+  /// Single Dojo Walk ID.
   ///
   /// Example:
-  /// DW-000001
-  final String walkId;
+  /// DW000001
+  ///
+  /// This is also the Firestore document ID.
+  final String requestId;
 
   // ==========================================================
   // OWNER
@@ -105,7 +95,7 @@ class WalkerAcceptData {
 
   /// Walker's current live location.
   ///
-  /// This should be updated by the Walker app while travelling
+  /// Updated by the Walker app while travelling
   /// to the Owner.
   final GeoPoint? walkerLocation;
 
@@ -158,12 +148,17 @@ class WalkerAcceptData {
       (isAccepted || status.trim().isNotEmpty);
 
   // ==========================================================
-  // WALK ID HELPERS
+  // REQUEST ID VALIDATION
   // ==========================================================
 
-  bool get hasValidWalkId =>
-      RegExp(r'^DW-\d{6}$').hasMatch(
-        walkId.trim(),
+  /// Valid Dojo Walk ID format:
+  ///
+  /// DW000001
+  /// DW000002
+  /// DW123456
+  bool get hasValidRequestId =>
+      RegExp(r'^DW\d{6}$').hasMatch(
+        requestId.trim(),
       );
 
   // ==========================================================
@@ -271,20 +266,6 @@ class WalkerAcceptData {
                 ),
 
       // --------------------------------------------------------
-      // WALK ID
-      //
-      // IMPORTANT:
-      // This MUST come from walkId field.
-      //
-      // Never use Firebase document ID as walkId.
-      // --------------------------------------------------------
-
-      walkId:
-          _string(
-        data['walkId'],
-      ),
-
-      // --------------------------------------------------------
       // OWNER
       // --------------------------------------------------------
 
@@ -360,7 +341,8 @@ class WalkerAcceptData {
         fallback: 'Walker',
       ),
 
-      walkerPhone: _nullableString(
+      walkerPhone:
+          _nullableString(
         data['walkerPhone'],
       ),
 
@@ -432,7 +414,7 @@ class WalkerAcceptData {
       // --------------------------------------------------------
       // ARRIVAL DATA
       //
-      // Matches Firestore:
+      // Firestore fields:
       //
       // arrivalDistanceMeters
       // arrivalDistanceKm
