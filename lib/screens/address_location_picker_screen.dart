@@ -305,27 +305,26 @@ class _AddressLocationPickerScreenState
     );
   }
 
-  @override
   Widget build(BuildContext context) {
-    if (_loading || _selectedLocation == null) {
-      return const Scaffold(
+  if (_loading || _selectedLocation == null) {
+    return Scaffold(
+      backgroundColor:
+          DojoWalkColors.background,
+      appBar: AppBar(
         backgroundColor:
             DojoWalkColors.background,
-        appBar: AppBar(
-          backgroundColor:
-              DojoWalkColors.background,
-          elevation: 0,
-          title: Text(
-            'Choose Pickup Location',
-          ),
+        elevation: 0,
+        title: const Text(
+          'Choose Pickup Location',
         ),
-        body: Center(
-          child: CircularProgressIndicator(
-            color: DojoWalkColors.primary,
-          ),
+      ),
+      body: const Center(
+        child: CircularProgressIndicator(
+          color: DojoWalkColors.primary,
         ),
-      );
-    }
+      ),
+    );
+  }
 
     final LatLng center = _selectedLocation!;
 
