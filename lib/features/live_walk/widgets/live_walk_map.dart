@@ -9,6 +9,7 @@ class LiveWalkMap extends StatefulWidget {
     required this.destination,
     required this.routePoints,
     required this.onRecenter,
+    this.onMapReady,
   });
 
   final LatLng? walkerLocation;
@@ -17,7 +18,11 @@ class LiveWalkMap extends StatefulWidget {
   final LatLng? destination;
 
   final List<LatLng> routePoints;
+
   final VoidCallback onRecenter;
+
+  // Gives the parent screen access to the map controller.
+  final ValueChanged<MapController>? onMapReady;
 
   @override
   State<LiveWalkMap> createState() => _LiveWalkMapState();
@@ -32,7 +37,20 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   static const Color routeBlue = Color(0xFF2563EB);
 
   @override
-  void didUpdateWidget(covariant LiveWalkMap oldWidget) {
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      widget.onMapReady?.call(_mapController);
+    });
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant LiveWalkMap oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
 
     final current = widget.walkerLocation;
@@ -102,7 +120,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate:
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.doojowalker.app',
         ),
 
