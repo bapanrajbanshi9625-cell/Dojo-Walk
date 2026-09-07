@@ -151,8 +151,11 @@ class LiveWalkSession {
       // IMPORTANT:
       // Walker profile photo comes directly from liveWalkSessions.
       walkerPhoto: _readString(
+       data['walkerProfileImage'],
+       fallback: _readString( 
         data['walkerPhoto'],
         fallback: _readString(data['walkerPhotoUrl']),
+       ),
       ),
 
       dogName: _readString(data['dogName']),
