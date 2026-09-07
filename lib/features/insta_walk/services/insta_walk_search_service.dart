@@ -81,17 +81,20 @@ class InstaWalkSearchService {
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
       findOwnerProfile() async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
     try {
-      final QuerySnapshot<Map<String, dynamic>>
-          snapshot =
+      final QuerySnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
-              .collection(ownersCollection)
+              .collection(
+                ownersCollection,
+              )
               .where(
                 'authUid',
                 isEqualTo: user.uid,
@@ -123,8 +126,8 @@ class InstaWalkSearchService {
   // ==========================================================
 
   Future<bool> isOwnerProfileCompleted() async {
-    final DocumentSnapshot<Map<String, dynamic>>?
-        profile =
+    final DocumentSnapshot<
+        Map<String, dynamic>>? profile =
         await findOwnerProfile();
 
     if (profile == null ||
@@ -195,6 +198,10 @@ class InstaWalkSearchService {
     }
 
     try {
+      // ======================================================
+      // OWNER PROFILE
+      // ======================================================
+
       final DocumentSnapshot<
           Map<String, dynamic>>? profile =
           await findOwnerProfile();
@@ -243,13 +250,28 @@ class InstaWalkSearchService {
         return InstaWalkSearchResult.success(
           requestId:
               existing.requestId,
+
+          // Compatibility only.
+          //
+          // Final architecture has NO separate walkId.
+          // requestId itself is DW000001.
           walkId:
-              existing.walkId,
+              existing.requestId,
         );
       }
 
       // ======================================================
       // CREATE REQUEST
+      // ======================================================
+      //
+      // InstaWalkFirestoreHelper generates:
+      //
+      // DW000001
+      //
+      // and creates:
+      //
+      // walk_request/DW000001
+      //
       // ======================================================
 
       final DocumentReference<
@@ -284,6 +306,7 @@ class InstaWalkSearchService {
           'walkerId': null,
           'walkerName': null,
           'walkerPhone': null,
+          'walkerProfileImage': null,
 
           'acceptedBy': null,
           'acceptedAt': null,
@@ -294,38 +317,45 @@ class InstaWalkSearchService {
       );
 
       // ======================================================
-      // READ CREATED REQUEST
+      // SAME ID EVERYWHERE
+      // ======================================================
       //
-      // InstaWalkFirestoreHelper already generated:
+      // ref.id = DW000001
       //
-      // DW-000001
-      // DW-000002
-      // DW-000003
-      //
-      // Read it from Firestore instead of generating another
-      // ID here.
+      // No separate walkId is generated.
       // ======================================================
 
-      final DocumentSnapshot<
-          Map<String, dynamic>> createdSnapshot =
-          await ref.get();
+      final String requestId =
+          ref.id.trim();
 
-      final Map<String, dynamic> createdData =
-          createdSnapshot.data() ??
-              <String, dynamic>{};
-
-      final String walkId =
-          createdData['walkId']
-                  ?.toString()
-                  .trim() ??
-              '';
+      if (requestId.isEmpty) {
+        return const InstaWalkSearchResult.failure(
+          message:
+              'Walk Request ID could not be generated.',
+          errorCode:
+              'missing-request-id',
+        );
+      }
 
       _activeRequestId =
-          ref.id;
+          requestId;
+
+      // ======================================================
+      // RETURN
+      // ======================================================
+      //
+      // requestId = DW000001
+      //
+      // walkId parameter is kept ONLY for compatibility
+      // with the current InstaWalkSearchResult model.
+      //
+      // It is NOT stored in Firestore.
+      //
+      // ======================================================
 
       return InstaWalkSearchResult.success(
-        requestId: ref.id,
-        walkId: walkId,
+        requestId: requestId,
+        walkId: requestId,
       );
     } on FirebaseException catch (e) {
       return InstaWalkSearchResult.failure(
@@ -404,10 +434,6 @@ class InstaWalkSearchService {
     ) onData,
     void Function(Object error)? onError,
   }) {
-    // --------------------------------------------------------
-    // ALWAYS CANCEL OLD LISTENER FIRST
-    // --------------------------------------------------------
-
     stopListening();
 
     final String cleanRequestId =
@@ -427,11 +453,6 @@ class InstaWalkSearchService {
       (
         InstaWalkRequestState state,
       ) {
-        // ----------------------------------------------------
-        // Ignore events from a listener that has already
-        // been cancelled/replaced.
-        // ----------------------------------------------------
-
         if (_requestSubscription == null) {
           return;
         }
@@ -701,7 +722,8 @@ class InstaWalkSearchService {
               'status': 'cancelled',
               'cancelledAt':
                   FieldValue.serverTimestamp(),
-              'cancelledBy': user.uid,
+              'cancelledBy':
+                  user.uid,
             },
           );
 
