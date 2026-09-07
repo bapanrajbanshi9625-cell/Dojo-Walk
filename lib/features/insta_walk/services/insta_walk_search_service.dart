@@ -250,13 +250,6 @@ class InstaWalkSearchService {
         return InstaWalkSearchResult.success(
           requestId:
               existing.requestId,
-
-          // Compatibility only.
-          //
-          // Final architecture has NO separate walkId.
-          // requestId itself is DW000001.
-          walkId:
-              existing.requestId,
         );
       }
 
@@ -322,7 +315,7 @@ class InstaWalkSearchService {
       //
       // ref.id = DW000001
       //
-      // No separate walkId is generated.
+      // No separate walkId.
       // ======================================================
 
       final String requestId =
@@ -343,19 +336,9 @@ class InstaWalkSearchService {
       // ======================================================
       // RETURN
       // ======================================================
-      //
-      // requestId = DW000001
-      //
-      // walkId parameter is kept ONLY for compatibility
-      // with the current InstaWalkSearchResult model.
-      //
-      // It is NOT stored in Firestore.
-      //
-      // ======================================================
 
       return InstaWalkSearchResult.success(
         requestId: requestId,
-        walkId: requestId,
       );
     } on FirebaseException catch (e) {
       return InstaWalkSearchResult.failure(
