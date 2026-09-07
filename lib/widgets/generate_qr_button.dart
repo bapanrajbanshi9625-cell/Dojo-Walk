@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../core/theme/dojo_walk_design_system.dart';
 import '../services/qr_service.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
 
@@ -158,7 +159,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
 
       await showModalBottomSheet<void>(
         context: context,
-        backgroundColor: Colors.transparent,
+        backgroundColor: DojoWalkColors.transparent,
         isScrollControlled: true,
         isDismissible: true,
         enableDrag: true,
@@ -212,7 +213,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
     }
 
     return Material(
-      color: Colors.transparent,
+      color: DojoWalkColors.transparent,
       child: InkWell(
         onTap: _opening ? null : _openQR,
         borderRadius: BorderRadius.circular(13),
@@ -222,7 +223,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             horizontal: 12,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF2E585E),
+            color: DojoWalkColors.dark,
             borderRadius: BorderRadius.circular(13),
           ),
           child: Row(
@@ -235,7 +236,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: DojoWalkColors.white,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: _opening
@@ -245,13 +246,13 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                           strokeWidth: 2,
                           valueColor:
                               AlwaysStoppedAnimation<Color>(
-                            Color(0xFF2E585E),
+                            DojoWalkColors.dark,
                           ),
                         ),
                       )
                     : const Icon(
                         Icons.qr_code_scanner_rounded,
-                        color: Color(0xFF2E585E),
+                        color: DojoWalkColors.dark,
                         size: 21,
                       ),
               ),
@@ -270,7 +271,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                     Text(
                       'Generate QR Code',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: DojoWalkColors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                         height: 1.0,
@@ -280,7 +281,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                     Text(
                       'Connect with your walker',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: DojoWalkColors.textTertiary,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         height: 1.0,
@@ -298,14 +299,14 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(
+                  color: DojoWalkColors.white.withValues(
                     alpha: .12,
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
+                  color: DojoWalkColors.white,
                   size: 11,
                 ),
               ),
@@ -329,7 +330,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
         width: double.infinity,
         height: 56,
         child: Material(
-          color: Colors.transparent,
+          color: DojoWalkColors.transparent,
           child: InkWell(
             onTap: widget.onLiveWalkTap,
             borderRadius: BorderRadius.circular(16),
@@ -337,7 +338,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
-                    Color(0xFF1B8F4D),
+                    DojoWalkColors.green,
                     Color(0xFF126B39),
                   ],
                 ),
@@ -348,14 +349,14 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                   SizedBox(width: 14),
                   Icon(
                     Icons.directions_walk_rounded,
-                    color: Colors.white,
+                    color: DojoWalkColors.white,
                   ),
                   SizedBox(width: 11),
                   Expanded(
                     child: Text(
                       'Live Walk',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: DojoWalkColors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
@@ -363,7 +364,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
                   ),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
+                    color: DojoWalkColors.white,
                     size: 14,
                   ),
                   SizedBox(width: 14),
@@ -401,7 +402,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
           26,
         ),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: DojoWalkColors.white,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(30),
           ),
@@ -417,7 +418,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
+                color: DojoWalkColors.border,
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -437,7 +438,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF111827),
+                      color: DojoWalkColors.textPrimary,
                     ),
                   ),
                 ),
@@ -447,6 +448,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
                   },
                   icon: const Icon(
                     Icons.close_rounded,
+                    color: DojoWalkColors.textPrimary,
                   ),
                 ),
               ],
@@ -465,6 +467,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
+                color: DojoWalkColors.textPrimary,
               ),
             ),
 
@@ -481,7 +484,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,
-                color: Color(0xFF64748B),
+                color: DojoWalkColors.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -495,14 +498,14 @@ class OwnerQRBottomSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: DojoWalkColors.white,
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: const Color(0xFFE5E7EB),
+                  color: DojoWalkColors.border,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(
+                    color: DojoWalkColors.black.withValues(
                       alpha: .08,
                     ),
                     blurRadius: 20,
@@ -514,7 +517,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
                 data: data.qrPayload,
                 size: 215,
                 version: QrVersions.auto,
-                backgroundColor: Colors.white,
+                backgroundColor: DojoWalkColors.white,
                 errorCorrectionLevel:
                     QrErrorCorrectLevel.H,
               ),
@@ -527,7 +530,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF64748B),
+                color: DojoWalkColors.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -544,7 +547,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
                 vertical: 10,
               ),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
+                color: DojoWalkColors.greenLight,
                 borderRadius: BorderRadius.circular(30),
               ),
               child: const Row(
@@ -555,7 +558,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
                     height: 8,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Color(0xFF22C55E),
+                        color: DojoWalkColors.green,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -564,7 +567,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
                   Text(
                     'Waiting for Walker...',
                     style: TextStyle(
-                      color: Color(0xFF166534),
+                      color: DojoWalkColors.green,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
@@ -584,7 +587,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFF9CA3AF),
+                color: DojoWalkColors.textTertiary,
                 fontSize: 9,
               ),
             ),
