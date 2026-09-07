@@ -60,14 +60,18 @@ class _WalkerAcceptScreenState
   static const Color _pageBackground =
       Color(0xFFF5F6F8);
 
-  final Distance _distance = const Distance();
+  final Distance _distance =
+      const Distance();
 
   @override
   void initState() {
     super.initState();
 
-    _acceptService = WalkerAcceptService();
-    _routeService = WalkerRouteService();
+    _acceptService =
+        WalkerAcceptService();
+
+    _routeService =
+        WalkerRouteService();
 
     _listenToRequest();
   }
@@ -85,7 +89,9 @@ class _WalkerAcceptScreenState
     }
 
     _requestSubscription =
-        _acceptService.watchRequest(requestId).listen(
+        _acceptService
+            .watchRequest(requestId)
+            .listen(
       (WalkerAcceptData? data) {
         if (!mounted) {
           return;
@@ -104,7 +110,9 @@ class _WalkerAcceptScreenState
 
         _checkReached(data);
 
-        if (!_isTerminalStatus(data.status) &&
+        if (!_isTerminalStatus(
+              data.status,
+            ) &&
             !data.isReached) {
           _refreshRoute(data);
         }
@@ -206,6 +214,28 @@ class _WalkerAcceptScreenState
       return;
     }
 
+    // ========================================================
+    // WALK ID VALIDATION
+    //
+    // requestId and walkId are NOT the same.
+    //
+    // requestId = Firebase Auto-ID
+    // walkId    = DW-000001
+    // ========================================================
+
+    final String walkId =
+        data.walkId.trim();
+
+    if (!RegExp(
+      r'^DW-\d{6}$',
+    ).hasMatch(walkId)) {
+      debugPrint(
+        '❌ WalkerAcceptScreen → invalid walkId: $walkId',
+      );
+
+      return;
+    }
+
     _reachedHandled = true;
 
     debugPrint(
@@ -220,10 +250,14 @@ class _WalkerAcceptScreenState
       'requestId = ${data.requestId}',
     );
 
+    debugPrint(
+      'walkId = $walkId',
+    );
+
     widget.onReached?.call(data);
 
     unawaited(
-      _openLiveWalk(data.requestId),
+      _openLiveWalk(walkId),
     );
   }
 
@@ -232,7 +266,7 @@ class _WalkerAcceptScreenState
   // ==========================================================
 
   Future<void> _openLiveWalk(
-    String requestId,
+    String walkId,
   ) async {
     if (_liveWalkOpening) {
       return;
@@ -241,6 +275,7 @@ class _WalkerAcceptScreenState
     _liveWalkOpening = true;
 
     await _requestSubscription?.cancel();
+
     _requestSubscription = null;
 
     if (!mounted) {
@@ -248,10 +283,29 @@ class _WalkerAcceptScreenState
       return;
     }
 
-    final String walkId =
-        requestId.trim();
+    final String cleanWalkId =
+        walkId.trim();
 
-    if (walkId.isEmpty) {
+    if (cleanWalkId.isEmpty) {
+      _liveWalkOpening = false;
+      return;
+    }
+
+    // ========================================================
+    // FINAL WALK ID VALIDATION
+    // ========================================================
+
+    if (!RegExp(
+      r'^DW-\d{6}$',
+    ).hasMatch(cleanWalkId)) {
+      debugPrint(
+        '❌ WalkerAcceptScreen → cannot open LiveWalkScreen.',
+      );
+
+      debugPrint(
+        'Invalid walkId = $cleanWalkId',
+      );
+
       _liveWalkOpening = false;
       return;
     }
@@ -261,14 +315,15 @@ class _WalkerAcceptScreenState
     );
 
     debugPrint(
-      'walkId = $walkId',
+      'walkId = $cleanWalkId',
     );
 
-    await Navigator.of(context).pushReplacement<dynamic, dynamic>(
+    await Navigator.of(context)
+        .pushReplacement<dynamic, dynamic>(
       MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
-            walkId: walkId,
+            walkId: cleanWalkId,
             isWalker: false,
           );
         },
@@ -291,7 +346,9 @@ class _WalkerAcceptScreenState
   void _refreshRoute(
     WalkerAcceptData data,
   ) {
-    if (_isTerminalStatus(data.status)) {
+    if (_isTerminalStatus(
+      data.status,
+    )) {
       return;
     }
 
@@ -333,8 +390,10 @@ class _WalkerAcceptScreenState
 
     unawaited(
       _loadRoute(
-        walkerLocation: walkerLocation,
-        ownerLocation: ownerLocation,
+        walkerLocation:
+            walkerLocation,
+        ownerLocation:
+            ownerLocation,
       ),
     );
   }
@@ -378,8 +437,10 @@ class _WalkerAcceptScreenState
 
       final WalkerRouteResult? result =
           await _routeService.getRoute(
-        walkerLocation: walkerLocation,
-        ownerLocation: ownerLocation,
+        walkerLocation:
+            walkerLocation,
+        ownerLocation:
+            ownerLocation,
       );
 
       if (!mounted) {
@@ -483,7 +544,9 @@ class _WalkerAcceptScreenState
   Future<void> _loadRouteForLatestData(
     WalkerAcceptData data,
   ) async {
-    if (_isTerminalStatus(data.status) ||
+    if (_isTerminalStatus(
+          data.status,
+        ) ||
         data.isReached) {
       return;
     }
@@ -504,8 +567,10 @@ class _WalkerAcceptScreenState
     }
 
     await _loadRoute(
-      walkerLocation: walkerLocation,
-      ownerLocation: ownerLocation,
+      walkerLocation:
+          walkerLocation,
+      ownerLocation:
+          ownerLocation,
     );
   }
 
@@ -522,10 +587,12 @@ class _WalkerAcceptScreenState
 
     try {
       final double latitude =
-          (point.latitude as num).toDouble();
+          (point.latitude as num)
+              .toDouble();
 
       final double longitude =
-          (point.longitude as num).toDouble();
+          (point.longitude as num)
+              .toDouble();
 
       if (!_isValidCoordinate(
         latitude,
@@ -578,7 +645,8 @@ class _WalkerAcceptScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Walker phone number is not available',
@@ -598,11 +666,13 @@ class _WalkerAcceptScreenState
       final bool launched =
           await launchUrl(
         uri,
-        mode: LaunchMode.externalApplication,
+        mode:
+            LaunchMode.externalApplication,
       );
 
       if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           const SnackBar(
             content: Text(
               'Unable to open phone dialer',
@@ -619,7 +689,8 @@ class _WalkerAcceptScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Unable to open phone dialer',
@@ -657,7 +728,8 @@ class _WalkerAcceptScreenState
 
     if (data == null) {
       return Scaffold(
-        backgroundColor: _pageBackground,
+        backgroundColor:
+            _pageBackground,
         body: SafeArea(
           child: Column(
             children: [
@@ -685,7 +757,8 @@ class _WalkerAcceptScreenState
     );
 
     return Scaffold(
-      backgroundColor: _pageBackground,
+      backgroundColor:
+          _pageBackground,
       body: SafeArea(
         child: Stack(
           children: [
@@ -693,7 +766,10 @@ class _WalkerAcceptScreenState
               child: WalkerAcceptMap(
                 ownerLocation:
                     ownerLocation ??
-                    const LatLng(0, 0),
+                    const LatLng(
+                      0,
+                      0,
+                    ),
                 walkerLocation:
                     walkerLocation,
                 walkerImageUrl:
@@ -729,9 +805,11 @@ class _WalkerAcceptScreenState
       child: Row(
         children: [
           _buildHeaderCircleButton(
-            icon: Icons.arrow_back_rounded,
+            icon:
+                Icons.arrow_back_rounded,
             onTap: () {
-              Navigator.of(context).maybePop();
+              Navigator.of(context)
+                  .maybePop();
             },
           ),
           const SizedBox(width: 10),
@@ -746,12 +824,17 @@ class _WalkerAcceptScreenState
                   BoxDecoration(
                 color: Colors.white,
                 borderRadius:
-                    BorderRadius.circular(17),
-                boxShadow: const [
+                    BorderRadius.circular(
+                  17,
+                ),
+                boxShadow:
+                    const [
                   BoxShadow(
                     blurRadius: 18,
-                    offset: Offset(0, 5),
-                    color: Colors.black12,
+                    offset:
+                        Offset(0, 5),
+                    color:
+                        Colors.black12,
                   ),
                 ],
               ),
@@ -759,13 +842,15 @@ class _WalkerAcceptScreenState
                 children: [
                   Icon(
                     Icons.pets_rounded,
-                    color: _primaryOrange,
+                    color:
+                        _primaryOrange,
                     size: 23,
                   ),
                   SizedBox(width: 9),
                   Text(
                     'Accept Screen',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       color: _navy,
                       fontSize: 18,
                       fontWeight:
@@ -778,7 +863,8 @@ class _WalkerAcceptScreenState
           ),
           const SizedBox(width: 10),
           _buildHeaderCircleButton(
-            icon: Icons.help_outline_rounded,
+            icon:
+                Icons.help_outline_rounded,
             onTap: widget.onHelp,
           ),
         ],
@@ -797,10 +883,12 @@ class _WalkerAcceptScreenState
     return Material(
       color: Colors.white,
       elevation: 5,
-      shape: const CircleBorder(),
+      shape:
+          const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
+        customBorder:
+            const CircleBorder(),
         child: SizedBox(
           width: 50,
           height: 50,
@@ -830,9 +918,11 @@ class _WalkerAcceptScreenState
       child: Row(
         children: [
           _buildHeaderCircleButton(
-            icon: Icons.arrow_back_rounded,
+            icon:
+                Icons.arrow_back_rounded,
             onTap: () {
-              Navigator.of(context).maybePop();
+              Navigator.of(context)
+                  .maybePop();
             },
           ),
           const SizedBox(width: 10),
@@ -847,19 +937,23 @@ class _WalkerAcceptScreenState
                   BoxDecoration(
                 color: Colors.white,
                 borderRadius:
-                    BorderRadius.circular(17),
+                    BorderRadius.circular(
+                  17,
+                ),
               ),
               child: const Row(
                 children: [
                   Icon(
                     Icons.pets_rounded,
-                    color: _primaryOrange,
+                    color:
+                        _primaryOrange,
                     size: 23,
                   ),
                   SizedBox(width: 9),
                   Text(
                     'Accept Screen',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       color: _navy,
                       fontSize: 18,
                       fontWeight:
@@ -872,7 +966,8 @@ class _WalkerAcceptScreenState
           ),
           const SizedBox(width: 10),
           _buildHeaderCircleButton(
-            icon: Icons.help_outline_rounded,
+            icon:
+                Icons.help_outline_rounded,
             onTap: widget.onHelp,
           ),
         ],
@@ -926,8 +1021,9 @@ class _WalkerAcceptScreenState
                   height: 5,
                   decoration:
                       BoxDecoration(
-                    color:
-                        const Color(0xFFD2D2D2),
+                    color: const Color(
+                      0xFFD2D2D2,
+                    ),
                     borderRadius:
                         BorderRadius.circular(
                       20,
@@ -974,9 +1070,13 @@ class _WalkerAcceptScreenState
                                   .location_on_outlined,
                               size: 16,
                               color:
-                                  Color(0xFF777777),
+                                  Color(
+                                0xFF777777,
+                              ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(
+                              width: 4,
+                            ),
                             const Expanded(
                               child: Text(
                                 'Walker is approaching',
@@ -992,7 +1092,8 @@ class _WalkerAcceptScreenState
                                   ),
                                   fontSize: 12,
                                   fontWeight:
-                                      FontWeight.w500,
+                                      FontWeight
+                                          .w500,
                                 ),
                               ),
                             ),
@@ -1010,14 +1111,17 @@ class _WalkerAcceptScreenState
                                     .phone_outlined,
                                 size: 15,
                                 color:
-                                    Color(0xFF777777),
+                                    Color(
+                                  0xFF777777,
+                                ),
                               ),
                               const SizedBox(
                                 width: 4,
                               ),
                               Expanded(
                                 child: Text(
-                                  data.walkerPhone!
+                                  data
+                                      .walkerPhone!
                                       .trim(),
                                   maxLines: 1,
                                   overflow:
@@ -1031,7 +1135,8 @@ class _WalkerAcceptScreenState
                                     ),
                                     fontSize: 12,
                                     fontWeight:
-                                        FontWeight.w600,
+                                        FontWeight
+                                            .w600,
                                   ),
                                 ),
                               ),
@@ -1064,8 +1169,9 @@ class _WalkerAcceptScreenState
                 ),
                 decoration:
                     BoxDecoration(
-                  color:
-                      const Color(0xFFFFF3E9),
+                  color: const Color(
+                    0xFFFFF3E9,
+                  ),
                   borderRadius:
                       BorderRadius.circular(
                     16,
@@ -1076,14 +1182,16 @@ class _WalkerAcceptScreenState
                     Icon(
                       Icons
                           .directions_walk_rounded,
-                      color: _primaryOrange,
+                      color:
+                          _primaryOrange,
                       size: 22,
                     ),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Walker is on the way',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           color: _navy,
                           fontSize: 13,
                           fontWeight:
@@ -1100,11 +1208,13 @@ class _WalkerAcceptScreenState
               Row(
                 children: [
                   Expanded(
-                    child: _buildCallButton(),
+                    child:
+                        _buildCallButton(),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _buildChatButton(),
+                    child:
+                        _buildChatButton(),
                   ),
                 ],
               ),
@@ -1139,7 +1249,9 @@ class _WalkerAcceptScreenState
         color:
             const Color(0xFFFFEEE2),
         borderRadius:
-            BorderRadius.circular(17),
+            BorderRadius.circular(
+          17,
+        ),
       ),
       clipBehavior:
           Clip.antiAlias,
@@ -1154,14 +1266,16 @@ class _WalkerAcceptScreenState
               ) {
                 return const Icon(
                   Icons.person_rounded,
-                  color: _primaryOrange,
+                  color:
+                      _primaryOrange,
                   size: 30,
                 );
               },
             )
           : const Icon(
               Icons.person_rounded,
-              color: _primaryOrange,
+              color:
+                  _primaryOrange,
               size: 30,
             ),
     );
@@ -1183,7 +1297,9 @@ class _WalkerAcceptScreenState
         color:
             const Color(0xFFE9F7EF),
         borderRadius:
-            BorderRadius.circular(20),
+            BorderRadius.circular(
+          20,
+        ),
       ),
       child: const Row(
         mainAxisSize:
@@ -1198,7 +1314,8 @@ class _WalkerAcceptScreenState
           SizedBox(width: 5),
           Text(
             'LIVE',
-            style: TextStyle(
+            style:
+                TextStyle(
               color:
                   Color(0xFF21A464),
               fontSize: 10,
@@ -1250,9 +1367,10 @@ class _WalkerAcceptScreenState
             data.distanceKm,
       );
     } else {
-      distanceValue = _loadingRoute
-          ? 'Calculating...'
-          : '--';
+      distanceValue =
+          _loadingRoute
+              ? 'Calculating...'
+              : '--';
     }
 
     String arrivalValue;
@@ -1264,9 +1382,10 @@ class _WalkerAcceptScreenState
       arrivalValue =
           data.etaLabel;
     } else {
-      arrivalValue = _loadingRoute
-          ? 'Calculating...'
-          : 'Waiting';
+      arrivalValue =
+          _loadingRoute
+              ? 'Calculating...'
+              : 'Waiting';
     }
 
     return Container(
@@ -1276,7 +1395,9 @@ class _WalkerAcceptScreenState
         color:
             const Color(0xFFF7F7F8),
         borderRadius:
-            BorderRadius.circular(18),
+            BorderRadius.circular(
+          18,
+        ),
       ),
       child: Row(
         children: [
@@ -1326,7 +1447,8 @@ class _WalkerAcceptScreenState
       children: [
         Icon(
           icon,
-          color: _primaryOrange,
+          color:
+              _primaryOrange,
           size: 21,
         ),
         const SizedBox(width: 8),
@@ -1342,7 +1464,8 @@ class _WalkerAcceptScreenState
                 maxLines: 1,
                 overflow:
                     TextOverflow.ellipsis,
-                style: const TextStyle(
+                style:
+                    const TextStyle(
                   color:
                       Color(0xFF8A8A8A),
                   fontSize: 10,
@@ -1387,13 +1510,17 @@ class _WalkerAcceptScreenState
           ? _primaryOrange
           : const Color(0xFFE5E5E5),
       borderRadius:
-          BorderRadius.circular(15),
+          BorderRadius.circular(
+        15,
+      ),
       child: InkWell(
         onTap: hasPhone
             ? _callWalker
             : null,
         borderRadius:
-            BorderRadius.circular(15),
+            BorderRadius.circular(
+          15,
+        ),
         child: SizedBox(
           height: 52,
           child: Row(
@@ -1410,7 +1537,8 @@ class _WalkerAcceptScreenState
               const SizedBox(width: 7),
               Text(
                 'Call',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color: hasPhone
                       ? Colors.white
                       : Colors.black38,
@@ -1435,11 +1563,15 @@ class _WalkerAcceptScreenState
       color:
           const Color(0xFFF1F2F4),
       borderRadius:
-          BorderRadius.circular(15),
+          BorderRadius.circular(
+        15,
+      ),
       child: InkWell(
         onTap: widget.onChat,
         borderRadius:
-            BorderRadius.circular(15),
+            BorderRadius.circular(
+          15,
+        ),
         child: const SizedBox(
           height: 52,
           child: Row(
@@ -1455,7 +1587,8 @@ class _WalkerAcceptScreenState
               SizedBox(width: 7),
               Text(
                 'Chat',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color: _navy,
                   fontSize: 14,
                   fontWeight:
@@ -1478,11 +1611,14 @@ class _WalkerAcceptScreenState
       color:
           const Color(0xFFFFF7F1),
       borderRadius:
-          BorderRadius.circular(15),
+          BorderRadius.circular(
+        15,
+      ),
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(
             const SnackBar(
               content: Text(
                 'Voice Interaction is coming soon.',
@@ -1491,7 +1627,9 @@ class _WalkerAcceptScreenState
           );
         },
         borderRadius:
-            BorderRadius.circular(15),
+            BorderRadius.circular(
+          15,
+        ),
         child: Container(
           height: 52,
           decoration:
@@ -1501,7 +1639,9 @@ class _WalkerAcceptScreenState
                   const Color(0xFFF0D4BF),
             ),
             borderRadius:
-                BorderRadius.circular(15),
+                BorderRadius.circular(
+              15,
+            ),
           ),
           child: const Row(
             mainAxisAlignment:
@@ -1509,13 +1649,15 @@ class _WalkerAcceptScreenState
             children: [
               Icon(
                 Icons.mic_none_rounded,
-                color: _primaryOrange,
+                color:
+                    _primaryOrange,
                 size: 21,
               ),
               SizedBox(width: 8),
               Text(
                 'Voice Interaction',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color: _navy,
                   fontSize: 14,
                   fontWeight:
@@ -1525,7 +1667,8 @@ class _WalkerAcceptScreenState
               SizedBox(width: 7),
               Text(
                 'Soon',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color:
                       Color(0xFF999999),
                   fontSize: 11,
@@ -1565,7 +1708,8 @@ class _WalkerAcceptScreenState
         const SizedBox(width: 7),
         Text(
           'Updating route...',
-          style: TextStyle(
+          style:
+              TextStyle(
             color:
                 Colors.grey.shade600,
             fontSize: 10,
@@ -1586,7 +1730,8 @@ class _WalkerAcceptScreenState
     double? km,
   }) {
     double valueMeters =
-        (meters ?? 0).toDouble();
+        (meters ?? 0)
+            .toDouble();
 
     if (valueMeters <= 0 &&
         (km ?? 0) > 0) {
