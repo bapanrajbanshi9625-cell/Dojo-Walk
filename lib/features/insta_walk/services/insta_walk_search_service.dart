@@ -243,6 +243,8 @@ class InstaWalkSearchService {
         return InstaWalkSearchResult.success(
           requestId:
               existing.requestId,
+          walkId:
+              existing.walkId,
         );
       }
 
@@ -291,11 +293,39 @@ class InstaWalkSearchService {
         },
       );
 
+      // ======================================================
+      // READ CREATED REQUEST
+      //
+      // InstaWalkFirestoreHelper already generated:
+      //
+      // DW-000001
+      // DW-000002
+      // DW-000003
+      //
+      // Read it from Firestore instead of generating another
+      // ID here.
+      // ======================================================
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> createdSnapshot =
+          await ref.get();
+
+      final Map<String, dynamic> createdData =
+          createdSnapshot.data() ??
+              <String, dynamic>{};
+
+      final String walkId =
+          createdData['walkId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
       _activeRequestId =
           ref.id;
 
       return InstaWalkSearchResult.success(
         requestId: ref.id,
+        walkId: walkId,
       );
     } on FirebaseException catch (e) {
       return InstaWalkSearchResult.failure(
@@ -415,17 +445,6 @@ class InstaWalkSearchService {
 
   // ==========================================================
   // STOP LISTENING
-  // ==========================================================
-  //
-  // IMPORTANT:
-  // This ONLY stops the local realtime listener.
-  //
-  // It DOES NOT:
-  // - cancel Firestore request
-  // - change status
-  // - delete document
-  // - modify walker data
-  //
   // ==========================================================
 
   void stopListening() {
