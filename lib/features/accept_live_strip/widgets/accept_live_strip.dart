@@ -37,7 +37,8 @@ class _AcceptLiveStripState
 
     _trigger = AcceptLiveStripTrigger();
 
-    _subscription = _trigger.trigger().listen(
+    _subscription =
+        _trigger.trigger().listen(
       (data) {
         if (!mounted) {
           return;
@@ -85,9 +86,13 @@ class _AcceptLiveStripState
   bool get _isTerminal {
     switch (_sessionStatus) {
       case 'completed':
+      case 'complete':
+      case 'finished':
+      case 'closed':
       case 'cancelled':
       case 'canceled':
       case 'rejected':
+      case 'declined':
       case 'expired':
       case 'ended':
         return true;
@@ -109,6 +114,7 @@ class _AcceptLiveStripState
       case 'in_progress':
       case 'in-progress':
       case 'started':
+      case 'ongoing':
         return true;
 
       default:
@@ -124,7 +130,9 @@ class _AcceptLiveStripState
     switch (_sessionStatus) {
       case 'accepted':
       case 'ready':
+      case 'on_the_way':
       case 'reached':
+      case 'processing':
         return true;
 
       default:
@@ -137,7 +145,8 @@ class _AcceptLiveStripState
   // ==========================================================
 
   String get _mainTitle {
-    if (_canOpenLiveWalk && _data.isLive) {
+    if (_canOpenLiveWalk &&
+        _data.isLive) {
       return 'LIVE WALK';
     }
 
@@ -149,12 +158,21 @@ class _AcceptLiveStripState
   // ==========================================================
 
   String get _secondaryText {
-    if (_canOpenLiveWalk && _data.isLive) {
+    if (_canOpenLiveWalk &&
+        _data.isLive) {
       return 'Your dog walk is currently in progress';
+    }
+
+    if (_sessionStatus == 'processing') {
+      return 'Walker is preparing the walk';
     }
 
     if (_sessionStatus == 'ready') {
       return 'Walker is ready to start the walk';
+    }
+
+    if (_sessionStatus == 'on_the_way') {
+      return 'Walker is on the way to you';
     }
 
     if (_sessionStatus == 'reached') {
@@ -169,12 +187,21 @@ class _AcceptLiveStripState
   // ==========================================================
 
   String get _statusTitle {
-    if (_canOpenLiveWalk && _data.isLive) {
+    if (_canOpenLiveWalk &&
+        _data.isLive) {
       return 'LIVE WALK';
+    }
+
+    if (_sessionStatus == 'processing') {
+      return 'PROCESSING';
     }
 
     if (_sessionStatus == 'ready') {
       return 'READY';
+    }
+
+    if (_sessionStatus == 'on_the_way') {
+      return 'ON THE WAY';
     }
 
     if (_sessionStatus == 'reached') {
@@ -185,12 +212,21 @@ class _AcceptLiveStripState
   }
 
   String get _statusSubtitle {
-    if (_canOpenLiveWalk && _data.isLive) {
+    if (_canOpenLiveWalk &&
+        _data.isLive) {
       return 'Tap to view live walk';
+    }
+
+    if (_sessionStatus == 'processing') {
+      return 'Tap to view walk';
     }
 
     if (_sessionStatus == 'ready') {
       return 'Tap to open walk';
+    }
+
+    if (_sessionStatus == 'on_the_way') {
+      return 'Tap to view walker';
     }
 
     if (_sessionStatus == 'reached') {
@@ -269,7 +305,7 @@ class _AcceptLiveStripState
       }
 
       // ======================================================
-      // ACCEPT / READY / REACHED
+      // ACCEPT / ON THE WAY / REACHED / PROCESSING
       // ======================================================
 
       if (_canOpenAcceptWalk) {
@@ -279,6 +315,10 @@ class _AcceptLiveStripState
 
         debugPrint(
           'requestId = $requestId',
+        );
+
+        debugPrint(
+          'walkId = $walkId',
         );
 
         debugPrint(
@@ -298,10 +338,6 @@ class _AcceptLiveStripState
         return;
       }
 
-      // ======================================================
-      // INVALID / UNKNOWN STATE
-      // ======================================================
-
       debugPrint(
         'AcceptLiveStrip → navigation blocked.',
       );
@@ -318,9 +354,7 @@ class _AcceptLiveStripState
         'AcceptLiveStrip navigation error: $e',
       );
 
-      debugPrint(
-        '$stackTrace',
-      );
+      debugPrint('$stackTrace');
     } finally {
       _opening = false;
     }
@@ -360,12 +394,15 @@ class _AcceptLiveStripState
           ),
           decoration: BoxDecoration(
             color: DojoWalkColors.primary,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius:
+                BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 blurRadius: 12,
                 offset: const Offset(0, 4),
-                color: DojoWalkColors.black.withValues(
+                color:
+                    DojoWalkColors.black
+                        .withValues(
                   alpha: 0.12,
                 ),
               ),
@@ -377,7 +414,9 @@ class _AcceptLiveStripState
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: DojoWalkColors.white.withValues(
+                  color:
+                      DojoWalkColors.white
+                          .withValues(
                     alpha: 0.16,
                   ),
                   shape: BoxShape.circle,
@@ -385,9 +424,11 @@ class _AcceptLiveStripState
                 child: Icon(
                   _data.isLive &&
                           _canOpenLiveWalk
-                      ? Icons.directions_walk_rounded
+                      ? Icons
+                          .directions_walk_rounded
                       : Icons.pets_rounded,
-                  color: DojoWalkColors.white,
+                  color:
+                      DojoWalkColors.white,
                   size: 22,
                 ),
               ),
@@ -404,8 +445,10 @@ class _AcceptLiveStripState
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: DojoWalkColors.white,
+                      style:
+                          const TextStyle(
+                        color:
+                            DojoWalkColors.white,
                         fontSize: 14,
                         fontWeight:
                             FontWeight.w800,
@@ -445,8 +488,10 @@ class _AcceptLiveStripState
                 children: [
                   Text(
                     _statusTitle,
-                    style: const TextStyle(
-                      color: DojoWalkColors.white,
+                    style:
+                        const TextStyle(
+                      color:
+                          DojoWalkColors.white,
                       fontSize: 10,
                       fontWeight:
                           FontWeight.w800,
@@ -475,7 +520,8 @@ class _AcceptLiveStripState
 
               const Icon(
                 Icons.chevron_right_rounded,
-                color: DojoWalkColors.white,
+                color:
+                    DojoWalkColors.white,
                 size: 20,
               ),
             ],
