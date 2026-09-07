@@ -99,16 +99,16 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             'QR Walker connected: '
             'walkerId=${state.walkerId}, '
             'walkerName=${state.walkerName}, '
-            'walkId=${state.walkId}',
+            'requestId=${state.walkId}',
           );
 
           // ------------------------------------------------------
           // OPEN OWNER LIVE WALK SCREEN
           // ------------------------------------------------------
 
-          final String walkId = state.walkId.trim();
+          final String requestId = state.walkId.trim();
 
-          if (walkId.isNotEmpty && !_liveScreenOpened) {
+          if (requestId.isNotEmpty && !_liveScreenOpened) {
             _liveScreenOpened = true;
 
             // Close QR bottom sheet first.
@@ -128,7 +128,7 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             await Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => LiveWalkScreen(
-                  walkId: walkId,
+                  requestId: requestId,
                   isWalker: false,
                 ),
               ),
