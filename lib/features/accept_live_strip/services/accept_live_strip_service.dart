@@ -562,25 +562,8 @@ class AcceptLiveStripService {
   }
 
   // =====================================================
-  // STRING HELPERS
+  // STATUS
   // =====================================================
-
-  String? _readString(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
-
-    final String result =
-        value.toString().trim();
-
-    if (result.isEmpty) {
-      return null;
-    }
-
-    return result;
-  }
 
   String _readStatus(
     dynamic value,
