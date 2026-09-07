@@ -6,6 +6,8 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/theme/dojo_walk_design_system.dart';
+
 class AddressLocationPickerScreen extends StatefulWidget {
   const AddressLocationPickerScreen({
     super.key,
@@ -39,9 +41,6 @@ class _AddressLocationPickerScreenState
 
   String _selectedAddress =
       'Move the map to choose pickup location';
-
-  static const Color _primaryColor = Color(0xFFFF8A00);
-  static const Color _backgroundColor = Color(0xFFF8F9FB);
 
   @override
   void initState() {
@@ -309,18 +308,20 @@ class _AddressLocationPickerScreenState
   @override
   Widget build(BuildContext context) {
     if (_loading || _selectedLocation == null) {
-      return Scaffold(
-        backgroundColor: _backgroundColor,
+      return const Scaffold(
+        backgroundColor:
+            DojoWalkColors.background,
         appBar: AppBar(
-          backgroundColor: _backgroundColor,
+          backgroundColor:
+              DojoWalkColors.background,
           elevation: 0,
-          title: const Text(
+          title: Text(
             'Choose Pickup Location',
           ),
         ),
-        body: const Center(
+        body: Center(
           child: CircularProgressIndicator(
-            color: _primaryColor,
+            color: DojoWalkColors.primary,
           ),
         ),
       );
@@ -329,11 +330,14 @@ class _AddressLocationPickerScreenState
     final LatLng center = _selectedLocation!;
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor:
+          DojoWalkColors.background,
       appBar: AppBar(
-        backgroundColor: _backgroundColor,
+        backgroundColor:
+            DojoWalkColors.background,
         elevation: 0,
-        foregroundColor: Colors.black87,
+        foregroundColor:
+            DojoWalkColors.black,
         title: const Text(
           'Choose Pickup Location',
           style: TextStyle(
@@ -372,7 +376,7 @@ class _AddressLocationPickerScreenState
               child: Icon(
                 Icons.location_pin,
                 size: 52,
-                color: _primaryColor,
+                color: DojoWalkColors.primary,
               ),
             ),
           ),
@@ -385,7 +389,7 @@ class _AddressLocationPickerScreenState
               elevation: 5,
               borderRadius:
                   BorderRadius.circular(18),
-              color: Colors.white,
+              color: DojoWalkColors.white,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -396,7 +400,8 @@ class _AddressLocationPickerScreenState
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: _primaryColor.withValues(
+                        color: DojoWalkColors.primary
+                            .withValues(
                           alpha: 0.10,
                         ),
                         borderRadius:
@@ -404,7 +409,8 @@ class _AddressLocationPickerScreenState
                       ),
                       child: const Icon(
                         Icons.location_on,
-                        color: _primaryColor,
+                        color:
+                            DojoWalkColors.primary,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -427,11 +433,12 @@ class _AddressLocationPickerScreenState
                             maxLines: 3,
                             overflow:
                                 TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
                               height: 1.35,
                               color:
-                                  Colors.grey.shade700,
+                                  DojoWalkColors
+                                      .textSecondary,
                             ),
                           ),
                         ],
@@ -454,8 +461,10 @@ class _AddressLocationPickerScreenState
                   'address_current_location',
               onPressed:
                   _goToCurrentLocation,
-              backgroundColor: Colors.white,
-              foregroundColor: _primaryColor,
+              backgroundColor:
+                  DojoWalkColors.white,
+              foregroundColor:
+                  DojoWalkColors.primary,
               elevation: 5,
               child: const Icon(
                 Icons.my_location,
@@ -474,10 +483,13 @@ class _AddressLocationPickerScreenState
                     ? null
                     : _useSelectedLocation,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
+                  backgroundColor:
+                      DojoWalkColors.primary,
+                  foregroundColor:
+                      DojoWalkColors.white,
                   disabledBackgroundColor:
-                      _primaryColor.withValues(
+                      DojoWalkColors.primary
+                          .withValues(
                     alpha: 0.5,
                   ),
                   shape:
@@ -494,7 +506,8 @@ class _AddressLocationPickerScreenState
                         child:
                             CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          color: Colors.white,
+                          color:
+                              DojoWalkColors.white,
                         ),
                       )
                     : const Row(
