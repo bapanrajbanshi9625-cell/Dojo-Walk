@@ -25,29 +25,25 @@ class InstaWalkFirestoreHelper {
   // CREATE REQUEST
   // ==========================================================
   //
-  // Creates:
+  // FINAL ARCHITECTURE:
   //
-  // walk_request/{firebaseAutoId}
+  // walk_request/DW000001
+  // walk_request/DW000002
+  // walk_request/DW000003
   //
-  // with:
+  // SAME ID is used everywhere.
   //
-  // walkId = DW-000001
-  // walkId = DW-000002
-  // walkId = DW-000003
+  // NO Firebase Auto-ID.
+  // NO separate walkId.
   //
-  // The serial number is generated inside a Firestore
+  // Final format:
+  //
+  // DW000001
+  // DW000002
+  // DW000003
+  //
+  // Serial number is generated inside a Firestore
   // transaction so two Walks cannot receive the same number.
-  //
-  // IMPORTANT:
-  // Firebase auto document ID remains the internal request ID.
-  //
-  // walkId is the professional Dojo Walk ID.
-  //
-  // FINAL FORMAT:
-  //
-  // DW-000001
-  // DW-000002
-  // DW-000003
   //
   // ==========================================================
 
@@ -55,16 +51,6 @@ class InstaWalkFirestoreHelper {
       createRequest({
     required Map<String, dynamic> data,
   }) async {
-    final CollectionReference<Map<String, dynamic>>
-        requests =
-        _firestore.collection(
-      walkRequestsCollection,
-    );
-
-    final DocumentReference<Map<String, dynamic>>
-        requestRef =
-        requests.doc();
-
     final DocumentReference<Map<String, dynamic>>
         counterRef =
         _firestore
@@ -77,6 +63,8 @@ class InstaWalkFirestoreHelper {
 
     final Map<String, dynamic> requestData =
         Map<String, dynamic>.from(data);
+
+    String? generatedRequestId;
 
     await _firestore.runTransaction(
       (transaction) async {
@@ -127,32 +115,35 @@ class InstaWalkFirestoreHelper {
         }
 
         // ======================================================
-        // FORMAT
+        // FINAL DOJO WALK ID
         // ======================================================
         //
-        // 1       -> DW-000001
-        // 2       -> DW-000002
-        // 10      -> DW-000010
-        // 100     -> DW-000100
-        // 1245    -> DW-001245
+        // 1       -> DW000001
+        // 2       -> DW000002
+        // 10      -> DW000010
+        // 100     -> DW000100
+        // 1245    -> DW001245
         //
         // ======================================================
 
-        final String walkId =
-            'DW-${nextNumber.toString().padLeft(6, '0')}';
+        final String walkRequestId =
+            'DW${nextNumber.toString().padLeft(6, '0')}';
+
+        generatedRequestId =
+            walkRequestId;
 
         // ======================================================
         // REQUEST DATA
         // ======================================================
-
-        requestData['walkId'] = walkId;
-
-        // ======================================================
-        // INTERNAL REQUEST ID
+        //
+        // requestId itself is the Dojo Walk ID.
+        //
+        // NO walkId field.
+        //
         // ======================================================
 
         requestData['requestId'] =
-            requestRef.id;
+            walkRequestId;
 
         // ======================================================
         // COUNTER UPDATE
@@ -171,8 +162,20 @@ class InstaWalkFirestoreHelper {
         );
 
         // ======================================================
-        // CREATE WALK REQUEST
+        // REQUEST DOCUMENT
         // ======================================================
+        //
+        // walk_request/DW000001
+        //
+        // ======================================================
+
+        final DocumentReference<Map<String, dynamic>>
+            requestRef =
+            _firestore
+                .collection(
+                  walkRequestsCollection,
+                )
+                .doc(walkRequestId);
 
         transaction.set(
           requestRef,
@@ -181,7 +184,31 @@ class InstaWalkFirestoreHelper {
       },
     );
 
-    return requestRef;
+    // ==========================================================
+    // SAFETY CHECK
+    // ==========================================================
+
+    final String requestId =
+        generatedRequestId ?? '';
+
+    if (requestId.isEmpty) {
+      throw StateError(
+        'Unable to generate Walk Request ID.',
+      );
+    }
+
+    // ==========================================================
+    // RETURN REQUEST REFERENCE
+    //
+    // Document ID:
+    //
+    // DW000001
+    //
+    // ==========================================================
+
+    return _firestore
+        .collection(walkRequestsCollection)
+        .doc(requestId);
   }
 
   // ==========================================================
