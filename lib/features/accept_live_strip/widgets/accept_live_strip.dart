@@ -267,23 +267,18 @@ class _AcceptLiveStripState
     _opening = true;
 
     try {
-      final String? walkId =
-          _data.walkId?.trim();
-
       // ======================================================
       // LIVE WALK
       // ======================================================
 
       if (_data.isLive &&
-          _canOpenLiveWalk &&
-          walkId != null &&
-          walkId.isNotEmpty) {
+          _canOpenLiveWalk) {
         debugPrint(
           'AcceptLiveStrip → opening LiveWalkScreen.',
         );
 
         debugPrint(
-          'walkId = $walkId',
+          'requestId = $requestId',
         );
 
         debugPrint(
@@ -294,7 +289,7 @@ class _AcceptLiveStripState
           MaterialPageRoute<void>(
             builder: (_) {
               return LiveWalkScreen(
-                walkId: walkId,
+                requestId: requestId,
                 isWalker: false,
               );
             },
@@ -315,10 +310,6 @@ class _AcceptLiveStripState
 
         debugPrint(
           'requestId = $requestId',
-        );
-
-        debugPrint(
-          'walkId = $walkId',
         );
 
         debugPrint(
