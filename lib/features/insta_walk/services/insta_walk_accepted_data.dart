@@ -8,6 +8,18 @@ class InstaWalkAcceptedData {
   final String requestId;
 
   // ==========================================================
+  // WALK ID
+  //
+  // Professional Dojo Walk ID
+  //
+  // Example:
+  // DW-000001
+  // DW-000002
+  // ==========================================================
+
+  final String walkId;
+
+  // ==========================================================
   // OWNER
   // ==========================================================
 
@@ -49,6 +61,7 @@ class InstaWalkAcceptedData {
 
   const InstaWalkAcceptedData({
     required this.requestId,
+    required this.walkId,
     required this.ownerId,
     required this.ownerName,
     required this.address,
@@ -70,16 +83,39 @@ class InstaWalkAcceptedData {
     Map<String, dynamic> map, {
     String requestId = '',
   }) {
+    final String cleanRequestId =
+        requestId.trim().isNotEmpty
+            ? requestId.trim()
+            : _readString(
+                map['requestId'],
+              );
+
+    final String walkId =
+        _readString(
+      map['walkId'],
+    );
+
     return InstaWalkAcceptedData(
       // ======================================================
       // REQUEST ID
       // ======================================================
 
-      requestId: requestId.trim().isNotEmpty
-          ? requestId.trim()
-          : _readString(
-              map['requestId'],
-            ),
+      requestId: cleanRequestId,
+
+      // ======================================================
+      // WALK ID
+      //
+      // IMPORTANT:
+      // Never use Firebase document ID as Walk ID.
+      //
+      // Firebase document ID:
+      //   abc123xyz...
+      //
+      // Professional Walk ID:
+      //   DW-000001
+      // ======================================================
+
+      walkId: walkId,
 
       // ======================================================
       // OWNER
