@@ -79,6 +79,13 @@ class InstaWalkRequestState {
       data?['walkerName']?.toString().trim() ?? '';
 
   // ==========================================================
+  // WALK DATA
+  // ==========================================================
+
+  String get walkId =>
+      data?['walkId']?.toString().trim() ?? '';
+
+  // ==========================================================
   // OWNER DATA
   // ==========================================================
 
@@ -280,6 +287,7 @@ class InstaWalkRequestState {
     return 'InstaWalkRequestState('
         'requestId: $requestId, '
         'status: $status, '
+        'walkId: $walkId, '
         'walkerUid: $walkerUid, '
         'walkerId: $walkerId, '
         'ownerId: $ownerId'
