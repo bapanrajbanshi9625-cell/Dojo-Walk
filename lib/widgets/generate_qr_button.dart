@@ -99,14 +99,14 @@ class _GenerateQRButtonState extends State<GenerateQRButton> {
             'QR Walker connected: '
             'walkerId=${state.walkerId}, '
             'walkerName=${state.walkerName}, '
-            'requestId=${state.walkId}',
+            'requestId=${state.requestId}',
           );
 
           // ------------------------------------------------------
           // OPEN OWNER LIVE WALK SCREEN
           // ------------------------------------------------------
 
-          final String requestId = state.walkId.trim();
+          final String requestId = state.requestId.trim();
 
           if (requestId.isNotEmpty && !_liveScreenOpened) {
             _liveScreenOpened = true;
@@ -583,7 +583,7 @@ class OwnerQRBottomSheet extends StatelessWidget {
             // ==================================================
 
             Text(
-              'Walk ID: ${data.walkId}',
+              'Walk ID: ${data.requestId}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
