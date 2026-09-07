@@ -79,23 +79,25 @@ class InstaWalkRequestState {
       data?['walkerName']?.toString().trim() ?? '';
 
   // ==========================================================
-  // WALK DATA
+  // FINAL WALK / REQUEST ID
+  //
+  // requestId itself is the single Walk ID.
+  //
+  // Example:
+  // DW000001
+  // DW000002
+  // DW001245
+  //
+  // Same ID is used for:
+  // walk_request/{requestId}
+  // liveWalkSessions/{requestId}
+  // walk_history/{requestId}
   // ==========================================================
 
-  String get walkId =>
-      data?['walkId']?.toString().trim() ?? '';
-
-  /// ==========================================================
-  /// FINAL WALK ID FORMAT
-  ///
-  /// DW-000001
-  /// DW-000002
-  /// DW-001245
-  ///
-  /// ==========================================================
+  String get walkId => requestId;
 
   bool get hasValidWalkId =>
-      RegExp(r'^DW-\d{6}$').hasMatch(walkId);
+      RegExp(r'^DW\d{6}$').hasMatch(requestId);
 
   // ==========================================================
   // OWNER DATA
