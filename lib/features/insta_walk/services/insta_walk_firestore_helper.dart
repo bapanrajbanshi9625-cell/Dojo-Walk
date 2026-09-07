@@ -31,16 +31,23 @@ class InstaWalkFirestoreHelper {
   //
   // with:
   //
-  // walkId = 0000000001
-  // walkId = 0000000002
-  // walkId = 0000000003
+  // walkId = DW-000001
+  // walkId = DW-000002
+  // walkId = DW-000003
   //
   // The serial number is generated inside a Firestore
   // transaction so two Walks cannot receive the same number.
   //
   // IMPORTANT:
   // Firebase auto document ID remains the internal request ID.
-  // walkId is the professional 10-digit Walk ID.
+  //
+  // walkId is the professional Dojo Walk ID.
+  //
+  // FINAL FORMAT:
+  //
+  // DW-000001
+  // DW-000002
+  // DW-000003
   //
   // ==========================================================
 
@@ -110,10 +117,10 @@ class InstaWalkFirestoreHelper {
             lastNumber + 1;
 
         // ======================================================
-        // 10-DIGIT LIMIT
+        // 6-DIGIT LIMIT
         // ======================================================
 
-        if (nextNumber > 9999999999) {
+        if (nextNumber > 999999) {
           throw StateError(
             'Walk ID limit reached.',
           );
@@ -123,17 +130,16 @@ class InstaWalkFirestoreHelper {
         // FORMAT
         // ======================================================
         //
-        // 1       -> 0000000001
-        // 2       -> 0000000002
-        // 10      -> 0000000010
-        // 100     -> 0000000100
+        // 1       -> DW-000001
+        // 2       -> DW-000002
+        // 10      -> DW-000010
+        // 100     -> DW-000100
+        // 1245    -> DW-001245
         //
         // ======================================================
 
         final String walkId =
-            nextNumber
-                .toString()
-                .padLeft(10, '0');
+            'DW-${nextNumber.toString().padLeft(6, '0')}';
 
         // ======================================================
         // REQUEST DATA
