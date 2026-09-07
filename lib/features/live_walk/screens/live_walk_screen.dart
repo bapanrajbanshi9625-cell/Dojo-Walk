@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../screens/help_support_screen.dart';
@@ -32,6 +33,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   Timer? _durationTimer;
 
   LiveWalkSession? _session;
+
+  // ================================================================
+  // MAP CONTROLLER
+  // ================================================================
+
+  MapController? _liveMapController;
 
   int _liveElapsedSeconds = 0;
 
@@ -278,6 +285,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       destination: session.ownerLocation,
                       routePoints: session.routePoints,
                       onRecenter: _recenter,
+
+                      // =================================================
+                      // MAP CONTROLLER
+                      // =================================================
+
+                      onMapReady: (controller) {
+                        _liveMapController = controller;
+                      },
                     ),
                   ),
 
@@ -319,7 +334,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     duration: const Duration(milliseconds: 120),
                     curve: Curves.easeOut,
                     right: 16,
-                    bottom: screenHeight * _sheetExtent + 14,
+                    bottom:
+                        screenHeight * _sheetExtent + 14,
                     child: _myLocationButton(),
                   ),
                 ],
@@ -377,7 +393,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
                   const Expanded(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
                       children: [
@@ -524,9 +541,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
           // ==========================================================
           // COLLAPSED HEADER
-          //
-          // This is what user sees initially:
-          // Walker + Dog name.
           // ==========================================================
 
           _collapsedSummary(session),
@@ -535,8 +549,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
           // ==========================================================
           // ALL DETAILS
-          //
-          // User sees these after dragging the sheet upward.
           // ==========================================================
 
           _expandedContent(session),
@@ -554,13 +566,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   ) {
     final photo = session.walkerPhoto.trim();
 
-    final walkerName = session.walkerName.trim().isEmpty
-        ? 'Walker'
-        : session.walkerName.trim();
+    final walkerName =
+        session.walkerName.trim().isEmpty
+            ? 'Walker'
+            : session.walkerName.trim();
 
-    final dogName = session.dogName.trim().isEmpty
-        ? 'Your Dog'
-        : session.dogName.trim();
+    final dogName =
+        session.dogName.trim().isEmpty
+            ? 'Your Dog'
+            : session.dogName.trim();
 
     return Row(
       children: [
@@ -789,7 +803,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               child: _actionButton(
                 icon: Icons.call_rounded,
                 label: 'Call',
-                background: const Color(0xFFEAF8EF),
+                background:
+                    const Color(0xFFEAF8EF),
                 foreground: green,
                 onTap: _call,
               ),
@@ -801,7 +816,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               child: _actionButton(
                 icon: Icons.chat_bubble_rounded,
                 label: 'Message',
-                background: const Color(0xFFFFF1EB),
+                background:
+                    const Color(0xFFFFF1EB),
                 foreground: primary,
                 onTap: _chat,
               ),
@@ -992,7 +1008,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ================================================================
 
   void _recenter() {
-    if (_session?.walkerLocation == null) {
+    final location = _session?.walkerLocation;
+
+    if (location == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1000,7 +1018,27 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           ),
         ),
       );
+      return;
     }
+
+    final controller = _liveMapController;
+
+    if (controller == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Map is not ready yet.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Move map to the WALKER'S actual current GPS location.
+    controller.move(
+      location,
+      17,
+    );
   }
 
   // ================================================================
@@ -1131,6 +1169,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   void dispose() {
+    _liveMapController = null;
     _subscription?.cancel();
     _stopDurationTimer();
     super.dispose();
