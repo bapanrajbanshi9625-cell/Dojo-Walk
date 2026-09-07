@@ -10,6 +10,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///
 /// walk_request/{requestId}
 ///
+/// requestId:
+///   Firebase Firestore document ID
+///
+/// walkId:
+///   Professional Dojo Walk ID
+///   Example: DW-000001
+///
 /// status:
 ///   accepted
 ///      ↓
@@ -23,6 +30,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class WalkerAcceptData {
   const WalkerAcceptData({
     required this.requestId,
+    required this.walkId,
     required this.ownerId,
     required this.ownerName,
     required this.address,
@@ -52,7 +60,14 @@ class WalkerAcceptData {
   // REQUEST
   // ==========================================================
 
+  /// Firebase Firestore document ID.
   final String requestId;
+
+  /// Professional Dojo Walk ID.
+  ///
+  /// Example:
+  /// DW-000001
+  final String walkId;
 
   // ==========================================================
   // OWNER
@@ -143,6 +158,15 @@ class WalkerAcceptData {
       (isAccepted || status.trim().isNotEmpty);
 
   // ==========================================================
+  // WALK ID HELPERS
+  // ==========================================================
+
+  bool get hasValidWalkId =>
+      RegExp(r'^DW-\d{6}$').hasMatch(
+        walkId.trim(),
+      );
+
+  // ==========================================================
   // LOCATION HELPERS
   // ==========================================================
 
@@ -180,11 +204,14 @@ class WalkerAcceptData {
   // ==========================================================
 
   String get distanceLabel {
-    double meters = distanceMeters.toDouble();
+    double meters =
+        distanceMeters.toDouble();
 
     // Fallback to kilometer field if meters is unavailable.
-    if (meters <= 0 && distanceKm > 0) {
-      meters = distanceKm * 1000;
+    if (meters <= 0 &&
+        distanceKm > 0) {
+      meters =
+          distanceKm * 1000;
     }
 
     if (meters <= 0) {
@@ -192,7 +219,8 @@ class WalkerAcceptData {
     }
 
     if (meters >= 1000) {
-      final double km = meters / 1000;
+      final double km =
+          meters / 1000;
 
       if (km >= 10) {
         return '${km.toStringAsFixed(0)} km';
@@ -212,7 +240,8 @@ class WalkerAcceptData {
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     return WalkerAcceptData.fromMap(
-      document.data() ?? <String, dynamic>{},
+      document.data() ??
+          <String, dynamic>{},
       requestId: document.id,
     );
   }
@@ -226,9 +255,34 @@ class WalkerAcceptData {
     String requestId = '',
   }) {
     return WalkerAcceptData(
-      requestId: requestId.trim().isNotEmpty
-          ? requestId.trim()
-          : _string(data['requestId']),
+      // --------------------------------------------------------
+      // REQUEST ID
+      //
+      // Priority:
+      // 1. Firestore document ID
+      // 2. requestId field
+      // --------------------------------------------------------
+
+      requestId:
+          requestId.trim().isNotEmpty
+              ? requestId.trim()
+              : _string(
+                  data['requestId'],
+                ),
+
+      // --------------------------------------------------------
+      // WALK ID
+      //
+      // IMPORTANT:
+      // This MUST come from walkId field.
+      //
+      // Never use Firebase document ID as walkId.
+      // --------------------------------------------------------
+
+      walkId:
+          _string(
+        data['walkId'],
+      ),
 
       // --------------------------------------------------------
       // OWNER
@@ -366,15 +420,19 @@ class WalkerAcceptData {
           data['reached'] == true,
 
       acceptedAt:
-          _date(data['acceptedAt']),
+          _date(
+        data['acceptedAt'],
+      ),
 
       reachedAt:
-          _date(data['reachedAt']),
+          _date(
+        data['reachedAt'],
+      ),
 
       // --------------------------------------------------------
       // ARRIVAL DATA
       //
-      // Matches your Firestore:
+      // Matches Firestore:
       //
       // arrivalDistanceMeters
       // arrivalDistanceKm
@@ -397,7 +455,9 @@ class WalkerAcceptData {
       ),
 
       updatedAt:
-          _date(data['updatedAt']),
+          _date(
+        data['updatedAt'],
+      ),
     );
   }
 
@@ -412,7 +472,9 @@ class WalkerAcceptData {
   }) {
     for (final String key in keys) {
       final String value =
-          _string(data[key]);
+          _string(
+        data[key],
+      );
 
       if (value.isNotEmpty) {
         return value;
@@ -428,7 +490,9 @@ class WalkerAcceptData {
   ) {
     for (final String key in keys) {
       final String? value =
-          _nullableString(data[key]);
+          _nullableString(
+        data[key],
+      );
 
       if (value != null) {
         return value;
@@ -537,7 +601,9 @@ class WalkerAcceptData {
     }
 
     if (value is String) {
-      return DateTime.tryParse(value);
+      return DateTime.tryParse(
+        value,
+      );
     }
 
     return null;
