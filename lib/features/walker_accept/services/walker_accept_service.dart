@@ -17,15 +17,63 @@ class WalkerAcceptService {
   static const String collectionName = 'walk_request';
 
   // ==========================================================
+  // DOJO WALK ID VALIDATION
+  //
+  // FINAL FORMAT:
+  //
+  // DW000001
+  // DW000002
+  // DW123456
+  //
+  // Same ID is used for:
+  //
+  // walk_request/DW000001
+  // liveWalkSessions/DW000001
+  // walk_history/DW000001
+  // ==========================================================
+
+  static final RegExp _requestIdPattern =
+      RegExp(r'^DW\d{6}$');
+
+  bool _isValidRequestId(String requestId) {
+    return _requestIdPattern.hasMatch(
+      requestId.trim(),
+    );
+  }
+
+  String _cleanRequestId(String requestId) {
+    final String id = requestId.trim();
+
+    if (id.isEmpty) {
+      throw ArgumentError(
+        'requestId cannot be empty.',
+      );
+    }
+
+    if (!_isValidRequestId(id)) {
+      throw ArgumentError(
+        'Invalid Dojo Walk ID: $id. '
+        'Expected format DW000001.',
+      );
+    }
+
+    return id;
+  }
+
+  // ==========================================================
   // WATCH ACCEPTED WALK REQUEST
   // ==========================================================
 
   Stream<WalkerAcceptData?> watchRequest(
     String requestId,
   ) {
-    final id = requestId.trim();
+    final String id = requestId.trim();
 
     if (id.isEmpty) {
+      return Stream.value(null);
+    }
+
+    if (!_isValidRequestId(id)) {
       return Stream.value(null);
     }
 
@@ -51,16 +99,22 @@ class WalkerAcceptService {
   Future<WalkerAcceptData?> getRequest(
     String requestId,
   ) async {
-    final id = requestId.trim();
+    final String id = requestId.trim();
 
     if (id.isEmpty) {
       return null;
     }
 
-    final snapshot = await _firestore
-        .collection(collectionName)
-        .doc(id)
-        .get();
+    if (!_isValidRequestId(id)) {
+      return null;
+    }
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> snapshot =
+        await _firestore
+            .collection(collectionName)
+            .doc(id)
+            .get();
 
     if (!snapshot.exists) {
       return null;
@@ -75,21 +129,22 @@ class WalkerAcceptService {
   // MARK REACHED
   //
   // IMPORTANT:
-  // This only updates walk_request.
-  // liveWalkSessions will be created by the
-  // Reach → Live Walk flow.
+  //
+  // This updates ONLY:
+  //
+  // walk_request/{requestId}
+  //
+  // The Reach → Live Walk service is responsible
+  // for creating:
+  //
+  // liveWalkSessions/{requestId}
   // ==========================================================
 
   Future<void> markReached(
     String requestId,
   ) async {
-    final id = requestId.trim();
-
-    if (id.isEmpty) {
-      throw ArgumentError(
-        'requestId cannot be empty.',
-      );
-    }
+    final String id =
+        _cleanRequestId(requestId);
 
     await _firestore
         .collection(collectionName)
@@ -97,15 +152,17 @@ class WalkerAcceptService {
         .update({
       'reached': true,
       'status': 'reached',
-      'reachedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'reachedAt':
+          FieldValue.serverTimestamp(),
+      'updatedAt':
+          FieldValue.serverTimestamp(),
     });
   }
 
   // ==========================================================
   // UPDATE WALKER LOCATION
   //
-  // This will be used by Walker app while coming
+  // Walker app uses this while travelling
   // to the Owner.
   // ==========================================================
 
@@ -115,15 +172,11 @@ class WalkerAcceptService {
     double? heading,
     double? speed,
   }) async {
-    final id = requestId.trim();
+    final String id =
+        _cleanRequestId(requestId);
 
-    if (id.isEmpty) {
-      throw ArgumentError(
-        'requestId cannot be empty.',
-      );
-    }
-
-    final Map<String, dynamic> updates = {
+    final Map<String, dynamic> updates =
+        <String, dynamic>{
       'walkerLocation': location,
       'locationUpdatedAt':
           FieldValue.serverTimestamp(),
@@ -158,35 +211,37 @@ class WalkerAcceptService {
     required int distanceMeters,
     required int durationMinutes,
   }) async {
-    final id = requestId.trim();
-
-    if (id.isEmpty) {
-      throw ArgumentError(
-        'requestId cannot be empty.',
-      );
-    }
+    final String id =
+        _cleanRequestId(requestId);
 
     await _firestore
         .collection(collectionName)
         .doc(id)
         .update({
       'arrivalDistanceKm': distanceKm,
-      'arrivalDistanceMeters': distanceMeters,
-      'arrivalDurationMinutes': durationMinutes,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'arrivalDistanceMeters':
+          distanceMeters,
+      'arrivalDurationMinutes':
+          durationMinutes,
+      'updatedAt':
+          FieldValue.serverTimestamp(),
     });
   }
 
   // ==========================================================
-  // CLOSE SERVICE
+  // DELETE REQUEST
   // ==========================================================
 
   Future<void> deleteRequest(
     String requestId,
   ) async {
-    final id = requestId.trim();
+    final String id = requestId.trim();
 
     if (id.isEmpty) {
+      return;
+    }
+
+    if (!_isValidRequestId(id)) {
       return;
     }
 
