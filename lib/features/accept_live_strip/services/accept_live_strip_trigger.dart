@@ -4,7 +4,8 @@ import 'accept_live_strip_service.dart';
 class AcceptLiveStripTrigger {
   AcceptLiveStripTrigger({
     AcceptLiveStripService? service,
-  }) : _service = service ?? AcceptLiveStripService();
+  }) : _service =
+            service ?? AcceptLiveStripService();
 
   final AcceptLiveStripService _service;
 
