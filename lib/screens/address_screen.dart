@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_walk_design_system.dart';
 import 'address_location_picker_screen.dart';
 import '../services/address_location_service.dart';
 import '../widgets/address_screen_widgets.dart';
@@ -60,15 +61,6 @@ class _AddressScreenState extends State<AddressScreen> {
 
   double? _selectedLatitude;
   double? _selectedLongitude;
-
-  static const Color _primaryColor =
-      Color(0xFFFF8A00);
-
-  static const Color _backgroundColor =
-      Color(0xFFF8F9FB);
-
-  static const Color _textPrimaryColor =
-      Color(0xFF202124);
 
   @override
   void initState() {
@@ -456,8 +448,6 @@ class _AddressScreenState extends State<AddressScreen> {
             _stateController.text.trim(),
         'pincode':
             _pinCodeController.text.trim(),
-
-        // Exact map-pin coordinates.
         'latitude':
             _selectedLatitude,
         'longitude':
@@ -468,17 +458,14 @@ class _AddressScreenState extends State<AddressScreen> {
         <String, dynamic>{
           'authUid':
               _auth.currentUser?.uid,
-
           'address':
               addressData,
-
           'savedAddresses':
               <Map<String, dynamic>>[
             Map<String, dynamic>.from(
               addressData,
             ),
           ],
-
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -586,10 +573,8 @@ class _AddressScreenState extends State<AddressScreen> {
         <String, dynamic>{
           'address':
               FieldValue.delete(),
-
           'savedAddresses':
               FieldValue.delete(),
-
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
@@ -639,10 +624,10 @@ class _AddressScreenState extends State<AddressScreen> {
     if (_loading) {
       return const Scaffold(
         backgroundColor:
-            _backgroundColor,
+            DojoWalkColors.background,
         body: Center(
           child: CircularProgressIndicator(
-            color: _primaryColor,
+            color: DojoWalkColors.primary,
           ),
         ),
       );
@@ -654,14 +639,13 @@ class _AddressScreenState extends State<AddressScreen> {
 
     return Scaffold(
       backgroundColor:
-          _backgroundColor,
-
+          DojoWalkColors.background,
       appBar: AppBar(
         elevation: 0,
         backgroundColor:
-            _backgroundColor,
+            DojoWalkColors.background,
         foregroundColor:
-            _textPrimaryColor,
+            DojoWalkColors.textPrimary,
         title: const Text(
           'Address',
           style: TextStyle(
@@ -670,7 +654,6 @@ class _AddressScreenState extends State<AddressScreen> {
           ),
         ),
       ),
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding:
@@ -687,19 +670,18 @@ class _AddressScreenState extends State<AddressScreen> {
               AddressScreenWidgets
                   .bookingHeader(
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 16),
 
-              // ONLY PICKUP LOCATION SELECTOR.
               AddressScreenWidgets
                   .choosePickupLocationCard(
                 selected:
                     hasSelectedLocation,
                 disabled: _saving,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
                 onTap:
                     _openLocationPicker,
               ),
@@ -710,7 +692,7 @@ class _AddressScreenState extends State<AddressScreen> {
                   .sectionTitle(
                 'Your Address',
                 textColor:
-                    _textPrimaryColor,
+                    DojoWalkColors.textPrimary,
               ),
 
               const SizedBox(height: 12),
@@ -725,7 +707,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 icon:
                     Icons.home_outlined,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 12),
@@ -740,7 +722,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 icon:
                     Icons.location_on_outlined,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 12),
@@ -756,7 +738,7 @@ class _AddressScreenState extends State<AddressScreen> {
                     Icons.signpost_outlined,
                 required: false,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 12),
@@ -770,7 +752,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 icon:
                     Icons.map_outlined,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 12),
@@ -784,7 +766,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 icon:
                     Icons.location_city_outlined,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 12),
@@ -798,7 +780,7 @@ class _AddressScreenState extends State<AddressScreen> {
                 icon:
                     Icons.public_outlined,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               const SizedBox(height: 12),
@@ -815,7 +797,7 @@ class _AddressScreenState extends State<AddressScreen> {
                     TextInputType.number,
                 maxLength: 6,
                 primaryColor:
-                    _primaryColor,
+                    DojoWalkColors.primary,
               ),
 
               if (_savedAddresses
@@ -826,7 +808,7 @@ class _AddressScreenState extends State<AddressScreen> {
                     .sectionTitle(
                   'Saved Address',
                   textColor:
-                      _textPrimaryColor,
+                      DojoWalkColors.textPrimary,
                 ),
 
                 const SizedBox(height: 12),
@@ -846,7 +828,7 @@ class _AddressScreenState extends State<AddressScreen> {
                               .savedAddressCard(
                         address: address,
                         primaryColor:
-                            _primaryColor,
+                            DojoWalkColors.primary,
                         onSelect: () =>
                             _selectAddress(
                           address,
@@ -874,11 +856,12 @@ class _AddressScreenState extends State<AddressScreen> {
                   style:
                       ElevatedButton.styleFrom(
                     backgroundColor:
-                        _primaryColor,
+                        DojoWalkColors.primary,
                     foregroundColor:
-                        Colors.white,
+                        DojoWalkColors.white,
                     disabledBackgroundColor:
-                        _primaryColor.withValues(
+                        DojoWalkColors.primary
+                            .withValues(
                       alpha: 0.5,
                     ),
                     shape:
@@ -897,7 +880,7 @@ class _AddressScreenState extends State<AddressScreen> {
                               CircularProgressIndicator(
                             strokeWidth: 2.5,
                             color:
-                                Colors.white,
+                                DojoWalkColors.white,
                           ),
                         )
                       : const Text(
