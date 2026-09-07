@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/theme/dojo_walk_design_system.dart';
+import '../screens/help_support_screen.dart';
+import '../screens/notifications_screen.dart';
 
 class CustomAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -98,16 +100,44 @@ class CustomAppBar extends StatelessWidget
         // ======================================================
 
         actions: [
+          // ====================================================
+          // NOTIFICATIONS
+          // ====================================================
+
           _appBarButton(
             context,
             Icons.notifications_outlined,
             'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const NotificationsScreen(),
+                ),
+              );
+            },
           ),
+
+          // ====================================================
+          // HELP & SUPPORT
+          // ====================================================
+
           _appBarButton(
             context,
             Icons.support_agent,
             'Help & Support',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const HelpSupportScreen(),
+                ),
+              );
+            },
           ),
+
           const SizedBox(width: 7),
         ],
       ),
@@ -121,8 +151,9 @@ class CustomAppBar extends StatelessWidget
   Widget _appBarButton(
     BuildContext context,
     IconData icon,
-    String title,
-  ) {
+    String title, {
+    VoidCallback? onPressed,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(
         vertical: 8,
@@ -146,13 +177,14 @@ class CustomAppBar extends StatelessWidget
           size: 20,
           color: DojoWalkColors.white,
         ),
-        onPressed: () {
-          _showDialog(
-            context,
-            title,
-            '$title button pressed.',
-          );
-        },
+        onPressed: onPressed ??
+            () {
+              _showDialog(
+                context,
+                title,
+                '$title button pressed.',
+              );
+            },
       ),
     );
   }
