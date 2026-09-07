@@ -2,22 +2,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InstaWalkAcceptedData {
   // ==========================================================
-  // REQUEST
+  // SINGLE WALK / REQUEST ID
+  //
+  // Example:
+  // DW000001
+  // DW000002
+  // DW001245
+  //
+  // Same ID is used for:
+  // walk_request/{requestId}
+  // liveWalkSessions/{requestId}
+  // walk_history/{requestId}
   // ==========================================================
 
   final String requestId;
-
-  // ==========================================================
-  // WALK ID
-  //
-  // Professional Dojo Walk ID
-  //
-  // Example:
-  // DW-000001
-  // DW-000002
-  // ==========================================================
-
-  final String walkId;
 
   // ==========================================================
   // OWNER
@@ -61,7 +59,6 @@ class InstaWalkAcceptedData {
 
   const InstaWalkAcceptedData({
     required this.requestId,
-    required this.walkId,
     required this.ownerId,
     required this.ownerName,
     required this.address,
@@ -90,32 +87,12 @@ class InstaWalkAcceptedData {
                 map['requestId'],
               );
 
-    final String walkId =
-        _readString(
-      map['walkId'],
-    );
-
     return InstaWalkAcceptedData(
       // ======================================================
-      // REQUEST ID
+      // SINGLE WALK / REQUEST ID
       // ======================================================
 
       requestId: cleanRequestId,
-
-      // ======================================================
-      // WALK ID
-      //
-      // IMPORTANT:
-      // Never use Firebase document ID as Walk ID.
-      //
-      // Firebase document ID:
-      //   abc123xyz...
-      //
-      // Professional Walk ID:
-      //   DW-000001
-      // ======================================================
-
-      walkId: walkId,
 
       // ======================================================
       // OWNER
