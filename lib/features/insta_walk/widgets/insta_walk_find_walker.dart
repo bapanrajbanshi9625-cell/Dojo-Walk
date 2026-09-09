@@ -42,6 +42,15 @@ part of '../controllers/insta_walk_container.dart';
 // 5. savedAddresses[].location
 // 6. savedAddresses[].ownerLocation
 //
+// OWNER PHONE:
+//
+// 1. FirebaseAuth.currentUser.phoneNumber
+// 2. owners.ownerPhone
+// 3. owners.phoneNumber
+// 4. owners.phone
+// 5. owners.mobileNumber
+// 6. owners.mobile
+//
 // ============================================================
 
 extension _FindWalkerRole on _InstaWalkContainerState {
@@ -157,6 +166,43 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       }
 
       // ========================================================
+      // OWNER PHONE
+      // ========================================================
+      //
+      // Primary source:
+      // Firebase Auth currentUser.phoneNumber
+      //
+      // Fallback:
+      // Owner Firestore profile fields.
+      //
+      // This value will be passed to _startSearch() and must
+      // eventually be written into walk_request.ownerPhone.
+      // ========================================================
+
+      String ownerPhone =
+          (user.phoneNumber ?? '').trim();
+
+      if (ownerPhone.isEmpty) {
+        ownerPhone = _readFirstString(
+          data,
+          const [
+            'ownerPhone',
+            'ownerMobile',
+            'ownerPhoneNumber',
+            'phoneNumber',
+            'phone',
+            'mobileNumber',
+            'mobile',
+          ],
+        );
+      }
+
+      debugPrint(
+        '📱 InstaWalk: ownerPhone = '
+        '${ownerPhone.isEmpty ? 'NOT AVAILABLE' : ownerPhone}',
+      );
+
+      // ========================================================
       // PET / DOG DATA
       // ========================================================
 
@@ -184,10 +230,13 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // PETS ARRAY FALLBACK
       // ========================================================
 
-      final dynamic pets = data['pets'];
+      final dynamic pets =
+          data['pets'];
 
-      if (pets is List && pets.isNotEmpty) {
-        final dynamic firstPet = pets.first;
+      if (pets is List &&
+          pets.isNotEmpty) {
+        final dynamic firstPet =
+            pets.first;
 
         if (firstPet is Map) {
           if (dogName.isEmpty) {
@@ -229,7 +278,9 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // ========================================================
 
       _petName =
-          dogName.isEmpty ? 'Your Pet' : dogName;
+          dogName.isEmpty
+              ? 'Your Pet'
+              : dogName;
 
       // ========================================================
       // READ ADDRESS
@@ -272,11 +323,13 @@ extension _FindWalkerRole on _InstaWalkContainerState {
           );
 
           debugPrint(
-            'latitude = ${ownerLocation.latitude}',
+            'latitude = '
+            '${ownerLocation.latitude}',
           );
 
           debugPrint(
-            'longitude = ${ownerLocation.longitude}',
+            'longitude = '
+            '${ownerLocation.longitude}',
           );
         }
       }
@@ -310,7 +363,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
           if (ownerLocation == null &&
               savedLocation != null) {
-            ownerLocation = savedLocation;
+            ownerLocation =
+                savedLocation;
           }
 
           if (address.isNotEmpty) {
@@ -321,7 +375,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
           if (ownerLocation != null) {
             debugPrint(
-              '📍 InstaWalk: saved address coordinates available.',
+              '📍 InstaWalk: saved address '
+              'coordinates available.',
             );
           }
         }
@@ -332,7 +387,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       // ========================================================
 
       if (address.isEmpty) {
-        address = _buildAddressFromProfile(data);
+        address =
+            _buildAddressFromProfile(data);
 
         if (address.isNotEmpty) {
           debugPrint(
@@ -404,6 +460,33 @@ extension _FindWalkerRole on _InstaWalkContainerState {
                 <String, dynamic>{};
 
         // ======================================================
+        // RELOAD OWNER PHONE
+        // ======================================================
+
+        ownerPhone =
+            (user.phoneNumber ?? '').trim();
+
+        if (ownerPhone.isEmpty) {
+          ownerPhone = _readFirstString(
+            data,
+            const [
+              'ownerPhone',
+              'ownerMobile',
+              'ownerPhoneNumber',
+              'phoneNumber',
+              'phone',
+              'mobileNumber',
+              'mobile',
+            ],
+          );
+        }
+
+        debugPrint(
+          '📱 InstaWalk: reloaded ownerPhone = '
+          '${ownerPhone.isEmpty ? 'NOT AVAILABLE' : ownerPhone}',
+        );
+
+        // ======================================================
         // RELOAD ADDRESS
         // ======================================================
 
@@ -420,7 +503,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         // ======================================================
         // RELOAD LOCATION
-        // ========================================================
+        // ======================================================
 
         ownerLocation =
             _readOwnerProfileLocation(data);
@@ -436,7 +519,8 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
           if (selectedSavedAddress != null) {
             if (address.isEmpty) {
-              address = _buildSavedAddress(
+              address =
+                  _buildSavedAddress(
                 selectedSavedAddress,
               );
             }
@@ -461,7 +545,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
 
         // ======================================================
         // STILL INCOMPLETE
-        // ========================================================
+        // ======================================================
 
         if (address.isEmpty) {
           _updateState(() {
@@ -498,15 +582,6 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       }
 
       // ========================================================
-      // FINAL LOCATION CHECK
-      //
-      // There is intentionally NO GPS fallback here.
-      //
-      // ownerLocation is guaranteed to be non-null after the
-      // address/location flow above.
-      // ========================================================
-
-      // ========================================================
       // FINAL DEBUG
       // ========================================================
 
@@ -527,13 +602,19 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         'ownerName = $ownerName',
       );
       debugPrint(
+        'ownerPhone = '
+        '${ownerPhone.isEmpty ? 'NOT AVAILABLE' : ownerPhone}',
+      );
+      debugPrint(
         'address = $address',
       );
       debugPrint(
-        'latitude = ${ownerLocation.latitude}',
+        'latitude = '
+        '${ownerLocation.latitude}',
       );
       debugPrint(
-        'longitude = ${ownerLocation.longitude}',
+        'longitude = '
+        '${ownerLocation.longitude}',
       );
       debugPrint(
         'dogName = $dogName',
@@ -549,6 +630,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
       await _startSearch(
         ownerId: ownerId,
         ownerName: ownerName,
+        ownerPhone: ownerPhone,
         address: address,
         ownerLocation: ownerLocation,
         dogName: dogName,
@@ -608,7 +690,7 @@ extension _FindWalkerRole on _InstaWalkContainerState {
     }
 
     // ----------------------------------------------------------
-    // Prefer selected/default address if available.
+    // Prefer selected/default address.
     // ----------------------------------------------------------
 
     for (final dynamic item in saved) {
@@ -745,7 +827,9 @@ extension _FindWalkerRole on _InstaWalkContainerState {
         data['location'];
 
     final GeoPoint? locationPoint =
-        _geoPointFromValue(location);
+        _geoPointFromValue(
+      location,
+    );
 
     if (locationPoint != null) {
       return locationPoint;
