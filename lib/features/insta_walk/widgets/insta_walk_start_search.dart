@@ -8,6 +8,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
   Future<void> _startSearch({
     required String ownerId,
     required String ownerName,
+    required String ownerPhone,
     required String address,
     required GeoPoint ownerLocation,
     required String dogName,
@@ -16,10 +17,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
     // ==========================================================
     // SEARCH FLOW GUARD
     // ==========================================================
-    //
-    // If the current request has already been accepted, never
-    // start another search or restart the search animation.
-    //
+
     if (!mounted || _acceptHandled) {
       debugPrint(
         '🛑 Insta Walk start ignored: accept already handled.',
@@ -32,10 +30,20 @@ extension _StartSearchRole on _InstaWalkContainerState {
         '🔎 Insta Walk startSearch() called.',
       );
 
+      debugPrint(
+        '📱 Insta Walk ownerPhone = '
+        '${ownerPhone.trim().isEmpty ? 'NOT AVAILABLE' : ownerPhone.trim()}',
+      );
+
+      // ========================================================
+      // CREATE FIRESTORE SEARCH REQUEST
+      // ========================================================
+
       final InstaWalkSearchResult result =
           await _service.startSearch(
         ownerId: ownerId,
         ownerName: ownerName,
+        ownerPhone: ownerPhone.trim(),
         address: address,
         ownerLocation: ownerLocation,
         dogName: dogName,
@@ -49,12 +57,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // ========================================================
       // ACCEPT GUARD AFTER ASYNC OPERATION
       // ========================================================
-      //
-      // Acceptance may have been detected while startSearch()
-      // was waiting for Firestore.
-      //
-      // Do not overwrite the accepted state.
-      //
+
       if (_acceptHandled) {
         debugPrint(
           '🛑 Insta Walk start aborted: request accepted '
@@ -101,10 +104,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // ========================================================
       // SECOND ACCEPT GUARD
       // ========================================================
-      //
-      // Keep this immediately before changing the UI to the
-      // SEARCHING state.
-      //
+
       if (_acceptHandled) {
         debugPrint(
           '🛑 Insta Walk search state NOT started: '
@@ -157,12 +157,6 @@ extension _StartSearchRole on _InstaWalkContainerState {
           // ======================================================
           // ACCEPTED
           // ======================================================
-          //
-          // Walker acceptance is handled by the existing
-          // _walkerAccepted() -> _handleAccepted() flow.
-          //
-          // Do not duplicate navigation/state logic here.
-          // ======================================================
 
           if (state.isAccepted) {
             final Map<String, dynamic> data =
@@ -172,6 +166,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
                 InstaWalkAcceptedData.fromMap(data);
 
             _walkerAccepted(accepted);
+
             return;
           }
 
@@ -183,6 +178,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
             _finishSearch(
               message: 'Walk request was cancelled.',
             );
+
             return;
           }
 
@@ -194,6 +190,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
             _finishSearch(
               message: 'Walk request expired.',
             );
+
             return;
           }
 
@@ -223,10 +220,7 @@ extension _StartSearchRole on _InstaWalkContainerState {
       // ========================================================
       // ACCEPT GUARD
       // ========================================================
-      //
-      // If acceptance was already handled, don't overwrite
-      // the accepted flow with an error state.
-      //
+
       if (_acceptHandled) {
         debugPrint(
           '🛑 Insta Walk error ignored: '
