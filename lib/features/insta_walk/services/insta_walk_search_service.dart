@@ -149,6 +149,7 @@ class InstaWalkSearchService {
   Future<InstaWalkSearchResult> startSearch({
     required String ownerId,
     required String ownerName,
+    required String ownerPhone,
     required String address,
     required GeoPoint ownerLocation,
     String dogName = '',
@@ -171,6 +172,24 @@ class InstaWalkSearchService {
         ownerName.trim().isEmpty
             ? 'Dog Owner'
             : ownerName.trim();
+
+    // ========================================================
+    // OWNER PHONE
+    // ========================================================
+    //
+    // Primary value comes from the caller.
+    //
+    // If caller did not find it, use Firebase Auth as a
+    // final fallback.
+    // ========================================================
+
+    String cleanOwnerPhone =
+        ownerPhone.trim();
+
+    if (cleanOwnerPhone.isEmpty) {
+      cleanOwnerPhone =
+          (user.phoneNumber ?? '').trim();
+    }
 
     final String cleanAddress =
         address.trim();
@@ -233,6 +252,24 @@ class InstaWalkSearchService {
       }
 
       // ======================================================
+      // OWNER PHONE FINAL FALLBACK FROM PROFILE
+      // ======================================================
+      //
+      // This protects the flow if Firebase Auth phoneNumber
+      // is empty but the owner's Firestore profile contains it.
+      // ======================================================
+
+      if (cleanOwnerPhone.isEmpty) {
+        cleanOwnerPhone =
+            _readOwnerPhone(profileData);
+      }
+
+      debugPrint(
+        '📱 InstaWalk ownerPhone = '
+        '${cleanOwnerPhone.isEmpty ? 'NOT AVAILABLE' : cleanOwnerPhone}',
+      );
+
+      // ======================================================
       // PREVENT DUPLICATE ACTIVE REQUEST
       // ======================================================
 
@@ -271,9 +308,17 @@ class InstaWalkSearchService {
           Map<String, dynamic>> ref =
           await _helper.createRequest(
         data: <String, dynamic>{
+          // ====================================================
+          // REQUEST
+          // ====================================================
+
           'status': 'searching',
           'searchType': 'insta_walk',
           'senderRole': 'owner',
+
+          // ====================================================
+          // OWNER
+          // ====================================================
 
           'senderUid': user.uid,
           'ownerAuthUid': user.uid,
@@ -281,10 +326,16 @@ class InstaWalkSearchService {
           'ownerId': cleanOwnerId,
           'businessId': cleanOwnerId,
           'ownerName': cleanOwnerName,
-          'address': cleanAddress,
 
-          'dogName': cleanDogName,
-          'dogBreed': cleanDogBreed,
+          // IMPORTANT:
+          // Owner phone is now stored in walk_request.
+          'ownerPhone': cleanOwnerPhone,
+
+          // ====================================================
+          // PICKUP
+          // ====================================================
+
+          'address': cleanAddress,
 
           'ownerLocation':
               ownerLocation,
@@ -292,8 +343,23 @@ class InstaWalkSearchService {
           'ownerLocationType':
               'search_snapshot',
 
+          // ====================================================
+          // DOG
+          // ====================================================
+
+          'dogName': cleanDogName,
+          'dogBreed': cleanDogBreed,
+
+          // ====================================================
+          // SEARCH
+          // ====================================================
+
           'searchRadiusKm':
               searchRadiusKm,
+
+          // ====================================================
+          // WALKER
+          // ====================================================
 
           'walkerUid': null,
           'walkerId': null,
@@ -301,8 +367,16 @@ class InstaWalkSearchService {
           'walkerPhone': null,
           'walkerProfileImage': null,
 
+          // ====================================================
+          // ACCEPTANCE
+          // ====================================================
+
           'acceptedBy': null,
           'acceptedAt': null,
+
+          // ====================================================
+          // TIMESTAMP
+          // ====================================================
 
           'createdAt':
               FieldValue.serverTimestamp(),
@@ -311,11 +385,6 @@ class InstaWalkSearchService {
 
       // ======================================================
       // SAME ID EVERYWHERE
-      // ======================================================
-      //
-      // ref.id = DW000001
-      //
-      // No separate walkId.
       // ======================================================
 
       final String requestId =
@@ -332,6 +401,15 @@ class InstaWalkSearchService {
 
       _activeRequestId =
           requestId;
+
+      debugPrint(
+        '✅ InstaWalk request created: $requestId',
+      );
+
+      debugPrint(
+        '📱 ownerPhone saved in walk_request: '
+        '${cleanOwnerPhone.isEmpty ? 'NOT AVAILABLE' : cleanOwnerPhone}',
+      );
 
       // ======================================================
       // RETURN
@@ -354,6 +432,43 @@ class InstaWalkSearchService {
         errorCode: e.toString(),
       );
     }
+  }
+
+  // ==========================================================
+  // READ OWNER PHONE
+  // ==========================================================
+
+  String _readOwnerPhone(
+    Map<String, dynamic> data,
+  ) {
+    const List<String> keys = <String>[
+      'ownerPhone',
+      'ownerMobile',
+      'ownerPhoneNumber',
+      'phoneNumber',
+      'phone',
+      'mobileNumber',
+      'mobile',
+    ];
+
+    for (final String key in keys) {
+      final dynamic value =
+          data[key];
+
+      if (value == null) {
+        continue;
+      }
+
+      final String phone =
+          value.toString().trim();
+
+      if (phone.isNotEmpty &&
+          phone != 'null') {
+        return phone;
+      }
+    }
+
+    return '';
   }
 
   // ==========================================================
