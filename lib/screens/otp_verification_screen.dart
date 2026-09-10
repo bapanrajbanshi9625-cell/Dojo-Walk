@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/dojo_walk_design_system.dart';
 import '../services/otp_service.dart';
+import '../services/owner_auth_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -664,11 +665,32 @@ class _OtpVerificationScreenState
       //
       // Backend did not find this phone in owners.
       //
-      // Existing owner identity is NOT reused.
-      // No temporary owner mapping is created.
+      // IMPORTANT FIX:
       //
-      // Profile Setup is responsible for creating the new
-      // owner account.
+      // A NEW owner must have a Firebase session BEFORE
+      // Profile Setup opens.
+      //
+      // Previously this branch signed out the current Firebase
+      // user and immediately opened Profile Setup.
+      //
+      // That left:
+      //
+      // FirebaseAuth.currentUser == null
+      //
+      // and ProfileSetupScreen showed:
+      //
+      // "Your login session has expired."
+      //
+      // Now we:
+      //
+      // 1. Remove any old Firebase session.
+      // 2. Create a fresh anonymous Firebase session.
+      // 3. Verify the session.
+      // 4. Store the same UID in tempAccountUid.
+      // 5. Open Profile Setup.
+      //
+      // Existing owner flow above is completely untouched.
+      //
       // ========================================================
 
       debugPrint(
@@ -686,6 +708,73 @@ class _OtpVerificationScreenState
 
         await _auth.signOut();
       }
+
+      // --------------------------------------------------------
+      // CREATE NEW FIREBASE SESSION
+      // --------------------------------------------------------
+
+      debugPrint(
+        'CREATING NEW FIREBASE SESSION FOR NEW OWNER',
+      );
+
+      final User newFirebaseUser =
+          await OwnerAuthService.instance
+              .createOrRestoreSession();
+
+      final String newFirebaseUid =
+          newFirebaseUser.uid.trim();
+
+      if (newFirebaseUid.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'invalid-user',
+          message:
+              'Firebase UID could not be created for the new owner.',
+        );
+      }
+
+      debugPrint(
+        'NEW OWNER FIREBASE UID: '
+        '$newFirebaseUid',
+      );
+
+      // --------------------------------------------------------
+      // VERIFY FIREBASE SESSION STILL EXISTS
+      // --------------------------------------------------------
+
+      final User? currentFirebaseUser =
+          _auth.currentUser;
+
+      if (currentFirebaseUser == null) {
+        throw FirebaseAuthException(
+          code: 'firebase-session-missing',
+          message:
+              'Firebase session could not be established.',
+        );
+      }
+
+      if (currentFirebaseUser.uid.trim() !=
+          newFirebaseUid) {
+        await _auth.signOut();
+
+        throw FirebaseAuthException(
+          code: 'firebase-session-mismatch',
+          message:
+              'Firebase session identity could not be verified.',
+        );
+      }
+
+      debugPrint(
+        'NEW OWNER FIREBASE SESSION VERIFIED',
+      );
+
+      debugPrint(
+        'NEW OWNER UID: '
+        '$newFirebaseUid',
+      );
+
+      // ========================================================
+      // SAVE LOCAL NEW OWNER LOGIN STATE
+      // ========================================================
 
       final SharedPreferences prefs =
           await SharedPreferences
@@ -721,12 +810,30 @@ class _OtpVerificationScreenState
         false,
       );
 
-      await prefs.remove(
+      // --------------------------------------------------------
+      // IMPORTANT:
+      //
+      // Keep the NEW Firebase UID.
+      //
+      // ProfileSetupScreen can use this as a fallback if
+      // FirebaseAuth.currentUser is temporarily unavailable.
+      //
+      // This is the SAME UID created above.
+      // No duplicate UID is intentionally created here.
+      // --------------------------------------------------------
+
+      await prefs.setString(
         'tempAccountUid',
+        newFirebaseUid,
       );
 
       debugPrint(
         'NEW OWNER PROFILE SETUP REQUIRED',
+      );
+
+      debugPrint(
+        'TEMP ACCOUNT UID SAVED: '
+        '$newFirebaseUid',
       );
 
       if (!mounted) {
@@ -1213,6 +1320,12 @@ class _OtpVerificationScreenState
 
       case 'failed-precondition':
         return 'Firebase configuration is incomplete.';
+
+      case 'firebase-session-missing':
+        return 'Firebase session could not be established. Please try again.';
+
+      case 'firebase-session-mismatch':
+        return 'Firebase session identity could not be verified. Please try again.';
 
       default:
         final String message =
