@@ -54,6 +54,13 @@ class LiveWalkService {
   //
   // Walker:
   //   walkerUid == Firebase Auth UID
+  //
+  // IMPORTANT:
+  // Directly listens to:
+  //
+  // liveWalkSessions/DW000001
+  //
+  // instead of listening to the entire user's session collection.
   // ============================================================
 
   Stream<LiveWalkSession?> watchSession(
@@ -82,37 +89,65 @@ class LiveWalkService {
       );
     }
 
-    final CollectionReference<Map<String, dynamic>> collection =
-        _firestore.collection(collectionName);
+    final DocumentReference<Map<String, dynamic>> sessionRef =
+        _firestore
+            .collection(collectionName)
+            .doc(value);
 
     final String userField =
         isWalker ? 'walkerUid' : 'ownerUid';
 
     // ==========================================================
-    // IMPORTANT
+    // DIRECT REALTIME DOCUMENT LISTENER
     //
-    // We query only sessions belonging to the authenticated user.
-    // Then we select the exact FINAL request ID.
+    // Final architecture:
     //
-    // No walkId / walkRequestId / sessionId fallback.
+    // liveWalkSessions/DW000001
+    //
+    // Only this exact live session is listened to.
     // ==========================================================
 
-    return collection
-        .where(
-          userField,
-          isEqualTo: uid,
-        )
-        .snapshots()
-        .map(
-      (QuerySnapshot<Map<String, dynamic>> snapshot) {
-        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-            in snapshot.docs) {
-          if (doc.id == value) {
-            return LiveWalkSession.fromFirestore(doc);
-          }
+    return sessionRef.snapshots().asyncMap(
+      (
+        DocumentSnapshot<Map<String, dynamic>> snapshot,
+      ) async {
+        if (!snapshot.exists) {
+          return null;
         }
 
-        return null;
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          return null;
+        }
+
+        // ========================================================
+        // AUTHORIZATION SAFETY
+        //
+        // The caller must belong to this live session.
+        //
+        // Owner:
+        //   ownerUid == current Firebase UID
+        //
+        // Walker:
+        //   walkerUid == current Firebase UID
+        //
+        // This keeps the old ownership behavior while using
+        // the more efficient direct document listener.
+        // ========================================================
+
+        final dynamic storedUid =
+            data[userField];
+
+        if (storedUid == null ||
+            storedUid.toString().trim() != uid) {
+          return null;
+        }
+
+        return LiveWalkSession.fromFirestore(
+          snapshot,
+        );
       },
     );
   }
