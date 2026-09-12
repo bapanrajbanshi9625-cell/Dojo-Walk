@@ -34,18 +34,7 @@ class LiveWalkSession {
     required this.startedAt,
   });
 
-  /// Final single Walk ID.
-  ///
-  /// Example:
-  /// DW000001
-  ///
-  /// Same ID is used for:
-  /// walk_request/DW000001
-  /// liveWalkSessions/DW000001
-  /// walk_history/DW000001
   final String documentId;
-
-  /// Canonical shared Walk / Request / Session ID.
   final String requestId;
 
   final String ownerId;
@@ -84,10 +73,6 @@ class LiveWalkSession {
 
   final DateTime? startedAt;
 
-  /// Compatibility getter only.
-  ///
-  /// This does NOT create a separate ID.
-  /// It always returns the same canonical requestId.
   String get walkId => requestId;
 
   bool get isCompleted {
@@ -130,23 +115,62 @@ class LiveWalkSession {
   ) {
     final data = snapshot.data() ?? <String, dynamic>{};
 
-    final walkerLocation = _readLocation(
-      data['currentLocation'],
-      fallbackLat: _toDouble(data['currentLat']),
-      fallbackLng: _toDouble(data['currentLng']),
-    );
+    // ==========================================================
+    // WALKER LOCATION
+    //
+    // Priority:
+    // 1. currentLocation
+    // 2. walkerLocation
+    // 3. walkerCurrentLocation
+    // 4. lastLocation
+    // 5. walkerLatitude / walkerLongitude
+    // 6. currentLat / currentLng
+    //
+    // This matches the Walker live tracking architecture.
+    // ==========================================================
 
-    final ownerLocation = _readLocation(
+    final LatLng? walkerLocation = _readFirstLocation(
+      <dynamic>[
+        data['currentLocation'],
+        data['walkerLocation'],
+        data['walkerCurrentLocation'],
+        data['lastLocation'],
+      ],
+    ) ??
+        _readLatLng(
+          data['walkerLatitude'],
+          data['walkerLongitude'],
+        ) ??
+        _readLatLng(
+          data['currentLat'],
+          data['currentLng'],
+        );
+
+    // ==========================================================
+    // OWNER LOCATION
+    // ==========================================================
+
+    final LatLng? ownerLocation = _readLocation(
       data['ownerLocation'],
-      fallbackLat: _readNestedDouble(data['address'], 'latitude'),
-      fallbackLng: _readNestedDouble(data['address'], 'longitude'),
+      fallbackLat: _readNestedDouble(
+        data['address'],
+        'latitude',
+      ),
+      fallbackLng: _readNestedDouble(
+        data['address'],
+        'longitude',
+      ),
     );
 
-    final routePoints = _readRoute(data['routeCoordinates']);
+    final List<LatLng> routePoints = _readRoute(
+      data['routeCoordinates'],
+    );
 
-    // Final architecture:
-    // Firestore document ID is the canonical shared ID.
-    final requestId = _readString(
+    // ==========================================================
+    // CANONICAL WALK ID
+    // ==========================================================
+
+    final String requestId = _readString(
       data['requestId'],
       fallback: snapshot.id,
     );
@@ -168,7 +192,6 @@ class LiveWalkSession {
       walkerName: _readString(data['walkerName']),
       walkerPhone: _readString(data['walkerPhone']),
 
-      // Walker profile photo comes directly from liveWalkSessions.
       walkerPhoto: _readString(
         data['walkerProfileImage'],
         fallback: _readString(
@@ -213,15 +236,24 @@ class LiveWalkSession {
     );
   }
 
+  // ============================================================
+  // STRING
+  // ============================================================
+
   static String _readString(
     dynamic value, {
     String fallback = '',
   }) {
     if (value == null) return fallback;
 
-    final result = value.toString().trim();
+    final String result = value.toString().trim();
+
     return result.isEmpty ? fallback : result;
   }
+
+  // ============================================================
+  // BOOL
+  // ============================================================
 
   static bool _readBool(dynamic value) {
     if (value is bool) return value;
@@ -237,12 +269,19 @@ class LiveWalkSession {
     return false;
   }
 
+  // ============================================================
+  // INT
+  // ============================================================
+
   static int _readInt(
     dynamic value, {
     int fallback = 0,
   }) {
     if (value is int) return value;
-    if (value is num) return value.round();
+
+    if (value is num) {
+      return value.round();
+    }
 
     if (value is String) {
       return int.tryParse(value) ?? fallback;
@@ -251,11 +290,17 @@ class LiveWalkSession {
     return fallback;
   }
 
+  // ============================================================
+  // DOUBLE
+  // ============================================================
+
   static double _readDouble(
     dynamic value, {
     double fallback = 0,
   }) {
-    if (value is num) return value.toDouble();
+    if (value is num) {
+      return value.toDouble();
+    }
 
     if (value is String) {
       return double.tryParse(value) ?? fallback;
@@ -263,6 +308,10 @@ class LiveWalkSession {
 
     return fallback;
   }
+
+  // ============================================================
+  // DATETIME
+  // ============================================================
 
   static DateTime? _readDateTime(dynamic value) {
     if (value is Timestamp) {
@@ -280,15 +329,132 @@ class LiveWalkSession {
     return null;
   }
 
-  static double _toDouble(dynamic value) {
-    if (value is num) return value.toDouble();
+  // ============================================================
+  // LOCATION LIST
+  // ============================================================
 
-    if (value is String) {
-      return double.tryParse(value) ?? 0;
+  static LatLng? _readFirstLocation(
+    List<dynamic> values,
+  ) {
+    for (final dynamic value in values) {
+      final LatLng? location = _readLocation(value);
+
+      if (location != null) {
+        return location;
+      }
     }
 
-    return 0;
+    return null;
   }
+
+  // ============================================================
+  // LAT/LNG PAIR
+  // ============================================================
+
+  static LatLng? _readLatLng(
+    dynamic latitude,
+    dynamic longitude,
+  ) {
+    final double? lat = _nullableDouble(latitude);
+    final double? lng = _nullableDouble(longitude);
+
+    if (lat == null || lng == null) {
+      return null;
+    }
+
+    if (!_validCoordinate(lat, lng)) {
+      return null;
+    }
+
+    return LatLng(lat, lng);
+  }
+
+  // ============================================================
+  // LOCATION
+  // ============================================================
+
+  static LatLng? _readLocation(
+    dynamic value, {
+    double fallbackLat = 0,
+    double fallbackLng = 0,
+  }) {
+    if (value is GeoPoint) {
+      if (!_validCoordinate(
+        value.latitude,
+        value.longitude,
+      )) {
+        return null;
+      }
+
+      return LatLng(
+        value.latitude,
+        value.longitude,
+      );
+    }
+
+    if (value is Map) {
+      final double? lat = _nullableDouble(
+        value['lat'] ?? value['latitude'],
+      );
+
+      final double? lng = _nullableDouble(
+        value['lng'] ?? value['longitude'],
+      );
+
+      if (lat != null &&
+          lng != null &&
+          _validCoordinate(lat, lng)) {
+        return LatLng(lat, lng);
+      }
+    }
+
+    if (_validCoordinate(
+      fallbackLat,
+      fallbackLng,
+    )) {
+      return LatLng(
+        fallbackLat,
+        fallbackLng,
+      );
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // COORDINATE VALIDATION
+  // ============================================================
+
+  static bool _validCoordinate(
+    double latitude,
+    double longitude,
+  ) {
+    return latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180 &&
+        !(latitude == 0 && longitude == 0);
+  }
+
+  static double? _nullableDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value is String) {
+      return double.tryParse(value);
+    }
+
+    return null;
+  }
+
+  static double _toDouble(dynamic value) {
+    return _nullableDouble(value) ?? 0;
+  }
+
+  // ============================================================
+  // NESTED DOUBLE
+  // ============================================================
 
   static double _readNestedDouble(
     dynamic value,
@@ -301,70 +467,46 @@ class LiveWalkSession {
     return 0;
   }
 
-  static LatLng? _readLocation(
-    dynamic value, {
-    double fallbackLat = 0,
-    double fallbackLng = 0,
-  }) {
-    if (value is GeoPoint) {
-      return LatLng(
-        value.latitude,
-        value.longitude,
-      );
-    }
-
-    if (value is Map) {
-      final lat = _toDouble(
-        value['lat'] ?? value['latitude'],
-      );
-
-      final lng = _toDouble(
-        value['lng'] ?? value['longitude'],
-      );
-
-      if (lat != 0 || lng != 0) {
-        return LatLng(lat, lng);
-      }
-    }
-
-    if (fallbackLat != 0 || fallbackLng != 0) {
-      return LatLng(
-        fallbackLat,
-        fallbackLng,
-      );
-    }
-
-    return null;
-  }
+  // ============================================================
+  // ROUTE
+  // ============================================================
 
   static List<LatLng> _readRoute(dynamic value) {
     if (value is! List) {
       return const [];
     }
 
-    final result = <LatLng>[];
+    final List<LatLng> result = <LatLng>[];
 
-    for (final item in value) {
+    for (final dynamic item in value) {
       if (item is GeoPoint) {
-        result.add(
-          LatLng(
-            item.latitude,
-            item.longitude,
-          ),
-        );
+        if (_validCoordinate(
+          item.latitude,
+          item.longitude,
+        )) {
+          result.add(
+            LatLng(
+              item.latitude,
+              item.longitude,
+            ),
+          );
+        }
+
         continue;
       }
 
       if (item is Map) {
-        final lat = _toDouble(
+        final double? lat = _nullableDouble(
           item['lat'] ?? item['latitude'],
         );
 
-        final lng = _toDouble(
+        final double? lng = _nullableDouble(
           item['lng'] ?? item['longitude'],
         );
 
-        if (lat != 0 || lng != 0) {
+        if (lat != null &&
+            lng != null &&
+            _validCoordinate(lat, lng)) {
           result.add(
             LatLng(lat, lng),
           );
@@ -375,10 +517,14 @@ class LiveWalkSession {
     return result;
   }
 
+  // ============================================================
+  // ADDRESS
+  // ============================================================
+
   static String _readAddress(
     Map<String, dynamic> data,
   ) {
-    final direct = _readString(
+    final String direct = _readString(
       data['destinationAddress'],
     );
 
@@ -386,14 +532,14 @@ class LiveWalkSession {
       return direct;
     }
 
-    final address = data['address'];
+    final dynamic address = data['address'];
 
     if (address is String) {
       return address;
     }
 
     if (address is Map) {
-      final parts = <String>[
+      final List<String> parts = <String>[
         _readString(address['flatNumber']),
         _readString(address['addressLine1']),
         _readString(address['addressLine2']),
@@ -401,7 +547,7 @@ class LiveWalkSession {
         _readString(address['city']),
         _readString(address['state']),
         _readString(address['pincode']),
-      ].where((item) => item.isNotEmpty).toList();
+      ].where((String item) => item.isNotEmpty).toList();
 
       return parts.join(', ');
     }
