@@ -1,10 +1,13 @@
+// File:
+// lib/features/walker_accept/models/walker_accept_data.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// ============================================================
 /// WALKER ACCEPT DATA
 /// ============================================================
 ///
-/// Data model for the Owner-side Walker Accept screen.
+/// Owner-side Walker Accept screen data model.
 ///
 /// FINAL DOJO WALK ID ARCHITECTURE:
 ///
@@ -12,12 +15,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// liveWalkSessions/DW000001
 /// walk_history/DW000001
 ///
-/// IMPORTANT:
-/// - requestId itself is the Dojo Walk ID.
-/// - No separate walkId field.
-/// - No Firebase Auto-ID.
-/// - Example requestId: DW000001
-/// - Same ID is used everywhere.
+/// requestId itself is the Dojo Walk ID.
+/// No separate walkId.
+/// No Firebase Auto-ID.
 ///
 class WalkerAcceptData {
   const WalkerAcceptData({
@@ -51,12 +51,6 @@ class WalkerAcceptData {
   // REQUEST / DOJO WALK ID
   // ==========================================================
 
-  /// Single Dojo Walk ID.
-  ///
-  /// Example:
-  /// DW000001
-  ///
-  /// This is also the Firestore document ID.
   final String requestId;
 
   // ==========================================================
@@ -90,19 +84,22 @@ class WalkerAcceptData {
   // LOCATIONS
   // ==========================================================
 
-  /// Owner's saved Firestore location.
+  /// Owner's saved location.
   final GeoPoint? ownerLocation;
 
-  /// Walker's current live location.
+  /// Walker's latest live location.
   ///
-  /// Updated by the Walker app while travelling
-  /// to the Owner.
+  /// Supported Firestore sources:
+  ///
+  /// 1. walkerLocation
+  /// 2. currentLocation
+  /// 3. walkerCurrentLocation
+  /// 4. lastLocation
+  /// 5. walkerLatitude + walkerLongitude
+  /// 6. currentLat + currentLng
   final GeoPoint? walkerLocation;
 
-  /// Walker's current direction in degrees.
   final double? walkerHeading;
-
-  /// Walker's current speed.
   final double? walkerSpeed;
 
   // ==========================================================
@@ -110,8 +107,6 @@ class WalkerAcceptData {
   // ==========================================================
 
   final String status;
-
-  /// True after Walker reaches Owner.
   final bool reached;
 
   final DateTime? acceptedAt;
@@ -121,13 +116,8 @@ class WalkerAcceptData {
   // DISTANCE / ETA
   // ==========================================================
 
-  /// Remaining arrival distance in meters.
   final int distanceMeters;
-
-  /// Remaining arrival distance in kilometers.
   final double distanceKm;
-
-  /// Remaining arrival duration in minutes.
   final int etaMinutes;
 
   final DateTime? updatedAt;
@@ -151,13 +141,10 @@ class WalkerAcceptData {
   // REQUEST ID VALIDATION
   // ==========================================================
 
-  /// Valid Dojo Walk ID format:
-  ///
-  /// DW000001
-  /// DW000002
-  /// DW123456
   bool get hasValidRequestId =>
-      RegExp(r'^DW\d{6}$').hasMatch(
+      RegExp(
+        r'^DW\d{6}$',
+      ).hasMatch(
         requestId.trim(),
       );
 
@@ -202,7 +189,6 @@ class WalkerAcceptData {
     double meters =
         distanceMeters.toDouble();
 
-    // Fallback to kilometer field if meters is unavailable.
     if (meters <= 0 &&
         distanceKm > 0) {
       meters =
@@ -252,10 +238,6 @@ class WalkerAcceptData {
     return WalkerAcceptData(
       // --------------------------------------------------------
       // REQUEST ID
-      //
-      // Priority:
-      // 1. Firestore document ID
-      // 2. requestId field
       // --------------------------------------------------------
 
       requestId:
@@ -269,7 +251,8 @@ class WalkerAcceptData {
       // OWNER
       // --------------------------------------------------------
 
-      ownerId: _firstString(
+      ownerId:
+          _firstString(
         data,
         const [
           'ownerId',
@@ -277,7 +260,8 @@ class WalkerAcceptData {
         ],
       ),
 
-      ownerName: _firstString(
+      ownerName:
+          _firstString(
         data,
         const [
           'ownerName',
@@ -286,7 +270,8 @@ class WalkerAcceptData {
         fallback: 'Dog Owner',
       ),
 
-      address: _firstString(
+      address:
+          _firstString(
         data,
         const [
           'address',
@@ -299,7 +284,8 @@ class WalkerAcceptData {
       // DOG
       // --------------------------------------------------------
 
-      dogName: _firstString(
+      dogName:
+          _firstString(
         data,
         const [
           'dogName',
@@ -310,7 +296,8 @@ class WalkerAcceptData {
         fallback: 'Your Dog',
       ),
 
-      dogBreed: _firstString(
+      dogBreed:
+          _firstString(
         data,
         const [
           'dogBreed',
@@ -324,15 +311,18 @@ class WalkerAcceptData {
       // WALKER
       // --------------------------------------------------------
 
-      walkerId: _string(
+      walkerId:
+          _string(
         data['walkerId'],
       ),
 
-      walkerUid: _string(
+      walkerUid:
+          _string(
         data['walkerUid'],
       ),
 
-      walkerName: _firstString(
+      walkerName:
+          _firstString(
         data,
         const [
           'walkerName',
@@ -367,13 +357,41 @@ class WalkerAcceptData {
       // --------------------------------------------------------
 
       ownerLocation:
-          _geoPoint(
-        data['ownerLocation'],
+          _readLocation(
+        data,
+        pointKeys: const [
+          'ownerLocation',
+          'ownerCurrentLocation',
+        ],
+        latitudeKeys: const [
+          'ownerLatitude',
+          'ownerLat',
+        ],
+        longitudeKeys: const [
+          'ownerLongitude',
+          'ownerLng',
+        ],
       ),
 
       walkerLocation:
-          _geoPoint(
-        data['walkerLocation'],
+          _readLocation(
+        data,
+        pointKeys: const [
+          'walkerLocation',
+          'currentLocation',
+          'walkerCurrentLocation',
+          'lastLocation',
+        ],
+        latitudeKeys: const [
+          'walkerLatitude',
+          'walkerLat',
+          'currentLat',
+        ],
+        longitudeKeys: const [
+          'walkerLongitude',
+          'walkerLng',
+          'currentLng',
+        ],
       ),
 
       walkerHeading:
@@ -390,7 +408,8 @@ class WalkerAcceptData {
       // STATUS
       // --------------------------------------------------------
 
-      status: _firstString(
+      status:
+          _firstString(
         data,
         const [
           'status',
@@ -413,12 +432,6 @@ class WalkerAcceptData {
 
       // --------------------------------------------------------
       // ARRIVAL DATA
-      //
-      // Firestore fields:
-      //
-      // arrivalDistanceMeters
-      // arrivalDistanceKm
-      // arrivalDurationMinutes
       // --------------------------------------------------------
 
       distanceMeters:
@@ -440,6 +453,84 @@ class WalkerAcceptData {
           _date(
         data['updatedAt'],
       ),
+    );
+  }
+
+  // ==========================================================
+  // LOCATION READER
+  // ==========================================================
+
+  static GeoPoint? _readLocation(
+    Map<String, dynamic> data, {
+    required List<String> pointKeys,
+    required List<String> latitudeKeys,
+    required List<String> longitudeKeys,
+  }) {
+    // --------------------------------------------------------
+    // 1. GeoPoint fields
+    // --------------------------------------------------------
+
+    for (final String key in pointKeys) {
+      final GeoPoint? point =
+          _geoPoint(
+        data[key],
+      );
+
+      if (point != null &&
+          _validCoordinate(
+            point.latitude,
+            point.longitude,
+          )) {
+        return point;
+      }
+    }
+
+    // --------------------------------------------------------
+    // 2. Latitude / longitude fields
+    // --------------------------------------------------------
+
+    double? latitude;
+    double? longitude;
+
+    for (final String key in latitudeKeys) {
+      final double? value =
+          _nullableDouble(
+        data[key],
+      );
+
+      if (value != null) {
+        latitude = value;
+        break;
+      }
+    }
+
+    for (final String key in longitudeKeys) {
+      final double? value =
+          _nullableDouble(
+        data[key],
+      );
+
+      if (value != null) {
+        longitude = value;
+        break;
+      }
+    }
+
+    if (latitude == null ||
+        longitude == null) {
+      return null;
+    }
+
+    if (!_validCoordinate(
+      latitude,
+      longitude,
+    )) {
+      return null;
+    }
+
+    return GeoPoint(
+      latitude,
+      longitude,
     );
   }
 
@@ -565,6 +656,28 @@ class WalkerAcceptData {
     }
 
     return null;
+  }
+
+  static bool _validCoordinate(
+    double latitude,
+    double longitude,
+  ) {
+    if (latitude == 0 &&
+        longitude == 0) {
+      return false;
+    }
+
+    if (latitude < -90 ||
+        latitude > 90) {
+      return false;
+    }
+
+    if (longitude < -180 ||
+        longitude > 180) {
+      return false;
+    }
+
+    return true;
   }
 
   // ==========================================================
