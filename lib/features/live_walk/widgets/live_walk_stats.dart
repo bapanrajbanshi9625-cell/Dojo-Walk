@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_walk_design_system.dart';
+
 class LiveWalkStats extends StatelessWidget {
   const LiveWalkStats({
     super.key,
@@ -15,9 +17,6 @@ class LiveWalkStats extends StatelessWidget {
   final String distance;
   final int peeCount;
   final int poopCount;
-
-  static const Color orange = Color(0xFFFF6B35);
-  static const Color navy = Color(0xFF263746);
 
   @override
   Widget build(BuildContext context) {
@@ -47,28 +46,35 @@ class LiveWalkStats extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 10),
-
         _peePoopCard(),
       ],
     );
   }
 
   String _minutesValue(String value) {
-    final parts = value.split(':');
+    final String cleanValue = value.trim();
+
+    final List<String> parts = cleanValue.split(':');
 
     if (parts.length == 2) {
-      return parts[0];
+      return (int.tryParse(parts[0]) ?? 0).toString();
     }
 
     if (parts.length == 3) {
-      final hours = int.tryParse(parts[0]) ?? 0;
-      final minutes = int.tryParse(parts[1]) ?? 0;
+      final int hours = int.tryParse(parts[0]) ?? 0;
+      final int minutes = int.tryParse(parts[1]) ?? 0;
+
       return (hours * 60 + minutes).toString();
     }
 
-    return value;
+    final int? seconds = int.tryParse(cleanValue);
+
+    if (seconds != null) {
+      return (seconds ~/ 60).toString();
+    }
+
+    return cleanValue.isEmpty ? '0' : cleanValue;
   }
 
   String _distanceValue(String value) {
@@ -96,10 +102,10 @@ class LiveWalkStats extends StatelessWidget {
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: DojoWalkColors.background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE8EDF2),
+          color: DojoWalkColors.border,
         ),
       ),
       child: Column(
@@ -113,7 +119,7 @@ class LiveWalkStats extends StatelessWidget {
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
-              color: Color(0xFF718096),
+              color: DojoWalkColors.textSecondary,
             ),
           ),
           const SizedBox(height: 6),
@@ -124,7 +130,7 @@ class LiveWalkStats extends StatelessWidget {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: navy,
+              color: DojoWalkColors.textPrimary,
             ),
           ),
         ],
@@ -137,10 +143,10 @@ class LiveWalkStats extends StatelessWidget {
       width: double.infinity,
       height: 82,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: DojoWalkColors.background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE8EDF2),
+          color: DojoWalkColors.border,
         ),
       ),
       child: Column(
@@ -152,7 +158,7 @@ class LiveWalkStats extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
-              color: Color(0xFF718096),
+              color: DojoWalkColors.textSecondary,
             ),
           ),
           const SizedBox(height: 6),
@@ -161,7 +167,7 @@ class LiveWalkStats extends StatelessWidget {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: navy,
+              color: DojoWalkColors.textPrimary,
             ),
           ),
         ],
