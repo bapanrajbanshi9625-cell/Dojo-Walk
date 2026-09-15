@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:record/record.dart';
+import 'package:video_player/video_player.dart';
 
 class VoiceChatService {
   VoiceChatService._();
@@ -32,6 +33,24 @@ class VoiceChatService {
       StreamController<Duration>.broadcast();
 
   // ============================================================
+  // VOICE PLAYBACK
+  // ============================================================
+
+  final Map<String, VideoPlayerController>
+      _audioControllers =
+      <String, VideoPlayerController>{};
+
+  final Map<String, StreamSubscription<void>>
+      _audioSubscriptions =
+      <String, StreamSubscription<void>>{};
+
+  String? _playingMessageId;
+
+  final StreamController<String?>
+      _playingMessageIdController =
+      StreamController<String?>.broadcast();
+
+  // ============================================================
   // GETTERS
   // ============================================================
 
@@ -43,6 +62,13 @@ class VoiceChatService {
   Stream<Duration>
       get recordingDurationStream =>
           _recordingDurationController.stream;
+
+  String? get playingMessageId =>
+      _playingMessageId;
+
+  Stream<String?>
+      get playingMessageIdStream =>
+          _playingMessageIdController.stream;
 
   // ============================================================
   // START RECORDING
@@ -115,13 +141,6 @@ class VoiceChatService {
 
   // ============================================================
   // STOP RECORDING
-  //
-  // IMPORTANT:
-  // No Firebase Storage upload happens here.
-  //
-  // The returned VoiceRecordingResult contains the local file.
-  // Your Cloud/Cloudinary uploader should upload this file and
-  // return the final cloud URL.
   // ============================================================
 
   Future<VoiceRecordingResult?> stopRecording({
@@ -232,15 +251,251 @@ class VoiceChatService {
 
   // ============================================================
   // DELETE LOCAL RECORDING
-  //
-  // Call this AFTER your cloud uploader has successfully uploaded
-  // the file and you no longer need the local copy.
   // ============================================================
 
   Future<void> deleteLocalRecording(
     File file,
   ) async {
     await _deleteFile(file);
+  }
+
+  // ============================================================
+  // TOGGLE VOICE PLAYBACK
+  //
+  // messageId = Firestore message ID
+  // audioUrl  = Cloudinary secure URL
+  // ============================================================
+
+  Future<void> togglePlayback({
+    required String messageId,
+    required String audioUrl,
+  }) async {
+    final String id =
+        messageId.trim();
+
+    final String url =
+        audioUrl.trim();
+
+    if (id.isEmpty) {
+      throw ArgumentError(
+        'Message ID is required.',
+      );
+    }
+
+    if (url.isEmpty) {
+      throw ArgumentError(
+        'Audio URL is required.',
+      );
+    }
+
+    // ------------------------------------------------------------
+    // If another message is currently playing, stop it first.
+    // ------------------------------------------------------------
+
+    if (_playingMessageId != null &&
+        _playingMessageId != id) {
+      await _stopPlayback(
+        _playingMessageId!,
+      );
+    }
+
+    // ------------------------------------------------------------
+    // If this message already has a controller, toggle it.
+    // ------------------------------------------------------------
+
+    final VideoPlayerController?
+        existingController =
+        _audioControllers[id];
+
+    if (existingController != null) {
+      if (existingController.value.isPlaying) {
+        await existingController.pause();
+
+        _setPlayingMessageId(null);
+        return;
+      }
+
+      if (existingController.value.isInitialized) {
+        await existingController.play();
+
+        _setPlayingMessageId(id);
+        return;
+      }
+
+      await _disposeAudioController(id);
+    }
+
+    // ------------------------------------------------------------
+    // Create audio/video controller from Cloudinary URL.
+    //
+    // video_player is already present in the project and can
+    // control media playback without adding another audio package.
+    // ------------------------------------------------------------
+
+    final VideoPlayerController controller =
+        VideoPlayerController.networkUrl(
+      Uri.parse(url),
+    );
+
+    _audioControllers[id] =
+        controller;
+
+    try {
+      await controller.initialize();
+
+      await controller.setLooping(false);
+
+      await controller.play();
+
+      _setPlayingMessageId(id);
+
+      final StreamSubscription<void>
+          subscription =
+          controller.addListener(
+            () {},
+          ) as StreamSubscription<void>;
+
+      _audioSubscriptions[id] =
+          subscription;
+    } catch (error) {
+      await _disposeAudioController(id);
+
+      _setPlayingMessageId(null);
+
+      rethrow;
+    }
+
+    // ------------------------------------------------------------
+    // Monitor playback completion.
+    // ------------------------------------------------------------
+
+    void checkPlaybackState() {
+      if (!_audioControllers.containsKey(id)) {
+        return;
+      }
+
+      final VideoPlayerValue value =
+          controller.value;
+
+      if (value.isInitialized &&
+          !value.isPlaying &&
+          value.position >= value.duration &&
+          value.duration > Duration.zero) {
+        unawaited(
+          _handlePlaybackCompleted(id),
+        );
+      }
+    }
+
+    controller.addListener(
+      checkPlaybackState,
+    );
+  }
+
+  // ============================================================
+  // PLAYBACK COMPLETED
+  // ============================================================
+
+  Future<void> _handlePlaybackCompleted(
+    String messageId,
+  ) async {
+    if (_playingMessageId ==
+        messageId) {
+      _setPlayingMessageId(null);
+    }
+
+    final VideoPlayerController?
+        controller =
+        _audioControllers[messageId];
+
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller.pause();
+
+      await controller.seekTo(
+        Duration.zero,
+      );
+    } catch (_) {}
+  }
+
+  // ============================================================
+  // STOP PLAYBACK
+  // ============================================================
+
+  Future<void> _stopPlayback(
+    String messageId,
+  ) async {
+    final VideoPlayerController?
+        controller =
+        _audioControllers[messageId];
+
+    if (controller == null) {
+      _setPlayingMessageId(null);
+      return;
+    }
+
+    try {
+      await controller.pause();
+
+      await controller.seekTo(
+        Duration.zero,
+      );
+    } catch (_) {}
+
+    _setPlayingMessageId(null);
+  }
+
+  // ============================================================
+  // SET PLAYING MESSAGE
+  // ============================================================
+
+  void _setPlayingMessageId(
+    String? messageId,
+  ) {
+    _playingMessageId =
+        messageId;
+
+    if (!_playingMessageIdController
+        .isClosed) {
+      _playingMessageIdController.add(
+        messageId,
+      );
+    }
+  }
+
+  // ============================================================
+  // DISPOSE ONE AUDIO CONTROLLER
+  // ============================================================
+
+  Future<void> _disposeAudioController(
+    String messageId,
+  ) async {
+    final StreamSubscription<void>?
+        subscription =
+        _audioSubscriptions.remove(
+      messageId,
+    );
+
+    if (subscription != null) {
+      try {
+        await subscription.cancel();
+      } catch (_) {}
+    }
+
+    final VideoPlayerController?
+        controller =
+        _audioControllers.remove(
+      messageId,
+    );
+
+    if (controller != null) {
+      try {
+        await controller.dispose();
+      } catch (_) {}
+    }
   }
 
   // ============================================================
@@ -308,9 +563,25 @@ class VoiceChatService {
       await cancelRecording();
     } catch (_) {}
 
-    await _recordingDurationController.close();
+    _setPlayingMessageId(null);
 
-    _recorder.dispose();
+    final List<String> controllerIds =
+        List<String>.from(
+      _audioControllers.keys,
+    );
+
+    for (final String id
+        in controllerIds) {
+      await _disposeAudioController(id);
+    }
+
+    await _recordingDurationController
+        .close();
+
+    await _playingMessageIdController
+        .close();
+
+    await _recorder.dispose();
   }
 }
 
