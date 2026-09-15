@@ -15,6 +15,10 @@ class ConversationService {
       get _conversations =>
           _firestore.collection('conversations');
 
+  // ==========================================================
+  // CONVERSATION ID
+  // ==========================================================
+
   String getConversationId({
     required String walkId,
     required String requestId,
@@ -35,6 +39,10 @@ class ConversationService {
     return sessionId.trim();
   }
 
+  // ==========================================================
+  // REFERENCES
+  // ==========================================================
+
   DocumentReference<Map<String, dynamic>> _conversationRef(
     String conversationId,
   ) {
@@ -44,12 +52,14 @@ class ConversationService {
   CollectionReference<Map<String, dynamic>> _messagesRef(
     String conversationId,
   ) {
-    return _conversationRef(conversationId).collection('messages');
+    return _conversationRef(conversationId).collection(
+      'messages',
+    );
   }
 
-  // ============================================================
-  // CREATE / UPDATE CURRENT WALK CONVERSATION
-  // ============================================================
+  // ==========================================================
+  // CREATE / UPDATE CONVERSATION
+  // ==========================================================
 
   Future<String> createConversation({
     required String walkId,
@@ -108,9 +118,9 @@ class ConversationService {
     return conversationId;
   }
 
-  // ============================================================
-  // CURRENT CONVERSATION STREAM
-  // ============================================================
+  // ==========================================================
+  // CONVERSATION STREAM
+  // ==========================================================
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>
       conversationStream({
@@ -131,9 +141,9 @@ class ConversationService {
     return _conversationRef(conversationId).snapshots();
   }
 
-  // ============================================================
-  // CURRENT WALK MESSAGES ONLY
-  // ============================================================
+  // ==========================================================
+  // MESSAGE STREAM
+  // ==========================================================
 
   Stream<List<ContactMessage>> messagesStream({
     required String walkId,
@@ -167,9 +177,9 @@ class ConversationService {
         );
   }
 
-  // ============================================================
-  // SEND TEXT MESSAGE
-  // ============================================================
+  // ==========================================================
+  // TEXT MESSAGE
+  // ==========================================================
 
   Future<void> sendMessage({
     required String walkId,
@@ -210,6 +220,8 @@ class ConversationService {
         'senderUid': senderUid.trim(),
         'receiverUid': receiverUid.trim(),
         'text': message,
+        'mediaUrl': null,
+        'durationSeconds': null,
         'createdAt': FieldValue.serverTimestamp(),
       },
     );
@@ -217,9 +229,9 @@ class ConversationService {
     await _updateConversation(conversationId);
   }
 
-  // ============================================================
-  // SEND IMAGE MESSAGE
-  // ============================================================
+  // ==========================================================
+  // IMAGE MESSAGE
+  // ==========================================================
 
   Future<void> sendImageMessage({
     required String walkId,
@@ -259,8 +271,9 @@ class ConversationService {
         'type': 'image',
         'senderUid': senderUid.trim(),
         'receiverUid': receiverUid.trim(),
-        'mediaUrl': url,
         'text': '',
+        'mediaUrl': url,
+        'durationSeconds': null,
         'createdAt': FieldValue.serverTimestamp(),
       },
     );
@@ -268,9 +281,61 @@ class ConversationService {
     await _updateConversation(conversationId);
   }
 
-  // ============================================================
-  // SEND VOICE MESSAGE
-  // ============================================================
+  // ==========================================================
+  // VIDEO MESSAGE
+  // ==========================================================
+
+  Future<void> sendVideoMessage({
+    required String walkId,
+    required String requestId,
+    required String sessionId,
+    required String senderUid,
+    required String receiverUid,
+    required String videoUrl,
+  }) async {
+    final String url = videoUrl.trim();
+
+    if (url.isEmpty) {
+      return;
+    }
+
+    final String conversationId = getConversationId(
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
+
+    if (conversationId.isEmpty) {
+      throw ArgumentError(
+        'Current walk ID is required.',
+      );
+    }
+
+    await _validateCurrentConversation(
+      conversationId: conversationId,
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
+
+    await _messagesRef(conversationId).add(
+      <String, dynamic>{
+        'type': 'video',
+        'senderUid': senderUid.trim(),
+        'receiverUid': receiverUid.trim(),
+        'text': '',
+        'mediaUrl': url,
+        'durationSeconds': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      },
+    );
+
+    await _updateConversation(conversationId);
+  }
+
+  // ==========================================================
+  // VOICE MESSAGE
+  // ==========================================================
 
   Future<void> sendVoiceMessage({
     required String walkId,
@@ -311,9 +376,10 @@ class ConversationService {
         'type': 'voice',
         'senderUid': senderUid.trim(),
         'receiverUid': receiverUid.trim(),
-        'mediaUrl': url,
         'text': '',
-        'durationSeconds': durationSeconds,
+        'mediaUrl': url,
+        'durationSeconds':
+            durationSeconds < 0 ? 0 : durationSeconds,
         'createdAt': FieldValue.serverTimestamp(),
       },
     );
@@ -321,9 +387,9 @@ class ConversationService {
     await _updateConversation(conversationId);
   }
 
-  // ============================================================
-  // CLOSE CURRENT CONVERSATION
-  // ============================================================
+  // ==========================================================
+  // CLOSE CONVERSATION
+  // ==========================================================
 
   Future<void> closeConversation({
     required String walkId,
@@ -349,9 +415,9 @@ class ConversationService {
     );
   }
 
-  // ============================================================
-  // GET CURRENT CONVERSATION
-  // ============================================================
+  // ==========================================================
+  // GET CONVERSATION
+  // ==========================================================
 
   Future<ContactModel?> getConversation({
     required String walkId,
@@ -405,9 +471,9 @@ class ConversationService {
     return ContactModel.fromMap(data);
   }
 
-  // ============================================================
-  // PRIVATE VALIDATION
-  // ============================================================
+  // ==========================================================
+  // VALIDATE CURRENT CONVERSATION
+  // ==========================================================
 
   Future<void> _validateCurrentConversation({
     required String conversationId,
@@ -458,17 +524,18 @@ class ConversationService {
     }
   }
 
-  // ============================================================
+  // ==========================================================
   // UPDATE CONVERSATION
-  // ============================================================
+  // ==========================================================
 
   Future<void> _updateConversation(
     String conversationId,
   ) async {
-    await _conversationRef(conversationId).update(
+    await _conversationRef(conversationId).set(
       <String, dynamic>{
         'updatedAt': FieldValue.serverTimestamp(),
       },
+      SetOptions(merge: true),
     );
   }
 }
