@@ -15,10 +15,6 @@ class ConversationService {
       get _conversations =>
           _firestore.collection('conversations');
 
-  // ============================================================
-  // CURRENT CONVERSATION ID
-  // ============================================================
-
   String getConversationId({
     required String walkId,
     required String requestId,
@@ -39,19 +35,11 @@ class ConversationService {
     return sessionId.trim();
   }
 
-  // ============================================================
-  // CONVERSATION DOCUMENT
-  // ============================================================
-
   DocumentReference<Map<String, dynamic>> _conversationRef(
     String conversationId,
   ) {
     return _conversations.doc(conversationId);
   }
-
-  // ============================================================
-  // MESSAGES COLLECTION
-  // ============================================================
 
   CollectionReference<Map<String, dynamic>> _messagesRef(
     String conversationId,
@@ -130,8 +118,7 @@ class ConversationService {
     required String requestId,
     required String sessionId,
   }) {
-    final String conversationId =
-        getConversationId(
+    final String conversationId = getConversationId(
       walkId: walkId,
       requestId: requestId,
       sessionId: sessionId,
@@ -153,8 +140,7 @@ class ConversationService {
     required String requestId,
     required String sessionId,
   }) {
-    final String conversationId =
-        getConversationId(
+    final String conversationId = getConversationId(
       walkId: walkId,
       requestId: requestId,
       sessionId: sessionId,
@@ -182,7 +168,7 @@ class ConversationService {
   }
 
   // ============================================================
-  // SEND MESSAGE
+  // SEND TEXT MESSAGE
   // ============================================================
 
   Future<void> sendMessage({
@@ -199,8 +185,7 @@ class ConversationService {
       return;
     }
 
-    final String conversationId =
-        getConversationId(
+    final String conversationId = getConversationId(
       walkId: walkId,
       requestId: requestId,
       sessionId: sessionId,
@@ -212,67 +197,16 @@ class ConversationService {
       );
     }
 
-    final DocumentReference<Map<String, dynamic>>
-        conversationRef =
-        _conversationRef(conversationId);
-
-    final DocumentSnapshot<Map<String, dynamic>>
-        conversationSnapshot =
-        await conversationRef.get();
-
-    // ==========================================================
-    // SAFETY CHECK
-    // ==========================================================
-    //
-    // Message sirf usi conversation mein jayega jo
-    // CURRENT walk se belong karti hai.
-    //
-
-    if (conversationSnapshot.exists) {
-      final Map<String, dynamic> data =
-          conversationSnapshot.data() ??
-              <String, dynamic>{};
-
-      final String storedWalkId =
-          data['walkId']?.toString().trim() ?? '';
-
-      final String storedRequestId =
-          data['requestId']?.toString().trim() ?? '';
-
-      final String storedSessionId =
-          data['sessionId']?.toString().trim() ?? '';
-
-      final bool walkMatches =
-          walkId.trim().isEmpty ||
-          storedWalkId == walkId.trim();
-
-      final bool requestMatches =
-          requestId.trim().isEmpty ||
-          storedRequestId == requestId.trim();
-
-      final bool sessionMatches =
-          sessionId.trim().isEmpty ||
-          storedSessionId == sessionId.trim();
-
-      if (!walkMatches ||
-          !requestMatches ||
-          !sessionMatches) {
-        throw StateError(
-          'Conversation does not belong to the current walk.',
-        );
-      }
-    } else {
-      throw StateError(
-        'Current walk conversation does not exist.',
-      );
-    }
-
-    // ==========================================================
-    // ADD MESSAGE
-    // ==========================================================
+    await _validateCurrentConversation(
+      conversationId: conversationId,
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
 
     await _messagesRef(conversationId).add(
       <String, dynamic>{
+        'type': 'text',
         'senderUid': senderUid.trim(),
         'receiverUid': receiverUid.trim(),
         'text': message,
@@ -280,15 +214,111 @@ class ConversationService {
       },
     );
 
-    // ==========================================================
-    // UPDATE CONVERSATION
-    // ==========================================================
+    await _updateConversation(conversationId);
+  }
 
-    await conversationRef.update(
+  // ============================================================
+  // SEND IMAGE MESSAGE
+  // ============================================================
+
+  Future<void> sendImageMessage({
+    required String walkId,
+    required String requestId,
+    required String sessionId,
+    required String senderUid,
+    required String receiverUid,
+    required String imageUrl,
+  }) async {
+    final String url = imageUrl.trim();
+
+    if (url.isEmpty) {
+      return;
+    }
+
+    final String conversationId = getConversationId(
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
+
+    if (conversationId.isEmpty) {
+      throw ArgumentError(
+        'Current walk ID is required.',
+      );
+    }
+
+    await _validateCurrentConversation(
+      conversationId: conversationId,
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
+
+    await _messagesRef(conversationId).add(
       <String, dynamic>{
-        'updatedAt': FieldValue.serverTimestamp(),
+        'type': 'image',
+        'senderUid': senderUid.trim(),
+        'receiverUid': receiverUid.trim(),
+        'mediaUrl': url,
+        'text': '',
+        'createdAt': FieldValue.serverTimestamp(),
       },
     );
+
+    await _updateConversation(conversationId);
+  }
+
+  // ============================================================
+  // SEND VOICE MESSAGE
+  // ============================================================
+
+  Future<void> sendVoiceMessage({
+    required String walkId,
+    required String requestId,
+    required String sessionId,
+    required String senderUid,
+    required String receiverUid,
+    required String audioUrl,
+    int durationSeconds = 0,
+  }) async {
+    final String url = audioUrl.trim();
+
+    if (url.isEmpty) {
+      return;
+    }
+
+    final String conversationId = getConversationId(
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
+
+    if (conversationId.isEmpty) {
+      throw ArgumentError(
+        'Current walk ID is required.',
+      );
+    }
+
+    await _validateCurrentConversation(
+      conversationId: conversationId,
+      walkId: walkId,
+      requestId: requestId,
+      sessionId: sessionId,
+    );
+
+    await _messagesRef(conversationId).add(
+      <String, dynamic>{
+        'type': 'voice',
+        'senderUid': senderUid.trim(),
+        'receiverUid': receiverUid.trim(),
+        'mediaUrl': url,
+        'text': '',
+        'durationSeconds': durationSeconds,
+        'createdAt': FieldValue.serverTimestamp(),
+      },
+    );
+
+    await _updateConversation(conversationId);
   }
 
   // ============================================================
@@ -300,8 +330,7 @@ class ConversationService {
     required String requestId,
     required String sessionId,
   }) async {
-    final String conversationId =
-        getConversationId(
+    final String conversationId = getConversationId(
       walkId: walkId,
       requestId: requestId,
       sessionId: sessionId,
@@ -321,7 +350,7 @@ class ConversationService {
   }
 
   // ============================================================
-  // GET CURRENT CONVERSATION ONCE
+  // GET CURRENT CONVERSATION
   // ============================================================
 
   Future<ContactModel?> getConversation({
@@ -329,8 +358,7 @@ class ConversationService {
     required String requestId,
     required String sessionId,
   }) async {
-    final String conversationId =
-        getConversationId(
+    final String conversationId = getConversationId(
       walkId: walkId,
       requestId: requestId,
       sessionId: sessionId,
@@ -349,10 +377,6 @@ class ConversationService {
 
     final Map<String, dynamic> data =
         snapshot.data() ?? <String, dynamic>{};
-
-    // ==========================================================
-    // EXTRA CURRENT-WALK VALIDATION
-    // ==========================================================
 
     final String storedWalkId =
         data['walkId']?.toString().trim() ?? '';
@@ -379,5 +403,72 @@ class ConversationService {
     }
 
     return ContactModel.fromMap(data);
+  }
+
+  // ============================================================
+  // PRIVATE VALIDATION
+  // ============================================================
+
+  Future<void> _validateCurrentConversation({
+    required String conversationId,
+    required String walkId,
+    required String requestId,
+    required String sessionId,
+  }) async {
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+        await _conversationRef(conversationId).get();
+
+    if (!snapshot.exists) {
+      throw StateError(
+        'Current walk conversation does not exist.',
+      );
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ?? <String, dynamic>{};
+
+    final String storedWalkId =
+        data['walkId']?.toString().trim() ?? '';
+
+    final String storedRequestId =
+        data['requestId']?.toString().trim() ?? '';
+
+    final String storedSessionId =
+        data['sessionId']?.toString().trim() ?? '';
+
+    if (walkId.trim().isNotEmpty &&
+        storedWalkId != walkId.trim()) {
+      throw StateError(
+        'Conversation does not belong to current walk.',
+      );
+    }
+
+    if (requestId.trim().isNotEmpty &&
+        storedRequestId != requestId.trim()) {
+      throw StateError(
+        'Conversation does not belong to current request.',
+      );
+    }
+
+    if (sessionId.trim().isNotEmpty &&
+        storedSessionId != sessionId.trim()) {
+      throw StateError(
+        'Conversation does not belong to current session.',
+      );
+    }
+  }
+
+  // ============================================================
+  // UPDATE CONVERSATION
+  // ============================================================
+
+  Future<void> _updateConversation(
+    String conversationId,
+  ) async {
+    await _conversationRef(conversationId).update(
+      <String, dynamic>{
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
   }
 }
