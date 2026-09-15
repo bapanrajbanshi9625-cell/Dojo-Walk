@@ -61,6 +61,9 @@ class ContactMessage {
     required this.receiverUid,
     required this.text,
     required this.createdAt,
+    required this.type,
+    required this.mediaUrl,
+    required this.durationSeconds,
   });
 
   final String id;
@@ -68,6 +71,16 @@ class ContactMessage {
   final String receiverUid;
   final String text;
   final DateTime? createdAt;
+
+  /// Message type:
+  /// text / image / video / voice
+  final String type;
+
+  /// Image, video or voice download URL.
+  final String? mediaUrl;
+
+  /// Voice message duration in seconds.
+  final int? durationSeconds;
 
   factory ContactMessage.fromDocument(
     DocumentSnapshot<Map<String, dynamic>> document,
@@ -77,6 +90,31 @@ class ContactMessage {
 
     final dynamic timestamp = data['createdAt'];
 
+    final dynamic durationValue =
+        data['durationSeconds'];
+
+    int? durationSeconds;
+
+    if (durationValue is int) {
+      durationSeconds = durationValue;
+    } else if (durationValue is num) {
+      durationSeconds = durationValue.toInt();
+    } else if (durationValue != null) {
+      durationSeconds =
+          int.tryParse(durationValue.toString());
+    }
+
+    final String rawType =
+        data['type']?.toString().trim().toLowerCase() ?? '';
+
+    final String messageType =
+        rawType.isEmpty ? 'text' : rawType;
+
+    final String? mediaUrl =
+        data['mediaUrl']?.toString().trim().isNotEmpty == true
+            ? data['mediaUrl'].toString().trim()
+            : null;
+
     return ContactMessage(
       id: document.id,
       senderUid: data['senderUid']?.toString() ?? '',
@@ -85,6 +123,9 @@ class ContactMessage {
       createdAt: timestamp is Timestamp
           ? timestamp.toDate()
           : null,
+      type: messageType,
+      mediaUrl: mediaUrl,
+      durationSeconds: durationSeconds,
     );
   }
 }
