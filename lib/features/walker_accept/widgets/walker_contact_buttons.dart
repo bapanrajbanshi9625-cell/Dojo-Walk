@@ -1,19 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class WalkerContactButtons extends StatelessWidget {
   const WalkerContactButtons({
     super.key,
-    required this.onCall,
     required this.onChat,
+    this.phoneNumber,
     this.callEnabled = true,
     this.chatEnabled = true,
   });
 
-  final VoidCallback onCall;
   final VoidCallback onChat;
+  final String? phoneNumber;
 
   final bool callEnabled;
   final bool chatEnabled;
+
+  Future<void> _makeCall() async {
+    final String? phone = phoneNumber?.trim();
+
+    if (phone == null || phone.isEmpty) {
+      return;
+    }
+
+    final Uri uri = Uri(
+      scheme: 'tel',
+      path: phone,
+    );
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +43,8 @@ class WalkerContactButtons extends StatelessWidget {
           child: _ContactButton(
             icon: Icons.call_rounded,
             label: 'Call',
-            onPressed: callEnabled
-                ? onCall
+            onPressed: callEnabled && phoneNumber != null
+                ? _makeCall
                 : null,
           ),
         ),
@@ -33,9 +53,7 @@ class WalkerContactButtons extends StatelessWidget {
           child: _ContactButton(
             icon: Icons.chat_bubble_rounded,
             label: 'Chat',
-            onPressed: chatEnabled
-                ? onChat
-                : null,
+            onPressed: chatEnabled ? onChat : null,
           ),
         ),
       ],
@@ -56,10 +74,7 @@ class _ContactButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    final enabled = onPressed != null;
+    final bool enabled = onPressed != null;
 
     return SizedBox(
       height: 52,
@@ -71,32 +86,30 @@ class _ContactButton extends StatelessWidget {
           ),
           side: BorderSide(
             color: enabled
-                ? colors.outline
-                : colors.outlineVariant,
+                ? DojoWalkColors.border
+                : DojoWalkColors.divider,
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: 18,
           ),
         ),
         child: Row(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
               size: 20,
               color: enabled
-                  ? colors.primary
-                  : colors.onSurfaceVariant,
+                  ? DojoWalkColors.primary
+                  : DojoWalkColors.textTertiary,
             ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: theme.textTheme.labelLarge?.copyWith(
+              style: const TextStyle(
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: enabled
-                    ? colors.onSurface
-                    : colors.onSurfaceVariant,
+                color: DojoWalkColors.textPrimary,
               ),
             ),
           ],
