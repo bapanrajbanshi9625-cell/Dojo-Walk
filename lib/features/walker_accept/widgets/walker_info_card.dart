@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/theme/dojo_walk_design_system.dart';
+
 class WalkerInfoCard extends StatelessWidget {
   const WalkerInfoCard({
     super.key,
@@ -81,9 +83,6 @@ class WalkerInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme colors = theme.colorScheme;
-
     final String name = walkerName.trim().isEmpty
         ? 'Your Walker'
         : walkerName.trim();
@@ -103,7 +102,7 @@ class WalkerInfoCard extends StatelessWidget {
         16,
       ),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: DojoWalkColors.surface,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(28),
         ),
@@ -111,7 +110,7 @@ class WalkerInfoCard extends StatelessWidget {
           BoxShadow(
             blurRadius: 20,
             offset: const Offset(0, -5),
-            color: Colors.black.withValues(
+            color: DojoWalkColors.black.withValues(
               alpha: 0.08,
             ),
           ),
@@ -131,7 +130,7 @@ class WalkerInfoCard extends StatelessWidget {
               bottom: 18,
             ),
             decoration: BoxDecoration(
-              color: colors.outlineVariant,
+              color: DojoWalkColors.border,
               borderRadius: BorderRadius.circular(20),
             ),
           ),
@@ -145,18 +144,21 @@ class WalkerInfoCard extends StatelessWidget {
               Container(
                 width: 9,
                 height: 9,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: colors.primary,
+                  color: DojoWalkColors.green,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   statusText,
-                  style:
-                      theme.textTheme.titleMedium?.copyWith(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
+                    color: DojoWalkColors.textPrimary,
                   ),
                 ),
               ),
@@ -166,17 +168,14 @@ class WalkerInfoCard extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: colors.primary.withValues(
-                    alpha: 0.10,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(20),
+                  color: DojoWalkColors.greenLight,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
+                child: const Text(
                   'LIVE',
-                  style:
-                      theme.textTheme.labelSmall?.copyWith(
-                    color: colors.primary,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: DojoWalkColors.green,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
                   ),
@@ -192,8 +191,7 @@ class WalkerInfoCard extends StatelessWidget {
           // ====================================================
 
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _WalkerAvatar(
                 imageUrl: imageUrl,
@@ -204,18 +202,16 @@ class WalkerInfoCard extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          theme.textTheme.titleLarge
-                              ?.copyWith(
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 19,
                         fontWeight: FontWeight.w800,
+                        color: DojoWalkColors.textPrimary,
                       ),
                     ),
 
@@ -223,32 +219,28 @@ class WalkerInfoCard extends StatelessWidget {
 
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.star_rounded,
                           size: 18,
-                          color: colors.primary,
+                          color: DojoWalkColors.amber,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           rating != null
-                              ? rating!
-                                  .toStringAsFixed(1)
+                              ? rating!.toStringAsFixed(1)
                               : '--',
-                          style: theme
-                              .textTheme.bodyMedium
-                              ?.copyWith(
-                            fontWeight:
-                                FontWeight.w700,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: DojoWalkColors.textPrimary,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
+                        const Text(
                           'Walker',
-                          style: theme
-                              .textTheme.bodyMedium
-                              ?.copyWith(
-                            color:
-                                colors.onSurfaceVariant,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: DojoWalkColors.textSecondary,
                           ),
                         ),
                       ],
@@ -262,28 +254,21 @@ class WalkerInfoCard extends StatelessWidget {
 
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.phone_rounded,
                           size: 16,
-                          color:
-                              colors.onSurfaceVariant,
+                          color: DojoWalkColors.textSecondary,
                         ),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            phone.isEmpty
-                                ? '--'
-                                : phone,
+                            phone.isEmpty ? '--' : phone,
                             maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
-                            style: theme
-                                .textTheme.bodyMedium
-                                ?.copyWith(
-                              color: colors
-                                  .onSurfaceVariant,
-                              fontWeight:
-                                  FontWeight.w600,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: DojoWalkColors.textSecondary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -295,29 +280,28 @@ class WalkerInfoCard extends StatelessWidget {
 
               const SizedBox(width: 10),
 
-              // ==================================================
+              // ====================================================
               // CALL BUTTON
-              // ==================================================
+              // ====================================================
 
               Material(
                 color: phone.isEmpty
-                    ? colors.surfaceContainerHighest
-                    : colors.primary,
+                    ? DojoWalkColors.border
+                    : DojoWalkColors.primary,
                 shape: const CircleBorder(),
                 child: InkWell(
                   onTap: phone.isEmpty
                       ? null
                       : () => _callWalker(context),
-                  customBorder:
-                      const CircleBorder(),
+                  customBorder: const CircleBorder(),
                   child: SizedBox(
                     width: 50,
                     height: 50,
                     child: Icon(
                       Icons.call_rounded,
                       color: phone.isEmpty
-                          ? colors.onSurfaceVariant
-                          : colors.onPrimary,
+                          ? DojoWalkColors.textTertiary
+                          : DojoWalkColors.white,
                       size: 23,
                     ),
                   ),
@@ -339,11 +323,12 @@ class WalkerInfoCard extends StatelessWidget {
               horizontal: 12,
             ),
             decoration: BoxDecoration(
-              color: colors
-                  .surfaceContainerHighest
-                  .withValues(alpha: 0.55),
-              borderRadius:
-                  BorderRadius.circular(18),
+              color: DojoWalkColors.background,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: DojoWalkColors.border,
+                width: 1,
+              ),
             ),
             child: Row(
               children: [
@@ -358,7 +343,7 @@ class WalkerInfoCard extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 38,
-                  color: colors.outlineVariant,
+                  color: DojoWalkColors.divider,
                 ),
 
                 Expanded(
@@ -392,16 +377,14 @@ class _WalkerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: DojoWalkColors.white,
         border: Border.all(
-          color: colors.primary,
+          color: DojoWalkColors.primary,
           width: 2,
         ),
       ),
@@ -409,27 +392,26 @@ class _WalkerAvatar extends StatelessWidget {
         child: imageUrl.isNotEmpty
             ? Image.network(
                 imageUrl,
+                width: size,
+                height: size,
                 fit: BoxFit.cover,
-                errorBuilder:
-                    (_, __, ___) =>
-                        _fallback(context),
+                errorBuilder: (_, __, ___) {
+                  return _fallback();
+                },
               )
-            : _fallback(context),
+            : _fallback(),
       ),
     );
   }
 
-  Widget _fallback(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
+  Widget _fallback() {
     return Container(
-      color: colors.surfaceContainerHighest,
+      color: DojoWalkColors.primaryLight,
       alignment: Alignment.center,
       child: Icon(
         Icons.person_rounded,
         size: size * 0.48,
-        color: colors.onSurfaceVariant,
+        color: DojoWalkColors.primary,
       ),
     );
   }
@@ -452,49 +434,37 @@ class _InfoValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme =
-        Theme.of(context);
-    final ColorScheme colors =
-        theme.colorScheme;
-
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
           icon,
           size: 22,
-          color: colors.primary,
+          color: DojoWalkColors.primary,
         ),
         const SizedBox(width: 9),
         Flexible(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 value,
                 maxLines: 1,
-                overflow:
-                    TextOverflow.ellipsis,
-                style: theme
-                    .textTheme.titleMedium
-                    ?.copyWith(
-                  fontWeight:
-                      FontWeight.w800,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: DojoWalkColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 label,
                 maxLines: 1,
-                overflow:
-                    TextOverflow.ellipsis,
-                style: theme
-                    .textTheme.labelSmall
-                    ?.copyWith(
-                  color:
-                      colors.onSurfaceVariant,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: DojoWalkColors.textSecondary,
                 ),
               ),
             ],
