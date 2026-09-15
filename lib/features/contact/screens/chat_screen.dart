@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/dojo_walk_design_system.dart';
+import '../../../services/cloudinary_service.dart';
 import '../models/contact_model.dart';
 import '../services/conversation_service.dart';
 import '../services/voice_chat_service.dart';
@@ -44,9 +44,10 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-
   final ImagePicker _picker = ImagePicker();
+
+  final CloudinaryService _cloudinaryService =
+      CloudinaryService.instance;
 
   final ConversationService _conversationService =
       ConversationService.instance;
@@ -158,6 +159,10 @@ class _ChatScreenState extends State<ChatScreen> {
       _conversationId != null &&
       _conversationId!.isNotEmpty;
 
+  // ============================================================
+  // TEXT
+  // ============================================================
+
   Future<void> _sendText() async {
     final String text =
         _messageController.text.trim();
@@ -190,6 +195,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // ============================================================
+  // IMAGE
+  // ============================================================
+
   Future<void> _pickImage() async {
     if (!_canChat || _isUploadingMedia) {
       return;
@@ -218,35 +227,22 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _uploadImage(XFile image) async {
-    final String conversationId = _conversationId!;
+  Future<void> _uploadImage(
+    XFile image,
+  ) async {
+    if (!_canChat) {
+      return;
+    }
 
     setState(() {
       _isUploadingMedia = true;
     });
 
     try {
-      final String fileName =
-          '${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      final Reference ref = _storage
-          .ref()
-          .child('contact_media')
-          .child(conversationId)
-          .child('images')
-          .child(fileName);
-
-      final UploadTask task = ref.putFile(
-        File(image.path),
-        SettableMetadata(
-          contentType: 'image/jpeg',
-        ),
-      );
-
-      final TaskSnapshot snapshot = await task;
-
       final String url =
-          await snapshot.ref.getDownloadURL();
+          await _cloudinaryService.uploadImage(
+        file: File(image.path),
+      );
 
       await _conversationService.sendImageMessage(
         walkId: widget.walkId,
@@ -256,6 +252,8 @@ class _ChatScreenState extends State<ChatScreen> {
         receiverUid: _receiverUid,
         imageUrl: url,
       );
+
+      _scrollToBottom();
     } finally {
       if (mounted) {
         setState(() {
@@ -264,6 +262,10 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
   }
+
+  // ============================================================
+  // VIDEO
+  // ============================================================
 
   Future<void> _pickVideo() async {
     if (!_canChat || _isUploadingMedia) {
@@ -292,35 +294,22 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _uploadVideo(XFile video) async {
-    final String conversationId = _conversationId!;
+  Future<void> _uploadVideo(
+    XFile video,
+  ) async {
+    if (!_canChat) {
+      return;
+    }
 
     setState(() {
       _isUploadingMedia = true;
     });
 
     try {
-      final String fileName =
-          '${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-      final Reference ref = _storage
-          .ref()
-          .child('contact_media')
-          .child(conversationId)
-          .child('videos')
-          .child(fileName);
-
-      final UploadTask task = ref.putFile(
-        File(video.path),
-        SettableMetadata(
-          contentType: 'video/mp4',
-        ),
-      );
-
-      final TaskSnapshot snapshot = await task;
-
       final String url =
-          await snapshot.ref.getDownloadURL();
+          await _cloudinaryService.uploadVideo(
+        file: File(video.path),
+      );
 
       await _conversationService.sendVideoMessage(
         walkId: widget.walkId,
@@ -330,6 +319,8 @@ class _ChatScreenState extends State<ChatScreen> {
         receiverUid: _receiverUid,
         videoUrl: url,
       );
+
+      _scrollToBottom();
     } finally {
       if (mounted) {
         setState(() {
@@ -338,6 +329,10 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
   }
+
+  // ============================================================
+  // VOICE RECORDING
+  // ============================================================
 
   Future<void> _toggleVoiceRecording() async {
     if (!_canChat) {
@@ -355,29 +350,6 @@ class _ChatScreenState extends State<ChatScreen> {
           return;
         }
 
-        /*
-         * IMPORTANT:
-         *
-         * VoiceChatService does NOT upload to Firebase Storage.
-         *
-         * The recorded file is returned here.
-         *
-         * Your Cloud uploader should upload:
-         *
-         * result.file
-         *
-         * and return the Cloud URL.
-         *
-         * After getting the Cloud URL, call:
-         *
-         * _sendVoiceUrl(
-         *   cloudUrl,
-         *   result.durationSeconds,
-         * );
-         *
-         * No Firebase Storage URL is used for voice.
-         */
-
         await _handleRecordedVoice(result);
 
         return;
@@ -389,7 +361,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (mounted) {
         setState(() {
-          _recordingDuration = Duration.zero;
+          _recordingDuration =
+              Duration.zero;
         });
       }
     } catch (error) {
@@ -406,32 +379,46 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _handleRecordedVoice(
     VoiceRecordingResult result,
   ) async {
-    /*
-     * Cloud upload integration point.
-     *
-     * The voice URL must come from your Cloud/Cloudinary
-     * uploader.
-     *
-     * Do not put Firebase Storage upload here.
-     *
-     * Once your cloud uploader returns the URL, use:
-     *
-     * await _sendVoiceUrl(
-     *   cloudUrl: url,
-     *   durationSeconds: result.durationSeconds,
-     * );
-     *
-     * The local recording is deleted after the cloud upload.
-     */
+    if (!_canChat) {
+      await _voiceService.deleteLocalRecording(
+        result.file,
+      );
 
-    await _voiceService.deleteLocalRecording(
-      result.file,
-    );
+      return;
+    }
 
-    if (mounted) {
-      setState(() {
-        _recordingDuration = Duration.zero;
-      });
+    setState(() {
+      _isUploadingMedia = true;
+    });
+
+    try {
+      final String url =
+          await _cloudinaryService.uploadVoice(
+        file: result.file,
+      );
+
+      await _sendVoiceUrl(
+        cloudUrl: url,
+        durationSeconds:
+            result.durationSeconds,
+      );
+
+      await _voiceService.deleteLocalRecording(
+        result.file,
+      );
+
+      if (mounted) {
+        setState(() {
+          _recordingDuration =
+              Duration.zero;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingMedia = false;
+        });
+      }
     }
   }
 
@@ -439,7 +426,8 @@ class _ChatScreenState extends State<ChatScreen> {
     required String cloudUrl,
     required int durationSeconds,
   }) async {
-    final String url = cloudUrl.trim();
+    final String url =
+        cloudUrl.trim();
 
     if (url.isEmpty || !_canChat) {
       return;
@@ -452,7 +440,8 @@ class _ChatScreenState extends State<ChatScreen> {
       senderUid: _currentUid,
       receiverUid: _receiverUid,
       audioUrl: url,
-      durationSeconds: durationSeconds,
+      durationSeconds:
+          durationSeconds,
     );
 
     _scrollToBottom();
@@ -467,7 +456,8 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       setState(() {
-        _recordingDuration = Duration.zero;
+        _recordingDuration =
+            Duration.zero;
       });
     } catch (error) {
       if (!mounted) {
@@ -480,6 +470,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) {
@@ -489,9 +483,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(
-            milliseconds: 250,
-          ),
+          duration:
+              const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
       },
@@ -506,14 +499,21 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final int minutes = duration.inMinutes;
+  String _formatDuration(
+    Duration duration,
+  ) {
+    final int minutes =
+        duration.inMinutes;
 
     final int seconds =
         duration.inSeconds % 60;
 
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -586,9 +586,8 @@ class _ChatScreenState extends State<ChatScreen> {
         borderRadius:
             BorderRadius.circular(14),
         border: Border.all(
-          color:
-              DojoWalkColors.primary
-                  .withValues(alpha: 0.18),
+          color: DojoWalkColors.primary
+              .withValues(alpha: 0.18),
         ),
       ),
       child: Row(
@@ -619,14 +618,20 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ============================================================
+  // MESSAGES
+  // ============================================================
+
   Widget _buildMessages() {
     if (!_canChat) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child:
+            CircularProgressIndicator(),
       );
     }
 
-    return StreamBuilder<List<ContactMessage>>(
+    return StreamBuilder<
+        List<ContactMessage>>(
       stream:
           _conversationService.messagesStream(
         walkId: widget.walkId,
@@ -635,7 +640,8 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       builder: (
         BuildContext context,
-        AsyncSnapshot<List<ContactMessage>>
+        AsyncSnapshot<
+                List<ContactMessage>>
             snapshot,
       ) {
         if (snapshot.connectionState ==
@@ -647,7 +653,8 @@ class _ChatScreenState extends State<ChatScreen> {
           );
         }
 
-        final List<ContactMessage> messages =
+        final List<ContactMessage>
+            messages =
             snapshot.data ??
                 <ContactMessage>[];
 
@@ -669,7 +676,8 @@ class _ChatScreenState extends State<ChatScreen> {
         );
 
         return ListView.builder(
-          controller: _scrollController,
+          controller:
+              _scrollController,
           padding:
               const EdgeInsets.fromLTRB(
             16,
@@ -677,12 +685,14 @@ class _ChatScreenState extends State<ChatScreen> {
             16,
             16,
           ),
-          itemCount: messages.length,
+          itemCount:
+              messages.length,
           itemBuilder: (
             BuildContext context,
             int index,
           ) {
-            final ContactMessage message =
+            final ContactMessage
+                message =
                 messages[index];
 
             final bool isMine =
@@ -737,7 +747,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       DojoWalkColors.border,
                 ),
         ),
-        child: _buildMessageContent(
+        child:
+            _buildMessageContent(
           message,
           isMine,
         ),
@@ -778,6 +789,10 @@ class _ChatScreenState extends State<ChatScreen> {
         );
     }
   }
+
+  // ============================================================
+  // IMAGE MESSAGE
+  // ============================================================
 
   Widget _buildImageMessage(
     ContactMessage message,
@@ -837,6 +852,10 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ============================================================
+  // VIDEO MESSAGE
+  // ============================================================
+
   Widget _buildVideoMessage(
     ContactMessage message,
   ) {
@@ -870,6 +889,10 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ============================================================
+  // VOICE MESSAGE
+  // ============================================================
+
   Widget _buildVoiceMessage(
     ContactMessage message,
     bool isMine,
@@ -877,6 +900,29 @@ class _ChatScreenState extends State<ChatScreen> {
     final int seconds =
         message.durationSeconds ?? 0;
 
+    final String? url =
+        message.mediaUrl;
+
+    if (url == null || url.isEmpty) {
+      return _buildInvalidVoiceMessage(
+        isMine,
+        seconds,
+      );
+    }
+
+    return _VoiceMessagePlayer(
+      messageId: message.id,
+      audioUrl: url,
+      durationSeconds: seconds,
+      isMine: isMine,
+      voiceService: _voiceService,
+    );
+  }
+
+  Widget _buildInvalidVoiceMessage(
+    bool isMine,
+    int seconds,
+  ) {
     return SizedBox(
       width: 220,
       child: Row(
@@ -891,53 +937,36 @@ class _ChatScreenState extends State<ChatScreen> {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.play_arrow_rounded,
+              Icons
+                  .volume_off_rounded,
               color:
                   DojoWalkColors.primary,
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Voice message',
-                  style: TextStyle(
-                    fontWeight:
-                        FontWeight.w600,
-                    color: isMine
-                        ? DojoWalkColors.white
-                        : DojoWalkColors
-                            .textPrimary,
-                  ),
+            child: Text(
+              _formatDuration(
+                Duration(
+                  seconds: seconds,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDuration(
-                    Duration(
-                      seconds: seconds,
-                    ),
-                  ),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isMine
-                        ? DojoWalkColors.white
-                            .withValues(
-                            alpha: 0.75,
-                          )
-                        : DojoWalkColors
-                            .textSecondary,
-                  ),
-                ),
-              ],
+              ),
+              style: TextStyle(
+                color: isMine
+                    ? DojoWalkColors.white
+                    : DojoWalkColors
+                        .textSecondary,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  // ============================================================
+  // UPLOAD INDICATOR
+  // ============================================================
 
   Widget _buildUploadIndicator() {
     return Container(
@@ -972,6 +1001,10 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  // ============================================================
+  // RECORDING BAR
+  // ============================================================
 
   Widget _buildRecordingBar() {
     return Container(
@@ -1027,12 +1060,18 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ============================================================
+  // INPUT
+  // ============================================================
+
   Widget _buildInputBar() {
     final bool recording =
         _voiceService.isRecording;
 
     final bool hasText =
-        _messageController.text.trim().isNotEmpty;
+        _messageController.text
+            .trim()
+            .isNotEmpty;
 
     return SafeArea(
       top: false,
@@ -1157,6 +1196,186 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
+// ============================================================
+// VOICE MESSAGE PLAYER
+// ============================================================
+
+class _VoiceMessagePlayer
+    extends StatefulWidget {
+  const _VoiceMessagePlayer({
+    required this.messageId,
+    required this.audioUrl,
+    required this.durationSeconds,
+    required this.isMine,
+    required this.voiceService,
+  });
+
+  final String messageId;
+  final String audioUrl;
+  final int durationSeconds;
+  final bool isMine;
+  final VoiceChatService voiceService;
+
+  @override
+  State<_VoiceMessagePlayer> createState() =>
+      _VoiceMessagePlayerState();
+}
+
+class _VoiceMessagePlayerState
+    extends State<_VoiceMessagePlayer> {
+  StreamSubscription<String?>?
+      _playingSubscription;
+
+  String? _playingMessageId;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _playingMessageId =
+        widget.voiceService.playingMessageId;
+
+    _playingSubscription =
+        widget.voiceService.playingMessageIdStream
+            .listen(
+      (String? messageId) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _playingMessageId =
+              messageId;
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _playingSubscription?.cancel();
+
+    super.dispose();
+  }
+
+  bool get _isPlaying =>
+      _playingMessageId ==
+      widget.messageId;
+
+  @override
+  Widget build(BuildContext context) {
+    final int seconds =
+        widget.durationSeconds;
+
+    return SizedBox(
+      width: 220,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () async {
+              try {
+                await widget.voiceService
+                    .togglePlayback(
+                  messageId:
+                      widget.messageId,
+                  audioUrl:
+                      widget.audioUrl,
+                );
+              } catch (error) {
+                if (!mounted) {
+                  return;
+                }
+
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Unable to play voice: $error',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration:
+                  BoxDecoration(
+                color: widget.isMine
+                    ? DojoWalkColors.white
+                    : DojoWalkColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color:
+                    DojoWalkColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Voice message',
+                  style: TextStyle(
+                    fontWeight:
+                        FontWeight.w600,
+                    color: widget.isMine
+                        ? DojoWalkColors.white
+                        : DojoWalkColors
+                            .textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_isPlaying ? 'Playing' : 'Voice'} • '
+                  '${_formatDuration(seconds)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: widget.isMine
+                        ? DojoWalkColors.white
+                            .withValues(
+                            alpha: 0.75,
+                          )
+                        : DojoWalkColors
+                            .textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(
+    int seconds,
+  ) {
+    final Duration duration =
+        Duration(seconds: seconds);
+
+    final int minutes =
+        duration.inMinutes;
+
+    final int remainingSeconds =
+        duration.inSeconds % 60;
+
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+}
+
+// ============================================================
+// VIDEO MESSAGE CARD
+// ============================================================
+
 class _VideoMessageCard
     extends StatefulWidget {
   const _VideoMessageCard({
@@ -1184,7 +1403,8 @@ class _VideoMessageCardState
   }
 
   Future<void> _initialize() async {
-    final VideoPlayerController controller =
+    final VideoPlayerController
+        controller =
         VideoPlayerController.networkUrl(
       Uri.parse(widget.videoUrl),
     );
@@ -1217,8 +1437,8 @@ class _VideoMessageCardState
 
   @override
   Widget build(BuildContext context) {
-    final VideoPlayerController? controller =
-        _controller;
+    final VideoPlayerController?
+        controller = _controller;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -1281,6 +1501,10 @@ class _VideoMessageCardState
     );
   }
 }
+
+// ============================================================
+// VIDEO PLAYER SCREEN
+// ============================================================
 
 class VideoPlayerScreen
     extends StatefulWidget {
@@ -1384,6 +1608,10 @@ class _VideoPlayerScreenState
     );
   }
 }
+
+// ============================================================
+// FULL SCREEN IMAGE
+// ============================================================
 
 class _FullScreenImage
     extends StatelessWidget {
