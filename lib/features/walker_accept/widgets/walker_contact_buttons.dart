@@ -30,25 +30,37 @@ class WalkerContactButtons extends StatelessWidget {
       path: phone,
     );
 
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri);
+    } catch (error) {
+      debugPrint(
+        'WalkerContactButtons call error: $error',
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final String displayNumber =
+        phoneNumber?.trim().isNotEmpty == true
+            ? phoneNumber!.trim()
+            : 'Call';
+
     return Row(
       children: [
         Expanded(
           child: _ContactButton(
             icon: Icons.call_rounded,
-            label: 'Call',
-            onPressed: callEnabled && phoneNumber != null
+            label: displayNumber,
+            onPressed: callEnabled &&
+                    phoneNumber?.trim().isNotEmpty == true
                 ? _makeCall
                 : null,
           ),
         ),
+
         const SizedBox(width: 12),
+
         Expanded(
           child: _ContactButton(
             icon: Icons.chat_bubble_rounded,
@@ -90,7 +102,7 @@ class _ContactButton extends StatelessWidget {
                 : DojoWalkColors.divider,
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: 18,
+            horizontal: 12,
           ),
         ),
         child: Row(
@@ -103,13 +115,21 @@ class _ContactButton extends StatelessWidget {
                   ? DojoWalkColors.primary
                   : DojoWalkColors.textTertiary,
             ),
+
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: DojoWalkColors.textPrimary,
+
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: enabled
+                      ? DojoWalkColors.textPrimary
+                      : DojoWalkColors.textTertiary,
+                ),
               ),
             ),
           ],
