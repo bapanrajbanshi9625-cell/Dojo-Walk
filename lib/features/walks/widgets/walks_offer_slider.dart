@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_walk_design_system.dart';
+
 class WalksOfferItem {
   final String image;
   final String title;
@@ -18,8 +20,7 @@ class WalksOfferSlider extends StatefulWidget {
   const WalksOfferSlider({super.key});
 
   @override
-  State<WalksOfferSlider> createState() =>
-      _WalksOfferSliderState();
+  State<WalksOfferSlider> createState() => _WalksOfferSliderState();
 }
 
 class _WalksOfferSliderState extends State<WalksOfferSlider> {
@@ -77,9 +78,7 @@ class _WalksOfferSliderState extends State<WalksOfferSlider> {
 
         _controller.animateToPage(
           nextIndex,
-          duration: const Duration(
-            milliseconds: 700,
-          ),
+          duration: const Duration(milliseconds: 700),
           curve: Curves.easeInOutCubic,
         );
       },
@@ -150,19 +149,22 @@ class _WalksOfferSliderState extends State<WalksOfferSlider> {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Color(0xFF243746),
-            Color(0xFF304E5A),
-            Color(0xFF376A70),
+            DojoWalkColors.dark,
+            DojoWalkColors.primaryDark,
+            DojoWalkColors.primary,
           ],
         ),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: const Color(0xFF65D6C8)
-              .withValues(alpha: .18),
+          color: DojoWalkColors.primaryLight.withValues(
+            alpha: 0.45,
+          ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .08),
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.10,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 5),
           ),
@@ -185,17 +187,17 @@ class _WalksOfferSliderState extends State<WalksOfferSlider> {
               height: 76,
               fit: BoxFit.cover,
               errorBuilder: (
-                context,
-                error,
-                stackTrace,
+                BuildContext context,
+                Object error,
+                StackTrace? stackTrace,
               ) {
                 return Container(
                   width: 78,
                   height: 76,
-                  color: const Color(0xFF304E5A),
+                  color: DojoWalkColors.primaryDark,
                   child: const Icon(
                     Icons.pets_rounded,
-                    color: Color(0xFF65D6C8),
+                    color: DojoWalkColors.primaryLight,
                     size: 28,
                   ),
                 );
@@ -211,17 +213,15 @@ class _WalksOfferSliderState extends State<WalksOfferSlider> {
 
           Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: DojoWalkColors.white,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w900,
                   ),
@@ -231,8 +231,10 @@ class _WalksOfferSliderState extends State<WalksOfferSlider> {
                   item.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: DojoWalkColors.white.withValues(
+                      alpha: 0.78,
+                    ),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -252,12 +254,14 @@ class _WalksOfferSliderState extends State<WalksOfferSlider> {
             height: 28,
             margin: const EdgeInsets.only(right: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .10),
+              color: DojoWalkColors.white.withValues(
+                alpha: 0.12,
+              ),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Colors.white,
+              color: DojoWalkColors.white,
               size: 11,
             ),
           ),
