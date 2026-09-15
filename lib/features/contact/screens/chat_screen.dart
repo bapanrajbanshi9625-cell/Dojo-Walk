@@ -39,72 +39,71 @@ class ChatScreen extends StatefulWidget {
   final String title;
 
   @override
-  State<ChatScreen> createState() =>
-      _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final FirebaseStorage _storage =
-      FirebaseStorage.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  final ImagePicker _picker =
-      ImagePicker();
+  final ImagePicker _picker = ImagePicker();
 
-  final ConversationService
-      _conversationService =
+  final ConversationService _conversationService =
       ConversationService.instance;
 
-  final VoiceChatService
-      _voiceService =
+  final VoiceChatService _voiceService =
       VoiceChatService.instance;
 
-  final TextEditingController
-      _messageController =
+  final TextEditingController _messageController =
       TextEditingController();
 
-  final ScrollController
-      _scrollController =
+  final ScrollController _scrollController =
       ScrollController();
 
-  StreamSubscription<Duration>?
-      _recordingSubscription;
+  StreamSubscription<Duration>? _recordingSubscription;
 
   String? _conversationId;
 
   bool _isUploadingMedia = false;
 
-  Duration _recordingDuration =
-      Duration.zero;
+  Duration _recordingDuration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
 
     _recordingSubscription =
-        _voiceService
-            .recordingDurationStream
-            .listen(
+        _voiceService.recordingDurationStream.listen(
       (Duration duration) {
         if (!mounted) {
           return;
         }
 
         setState(() {
-          _recordingDuration =
-              duration;
+          _recordingDuration = duration;
         });
       },
     );
 
+    _messageController.addListener(_onMessageChanged);
+
     _initializeConversation();
+  }
+
+  void _onMessageChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
   }
 
   @override
   void dispose() {
     _recordingSubscription?.cancel();
+
+    _messageController.removeListener(_onMessageChanged);
 
     _messageController.dispose();
     _scrollController.dispose();
@@ -112,12 +111,10 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  Future<void>
-      _initializeConversation() async {
+  Future<void> _initializeConversation() async {
     try {
       final String id =
-          await _conversationService
-              .createConversation(
+          await _conversationService.createConversation(
         walkId: widget.walkId,
         requestId: widget.requestId,
         sessionId: widget.sessionId,
@@ -166,16 +163,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final String text =
         _messageController.text.trim();
 
-    if (text.isEmpty ||
-        !_canChat) {
+    if (text.isEmpty || !_canChat) {
       return;
     }
 
     _messageController.clear();
 
     try {
-      await _conversationService
-          .sendMessage(
+      await _conversationService.sendMessage(
         walkId: widget.walkId,
         requestId: widget.requestId,
         sessionId: widget.sessionId,
@@ -197,8 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickImage() async {
-    if (!_canChat ||
-        _isUploadingMedia) {
+    if (!_canChat || _isUploadingMedia) {
       return;
     }
 
@@ -225,11 +219,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _uploadImage(
-    XFile image,
-  ) async {
-    final String conversationId =
-        _conversationId!;
+  Future<void> _uploadImage(XFile image) async {
+    final String conversationId = _conversationId!;
 
     setState(() {
       _isUploadingMedia = true;
@@ -239,31 +230,26 @@ class _ChatScreenState extends State<ChatScreen> {
       final String fileName =
           '${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      final Reference ref =
-          _storage
-              .ref()
-              .child('contact_media')
-              .child(conversationId)
-              .child('images')
-              .child(fileName);
+      final Reference ref = _storage
+          .ref()
+          .child('contact_media')
+          .child(conversationId)
+          .child('images')
+          .child(fileName);
 
-      final UploadTask task =
-          ref.putFile(
+      final UploadTask task = ref.putFile(
         File(image.path),
         SettableMetadata(
           contentType: 'image/jpeg',
         ),
       );
 
-      final TaskSnapshot snapshot =
-          await task;
+      final TaskSnapshot snapshot = await task;
 
       final String url =
-          await snapshot.ref
-              .getDownloadURL();
+          await snapshot.ref.getDownloadURL();
 
-      await _conversationService
-          .sendImageMessage(
+      await _conversationService.sendImageMessage(
         walkId: widget.walkId,
         requestId: widget.requestId,
         sessionId: widget.sessionId,
@@ -281,8 +267,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickVideo() async {
-    if (!_canChat ||
-        _isUploadingMedia) {
+    if (!_canChat || _isUploadingMedia) {
       return;
     }
 
@@ -308,11 +293,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _uploadVideo(
-    XFile video,
-  ) async {
-    final String conversationId =
-        _conversationId!;
+  Future<void> _uploadVideo(XFile video) async {
+    final String conversationId = _conversationId!;
 
     setState(() {
       _isUploadingMedia = true;
@@ -322,31 +304,26 @@ class _ChatScreenState extends State<ChatScreen> {
       final String fileName =
           '${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-      final Reference ref =
-          _storage
-              .ref()
-              .child('contact_media')
-              .child(conversationId)
-              .child('videos')
-              .child(fileName);
+      final Reference ref = _storage
+          .ref()
+          .child('contact_media')
+          .child(conversationId)
+          .child('videos')
+          .child(fileName);
 
-      final UploadTask task =
-          ref.putFile(
+      final UploadTask task = ref.putFile(
         File(video.path),
         SettableMetadata(
           contentType: 'video/mp4',
         ),
       );
 
-      final TaskSnapshot snapshot =
-          await task;
+      final TaskSnapshot snapshot = await task;
 
       final String url =
-          await snapshot.ref
-              .getDownloadURL();
+          await snapshot.ref.getDownloadURL();
 
-      await _conversationService
-          .sendVideoMessage(
+      await _conversationService.sendVideoMessage(
         walkId: widget.walkId,
         requestId: widget.requestId,
         sessionId: widget.sessionId,
@@ -363,57 +340,57 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void>
-      _toggleVoiceRecording() async {
+  Future<void> _toggleVoiceRecording() async {
     if (!_canChat) {
       return;
     }
 
     try {
       if (_voiceService.isRecording) {
-        final VoiceUploadResult? result =
-            await _voiceService
-                .stopRecording(
-          conversationId:
-              _conversationId!,
+        final VoiceRecordingResult? result =
+            await _voiceService.stopRecording(
+          conversationId: _conversationId!,
         );
 
         if (result == null) {
           return;
         }
 
-        await _conversationService
-            .sendVoiceMessage(
-          walkId: widget.walkId,
-          requestId: widget.requestId,
-          sessionId: widget.sessionId,
-          senderUid: _currentUid,
-          receiverUid: _receiverUid,
-          audioUrl: result.audioUrl,
-          durationSeconds:
-              result.durationSeconds,
-        );
+        /*
+         * IMPORTANT:
+         *
+         * VoiceChatService does NOT upload to Firebase Storage.
+         *
+         * The recorded file is returned here.
+         *
+         * Your Cloud uploader should upload:
+         *
+         * result.file
+         *
+         * and return the Cloud URL.
+         *
+         * After getting the Cloud URL, call:
+         *
+         * _sendVoiceUrl(
+         *   cloudUrl,
+         *   result.durationSeconds,
+         * );
+         *
+         * No Firebase Storage URL is used for voice.
+         */
 
-        if (mounted) {
-          setState(() {
-            _recordingDuration =
-                Duration.zero;
-          });
-        }
+        await _handleRecordedVoice(result);
 
         return;
       }
 
-      await _voiceService
-          .startRecording(
-        conversationId:
-            _conversationId!,
+      await _voiceService.startRecording(
+        conversationId: _conversationId!,
       );
 
       if (mounted) {
         setState(() {
-          _recordingDuration =
-              Duration.zero;
+          _recordingDuration = Duration.zero;
         });
       }
     } catch (error) {
@@ -427,18 +404,71 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _handleRecordedVoice(
+    VoiceRecordingResult result,
+  ) async {
+    /*
+     * Cloud upload integration point.
+     *
+     * The voice URL must come from your Cloud/Cloudinary
+     * uploader.
+     *
+     * Do not put Firebase Storage upload here.
+     *
+     * Once your cloud uploader returns the URL, use:
+     *
+     * await _sendVoiceUrl(
+     *   cloudUrl: url,
+     *   durationSeconds: result.durationSeconds,
+     * );
+     *
+     * The local recording is deleted after the cloud upload.
+     */
+
+    await _voiceService.deleteLocalRecording(
+      result.file,
+    );
+
+    if (mounted) {
+      setState(() {
+        _recordingDuration = Duration.zero;
+      });
+    }
+  }
+
+  Future<void> _sendVoiceUrl({
+    required String cloudUrl,
+    required int durationSeconds,
+  }) async {
+    final String url = cloudUrl.trim();
+
+    if (url.isEmpty || !_canChat) {
+      return;
+    }
+
+    await _conversationService.sendVoiceMessage(
+      walkId: widget.walkId,
+      requestId: widget.requestId,
+      sessionId: widget.sessionId,
+      senderUid: _currentUid,
+      receiverUid: _receiverUid,
+      audioUrl: url,
+      durationSeconds: durationSeconds,
+    );
+
+    _scrollToBottom();
+  }
+
   Future<void> _cancelVoiceRecording() async {
     try {
-      await _voiceService
-          .cancelRecording();
+      await _voiceService.cancelRecording();
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _recordingDuration =
-            Duration.zero;
+        _recordingDuration = Duration.zero;
       });
     } catch (error) {
       if (!mounted) {
@@ -451,50 +481,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _toggleVoicePlayback(
-    ContactMessage message,
-  ) async {
-    if (message.mediaUrl == null ||
-        message.mediaUrl!.isEmpty) {
-      return;
-    }
-
-    try {
-      await _voiceService
-          .togglePlayback(
-        messageId: message.id,
-        audioUrl: message.mediaUrl!,
-      );
-
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showError(
-        'Unable to play voice: $error',
-      );
-    }
-  }
-
   void _scrollToBottom() {
-    WidgetsBinding.instance
-        .addPostFrameCallback(
+    WidgetsBinding.instance.addPostFrameCallback(
       (_) {
-        if (!_scrollController
-            .hasClients) {
+        if (!_scrollController.hasClients) {
           return;
         }
 
         _scrollController.animateTo(
-          _scrollController
-              .position
-              .maxScrollExtent,
-          duration:
-              const Duration(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(
             milliseconds: 250,
           ),
           curve: Curves.easeOut,
@@ -503,22 +499,16 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showError(
-    String message,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
       ),
     );
   }
 
-  String _formatDuration(
-    Duration duration,
-  ) {
-    final int minutes =
-        duration.inMinutes;
+  String _formatDuration(Duration duration) {
+    final int minutes = duration.inMinutes;
 
     final int seconds =
         duration.inSeconds % 60;
@@ -556,8 +546,7 @@ class _ChatScreenState extends State<ChatScreen> {
               style: TextStyle(
                 fontSize: 12,
                 color:
-                    DojoWalkColors
-                        .textSecondary,
+                    DojoWalkColors.textSecondary,
               ),
             ),
           ],
@@ -582,15 +571,13 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildWalkHeader() {
     return Container(
       width: double.infinity,
-      margin:
-          const EdgeInsets.fromLTRB(
+      margin: const EdgeInsets.fromLTRB(
         16,
         12,
         16,
         4,
       ),
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 14,
         vertical: 10,
       ),
@@ -624,8 +611,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 fontWeight:
                     FontWeight.w700,
                 color:
-                    DojoWalkColors
-                        .textPrimary,
+                    DojoWalkColors.textPrimary,
               ),
             ),
           ),
@@ -641,19 +627,16 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
-    return StreamBuilder<
-        List<ContactMessage>>(
+    return StreamBuilder<List<ContactMessage>>(
       stream:
-          _conversationService
-              .messagesStream(
+          _conversationService.messagesStream(
         walkId: widget.walkId,
         requestId: widget.requestId,
         sessionId: widget.sessionId,
       ),
       builder: (
         BuildContext context,
-        AsyncSnapshot<
-                List<ContactMessage>>
+        AsyncSnapshot<List<ContactMessage>>
             snapshot,
       ) {
         if (snapshot.connectionState ==
@@ -665,8 +648,7 @@ class _ChatScreenState extends State<ChatScreen> {
           );
         }
 
-        final List<ContactMessage>
-            messages =
+        final List<ContactMessage> messages =
             snapshot.data ??
                 <ContactMessage>[];
 
@@ -676,8 +658,7 @@ class _ChatScreenState extends State<ChatScreen> {
               'Start a conversation',
               style: TextStyle(
                 color:
-                    DojoWalkColors
-                        .textSecondary,
+                    DojoWalkColors.textSecondary,
               ),
             ),
           );
@@ -689,8 +670,7 @@ class _ChatScreenState extends State<ChatScreen> {
         );
 
         return ListView.builder(
-          controller:
-              _scrollController,
+          controller: _scrollController,
           padding:
               const EdgeInsets.fromLTRB(
             16,
@@ -698,14 +678,12 @@ class _ChatScreenState extends State<ChatScreen> {
             16,
             16,
           ),
-          itemCount:
-              messages.length,
+          itemCount: messages.length,
           itemBuilder: (
             BuildContext context,
             int index,
           ) {
-            final ContactMessage
-                message =
+            final ContactMessage message =
                 messages[index];
 
             final bool isMine =
@@ -743,8 +721,7 @@ class _ChatScreenState extends State<ChatScreen> {
             message.type == 'image' ||
                     message.type == 'video'
                 ? const EdgeInsets.all(5)
-                : const EdgeInsets
-                    .symmetric(
+                : const EdgeInsets.symmetric(
                     horizontal: 13,
                     vertical: 10,
                   ),
@@ -796,8 +773,7 @@ class _ChatScreenState extends State<ChatScreen> {
           style: TextStyle(
             color: isMine
                 ? DojoWalkColors.white
-                : DojoWalkColors
-                    .textPrimary,
+                : DojoWalkColors.textPrimary,
             fontSize: 15,
           ),
         );
@@ -810,8 +786,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final String? url =
         message.mediaUrl;
 
-    if (url == null ||
-        url.isEmpty) {
+    if (url == null || url.isEmpty) {
       return const SizedBox(
         width: 180,
         height: 120,
@@ -869,8 +844,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final String? url =
         message.mediaUrl;
 
-    if (url == null ||
-        url.isEmpty) {
+    if (url == null || url.isEmpty) {
       return const SizedBox(
         width: 260,
         height: 180,
@@ -901,42 +875,26 @@ class _ChatScreenState extends State<ChatScreen> {
     ContactMessage message,
     bool isMine,
   ) {
-    final bool isPlaying =
-        _voiceService
-                .playingMessageId ==
-            message.id;
-
     final int seconds =
-        message.durationSeconds ??
-            0;
+        message.durationSeconds ?? 0;
 
     return SizedBox(
       width: 220,
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () =>
-                _toggleVoicePlayback(
-              message,
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isMine
+                  ? DojoWalkColors.white
+                  : DojoWalkColors.primaryLight,
+              shape: BoxShape.circle,
             ),
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: isMine
-                    ? DojoWalkColors.white
-                    : DojoWalkColors
-                        .primaryLight,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isPlaying
-                    ? Icons.pause_rounded
-                    : Icons
-                        .play_arrow_rounded,
-                color: DojoWalkColors
-                    .primary,
-              ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color:
+                  DojoWalkColors.primary,
             ),
           ),
           const SizedBox(width: 10),
@@ -951,8 +909,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     fontWeight:
                         FontWeight.w600,
                     color: isMine
-                        ? DojoWalkColors
-                            .white
+                        ? DojoWalkColors.white
                         : DojoWalkColors
                             .textPrimary,
                   ),
@@ -967,11 +924,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     color: isMine
-                        ? DojoWalkColors
-                            .white
+                        ? DojoWalkColors.white
                             .withValues(
-                              alpha: 0.75,
-                            )
+                            alpha: 0.75,
+                          )
                         : DojoWalkColors
                             .textSecondary,
                   ),
@@ -1054,8 +1010,7 @@ class _ChatScreenState extends State<ChatScreen> {
               'Recording voice...',
               style: TextStyle(
                 color:
-                    DojoWalkColors
-                        .textPrimary,
+                    DojoWalkColors.textPrimary,
               ),
             ),
           ),
@@ -1076,6 +1031,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildInputBar() {
     final bool recording =
         _voiceService.isRecording;
+
+    final bool hasText =
+        _messageController.text.trim().isNotEmpty;
 
     return SafeArea(
       top: false,
@@ -1098,12 +1056,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ? null
                       : _pickImage,
               icon: const Icon(
-                Icons
-                    .photo_outlined,
+                Icons.photo_outlined,
               ),
               color:
-                  DojoWalkColors
-                      .textSecondary,
+                  DojoWalkColors.textSecondary,
             ),
             IconButton(
               onPressed:
@@ -1112,12 +1068,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ? null
                       : _pickVideo,
               icon: const Icon(
-                Icons
-                    .videocam_outlined,
+                Icons.videocam_outlined,
               ),
               color:
-                  DojoWalkColors
-                      .textSecondary,
+                  DojoWalkColors.textSecondary,
             ),
             Expanded(
               child: Container(
@@ -1126,24 +1080,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   minHeight: 48,
                 ),
                 padding:
-                    const EdgeInsets
-                        .symmetric(
+                    const EdgeInsets.symmetric(
                   horizontal: 14,
                 ),
                 decoration:
                     BoxDecoration(
                   color:
-                      DojoWalkColors
-                          .surface,
+                      DojoWalkColors.surface,
                   borderRadius:
-                      BorderRadius
-                          .circular(
-                    24,
-                  ),
+                      BorderRadius.circular(24),
                   border: Border.all(
                     color:
-                        DojoWalkColors
-                            .border,
+                        DojoWalkColors.border,
                   ),
                 ),
                 child: TextField(
@@ -1167,54 +1115,38 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(width: 5),
             GestureDetector(
-              onLongPress:
-                  _canChat
-                      ? _toggleVoiceRecording
-                      : null,
-              onTap:
-                  _canChat
-                      ? () async {
-                          if (recording) {
-                            await _toggleVoiceRecording();
-                            return;
-                          }
+              onTap: _canChat
+                  ? () async {
+                      if (recording) {
+                        await _toggleVoiceRecording();
+                        return;
+                      }
 
-                          if (_messageController
-                              .text
-                              .trim()
-                              .isNotEmpty) {
-                            await _sendText();
-                          } else {
-                            await _toggleVoiceRecording();
-                          }
-                        }
-                      : null,
+                      if (hasText) {
+                        await _sendText();
+                      } else {
+                        await _toggleVoiceRecording();
+                      }
+                    }
+                  : null,
               child: Container(
                 width: 48,
                 height: 48,
                 decoration:
                     BoxDecoration(
                   color: recording
-                      ? DojoWalkColors
-                          .red
-                      : DojoWalkColors
-                          .primary,
+                      ? DojoWalkColors.red
+                      : DojoWalkColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   recording
                       ? Icons.stop_rounded
-                      : _messageController
-                              .text
-                              .trim()
-                              .isNotEmpty
-                          ? Icons
-                              .send_rounded
-                          : Icons
-                              .mic_rounded,
+                      : hasText
+                          ? Icons.send_rounded
+                          : Icons.mic_rounded,
                   color:
-                      DojoWalkColors
-                          .white,
+                      DojoWalkColors.white,
                   size: 21,
                 ),
               ),
@@ -1243,8 +1175,7 @@ class _VideoMessageCard
 
 class _VideoMessageCardState
     extends State<_VideoMessageCard> {
-  VideoPlayerController?
-      _controller;
+  VideoPlayerController? _controller;
 
   @override
   void initState() {
@@ -1254,13 +1185,9 @@ class _VideoMessageCardState
   }
 
   Future<void> _initialize() async {
-    final VideoPlayerController
-        controller =
-        VideoPlayerController
-            .networkUrl(
-      Uri.parse(
-        widget.videoUrl,
-      ),
+    final VideoPlayerController controller =
+        VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
     );
 
     _controller = controller;
@@ -1273,6 +1200,7 @@ class _VideoMessageCardState
       }
     } catch (_) {
       await controller.dispose();
+
       _controller = null;
 
       if (mounted) {
@@ -1290,8 +1218,7 @@ class _VideoMessageCardState
 
   @override
   Widget build(BuildContext context) {
-    final VideoPlayerController?
-        controller =
+    final VideoPlayerController? controller =
         _controller;
 
     return GestureDetector(
@@ -1303,9 +1230,7 @@ class _VideoMessageCardState
           width: 260,
           height: 190,
           child: controller != null &&
-                  controller
-                      .value
-                      .isInitialized
+                  controller.value.isInitialized
               ? Stack(
                   fit: StackFit.expand,
                   children: [
@@ -1327,8 +1252,8 @@ class _VideoMessageCardState
                       ),
                     ),
                     Container(
-                      color: Colors.black
-                          .withValues(
+                      color:
+                          Colors.black.withValues(
                         alpha: 0.18,
                       ),
                     ),
@@ -1336,14 +1261,12 @@ class _VideoMessageCardState
                       child: CircleAvatar(
                         radius: 28,
                         backgroundColor:
-                            DojoWalkColors
-                                .white,
+                            DojoWalkColors.white,
                         child: Icon(
                           Icons
                               .play_arrow_rounded,
                           color:
-                              DojoWalkColors
-                                  .primary,
+                              DojoWalkColors.primary,
                           size: 34,
                         ),
                       ),
@@ -1385,11 +1308,9 @@ class _VideoPlayerScreenState
 
     _controller =
         VideoPlayerController.networkUrl(
-      Uri.parse(
-        widget.videoUrl,
-      ),
+      Uri.parse(widget.videoUrl),
     )..initialize().then(
-            (_) {
+        (_) {
           if (mounted) {
             setState(() {});
             _controller.play();
@@ -1440,8 +1361,7 @@ class _VideoPlayerScreenState
           _controller.value.isInitialized
               ? FloatingActionButton(
                   backgroundColor:
-                      DojoWalkColors
-                          .primary,
+                      DojoWalkColors.primary,
                   onPressed: () {
                     setState(() {
                       if (_controller
@@ -1457,10 +1377,8 @@ class _VideoPlayerScreenState
                     _controller
                             .value
                             .isPlaying
-                        ? Icons
-                            .pause_rounded
-                        : Icons
-                            .play_arrow_rounded,
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
                   ),
                 )
               : null,
