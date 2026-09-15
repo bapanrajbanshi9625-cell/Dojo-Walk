@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:record/record.dart';
 
 class VoiceChatService {
@@ -12,25 +10,17 @@ class VoiceChatService {
   static final VoiceChatService instance =
       VoiceChatService._();
 
-  final FirebaseStorage _storage =
-      FirebaseStorage.instance;
-
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
 
   final AudioRecorder _recorder =
       AudioRecorder();
 
-  final AudioPlayer _player =
-      AudioPlayer();
-
   bool _isRecording = false;
 
   DateTime? _recordingStartedAt;
 
   String? _recordingPath;
-
-  String? _playingMessageId;
 
   Timer? _recordingTimer;
 
@@ -41,10 +31,11 @@ class VoiceChatService {
       _recordingDurationController =
       StreamController<Duration>.broadcast();
 
-  bool get isRecording => _isRecording;
+  // ============================================================
+  // GETTERS
+  // ============================================================
 
-  String? get playingMessageId =>
-      _playingMessageId;
+  bool get isRecording => _isRecording;
 
   Duration get recordingDuration =>
       _recordingDuration;
@@ -53,16 +44,9 @@ class VoiceChatService {
       get recordingDurationStream =>
           _recordingDurationController.stream;
 
-  Stream<PlayerState>
-      get playerStateStream =>
-          _player.playerStateStream;
-
-  Stream<Duration>
-      get positionStream =>
-          _player.positionStream;
-
-  Duration get audioDuration =>
-      _player.duration ?? Duration.zero;
+  // ============================================================
+  // START RECORDING
+  // ============================================================
 
   Future<void> startRecording({
     required String conversationId,
@@ -115,7 +99,8 @@ class VoiceChatService {
       path: filePath,
     );
 
-    _recordingPath = filePath;
+    _recordingPath =
+        filePath;
 
     _recordingStartedAt =
         DateTime.now();
@@ -128,7 +113,18 @@ class VoiceChatService {
     _startRecordingTimer();
   }
 
-  Future<VoiceUploadResult?> stopRecording({
+  // ============================================================
+  // STOP RECORDING
+  //
+  // IMPORTANT:
+  // No Firebase Storage upload happens here.
+  //
+  // The returned VoiceRecordingResult contains the local file.
+  // Your Cloud/Cloudinary uploader should upload this file and
+  // return the final cloud URL.
+  // ============================================================
+
+  Future<VoiceRecordingResult?> stopRecording({
     required String conversationId,
   }) async {
     if (!_isRecording) {
@@ -147,7 +143,9 @@ class VoiceChatService {
         _recordingPath;
 
     _isRecording = false;
+
     _recordingStartedAt = null;
+
     _recordingPath = null;
 
     final String? path =
@@ -168,9 +166,8 @@ class VoiceChatService {
     final Duration duration =
         startedAt == null
             ? Duration.zero
-            : DateTime.now().difference(
-                startedAt,
-              );
+            : DateTime.now()
+                .difference(startedAt);
 
     if (duration.inMilliseconds < 500) {
       await _deleteFile(audioFile);
@@ -191,41 +188,17 @@ class VoiceChatService {
       );
     }
 
-    try {
-      final String fileName =
-          '${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      final Reference storageRef =
-          _storage
-              .ref()
-              .child('contact_media')
-              .child(id)
-              .child('voice')
-              .child(fileName);
-
-      final UploadTask uploadTask =
-          storageRef.putFile(
-        audioFile,
-        SettableMetadata(
-          contentType: 'audio/mp4',
-        ),
-      );
-
-      final TaskSnapshot snapshot =
-          await uploadTask;
-
-      final String downloadUrl =
-          await snapshot.ref.getDownloadURL();
-
-      return VoiceUploadResult(
-        audioUrl: downloadUrl,
-        durationSeconds:
-            duration.inSeconds,
-      );
-    } finally {
-      await _deleteFile(audioFile);
-    }
+    return VoiceRecordingResult(
+      conversationId: id,
+      file: audioFile,
+      durationSeconds:
+          duration.inSeconds,
+    );
   }
+
+  // ============================================================
+  // CANCEL RECORDING
+  // ============================================================
 
   Future<void> cancelRecording() async {
     if (!_isRecording) {
@@ -239,6 +212,7 @@ class VoiceChatService {
     _stopRecordingTimer();
 
     _isRecording = false;
+
     _recordingStartedAt = null;
 
     final String? path =
@@ -256,57 +230,22 @@ class VoiceChatService {
     );
   }
 
-  Future<void> togglePlayback({
-    required String messageId,
-    required String audioUrl,
-  }) async {
-    final String id =
-        messageId.trim();
+  // ============================================================
+  // DELETE LOCAL RECORDING
+  //
+  // Call this AFTER your cloud uploader has successfully uploaded
+  // the file and you no longer need the local copy.
+  // ============================================================
 
-    final String url =
-        audioUrl.trim();
-
-    if (id.isEmpty ||
-        url.isEmpty) {
-      return;
-    }
-
-    if (_playingMessageId == id &&
-        _player.playing) {
-      await _player.pause();
-      return;
-    }
-
-    if (_playingMessageId != id) {
-      await _player.stop();
-
-      _playingMessageId = id;
-
-      await _player.setUrl(url);
-    }
-
-    await _player.play();
-
-    _player.playerStateStream
-        .firstWhere(
-          (PlayerState state) =>
-              state.processingState ==
-                  ProcessingState.completed,
-        )
-        .then((_) async {
-      if (_playingMessageId == id) {
-        _playingMessageId = null;
-
-        await _player.stop();
-      }
-    });
+  Future<void> deleteLocalRecording(
+    File file,
+  ) async {
+    await _deleteFile(file);
   }
 
-  Future<void> stopPlayback() async {
-    await _player.stop();
-
-    _playingMessageId = null;
-  }
+  // ============================================================
+  // RECORDING TIMER
+  // ============================================================
 
   void _startRecordingTimer() {
     _recordingTimer?.cancel();
@@ -324,9 +263,8 @@ class VoiceChatService {
         }
 
         _recordingDuration =
-            DateTime.now().difference(
-          startedAt,
-        );
+            DateTime.now()
+                .difference(startedAt);
 
         if (!_recordingDurationController
             .isClosed) {
@@ -341,8 +279,13 @@ class VoiceChatService {
 
   void _stopRecordingTimer() {
     _recordingTimer?.cancel();
+
     _recordingTimer = null;
   }
+
+  // ============================================================
+  // DELETE FILE
+  // ============================================================
 
   Future<void> _deleteFile(
     File file,
@@ -354,6 +297,10 @@ class VoiceChatService {
     } catch (_) {}
   }
 
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
   Future<void> dispose() async {
     _stopRecordingTimer();
 
@@ -361,24 +308,26 @@ class VoiceChatService {
       await cancelRecording();
     } catch (_) {}
 
-    try {
-      await _player.dispose();
-    } catch (_) {}
-
-    try {
-      _recorder.dispose();
-    } catch (_) {}
-
     await _recordingDurationController.close();
+
+    _recorder.dispose();
   }
 }
 
-class VoiceUploadResult {
-  const VoiceUploadResult({
-    required this.audioUrl,
+// ================================================================
+// LOCAL VOICE RECORDING RESULT
+// ================================================================
+
+class VoiceRecordingResult {
+  const VoiceRecordingResult({
+    required this.conversationId,
+    required this.file,
     required this.durationSeconds,
   });
 
-  final String audioUrl;
+  final String conversationId;
+
+  final File file;
+
   final int durationSeconds;
 }
