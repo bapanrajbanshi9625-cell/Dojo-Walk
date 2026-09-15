@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'owner_home_marker.dart';
-import 'walker_location_marker.dart';
+import '../../../core/theme/dojo_walk_design_system.dart';
 
 class WalkerAcceptMap extends StatefulWidget {
   const WalkerAcceptMap({
@@ -52,28 +51,33 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
     final LatLng? oldWalker = oldWidget.walkerLocation;
     final LatLng? newWalker = widget.walkerLocation;
 
-    if (newWalker == null) {
-      return;
+    // Force marker refresh when location changes.
+    if (newWalker != null &&
+        (oldWalker == null ||
+            _hasLocationChanged(oldWalker, newWalker))) {
+      if (_autoFollow) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_mapReady || !_autoFollow) {
+            return;
+          }
+
+          _followWalker(newWalker);
+        });
+      }
     }
 
-    if (oldWalker == null) {
+    // If walker becomes available for the first time,
+    // fit owner + walker into the map.
+    if (oldWalker == null && newWalker != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
+        if (!mounted || !_mapReady) {
           return;
         }
 
         if (_autoFollow) {
-          _followWalker(newWalker);
+          _fitBothLocations();
         }
       });
-
-      return;
-    }
-
-    if (_hasLocationChanged(oldWalker, newWalker)) {
-      if (_autoFollow) {
-        _followWalker(newWalker);
-      }
     }
   }
 
@@ -85,15 +89,13 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
   Widget build(BuildContext context) {
     final double zoom = _currentZoom;
 
-    final double ownerMarkerSize =
-        _markerSizeForZoom(
+    final double ownerMarkerSize = _markerSizeForZoom(
       zoom,
       minSize: 28,
       maxSize: 48,
     );
 
-    final double walkerMarkerSize =
-        _markerSizeForZoom(
+    final double walkerMarkerSize = _markerSizeForZoom(
       zoom,
       minSize: 30,
       maxSize: 52,
@@ -101,7 +103,7 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
 
     final List<Marker> markers = <Marker>[
       // ======================================================
-      // OWNER
+      // OWNER MARKER
       // ======================================================
 
       Marker(
@@ -109,13 +111,13 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
         width: ownerMarkerSize,
         height: ownerMarkerSize,
         alignment: Alignment.bottomCenter,
-        child: OwnerHomeMarker(
+        child: _OwnerMapMarker(
           size: ownerMarkerSize,
         ),
       ),
 
       // ======================================================
-      // WALKER
+      // WALKER MARKER
       // ======================================================
 
       if (widget.walkerLocation != null)
@@ -126,18 +128,22 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
           alignment: Alignment.bottomCenter,
           child: Transform.rotate(
             angle: _headingRadians,
-            alignment: Alignment.bottomCenter,
-            child: WalkerLocationMarker(
+            alignment: Alignment.center,
+            child: _WalkerMapMarker(
+              key: ValueKey<String>(
+                '${widget.walkerLocation!.latitude}_'
+                '${widget.walkerLocation!.longitude}_'
+                '${widget.walkerHeading ?? 0}',
+              ),
               imageUrl: widget.walkerImageUrl,
               size: walkerMarkerSize,
-              isLive: true,
             ),
           ),
         ),
     ];
 
     return ColoredBox(
-      color: const Color(0xFFE8EEF3),
+      color: DojoWalkColors.background,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -170,20 +176,19 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
 
                 WidgetsBinding.instance.addPostFrameCallback(
                   (_) {
-                    if (!mounted) {
+                    if (!mounted || !_mapReady) {
                       return;
                     }
 
-                    final LatLng? walker =
-                        widget.walkerLocation;
-
-                    if (walker != null) {
+                    if (widget.walkerLocation != null) {
                       _fitBothLocations();
                     } else {
                       _recenterOwner();
                     }
 
-                    setState(() {});
+                    if (mounted) {
+                      setState(() {});
+                    }
                   },
                 );
               },
@@ -200,7 +205,7 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
                   return;
                 }
 
-                // Rebuild marker sizes whenever zoom changes.
+                // Rebuild marker size with zoom.
                 setState(() {});
 
                 if (!hasGesture) {
@@ -235,24 +240,24 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
               if (widget.routePoints.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    // Outer white border
+                    // Outer border
                     Polyline(
                       points: widget.routePoints,
                       strokeWidth: 9,
-                      color: Colors.white,
+                      color: DojoWalkColors.white,
                     ),
 
-                    // Main blue road route
+                    // Main route
                     Polyline(
                       points: widget.routePoints,
                       strokeWidth: 5,
-                      color: const Color(0xFF1976D2),
+                      color: DojoWalkColors.blue,
                     ),
                   ],
                 ),
 
               // ==================================================
-              // LOCATION MARKERS
+              // MARKERS
               // ==================================================
 
               MarkerLayer(
@@ -345,10 +350,6 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
     required double minSize,
     required double maxSize,
   }) {
-    // Zoom 5  -> smallest
-    // Zoom 15 -> normal
-    // Zoom 19 -> largest
-
     const double minZoom = 5.0;
     const double maxZoom = 19.0;
 
@@ -578,6 +579,122 @@ class _WalkerAcceptMapState extends State<WalkerAcceptMap> {
 }
 
 // ============================================================
+// OWNER MARKER
+// ============================================================
+
+class _OwnerMapMarker extends StatelessWidget {
+  const _OwnerMapMarker({
+    required this.size,
+  });
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: DojoWalkColors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: DojoWalkColors.primary,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.20,
+            ),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.home_rounded,
+        color: DojoWalkColors.primary,
+        size: size * 0.52,
+      ),
+    );
+  }
+}
+
+// ============================================================
+// WALKER MARKER
+// ============================================================
+
+class _WalkerMapMarker extends StatelessWidget {
+  const _WalkerMapMarker({
+    super.key,
+    required this.imageUrl,
+    required this.size,
+  });
+
+  final String? imageUrl;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final String? image = imageUrl?.trim();
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: DojoWalkColors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: DojoWalkColors.primary,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.22,
+            ),
+            blurRadius: 9,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(2.5),
+      child: ClipOval(
+        child: image == null || image.isEmpty
+            ? Container(
+                color: DojoWalkColors.primaryLight,
+                child: Icon(
+                  Icons.person_rounded,
+                  color: DojoWalkColors.primary,
+                  size: size * 0.52,
+                ),
+              )
+            : Image.network(
+                image,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                ) {
+                  return Container(
+                    color: DojoWalkColors.primaryLight,
+                    child: Icon(
+                      Icons.person_rounded,
+                      color: DojoWalkColors.primary,
+                      size: size * 0.52,
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+// ============================================================
 // LIVE BADGE
 // ============================================================
 
@@ -592,13 +709,17 @@ class _LiveMapBadge extends StatelessWidget {
         vertical: 7,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .94),
+        color: DojoWalkColors.white.withValues(
+          alpha: 0.94,
+        ),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.12,
+            ),
             blurRadius: 12,
-            offset: Offset(0, 3),
-            color: Color(0x22000000),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -609,7 +730,7 @@ class _LiveMapBadge extends StatelessWidget {
             width: 7,
             height: 7,
             decoration: const BoxDecoration(
-              color: Color(0xFF1FA463),
+              color: DojoWalkColors.green,
               shape: BoxShape.circle,
             ),
           ),
@@ -619,8 +740,8 @@ class _LiveMapBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w900,
-              letterSpacing: .5,
-              color: Color(0xFF1FA463),
+              letterSpacing: 0.5,
+              color: DojoWalkColors.green,
             ),
           ),
         ],
@@ -648,20 +769,25 @@ class _MapControlButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: active
-          ? const Color(0xFFE85D04)
-          : Colors.white,
+          ? DojoWalkColors.primary
+          : DojoWalkColors.white,
       elevation: 5,
-      shadowColor: Colors.black26,
+      shadowColor: DojoWalkColors.black.withValues(
+        alpha: 0.18,
+      ),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onPressed,
         customBorder: const CircleBorder(),
-        child: const SizedBox(
+        child: SizedBox(
           width: 44,
           height: 44,
           child: Icon(
-            Icons.my_location_rounded,
+            icon,
             size: 20,
+            color: active
+                ? DojoWalkColors.white
+                : DojoWalkColors.textPrimary,
           ),
         ),
       ),
@@ -684,13 +810,17 @@ class _WaitingLocationBanner extends StatelessWidget {
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .95),
+        color: DojoWalkColors.white.withValues(
+          alpha: 0.95,
+        ),
         borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
+            color: DojoWalkColors.black.withValues(
+              alpha: 0.12,
+            ),
             blurRadius: 12,
-            offset: Offset(0, 3),
-            color: Color(0x22000000),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -701,6 +831,7 @@ class _WaitingLocationBanner extends StatelessWidget {
             height: 17,
             child: CircularProgressIndicator(
               strokeWidth: 2,
+              color: DojoWalkColors.primary,
             ),
           ),
           SizedBox(width: 9),
@@ -710,6 +841,7 @@ class _WaitingLocationBanner extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
+                color: DojoWalkColors.textPrimary,
               ),
             ),
           ),
